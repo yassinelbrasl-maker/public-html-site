@@ -1844,9 +1844,29 @@ function saveProjet(){
     url    = 'api/projets.php';
   }
 
+  // Lire les champs CIN depuis l'onglet CIVITAS pour sync client
+  var civCinEl    = document.getElementById('pj-civitas-cin');
+  var civDCEl     = document.getElementById('pj-civitas-date-cin');
+  var civitasCin  = civCinEl  ? civCinEl.value.trim()  : '';
+  var civitasDC   = civDCEl   ? civDCEl.value.trim()   : '';
+
   apiFetch(url, {method:method, body:body})
     .then(function(){
-      loadData().then(function(){ renderProjets(); populateProjetSelect(); });
+      // Synchroniser CIN/date_cin vers la fiche client si renseignés dans l'onglet CIVITAS
+      var syncPromise = Promise.resolve();
+      if (civitasEnabled && clientId && (civitasCin || civitasDC)) {
+        var currentClient = getClients().find(function(c){ return c.id === clientId; }) || {};
+        if (civitasCin !== (currentClient.cin || '') || civitasDC !== (currentClient.date_cin || currentClient.dateCin || '')) {
+          var patchBody = {};
+          if (civitasCin) patchBody.cin = civitasCin;
+          if (civitasDC)  patchBody.dateCin = civitasDC;
+          syncPromise = apiFetch('api/clients.php?id=' + clientId, {method:'PATCH', body:patchBody})
+            .catch(function(){});  // silencieux si colonnes absentes
+        }
+      }
+      syncPromise.then(function(){
+        loadData().then(function(){ renderProjets(); populateProjetSelect(); });
+      });
       closeModal('modal-projet');
       resetProjetForm();
     })

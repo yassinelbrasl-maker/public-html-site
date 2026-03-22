@@ -12,6 +12,7 @@ $user   = requireAuth();
 if ($method === 'GET')        $id ? getOne($id) : getAll();
 elseif ($method === 'POST')   create($user);
 elseif ($method === 'PUT')    update($id, $user);
+elseif ($method === 'PATCH')  patch($id, $user);
 elseif ($method === 'DELETE') remove($id, $user);
 else jsonError('Méthode non supportée', 405);
 
@@ -200,6 +201,26 @@ function update($id, array $user) {
     }
 
     saveContactsAux($id, $body['contactsAux'] ?? []);
+    getOne($id);
+}
+
+// ── PATCH : mise à jour partielle (cin / date_cin uniquement) ─────────────────
+function patch($id, array $user) {
+    if (!$id) jsonError('ID requis');
+    $body = getBody();
+    $db   = getDB();
+    $sets  = [];
+    $params = [];
+    if (array_key_exists('cin', $body))     { $sets[] = 'cin=?';      $params[] = $body['cin'] ?: null; }
+    if (array_key_exists('dateCin', $body)) { $sets[] = 'date_cin=?'; $params[] = $body['dateCin'] ?: null; }
+    if (empty($sets)) jsonError('Aucun champ à mettre à jour');
+    $sets[] = 'modifie_par=?'; $params[] = $user['name'];
+    $params[] = $id;
+    try {
+        $db->prepare('UPDATE CA_clients SET ' . implode(', ', $sets) . ' WHERE id=?')->execute($params);
+    } catch (\Exception $e) {
+        jsonError('Erreur mise à jour CIN : ' . $e->getMessage(), 500);
+    }
     getOne($id);
 }
 
