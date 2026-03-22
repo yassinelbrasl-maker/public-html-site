@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortoba Landscaping — Architecture du Paysage</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Helvetica+Neue:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════
+       CORTOBA LANDSCAPING — GARDEN THEME
+       ═══════════════════════════════════════════ */
+
+    :root {
+      --bg:         #0c0d0a;
+      --bg-alt:     #111209;
+      --bg-card:    #161810;
+      --border:     rgba(255,255,255,0.07);
+      --text:       #e4e0d5;
+      --text-muted: #7a7a6e;
+      --accent:     #8dba78;         /* green */
+      --accent-dim: rgba(141,186,120,0.12);
+      --accent-warm:#c8a96e;         /* gold from arch site */
+      --white:      #fff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 16px;
+      overflow-x: hidden;
+    }
+
+    /* ═══ INTRO ANIMATION — DAN PEARSON STYLE ═══
+       Full screen title reveal with staggered lines */
+
+    .intro-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      transition: opacity 0.8s ease 3.2s, visibility 0.8s ease 3.2s;
+    }
+    .intro-screen.hide {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .intro-logo-line {
+      overflow: hidden;
+      margin-bottom: 0.2rem;
+    }
+    .intro-logo-line span {
+      display: block;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 300;
+      font-size: clamp(1.6rem, 5vw, 3rem);
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: #fff;
+      transform: translateY(100%);
+      animation: introReveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .intro-logo-line:nth-child(1) span { animation-delay: 0.15s; }
+    .intro-logo-line:nth-child(2) span { 
+      animation-delay: 0.35s;
+      font-style: italic;
+      color: var(--accent);
+      font-size: clamp(1rem, 3vw, 1.6rem);
+      letter-spacing: 0.55em;
+    }
+
+    .intro-bar {
+      width: 0;
+      height: 1px;
+      background: var(--accent);
+      margin-top: 1.8rem;
+      animation: introBar 1s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
+    }
+    .intro-sub {
+      opacity: 0;
+      font-size: 0.68rem;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 1.1rem;
+      animation: introFade 0.7s ease 1.5s forwards;
+    }
+
+    .intro-skip {
+      position: absolute;
+      bottom: 2.5rem;
+      right: 2.5rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.2);
+      border: none;
+      background: none;
+      cursor: pointer;
+      pointer-events: all;
+      opacity: 0;
+      animation: introFade 0.5s ease 1.8s forwards;
+      transition: color 0.2s;
+    }
+    .intro-skip:hover { color: rgba(255,255,255,0.6); }
+
+    @keyframes introReveal {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    @keyframes introBar {
+      from { width: 0; }
+      to   { width: 160px; }
+    }
+    @keyframes introFade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* ═══ NAVBAR ═══ */
+    .navbar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2.5rem;
+      height: 68px;
+      background: transparent;
+      border-bottom: 1px solid rgba(255,255,255,0.0);
+      transition: background 0.5s ease, border-color 0.5s ease;
+      opacity: 0;
+      animation: navFadeIn 0.6s ease 3.4s forwards;
+    }
+    @keyframes navFadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .navbar.scrolled {
+      background: rgba(8,9,6,0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom-color: var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      gap: 0.1rem;
+    }
+    .nav-logo-top {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 400;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.8);
+    }
+    .nav-logo-bottom {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      color: var(--accent);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 1.8rem;
+    }
+
+    .nav-arch-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      text-decoration: none;
+      color: rgba(255,255,255,0.45);
+      font-size: 0.68rem;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.75rem 0.3rem 0.55rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: color 0.25s, border-color 0.25s, background 0.25s;
+      white-space: nowrap;
+    }
+    .nav-arch-btn svg { flex-shrink: 0; transition: transform 0.35s; }
+    .nav-arch-btn:hover {
+      color: #fff;
+      border-color: var(--accent-warm);
+      background: rgba(200,169,110,0.06);
+    }
+    .nav-arch-btn:hover svg { transform: scale(1.08); }
+
+    .burger-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      width: 26px; height: 26px;
+      background: none; border: none; cursor: pointer; padding: 0;
+    }
+    .burger-menu span {
+      display: block; width: 100%; height: 1px;
+      background: rgba(255,255,255,0.6);
+      transition: all 0.3s ease;
+    }
+    .burger-menu:hover span { background: #fff; }
+
+    /* ═══ MOBILE MENU ═══ */
+    .mobile-menu {
+      position: fixed; inset: 0;
+      background: #060705;
+      z-index: 2000;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .mobile-menu.open { opacity: 1; pointer-events: all; }
+    .mobile-menu-close {
+      position: absolute; top: 1.6rem; right: 2rem;
+      background: none; border: none;
+      color: rgba(255,255,255,0.3);
+      font-size: 1.3rem; cursor: pointer; transition: color 0.2s;
+    }
+    .mobile-menu-close:hover { color: #fff; }
+    .mobile-menu-nav {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 2.5rem; margin-bottom: 3rem;
+    }
+    .mobile-menu-nav a {
+      text-decoration: none;
+      color: rgba(255,255,255,0.4);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 6vw, 2.8rem);
+      font-weight: 300;
+      font-style: italic;
+      letter-spacing: 0.08em;
+      transition: color 0.25s;
+    }
+    .mobile-menu-nav a:hover { color: var(--accent); }
+    body.menu-open { overflow: hidden; }
+
+    /* ═══ HERO ═══ */
+    .hero {
+      position: relative;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 0 5rem 5vw;
+    }
+
+    .hero-slides {
+      position: absolute; inset: 0;
+      z-index: 0;
+    }
+    .hero-slide {
+      position: absolute; inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 1.6s ease;
+      filter: brightness(0.45);
+    }
+    .hero-slide.active { opacity: 1; }
+
+    /* Gradient overlays */
+    .hero-slide::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(
+        120deg,
+        rgba(8,9,6,0.7) 0%,
+        rgba(8,9,6,0.1) 60%,
+        rgba(8,9,6,0) 100%
+      );
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 680px;
+      opacity: 0;
+      animation: heroContentIn 1s ease 3.8s forwards;
+    }
+    @keyframes heroContentIn {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-eyebrow {
+      font-size: 0.65rem;
+      letter-spacing: 0.38em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      display: block;
+      width: 40px; height: 1px;
+      background: var(--accent);
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 300;
+      font-size: clamp(2.8rem, 7vw, 6rem);
+      line-height: 1.05;
+      color: #fff;
+      margin-bottom: 1.8rem;
+    }
+    .hero-title em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .hero-desc {
+      font-size: 0.95rem;
+      color: rgba(255,255,255,0.5);
+      font-weight: 300;
+      line-height: 1.9;
+      max-width: 420px;
+      margin-bottom: 2.8rem;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      text-decoration: none;
+      color: #fff;
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      padding-bottom: 0.5rem;
+      transition: color 0.3s, border-color 0.3s;
+    }
+    .hero-cta:hover { color: var(--accent); border-color: var(--accent); }
+    .hero-cta svg { transition: transform 0.3s; }
+    .hero-cta:hover svg { transform: translateX(5px); }
+
+    /* Slide indicators */
+    .hero-indicators {
+      position: absolute;
+      bottom: 2.5rem; right: 3rem;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      opacity: 0;
+      animation: heroContentIn 0.8s ease 4s forwards;
+    }
+    .hero-dot {
+      width: 1px; height: 28px;
+      background: rgba(255,255,255,0.2);
+      cursor: pointer;
+      transition: background 0.3s, height 0.3s;
+    }
+    .hero-dot.active {
+      background: var(--accent);
+      height: 42px;
+    }
+
+    /* ═══ SECTION — MANIFESTE ═══ */
+    .manifeste {
+      padding: 9rem 5vw;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8rem;
+      align-items: center;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .manifeste-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.6rem;
+    }
+
+    .manifeste-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1.15;
+      color: var(--text);
+      margin-bottom: 2rem;
+    }
+    .manifeste-title em { font-style: italic; color: var(--accent); }
+
+    .manifeste-text {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 2;
+      font-weight: 300;
+    }
+    .manifeste-text p + p { margin-top: 1.2rem; }
+
+    .manifeste-right {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .manifeste-stat {
+      border-top: 1px solid var(--border);
+      padding-top: 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .manifeste-stat-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 3rem;
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1;
+    }
+    .manifeste-stat-num em { color: var(--accent); font-style: italic; }
+    .manifeste-stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ═══ SECTION — PROJETS (grid organique) ═══ */
+    .projects-section {
+      background: var(--bg-alt);
+      padding: 6rem 0;
+    }
+
+    .section-header {
+      padding: 0 5vw;
+      margin-bottom: 3rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .section-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.8rem;
+    }
+
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+      font-weight: 300;
+      color: var(--text);
+    }
+
+    .section-link {
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: color 0.25s;
+      white-space: nowrap;
+      padding-bottom: 0.2rem;
+    }
+    .section-link:hover { color: var(--accent); }
+
+    /* Mosaic grid */
+    .projects-mosaic {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1.5fr;
+      grid-template-rows: 480px 340px;
+      gap: 3px;
+      padding: 0 5vw;
+    }
+
+    .proj-card {
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      display: block;
+      text-decoration: none;
+    }
+    .proj-card:nth-child(1) { grid-row: span 2; }
+    .proj-card:nth-child(4) { grid-column: span 2; }
+
+    .proj-img {
+      width: 100%; height: 100%;
+      background-size: cover;
+      background-position: center;
+      transition: transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      /* placeholder gradients */
+    }
+    .proj-card:hover .proj-img { transform: scale(1.05); }
+
+    .proj-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(5,6,3,0.88) 0%, rgba(5,6,3,0) 55%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 2rem 1.8rem;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .proj-card:hover .proj-overlay { opacity: 1; }
+
+    .proj-tag {
+      font-size: 0.62rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    .proj-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 300;
+      color: #fff;
+      line-height: 1.1;
+    }
+    .proj-loc {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+      margin-top: 0.3rem;
+    }
+
+    /* Placeholder colors for demo (replace with real images) */
+    .proj-card:nth-child(1) .proj-img { background-color: #1a2215; background-image: linear-gradient(135deg,#1a2215 0%,#2a3820 100%); }
+    .proj-card:nth-child(2) .proj-img { background-color: #151a10; background-image: linear-gradient(135deg,#151a10 0%,#232d18 100%); }
+    .proj-card:nth-child(3) .proj-img { background-color: #0d1209; background-image: linear-gradient(135deg,#0d1209 0%,#192413 100%); }
+    .proj-card:nth-child(4) .proj-img { background-color: #16201a; background-image: linear-gradient(135deg,#16201a 0%,#22302a 100%); }
+    .proj-card:nth-child(5) .proj-img { background-color: #12170e; background-image: linear-gradient(135deg,#12170e 0%,#1e2918 100%); }
+
+    /* ═══ SECTION — SERVICES ═══ */
+    .services-section {
+      padding: 9rem 5vw;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      margin-top: 4rem;
+    }
+
+    .service-card {
+      padding: 3rem 2.5rem;
+      border-right: 1px solid var(--border);
+      border-top: 1px solid var(--border);
+      transition: background 0.3s;
+    }
+    .service-card:hover { background: rgba(141,186,120,0.04); }
+    .service-card:nth-child(3n) { border-right: none; }
+
+    .service-icon {
+      width: 40px; height: 40px;
+      margin-bottom: 1.8rem;
+      color: var(--accent);
+    }
+
+    .service-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.35rem;
+      font-weight: 300;
+      color: var(--text);
+      margin-bottom: 0.9rem;
+      line-height: 1.2;
+    }
+
+    .service-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.9;
+      font-weight: 300;
+    }
+
+    /* ═══ SECTION — PHILOSOPHIE (plein écran) ═══ */
+    .philosophy-section {
+      position: relative;
+      padding: 10rem 5vw;
+      background: var(--bg-alt);
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .philosophy-bg {
+      position: absolute; inset: 0;
+      opacity: 0.04;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22vw;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .philosophy-inner {
+      position: relative;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .philosophy-quote {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+      font-weight: 300;
+      color: var(--text);
+      line-height: 1.5;
+      margin-bottom: 2.5rem;
+    }
+    .philosophy-quote em { color: var(--accent); }
+
+    .philosophy-author {
+      font-size: 0.65rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+    .philosophy-author::before,
+    .philosophy-author::after {
+      content: '';
+      display: block;
+      width: 30px; height: 1px;
+      background: var(--text-muted);
+    }
+
+    /* ═══ SECTION — APPROCHE ═══ */
+    .approche-section {
+      padding: 9rem 5vw;
+      max-width: 1300px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8rem;
+      align-items: start;
+    }
+
+    .approche-steps {
+      counter-reset: step;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .approche-step {
+      counter-increment: step;
+      padding: 2rem 0;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 1.8rem;
+      align-items: flex-start;
+      transition: background 0.3s;
+    }
+    .approche-step:hover { background: rgba(141,186,120,0.03); }
+
+    .approche-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.8rem;
+      font-weight: 300;
+      color: rgba(141,186,120,0.2);
+      line-height: 1;
+      flex-shrink: 0;
+      min-width: 2.5rem;
+    }
+
+    .approche-step-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.2rem;
+      font-weight: 400;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .approche-step-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.85;
+      font-weight: 300;
+    }
+
+    .approche-img {
+      position: sticky;
+      top: 6rem;
+      aspect-ratio: 3/4;
+      background: var(--bg-card);
+      overflow: hidden;
+    }
+    .approche-img-inner {
+      width: 100%; height: 100%;
+      background: linear-gradient(155deg, #1a2a14 0%, #0f1a0a 100%);
+      /* Replace with your image: background-image: url('img/landscaping/atelier.jpg') */
+      display: flex;
+      align-items: flex-end;
+      padding: 2rem;
+    }
+    .approche-img-caption {
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+    }
+
+    /* ═══ SECTION — CONTACT ═══ */
+    .contact-section {
+      background: var(--bg-alt);
+      padding: 8rem 5vw;
+      text-align: center;
+    }
+
+    .contact-inner { max-width: 600px; margin: 0 auto; }
+
+    .contact-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 300;
+      color: var(--text);
+      margin-bottom: 0.8rem;
+    }
+    .contact-title em { font-style: italic; color: var(--accent); }
+
+    .contact-sub {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.9;
+      margin-bottom: 3rem;
+    }
+
+    .contact-links {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .contact-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 1rem 2.4rem;
+      text-decoration: none;
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      transition: all 0.3s;
+    }
+    .contact-link-primary {
+      background: var(--accent);
+      color: #0a0c07;
+      font-weight: 600;
+    }
+    .contact-link-primary:hover { background: #a5cf90; }
+    .contact-link-secondary {
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.55);
+    }
+    .contact-link-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ═══ FOOTER ═══ */
+    footer {
+      background: #060705;
+      padding: 3rem 5vw;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .footer-brand {
+      font-size: 0.68rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .footer-brand span { color: var(--accent); }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
+    }
+    .footer-links a {
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.2);
+      text-decoration: none;
+      transition: color 0.25s;
+    }
+    .footer-links a:hover { color: var(--accent); }
+
+    .footer-copy {
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.15);
+      letter-spacing: 0.1em;
+    }
+
+    /* ═══ SCROLL REVEAL ═══ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.22s; }
+    .reveal-delay-3 { transition-delay: 0.34s; }
+
+    /* ═══ RESPONSIVE ═══ */
+    @media (max-width: 1024px) {
+      .manifeste { grid-template-columns: 1fr; gap: 4rem; }
+      .services-grid { grid-template-columns: 1fr 1fr; }
+      .service-card:nth-child(3n) { border-right: 1px solid var(--border); }
+      .service-card:nth-child(2n) { border-right: none; }
+      .approche-section { grid-template-columns: 1fr; gap: 3rem; }
+      .approche-img { position: relative; top: 0; aspect-ratio: 16/9; }
+    }
+
+    @media (max-width: 768px) {
+      .hero { padding: 0 0 4rem 6vw; }
+      .projects-mosaic {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 260px 200px 200px;
+      }
+      .proj-card:nth-child(1) { grid-row: span 1; grid-column: span 2; }
+      .proj-card:nth-child(4) { grid-column: span 1; }
+      .proj-overlay { opacity: 1; }
+      .services-grid { grid-template-columns: 1fr; }
+      .service-card { border-right: none; }
+      .navbar { padding: 0 1.4rem; }
+      .hero-indicators { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .projects-mosaic { grid-template-columns: 1fr; grid-template-rows: auto; }
+      .proj-card { height: 240px; }
+      .proj-card:nth-child(1) { grid-column: span 1; }
+      .proj-card:nth-child(4) { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ INTRO ANIMATION SCREEN ══ -->
+  <div class="intro-screen" id="introScreen">
+    <div class="intro-logo-line">
+      <span>Cortoba</span>
+    </div>
+    <div class="intro-logo-line">
+      <span>Landscaping</span>
+    </div>
+    <div class="intro-bar"></div>
+    <p class="intro-sub">Architecture du Paysage · Djerba, Tunisie</p>
+    <button class="intro-skip" onclick="skipIntro()">Passer ↓</button>
+  </div>
+
+  <!-- ══ NAVBAR ══ -->
+  <header class="navbar" id="navbar">
+    <a href="/landscaping.html" class="nav-logo">
+      <span class="nav-logo-top">Cortoba</span>
+      <span class="nav-logo-bottom">Landscaping</span>
+    </a>
+
+    <div class="nav-right">
+      <a href="https://cortobaarchitecture.com/" class="nav-arch-btn" title="Cortoba Architecture">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Architecture</span>
+      </a>
+      <button class="burger-menu" onclick="toggleMenu()" aria-label="Menu">
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ══ MOBILE MENU ══ -->
+  <div class="mobile-menu" id="mobileMenu">
+    <button class="mobile-menu-close" onclick="toggleMenu()">✕</button>
+    <nav class="mobile-menu-nav">
+      <a href="#projets" onclick="toggleMenu()">Projets</a>
+      <a href="#services" onclick="toggleMenu()">Services</a>
+      <a href="#approche" onclick="toggleMenu()">Approche</a>
+      <a href="#contact" onclick="toggleMenu()">Contact</a>
+    </nav>
+  </div>
+
+  <!-- ══ HERO ══ -->
+  <section class="hero" id="accueil">
+    <div class="hero-slides">
+      <div class="hero-slide active" style="background-image: url('img/landscaping/hero1.jpg'); background-color:#1a2815;"></div>
+      <div class="hero-slide" style="background-image: url('img/landscaping/hero2.jpg'); background-color:#141f0f;"></div>
+      <div class="hero-slide" style="background-image: url('img/landscaping/hero3.jpg'); background-color:#0e1a0a;"></div>
+    </div>
+
+    <div class="hero-content">
+      <p class="hero-eyebrow">Architecture du paysage</p>
+      <h1 class="hero-title">
+        Jardins<br>qui<br><em>respirent</em>
+      </h1>
+      <p class="hero-desc">
+        Chaque espace extérieur est une invitation à lire le sol, la lumière et le vent. Nous concevons des paysages vivants, ancrés dans leur territoire.
+      </p>
+      <a href="#projets" class="hero-cta">
+        Découvrir nos projets
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </a>
+    </div>
+
+    <div class="hero-indicators" id="heroIndicators">
+      <div class="hero-dot active" onclick="goToSlide(0)"></div>
+      <div class="hero-dot" onclick="goToSlide(1)"></div>
+      <div class="hero-dot" onclick="goToSlide(2)"></div>
+    </div>
+  </section>
+
+  <!-- ══ MANIFESTE ══ -->
+  <section style="background: var(--bg);" id="about">
+    <div class="manifeste">
+      <div class="manifeste-left reveal">
+        <p class="manifeste-label">Notre manifeste</p>
+        <h2 class="manifeste-title">
+          Le paysage comme<br>
+          <em>langage premier</em>
+        </h2>
+        <div class="manifeste-text">
+          <p>
+            Chez Cortoba Landscaping, nous croyons que le jardin n'est pas un décor — c'est un milieu de vie. Une extension naturelle de l'architecture, un espace où la végétation méditerranéenne dialogue avec les pierres et l'eau.
+          </p>
+          <p>
+            Chaque projet commence par une écoute du sol, une lecture du climat local et une compréhension des usages. Nous composons des espaces qui évoluent avec les saisons, se bonifient avec le temps.
+          </p>
+        </div>
+      </div>
+
+      <div class="manifeste-right reveal reveal-delay-2">
+        <div class="manifeste-stat">
+          <div class="manifeste-stat-num">40<em>+</em></div>
+          <div class="manifeste-stat-label">Jardins réalisés en Méditerranée</div>
+        </div>
+        <div class="manifeste-stat">
+          <div class="manifeste-stat-num">15<em> ans</em></div>
+          <div class="manifeste-stat-label">D'expertise paysagère</div>
+        </div>
+        <div class="manifeste-stat">
+          <div class="manifeste-stat-num">3<em> pays</em></div>
+          <div class="manifeste-stat-label">Tunisie · France · Italie</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ PROJETS ══ -->
+  <section class="projects-section" id="projets">
+    <div class="section-header">
+      <div>
+        <p class="section-label">Portfolio</p>
+        <h2 class="section-title">Projets récents</h2>
+      </div>
+      <a href="#contact" class="section-link">
+        Tous les projets
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </a>
+    </div>
+
+    <div class="projects-mosaic">
+      <a class="proj-card reveal" href="#" style="background:#1a2a14">
+        <div class="proj-img" style="background-image: url('img/landscaping/proj1.jpg');"></div>
+        <div class="proj-overlay">
+          <p class="proj-tag">Jardin privé</p>
+          <h3 class="proj-name">Villa Oléa</h3>
+          <p class="proj-loc">Djerba, Tunisie</p>
+        </div>
+      </a>
+      <a class="proj-card reveal reveal-delay-1" href="#">
+        <div class="proj-img" style="background-image: url('img/landscaping/proj2.jpg');"></div>
+        <div class="proj-overlay">
+          <p class="proj-tag">Terrasse</p>
+          <h3 class="proj-name">Riad Jasmin</h3>
+          <p class="proj-loc">Tunis</p>
+        </div>
+      </a>
+      <a class="proj-card reveal reveal-delay-2" href="#">
+        <div class="proj-img" style="background-image: url('img/landscaping/proj3.jpg');"></div>
+        <div class="proj-overlay">
+          <p class="proj-tag">Hôtellerie</p>
+          <h3 class="proj-name">Domaine Sirocco</h3>
+          <p class="proj-loc">Hammamet</p>
+        </div>
+      </a>
+      <a class="proj-card reveal reveal-delay-1" href="#">
+        <div class="proj-img" style="background-image: url('img/landscaping/proj4.jpg');"></div>
+        <div class="proj-overlay">
+          <p class="proj-tag">Espace public</p>
+          <h3 class="proj-name">Promenade Côtière</h3>
+          <p class="proj-loc">Zarzis</p>
+        </div>
+      </a>
+      <a class="proj-card reveal reveal-delay-2" href="#">
+        <div class="proj-img" style="background-image: url('img/landscaping/proj5.jpg');"></div>
+        <div class="proj-overlay">
+          <p class="proj-tag">Résidentiel</p>
+          <h3 class="proj-name">Les Jardins de l'Atlas</h3>
+          <p class="proj-loc">Tunis</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ══ SERVICES ══ -->
+  <section class="services-section" id="services">
+    <div class="section-header" style="padding:0;margin-bottom:0">
+      <div>
+        <p class="section-label">Expertises</p>
+        <h2 class="section-title reveal">Ce que nous créons</h2>
+      </div>
+    </div>
+
+    <div class="services-grid">
+      <div class="service-card reveal">
+        <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M12 2a10 10 0 0 1 10 10c0 4-2.5 7.4-6 9.2"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12c0 3.8 2.1 7.1 5.2 8.8"/>
+          <path d="M12 12 C10 8, 14 5, 17 8"/>
+          <path d="M12 12 C8 10, 7 6, 10 4"/>
+        </svg>
+        <h3 class="service-title">Conception de jardins</h3>
+        <p class="service-desc">De la villa privée au grand domaine, nous dessinons des espaces végétaux cohérents avec l'architecture et le mode de vie de chaque client.</p>
+      </div>
+
+      <div class="service-card reveal reveal-delay-1">
+        <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18M9 21V9"/>
+        </svg>
+        <h3 class="service-title">Terrasses & Patios</h3>
+        <p class="service-desc">Espaces de transition entre intérieur et extérieur, conçus pour les usages méditerranéens : ombre, eau, minéral et végétal en équilibre.</p>
+      </div>
+
+      <div class="service-card reveal reveal-delay-2">
+        <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/>
+        </svg>
+        <h3 class="service-title">Éclairage paysager</h3>
+        <p class="service-desc">L'ambiance nocturne d'un jardin se pense dès la conception. Nous intégrons l'éclairage comme une partition lumineuse qui révèle les volumes végétaux.</p>
+      </div>
+
+      <div class="service-card reveal">
+        <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M12 22V12M12 12C12 7 17 2 22 2c0 5-4 9-10 10zM12 12C12 7 7 3 2 3c0 5 4 8 10 9z"/>
+        </svg>
+        <h3 class="service-title">Végétation autochtone</h3>
+        <p class="service-desc">Olivier, figuier, romarin, tamaris — nous privilégions les espèces du bassin méditerranéen, adaptées au sol et au climat local, pour des jardins résilients.</p>
+      </div>
+
+      <div class="service-card reveal reveal-delay-1">
+        <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10"/>
+          <path d="M2 12h10M12 2v10"/>
+          <path d="M16 16h6M19 13v6"/>
+        </svg>
+        <h3 class="service-title">Gestion de l'eau</h3>
+        <p class="service-desc">Irrigation intégrée, récupération des eaux pluviales, bassins et canaux : chaque projet intègre une approche raisonnée de la ressource hydrique.</p>
+      </div>
+
+      <div class="service-card reveal reveal-delay-2">
+        <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/>
+        </svg>
+        <h3 class="service-title">Suivi & Entretien</h3>
+        <p class="service-desc">Un jardin bien né mérite un accompagnement pérenne. Nous proposons des contrats d'entretien saisonniers assurés par nos équipes spécialisées.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ PHILOSOPHIE ══ -->
+  <section class="philosophy-section">
+    <div class="philosophy-bg">terre</div>
+    <div class="philosophy-inner reveal">
+      <blockquote class="philosophy-quote">
+        « Le jardin est le lieu où l'on apprend à regarder<br>
+        la lenteur comme une <em>vertu</em>. »
+      </blockquote>
+      <p class="philosophy-author">Cortoba Landscaping · Philosophie du Studio</p>
+    </div>
+  </section>
+
+  <!-- ══ APPROCHE ══ -->
+  <section class="approche-section" id="approche">
+    <div>
+      <p class="section-label reveal">Processus</p>
+      <h2 class="section-title reveal" style="margin-bottom:3.5rem">Notre approche<br><em style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--accent)">de projet</em></h2>
+
+      <div class="approche-steps">
+        <div class="approche-step reveal">
+          <div class="approche-num">01</div>
+          <div>
+            <h3 class="approche-step-title">Écoute & Analyse du site</h3>
+            <p class="approche-step-desc">Nous commençons toujours par une visite approfondie — lecture du sol, orientation, vents dominants, existant végétal et usages souhaités.</p>
+          </div>
+        </div>
+        <div class="approche-step reveal reveal-delay-1">
+          <div class="approche-num">02</div>
+          <div>
+            <h3 class="approche-step-title">Esquisse & Concept</h3>
+            <p class="approche-step-desc">Une planche de composition présente le parti pris paysager, la palette végétale, les matériaux et les axes de circulation.</p>
+          </div>
+        </div>
+        <div class="approche-step reveal reveal-delay-2">
+          <div class="approche-num">03</div>
+          <div>
+            <h3 class="approche-step-title">Plan d'exécution</h3>
+            <p class="approche-step-desc">Plans techniques détaillés pour chaque corps de métier : terrassement, maçonnerie paysagère, plantation, irrigation, éclairage.</p>
+          </div>
+        </div>
+        <div class="approche-step reveal">
+          <div class="approche-num">04</div>
+          <div>
+            <h3 class="approche-step-title">Réalisation & Suivi chantier</h3>
+            <p class="approche-step-desc">Présence régulière sur site, coordination des équipes et contrôle qualité jusqu'à la livraison et la première pousse.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="approche-img reveal reveal-delay-1">
+      <div class="approche-img-inner">
+        <!-- Replace with: style="background-image: url('img/landscaping/atelier.jpg'); background-size:cover;" -->
+        <span class="approche-img-caption">Atelier Cortoba · Djerba</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ CONTACT ══ -->
+  <section class="contact-section" id="contact">
+    <div class="contact-inner reveal">
+      <p class="section-label" style="margin-bottom:1rem">Parlez-nous de votre projet</p>
+      <h2 class="contact-title">Un jardin<br><em>à imaginer ensemble</em></h2>
+      <p class="contact-sub">
+        De la terrasse intime au grand parc, chaque projet mérite une conversation. Contactez-nous pour une première rencontre sur site — sans engagement.
+      </p>
+      <div class="contact-links">
+        <a href="mailto:paysage@cortobaarchitecture.com" class="contact-link contact-link-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Écrire au studio
+        </a>
+        <a href="https://wa.me/21629401234" class="contact-link contact-link-secondary" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          WhatsApp
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ FOOTER ══ -->
+  <footer>
+    <div class="footer-brand">
+      CORTOBA <span>Landscaping</span> · Studio
+    </div>
+    <div class="footer-links">
+      <a href="https://cortobaarchitecture.com/">Architecture</a>
+      <a href="#projets">Projets</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="footer-copy">© 2025 Cortoba</div>
+  </footer>
+
+  <script>
+    /* ── Intro animation ── */
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('introScreen').classList.add('hide');
+        document.body.style.overflow = '';
+      }, 4000);
+    });
+
+    document.body.style.overflow = 'hidden';
+
+    function skipIntro() {
+      document.getElementById('introScreen').classList.add('hide');
+      document.body.style.overflow = '';
+    }
+
+    /* ── Navbar scroll ── */
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 60);
+    });
+
+    /* ── Mobile menu ── */
+    function toggleMenu() {
+      const menu = document.getElementById('mobileMenu');
+      menu.classList.toggle('open');
+      document.body.classList.toggle('menu-open');
+    }
+
+    /* ── Hero slider ── */
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.hero-slide');
+    const dots   = document.querySelectorAll('.hero-dot');
+
+    function goToSlide(n) {
+      slides[currentSlide].classList.remove('active');
+      dots[currentSlide].classList.remove('active');
+      currentSlide = n;
+      slides[currentSlide].classList.add('active');
+      dots[currentSlide].classList.add('active');
+    }
+
+    setInterval(() => {
+      goToSlide((currentSlide + 1) % slides.length);
+    }, 5500);
+
+    /* ── Scroll reveal ── */
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.12 });
+
+    document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+  </script>
+
+</body>
+</html>

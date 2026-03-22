@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortoba — Diagnostic Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0a;
+      color: #e8e4dc;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wrap {
+      width: 380px;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 2.5rem;
+    }
+    .logo { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.1em; margin-bottom: 0.3rem; }
+    .sub  { font-size: 0.75rem; color: #666; letter-spacing: 0.08em; margin-bottom: 1.8rem; }
+    label { display: block; font-size: 0.72rem; color: #888; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem; }
+    input {
+      width: 100%; padding: 0.7rem 0.9rem;
+      background: #0a0a0a; border: 1px solid #2a2a2a;
+      border-radius: 4px; color: #e8e4dc; font-size: 0.88rem;
+      outline: none; transition: border-color .2s;
+      margin-bottom: 1rem;
+    }
+    input:focus { border-color: #c8a96e; }
+    button.login {
+      width: 100%; padding: 0.75rem;
+      background: #c8a96e; border: none; border-radius: 4px;
+      color: #0a0a0a; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; letter-spacing: 0.05em;
+      transition: opacity .2s;
+    }
+    button.login:disabled { opacity: 0.5; cursor: not-allowed; }
+    .err {
+      display: none; color: #e07070; font-size: 0.82rem;
+      background: rgba(224,112,112,.1); border: 1px solid rgba(224,112,112,.3);
+      border-radius: 4px; padding: 0.5rem 0.8rem; margin-bottom: 1rem;
+    }
+    .diag {
+      margin-top: 1.5rem; padding: 1rem;
+      background: #0d0d0d; border: 1px solid #1e1e1e;
+      border-radius: 4px; font-size: 0.72rem;
+      color: #555; font-family: monospace;
+      max-height: 200px; overflow-y: auto;
+    }
+    .diag .ok  { color: #5aab6e; }
+    .diag .err2 { color: #e07070; }
+    .diag .warn { color: #c8a96e; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">CORTOBA × Atelier</div>
+  <div class="sub">Diagnostic connexion — v8</div>
+
+  <label>Email</label>
+  <input type="email" id="d-email" placeholder="votre@email.com" />
+
+  <label>Mot de passe</label>
+  <input type="password" id="d-pass" placeholder="••••••••"
+    onkeydown="if(event.key==='Enter') diagLogin()" />
+
+  <div class="err" id="d-err"></div>
+
+  <button class="login" onclick="diagLogin()" id="d-btn">Se connecter →</button>
+
+  <div class="diag" id="d-log">
+    <div>— Journal de diagnostic —</div>
+  </div>
+</div>
+
+<script>
+function log(msg, type) {
+  var el = document.getElementById('d-log');
+  var line = document.createElement('div');
+  line.className = type || '';
+  line.textContent = new Date().toLocaleTimeString('fr-FR') + ' ' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+log('Page chargée ✓', 'ok');
+
+// Détecter l'URL de base
+var API_BASE = (function(){
+  var p = window.location.pathname;
+  var dir = p.substring(0, p.lastIndexOf('/') + 1);
+  return window.location.origin + dir;
+})();
+log('API_BASE = ' + API_BASE, 'warn');
+
+function diagLogin() {
+  var email = (document.getElementById('d-email').value || '').trim().toLowerCase();
+  var pass  = document.getElementById('d-pass').value || '';
+  var err   = document.getElementById('d-err');
+  var btn   = document.getElementById('d-btn');
+
+  err.style.display = 'none';
+
+  if (!email || !pass) {
+    err.textContent = 'Email et mot de passe requis';
+    err.style.display = 'block';
+    log('Validation échouée : champs vides', 'err2');
+    return;
+  }
+
+  log('Tentative de connexion : ' + email, 'warn');
+  btn.disabled = true;
+  btn.textContent = 'Connexion…';
+
+  var url = API_BASE + 'api/auth.php?action=login';
+  log('POST → ' + url, 'warn');
+
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email, password: pass })
+  })
+  .then(function(r) {
+    log('Réponse HTTP : ' + r.status + ' ' + r.statusText, r.ok ? 'ok' : 'err2');
+    var ct = r.headers.get('Content-Type') || '';
+    log('Content-Type : ' + ct, 'warn');
+    return r.text();
+  })
+  .then(function(text) {
+    log('Réponse brute : ' + text.substring(0, 200), 'warn');
+    try {
+      var json = JSON.parse(text);
+      if (json.success || json.token || (json.data && json.data.token)) {
+        log('✓ Connexion réussie ! Token reçu.', 'ok');
+        err.style.display = 'none';
+        // Ici on pourrait rediriger vers la vraie plateforme
+        btn.textContent = '✓ Connecté — redirect…';
+        var token = (json.data && json.data.token) ? json.data.token : json.token;
+        if (token) {
+          sessionStorage.setItem('cortoba_token', token);
+          log('Token stocké en session. Redirigez vers plateforme.html', 'ok');
+        }
+      } else {
+        var msg = json.error || json.message || 'Identifiants incorrects';
+        log('✗ Échec auth : ' + msg, 'err2');
+        err.textContent = msg;
+        err.style.display = 'block';
+      }
+    } catch(e) {
+      log('✗ Réponse non-JSON : ' + e.message, 'err2');
+      err.textContent = 'Erreur serveur (réponse invalide)';
+      err.style.display = 'block';
+    }
+  })
+  .catch(function(e) {
+    log('✗ Erreur réseau : ' + e.message, 'err2');
+    err.textContent = 'Impossible de contacter le serveur : ' + e.message;
+    err.style.display = 'block';
+  })
+  .finally(function() {
+    if (btn.textContent === 'Connexion…') {
+      btn.disabled = false;
+      btn.textContent = 'Se connecter →';
+    }
+  });
+}
+
+log('JavaScript chargé et fonctionnel ✓', 'ok');
+log('Cliquez "Se connecter" pour tester', '');
+</script>
+</body>
+</html>

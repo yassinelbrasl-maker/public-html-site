@@ -1,0 +1,2310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortoba Atelier — Espace Privé</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="plateforme.css">
+  <link rel="stylesheet" href="ergonomie.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    /* Garantir que l'écran de login est visible immédiatement, avant que le CSS externe charge */
+    #login-screen { display: flex !important; }
+    #app { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     LOGIN SCREEN — Accès réservé, authentification requise
+══════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div class="wordmark">Cortoba Architecture</div>
+      <div class="sub">Espace Atelier — Accès privé</div>
+    </div>
+    <div class="login-divider"></div>
+    <div style="width:100%;display:flex;flex-direction:column;gap:1rem">
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-user" placeholder="votre@email.com" autocomplete="email" />
+      </div>
+      <div class="login-field">
+        <label>Mot de passe</label>
+        <div style="position:relative;display:flex;align-items:center">
+          <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') doLogin()"
+            style="width:100%;padding-right:2.8rem" />
+          <button type="button" onclick="togglePwd('login-pass',this)"
+            style="position:absolute;right:0.7rem;background:none;border:none;cursor:pointer;color:var(--text-3);padding:0.2rem;display:flex;align-items:center;transition:color .2s"
+            onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-3)'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="login-err" id="login-err">Identifiants incorrects</div>
+      <button class="login-btn" onclick="doLogin()">Se connecter →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MAIN APP
+══════════════════════════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-header-left">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="app-wordmark">CORTOBA <span>×</span> Atelier</div>
+      <div class="header-sep"></div>
+      <div class="app-section-label" id="section-label">Tableau de bord</div>
+    </div>
+    <div class="app-header-right">
+      <button class="header-notif" title="Notifications" onclick="showNotifications()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-badge">3</span>
+      </button>
+      <div class="header-user" id="user-display">
+        <div class="header-user-dot"></div>
+        <span>Amal Cortoba</span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <!-- Sidebar backdrop -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Principal</div>
+        <button class="nav-item active" onclick="showPage('dashboard')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Tableau de bord
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Activité</div>
+        <button class="nav-item" onclick="showPage('devis')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          Offres & Devis
+          <span class="nav-badge">4</span>
+        </button>
+        <button class="nav-item" onclick="showPage('projets')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          Projets
+          <span class="nav-badge">7</span>
+        </button>
+        <button class="nav-item" onclick="showPage('facturation')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Facturation
+          <span class="nav-badge" style="background:var(--red-bg);color:var(--red);border-color:rgba(224,123,114,0.25)">2</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Finance</div>
+        <button class="nav-item" onclick="showPage('bilans')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Bilans
+        </button>
+        <button class="nav-item" onclick="showPage('depenses')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Dépenses
+        </button>
+        <button class="nav-item" id="nav-fiscalite" onclick="showPage('fiscalite')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Fiscalité
+          <span class="nav-badge" id="fiscalite-badge" style="display:none;background:var(--red-bg);color:var(--red);border-color:rgba(224,123,114,0.25)"></span>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Ressources</div>
+        <button class="nav-item" onclick="showPage('nas')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Serveur NAS
+        </button>
+        <button class="nav-item" onclick="showPage('equipe')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Équipe
+        </button>
+        <button class="nav-item" onclick="showPage('clients')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Clients
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Paramètres</div>
+        <button class="nav-item" onclick="showPage('parametres')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Paramètres
+        </button>
+      </div>
+
+    </nav>
+
+    <!-- Main content -->
+    <main class="main-content">
+
+      <!-- ══ DASHBOARD ══ -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Vue d'ensemble</div>
+            <h1 class="page-title">Tableau de bord</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Mars 2026
+            </button>
+            <button class="btn btn-primary" onclick="showPage('devis');setTimeout(function(){openModal('modal-devis');},120)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau devis
+            </button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Chiffre d'affaires YTD</div>
+            <div class="kpi-value">148<span class="kpi-unit">k TND</span></div>
+            <div class="kpi-delta up">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              +23% vs 2025
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Projets en cours</div>
+            <div class="kpi-value">7</div>
+            <div class="kpi-delta neutral">dont 2 en phase DCE</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Devis en attente</div>
+            <div class="kpi-value">4</div>
+            <div class="kpi-delta up">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              38.5k TND
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Factures impayées</div>
+            <div class="kpi-value">2</div>
+            <div class="kpi-delta down">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              12.4k TND en retard
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Dépenses du mois</div>
+            <div class="kpi-value">8.2<span class="kpi-unit">k</span></div>
+            <div class="kpi-delta down">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              +6% vs Fév
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Taux occupation</div>
+            <div class="kpi-value">84<span class="kpi-unit">%</span></div>
+            <div class="kpi-delta up">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+              Équipe pleinement active
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- CA mensuel chart -->
+          <div class="card">
+            <div class="card-title">Chiffre d'affaires mensuel — 2026</div>
+            <div class="chart-area" id="ca-chart"></div>
+          </div>
+
+          <!-- Activité récente -->
+          <div class="card">
+            <div class="card-title">Activité récente</div>
+            <div class="activity-feed">
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--green)"></div>
+                <div>
+                  <div class="activity-text"><strong>Devis DV-2026-042</strong> accepté par M. Ben Salah</div>
+                  <div class="activity-time">Aujourd'hui, 09:14</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--accent)"></div>
+                <div>
+                  <div class="activity-text">Paiement reçu — Facture <strong>F-2026-018</strong> · 6 400 TND</div>
+                  <div class="activity-time">Hier, 16:30</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--blue)"></div>
+                <div>
+                  <div class="activity-text">Projet <strong>Villa Nabeul</strong> passé en phase EXE</div>
+                  <div class="activity-time">Lundi 09 Mar, 11:05</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--red)"></div>
+                <div>
+                  <div class="activity-text">Rappel : Facture <strong>F-2026-014</strong> impayée depuis 32 jours</div>
+                  <div class="activity-time">Lundi 09 Mar, 08:00</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--text-3)"></div>
+                <div>
+                  <div class="activity-text">Nouveau fichier ajouté au NAS — <strong>Lot 04 – Résidence Sfax</strong></div>
+                  <div class="activity-time">Vendredi 07 Mar, 14:22</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Projets en cours résumé -->
+        <div class="card" style="margin-bottom:2rem">
+          <div class="card-title">Avancement projets actifs</div>
+          <div class="progress-bar-wrap">
+            <div class="progress-info"><span class="progress-info-label">Villa Nabeul — Phase EXE</span><span class="progress-info-val">78%</span></div>
+            <div class="progress-track"><div class="progress-fill" style="width:78%"></div></div>
+          </div>
+          <div class="progress-bar-wrap" style="margin-top:0.8rem">
+            <div class="progress-info"><span class="progress-info-label">Résidence Sfax — Phase DCE</span><span class="progress-info-val">45%</span></div>
+            <div class="progress-track"><div class="progress-fill blue" style="width:45%"></div></div>
+          </div>
+          <div class="progress-bar-wrap" style="margin-top:0.8rem">
+            <div class="progress-info"><span class="progress-info-label">Bureaux Midoun — Phase APS</span><span class="progress-info-val">20%</span></div>
+            <div class="progress-track"><div class="progress-fill green" style="width:20%"></div></div>
+          </div>
+          <div class="progress-bar-wrap" style="margin-top:0.8rem">
+            <div class="progress-info"><span class="progress-info-label">Villa Djerba — Phase PC (Permis)</span><span class="progress-info-val">92%</span></div>
+            <div class="progress-track"><div class="progress-fill" style="width:92%;background:var(--green)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ DEVIS ══ -->
+      <div class="page" id="page-devis">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Commercial</div>
+            <h1 class="page-title">Offres & Devis</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="exportDevisPDF()">Exporter PDF</button>
+            <button class="btn btn-primary" onclick="openModal('modal-devis')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau devis
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">Devis 2026</span>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+              <div class="table-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" placeholder="Rechercher…" />
+              </div>
+              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('devis-table'),'devis-2026')" title="Exporter en CSV">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                CSV
+              </button>
+            </div>
+          </div>
+          <table id="devis-table">
+            <thead><tr>
+              <th>Réf.</th><th>Client</th><th>Objet</th><th>Montant</th><th>Date</th><th>Statut</th><th></th>
+            </tr></thead>
+            <tbody id="devis-tbody">
+              <tr>
+                <td class="inline-val">DV-2026-042</td>
+                <td>Ben Salah, Karim</td>
+                <td>Villa contemporaine — Hammamet</td>
+                <td class="inline-val">12 500 TND</td>
+                <td>08 Mar 2026</td>
+                <td><span class="badge badge-green">Accepté</span></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-042')" title="Dupliquer">⧉</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">DV-2026-039</td>
+                <td>Mahjoub SCI</td>
+                <td>Immeuble R+4 — Sfax</td>
+                <td class="inline-val">38 000 TND</td>
+                <td>02 Mar 2026</td>
+                <td><span class="badge badge-orange">En attente</span></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-039')" title="Dupliquer">⧉</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">DV-2026-036</td>
+                <td>Trabelsi, Sonia</td>
+                <td>Réhabilitation appartement — Tunis</td>
+                <td class="inline-val">6 200 TND</td>
+                <td>22 Fév 2026</td>
+                <td><span class="badge badge-orange">En attente</span></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-036')" title="Dupliquer">⧉</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">DV-2026-031</td>
+                <td>Invest Djerba SA</td>
+                <td>Resort boutique — Midoun</td>
+                <td class="inline-val">95 000 TND</td>
+                <td>10 Fév 2026</td>
+                <td><span class="badge badge-blue">En négociation</span></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-031')" title="Dupliquer">⧉</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">DV-2026-028</td>
+                <td>El Hani, Nabil</td>
+                <td>Extension maison — Nabeul</td>
+                <td class="inline-val">9 800 TND</td>
+                <td>01 Fév 2026</td>
+                <td><span class="badge badge-red">Refusé</span></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-028')" title="Dupliquer">⧉</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">DV-2026-021</td>
+                <td>SARL Méditerranée</td>
+                <td>Bureaux open-space — Djerba</td>
+                <td class="inline-val">22 000 TND</td>
+                <td>15 Jan 2026</td>
+                <td><span class="badge badge-green">Accepté</span></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-021')" title="Dupliquer">⧉</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div id="devis-bulk-bar" class="ergo-bulk-bar">
+            <span class="ergo-bulk-count">0 sélectionné</span>
+            <div class="ergo-bulk-actions">
+              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('devis-table'),'devis-selection')">Exporter CSV</button>
+              <button class="btn btn-sm" style="color:var(--red)" onclick="alert('Archivage groupé — fonctionnalité à connecter à l\'API')">Archiver</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PROJETS ══ -->
+      <div class="page" id="page-projets">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Gestion</div>
+            <h1 class="page-title">Projets</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="showPage('nas')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              Serveur NAS
+            </button>
+            <button class="btn btn-primary" onclick="openModal('modal-projet')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau projet
+            </button>
+          </div>
+        </div>
+
+        <!-- Barre recherche + filtres -->
+        <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:220px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="projets-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, client, phase…" oninput="renderProjets()" />
+          </div>
+          <select id="projets-filter-phase" class="form-select" style="width:auto;min-width:130px" onchange="renderProjets()">
+            <option value="">Toutes les phases</option>
+            <option>Étude préliminaire</option><option>APS</option><option>APD</option>
+            <option>PC</option><option>DCE</option><option>EXE</option><option>Livré</option>
+          </select>
+          <select id="projets-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="renderProjets()">
+            <option value="">Tous les statuts</option>
+            <option>Actif</option><option>En pause</option><option>Archivé</option><option>Prospection</option>
+          </select>
+          <span id="projets-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
+        </div>
+
+        <!-- Dropdown colonnes visibles -->
+        <div id="pj-col-dropdown" style="display:none;position:absolute;z-index:200;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5);padding:1rem;min-width:240px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+            <span style="font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3)">Colonnes visibles</span>
+            <button class="btn btn-sm" onclick="resetPjColumns()" style="font-size:0.7rem;padding:0.2rem 0.5rem">Réinitialiser</button>
+          </div>
+          <div id="pj-col-list"></div>
+        </div>
+
+        <!-- Tableau projets (en-têtes remplis par JS : CODE, PROJET, CLIENT, PHASE, STATUT, HONORAIRES, DÉLAI, NAS + actions) -->
+        <div class="table-wrap" style="overflow-x:auto;position:relative;margin-bottom:2rem">
+          <table id="projets-table">
+            <thead id="projets-thead"><tr></tr></thead>
+            <tbody id="projets-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Carte globale tous les projets -->
+        <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <div style="padding:0.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.1rem">Cartographie</div>
+              <div style="font-size:0.9rem;font-weight:500">Tous les projets géolocalisés</div>
+            </div>
+            <button class="btn btn-sm" onclick="refreshGlobalMap()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Actualiser
+            </button>
+          </div>
+          <div id="projets-global-map" style="height:380px;width:100%"></div>
+        </div>
+      </div>
+
+      <!-- ══ FACTURATION ══ -->
+      <div class="page" id="page-facturation">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Finance</div>
+            <h1 class="page-title">Facturation</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="openExportFactures()">⬇️ Exporter PDF</button>
+            <button class="btn btn-primary" onclick="openModal('modal-facture')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouvelle facture
+            </button>
+          </div>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem">
+          <div class="kpi-card">
+            <div class="kpi-label">Total facturé 2026</div>
+            <div class="kpi-value">148<span class="kpi-unit">k</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Encaissé</div>
+            <div class="kpi-value" style="color:var(--green)">135.6<span class="kpi-unit">k</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">En attente / impayé</div>
+            <div class="kpi-value" style="color:var(--red)">12.4<span class="kpi-unit">k</span></div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">Factures 2026</span>
+            <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-2026')" title="Exporter en CSV">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              CSV
+            </button>
+          </div>
+          <table id="factures-table">
+            <thead><tr>
+              <th>N° Facture</th><th>Client</th><th>Projet</th><th>Montant HT</th><th>TVA</th><th>Total TTC</th><th>Échéance</th><th>Statut</th><th></th>
+            </tr></thead>
+            <tbody id="factures-tbody">
+              <tr>
+                <td class="inline-val">F-2026-021</td>
+                <td>Ben Salah, Karim</td>
+                <td>Villa Hammamet</td>
+                <td>6 000 TND</td>
+                <td>7%</td>
+                <td class="inline-val">6 420 TND</td>
+                <td>31 Mar 2026</td>
+                <td><span class="badge badge-orange">Envoyée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">F-2026-020</td>
+                <td>Hamdi, Leila</td>
+                <td>Villa Nabeul</td>
+                <td>5 600 TND</td>
+                <td>7%</td>
+                <td class="inline-val">5 992 TND</td>
+                <td>06 Mar 2026</td>
+                <td><span class="badge badge-red">Impayée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">F-2026-019</td>
+                <td>Invest Djerba</td>
+                <td>Étude préliminaire</td>
+                <td>3 500 TND</td>
+                <td>7%</td>
+                <td class="inline-val">3 745 TND</td>
+                <td>28 Fév 2026</td>
+                <td><span class="badge badge-red">Impayée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">F-2026-018</td>
+                <td>Ben Salem, Hatem</td>
+                <td>Villa Djerba</td>
+                <td>6 000 TND</td>
+                <td>7%</td>
+                <td class="inline-val">6 420 TND</td>
+                <td>20 Fév 2026</td>
+                <td><span class="badge badge-green">Payée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
+              </tr>
+              <tr>
+                <td class="inline-val">F-2026-015</td>
+                <td>Mahjoub SCI</td>
+                <td>Résidence Sfax</td>
+                <td>12 000 TND</td>
+                <td>7%</td>
+                <td class="inline-val">12 840 TND</td>
+                <td>15 Jan 2026</td>
+                <td><span class="badge badge-green">Payée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div id="factures-bulk-bar" class="ergo-bulk-bar">
+            <span class="ergo-bulk-count">0 sélectionné</span>
+            <div class="ergo-bulk-actions">
+              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-selection')">Exporter CSV</button>
+              <button class="btn btn-sm" style="color:var(--orange)" onclick="alert('Relance groupée — fonctionnalité à connecter à l\'API')">Relancer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ BILANS ══ -->
+      <div class="page" id="page-bilans">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Comptabilité</div>
+            <h1 class="page-title">Bilans</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="exportBilansExcel()">Exporter Excel</button>
+            <button class="btn" onclick="window.print()">Imprimer</button>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="kpi-card" style="border:1px solid var(--border)">
+            <div class="kpi-label">Produits (CA) 2026</div>
+            <div class="kpi-value" style="color:var(--green)">148 000<span class="kpi-unit"> TND</span></div>
+          </div>
+          <div class="kpi-card" style="border:1px solid var(--border)">
+            <div class="kpi-label">Charges 2026</div>
+            <div class="kpi-value" style="color:var(--red)">62 400<span class="kpi-unit"> TND</span></div>
+          </div>
+          <div class="kpi-card" style="border:1px solid var(--border)">
+            <div class="kpi-label">Résultat net estimé</div>
+            <div class="kpi-value" style="color:var(--accent)">85 600<span class="kpi-unit"> TND</span></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Compte de résultat simplifié — 2026</div>
+            <table>
+              <thead><tr><th>Poste</th><th>Montant</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td>Honoraires d'architecture</td><td class="inline-val">132 000 TND</td><td>89%</td></tr>
+                <tr><td>Études spécialisées</td><td class="inline-val">12 000 TND</td><td>8%</td></tr>
+                <tr><td>Conseil & expertise</td><td class="inline-val">4 000 TND</td><td>3%</td></tr>
+                <tr style="border-top:2px solid var(--accent)"><td><strong>Total produits</strong></td><td class="inline-val" style="color:var(--green)"><strong>148 000 TND</strong></td><td></td></tr>
+                <tr><td style="padding-top:1rem">Salaires & charges sociales</td><td class="inline-val">34 000 TND</td><td>55%</td></tr>
+                <tr><td>Logiciels & licences</td><td class="inline-val">8 200 TND</td><td>13%</td></tr>
+                <tr><td>Loyer & charges</td><td class="inline-val">9 600 TND</td><td>15%</td></tr>
+                <tr><td>Frais divers & déplacements</td><td class="inline-val">6 400 TND</td><td>10%</td></tr>
+                <tr><td>Marketing & communication</td><td class="inline-val">4 200 TND</td><td>7%</td></tr>
+                <tr style="border-top:2px solid var(--border-md)"><td><strong>Total charges</strong></td><td class="inline-val" style="color:var(--red)"><strong>62 400 TND</strong></td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-title">Trésorerie prévisionnelle — 2026</div>
+            <div class="chart-area" id="tresorerie-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ DÉPENSES ══ -->
+      <div class="page" id="page-depenses">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Finance</div>
+            <h1 class="page-title">Dépenses</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="openModal('modal-scan-facture')" title="Scanner une facture avec l'IA">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Scanner facture IA
+            </button>
+            <button class="btn btn-primary" onclick="openModal('modal-depense')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Ajouter dépense
+            </button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Répartition par catégorie — Mars 2026</div>
+            <div class="donut-wrap">
+              <svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="48" fill="none" stroke="var(--bg-2)" stroke-width="18"/>
+                <!-- Segments (stroke-dasharray + stroke-dashoffset) -->
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#c8a96e" stroke-width="18"
+                  stroke-dasharray="113 188" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#6fa8d6" stroke-width="18"
+                  stroke-dasharray="75 226" stroke-dashoffset="-113" transform="rotate(-90 60 60)"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#5aab6e" stroke-width="18"
+                  stroke-dasharray="52 249" stroke-dashoffset="-188" transform="rotate(-90 60 60)"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#e07b72" stroke-width="18"
+                  stroke-dasharray="38 263" stroke-dashoffset="-240" transform="rotate(-90 60 60)"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#555" stroke-width="18"
+                  stroke-dasharray="23 278" stroke-dashoffset="-278" transform="rotate(-90 60 60)"/>
+                <text x="60" y="64" text-anchor="middle" font-family="DM Mono" font-size="11" fill="#e8e4dc">8 200</text>
+                <text x="60" y="76" text-anchor="middle" font-family="DM Sans" font-size="7" fill="#9a9590">TND</text>
+              </svg>
+              <div class="donut-legend">
+                <div class="donut-item"><div class="donut-dot" style="background:var(--accent)"></div>Salaires — 34%</div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--blue)"></div>Loyer & charges — 23%</div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--green)"></div>Logiciels — 16%</div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--red)"></div>Déplacements — 12%</div>
+                <div class="donut-item"><div class="donut-dot" style="background:var(--text-3)"></div>Divers — 7%</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Dépenses récentes</div>
+            <div class="activity-feed">
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--blue)"></div>
+                <div>
+                  <div class="activity-text"><strong>Loyer bureau Midoun</strong> — 800 TND</div>
+                  <div class="activity-time">01 Mar 2026 · Charges fixes</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--green)"></div>
+                <div>
+                  <div class="activity-text"><strong>Licence AutoCAD LT</strong> — 1 200 TND/an</div>
+                  <div class="activity-time">28 Fév 2026 · Logiciels</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--red)"></div>
+                <div>
+                  <div class="activity-text"><strong>Déplacement Tunis-Sfax</strong> — 145 TND</div>
+                  <div class="activity-time">26 Fév 2026 · Frais de déplacement</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--green)"></div>
+                <div>
+                  <div class="activity-text"><strong>Abonnement Adobe CC</strong> — 380 TND</div>
+                  <div class="activity-time">20 Fév 2026 · Logiciels</div>
+                </div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot" style="background:var(--accent)"></div>
+                <div>
+                  <div class="activity-text"><strong>Impression plans — atelier</strong> — 220 TND</div>
+                  <div class="activity-time">15 Fév 2026 · Fournitures</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">Toutes les dépenses</span>
+          </div>
+          <table>
+            <thead><tr><th>Date</th><th>Libellé</th><th>Fournisseur</th><th>Catégorie</th><th>Montant TTC</th><th></th></tr></thead>
+            <tbody id="depenses-tbody">
+              <tr><td>01 Mar</td><td>Loyer bureau Midoun</td><td><span class="badge badge-blue">Loyer</span></td><td class="inline-val">800 TND</td><td><span style="font-size:0.7rem;color:var(--text-3)">—</span></td></tr>
+              <tr><td>28 Fév</td><td>Licence AutoCAD LT (annuel)</td><td><span class="badge badge-green">Logiciels</span></td><td class="inline-val">1 200 TND</td><td><button class="btn btn-sm">📎 PDF</button></td></tr>
+              <tr><td>26 Fév</td><td>Train Tunis-Sfax AR</td><td><span class="badge badge-red">Déplacement</span></td><td class="inline-val">145 TND</td><td><button class="btn btn-sm">📎 PDF</button></td></tr>
+              <tr><td>20 Fév</td><td>Adobe Creative Cloud</td><td><span class="badge badge-green">Logiciels</span></td><td class="inline-val">380 TND</td><td><button class="btn btn-sm">📎 PDF</button></td></tr>
+              <tr><td>15 Fév</td><td>Impression A0 + reliure plans</td><td><span class="badge badge-orange">Fournitures</span></td><td class="inline-val">220 TND</td><td><span style="font-size:0.7rem;color:var(--text-3)">—</span></td></tr>
+              <tr><td>10 Fév</td><td>Frais bancaires Q1</td><td><span class="badge badge-gray">Banque</span></td><td class="inline-val">85 TND</td><td><span style="font-size:0.7rem;color:var(--text-3)">—</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <!-- ══ FISCALITÉ & COMPTABILITÉ TUNISIENNE ══ -->
+      <div class="page" id="page-fiscalite">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Fiscalité Tunisienne</div>
+            <h1 class="page-title">Comptabilité & Impôts</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="exportFiscalitePDF()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Rapport fiscal
+            </button>
+            <button class="btn btn-primary" onclick="openModal('modal-irpp')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Saisir IRPP N-1
+            </button>
+          </div>
+        </div>
+
+        <!-- Alertes fiscales -->
+        <div id="fiscal-alerts-wrap" style="margin-bottom:1.5rem"></div>
+
+        <!-- KPIs fiscaux dynamiques -->
+        <div class="kpi-grid" style="margin-bottom:1.5rem" id="fiscal-kpis">
+          <div class="kpi-card">
+            <div class="kpi-label">CA HT encaissé (année)</div>
+            <div class="kpi-value" id="fk-ca">—</div>
+            <div class="kpi-delta neutral" id="fk-ca-sub"></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">TVA collectée</div>
+            <div class="kpi-value" id="fk-tva-col" style="color:var(--red)">—</div>
+            <div class="kpi-delta neutral">Sur honoraires facturés</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">TVA déductible</div>
+            <div class="kpi-value" id="fk-tva-ded" style="color:var(--green)">—</div>
+            <div class="kpi-delta neutral">Sur achats & charges</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">TVA nette à payer</div>
+            <div class="kpi-value" id="fk-tva-net" style="color:var(--accent)">—</div>
+            <div class="kpi-delta neutral" id="fk-tva-ech"></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">RAS perçue (encaissée)</div>
+            <div class="kpi-value" id="fk-ras" style="color:var(--blue)">—</div>
+            <div class="kpi-delta neutral">À déduire de l'IRPP</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">IRPP estimé</div>
+            <div class="kpi-value" id="fk-irpp" style="color:var(--accent)">—</div>
+            <div class="kpi-delta neutral" id="fk-irpp-sub"></div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:1.5rem">
+
+          <!-- Calendrier fiscal -->
+          <div class="card">
+            <div class="card-title">Calendrier fiscal <span id="fiscal-year-label" style="color:var(--text-3);font-size:0.75rem;font-weight:400"></span></div>
+            <div id="fiscal-calendar"></div>
+          </div>
+
+          <!-- TVA mensuelle -->
+          <div class="card">
+            <div class="card-title">TVA mensuelle — déclarations</div>
+            <div style="margin-bottom:0.8rem;display:flex;gap:0.5rem;align-items:center">
+              <select id="tva-annee-sel" class="form-select" style="width:100px" onchange="renderTVAMensuelle()"></select>
+              <span style="font-size:0.78rem;color:var(--text-3)">Échéance : 28 du mois suivant (télédéclaration)</span>
+            </div>
+            <div id="tva-mensuelle-table"></div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:1.5rem">
+
+          <!-- Acomptes provisionnels IRPP -->
+          <div class="card">
+            <div class="card-title">Acomptes provisionnels IRPP</div>
+            <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+              Chaque acompte = 30% de l'IRPP N-1. Personnes physiques : 25 juin · 25 sept. · 25 déc.
+            </div>
+            <div id="acomptes-wrap"></div>
+            <div style="margin-top:1rem;padding:0.8rem;background:var(--bg-2);border-radius:6px;font-size:0.78rem;color:var(--text-3)">
+              <strong style="color:var(--text-2)">Rappel :</strong> Les acomptes versés sont déduits de l'IRPP final lors de la déclaration annuelle (avant le 25 mai de l'année suivante pour les professions libérales).
+            </div>
+          </div>
+
+          <!-- Retenues à la source (RAS) -->
+          <div class="card">
+            <div class="card-title">Retenues à la source (RAS)</div>
+            <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+              En tant qu'architecte (personne physique), vous subissez une RAS de <strong style="color:var(--accent)">10%</strong> sur vos honoraires lorsque le client est une entreprise ou une administration. Cette retenue est une avance sur votre IRPP — vous la récupérez via la déclaration annuelle.
+            </div>
+            <div id="ras-recap-wrap"></div>
+            <div style="margin-top:1rem;padding:0.7rem 0.9rem;background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.2);border-radius:6px;font-size:0.78rem">
+              <strong style="color:var(--accent)">Obligatoire ?</strong> Oui, pour tout client entreprise/administration. Ils doivent remettre un certificat RAS via la plateforme <strong>TEJ (DGI)</strong>. Pour les particuliers : pas de RAS.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Tableau récapitulatif IRPP -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Estimation IRPP — Barème progressif 2024</div>
+          <div class="grid-2">
+            <div>
+              <table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:1rem">
+                <thead><tr>
+                  <th style="text-align:left;padding:0.5rem 0.6rem;border-bottom:1px solid var(--border)">Tranche de revenu</th>
+                  <th style="text-align:center;padding:0.5rem 0.6rem;border-bottom:1px solid var(--border)">Taux</th>
+                  <th style="text-align:right;padding:0.5rem 0.6rem;border-bottom:1px solid var(--border)">Impôt sur tranche</th>
+                </tr></thead>
+                <tbody id="irpp-bareme-tbody"></tbody>
+              </table>
+              <div style="font-size:0.75rem;color:var(--text-3)">* Déduction pour chef de famille, enfants à charge et cotisations CNSS applicables. Résultat net = CA HT encaissé − charges déductibles.</div>
+            </div>
+            <div>
+              <div style="background:var(--bg-2);border-radius:8px;padding:1.2rem">
+                <div style="font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:1rem">Simulation IRPP</div>
+                <div class="form-grid">
+                  <div class="form-field full">
+                    <label class="form-label">Revenu net imposable (TND)</label>
+                    <input id="irpp-sim-revenu" class="form-input" type="number" placeholder="Ex: 85000" oninput="calcIRPPSim()" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">Déductions (CNSS, famille…)</label>
+                    <input id="irpp-sim-deductions" class="form-input" type="number" placeholder="0" oninput="calcIRPPSim()" />
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label">RAS déjà versée</label>
+                    <input id="irpp-sim-ras" class="form-input" type="number" placeholder="0" oninput="calcIRPPSim()" />
+                  </div>
+                </div>
+                <div id="irpp-sim-result" style="margin-top:1rem"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Déclarations mensuelles checklist -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Déclarations mensuelles — Suivi</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Échéance : <strong style="color:var(--text-2)">28 du mois suivant</strong> (télédéclaration). Concerne : TVA, RAS fournisseurs, TCL, droits d'enregistrement éventuels.
+          </div>
+          <div id="declarations-mensuelle-wrap"></div>
+        </div>
+
+      </div>
+
+      <!-- ══ SERVEUR NAS ══ -->
+      <!-- ══ SERVEUR NAS ══ -->
+      <div class="page" id="page-nas">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Stockage</div>
+            <h1 class="page-title">Serveur NAS</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sm" onclick="nasRefreshStatus()" title="Actualiser l'état">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+            <button class="btn" onclick="nasOpenLocal()" id="nas-btn-local">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Réseau local
+            </button>
+            <button class="btn btn-primary" onclick="nasOpenCloud()" id="nas-btn-cloud">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+              En ligne
+            </button>
+          </div>
+        </div>
+
+        <!-- Barre d'état dynamique -->
+        <div class="nas-status-bar" id="nas-status-bar" style="flex-wrap:wrap;gap:0.6rem">
+          <div class="nas-status-item">
+            <div id="nas-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text-3);flex-shrink:0;transition:background .4s"></div>
+            <span id="nas-stat-label" style="font-weight:500">Vérification…</span>
+          </div>
+          <div class="nas-status-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            <span id="nas-stat-model">QNAP NAS</span>
+          </div>
+          <div class="nas-status-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span id="nas-stat-addr-text">—</span>
+          </div>
+          <div class="nas-status-item" style="flex:1;min-width:180px;gap:0.5rem">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <span id="nas-stat-storage-text">Stockage : —</span>
+            <div id="nas-storage-bar" style="flex:1;height:4px;background:var(--bg-3);border-radius:2px;display:none">
+              <div id="nas-storage-fill" style="height:100%;border-radius:2px;background:var(--accent);width:0%;transition:width .6s"></div>
+            </div>
+          </div>
+          <div class="nas-status-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="nas-stat-ping">Latence : —</span>
+          </div>
+        </div>
+
+        <div class="grid-2" style="align-items:start">
+
+          <!-- Accès rapide personnalisable -->
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+              <p style="font-size:0.68rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin:0">Accès rapide</p>
+              <button class="btn btn-sm" onclick="openModal('modal-nas-raccourci')" style="font-size:0.7rem">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Ajouter
+              </button>
+            </div>
+            <div id="nas-raccourcis-grid"></div>
+          </div>
+
+          <!-- Fichiers récents -->
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+              <p style="font-size:0.68rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin:0">Fichiers récents</p>
+              <div style="display:flex;gap:0.4rem">
+                <button class="btn btn-sm" onclick="nasLoadWebDAV()" title="Charger depuis WebDAV" style="font-size:0.7rem">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  WebDAV
+                </button>
+                <button class="btn btn-sm" onclick="openNasFichierModal()" style="font-size:0.7rem">+ Ajouter</button>
+              </div>
+            </div>
+            <div class="table-wrap" style="margin-bottom:0">
+              <table>
+                <thead><tr><th>Fichier</th><th>Projet</th><th>Modifié</th><th></th></tr></thead>
+                <tbody id="nas-fichiers-tbody"></tbody>
+              </table>
+            </div>
+            <div id="nas-webdav-status" style="font-size:0.72rem;color:var(--text-3);margin-top:0.5rem;display:none"></div>
+          </div>
+        </div>
+
+        <!-- Pied de config -->
+        <div style="margin-top:1.5rem;padding:1rem 1.2rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.75rem;color:var(--text-2);display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center">
+          <span><strong style="color:var(--accent)">Local :</strong> <span id="nas-info-local">—</span></span>
+          <span style="color:var(--border)">·</span>
+          <span><strong style="color:var(--accent)">Cloud :</strong> <span id="nas-info-cloud" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">—</span></span>
+          <span style="color:var(--border)">·</span>
+          <span id="nas-webdav-badge" style="display:none;color:var(--green)">● WebDAV actif</span>
+          <span id="nas-webdav-badge-off" style="color:var(--text-3)">○ WebDAV non configuré</span>
+          <button class="btn btn-sm" onclick="showPage('parametres')" style="margin-left:auto;font-size:0.7rem">⚙ Configurer</button>
+        </div>
+      </div>
+
+      <!-- ══ ÉQUIPE ══ -->
+      <div class="page" id="page-equipe">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">RH</div>
+            <h1 class="page-title">Équipe</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="openModal('modal-membre')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Ajouter un membre
+            </button>
+          </div>
+        </div>
+
+        <!-- Compte administrateur fixe -->
+        <div style="margin-bottom:1rem;padding:0.85rem 1.2rem;background:var(--bg-2);border:1px solid rgba(200,169,110,0.3);border-radius:8px;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+          <div style="width:38px;height:38px;background:var(--accent-bg);border:1px solid rgba(200,169,110,0.4);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:600;color:var(--accent);flex-shrink:0">AC</div>
+          <div style="flex:1;min-width:180px">
+            <div style="font-size:0.88rem;font-weight:500;color:var(--text)">Amal Cortoba</div>
+            <div style="font-size:0.72rem;color:var(--text-3);margin-top:1px"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="096a667b7d666b68687b6a61607d6c6a7d7c7b6c496e64686065276a6664">[email&#160;protected]</a> · Architecte gérant</div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.25rem 0.8rem;border-radius:20px;font-size:0.72rem;background:rgba(200,169,110,0.12);color:var(--accent);border:1px solid rgba(200,169,110,0.25);font-weight:600;letter-spacing:0.04em">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Administrateur
+          </span>
+          <div style="font-size:0.72rem;color:var(--green);display:flex;align-items:center;gap:0.3rem">
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--green)"></div>Actif
+          </div>
+        </div>
+
+        <!-- Grille membres -->
+        <div id="equipe-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;margin-bottom:2rem"></div>
+
+        <!-- Tableau récap accès -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+            <div class="card-title" style="margin-bottom:0">Récapitulatif des accès par module</div>
+            <div style="font-size:0.72rem;color:var(--text-3)">✅ Accès accordé &nbsp;·&nbsp; — Restreint</div>
+          </div>
+          <div style="overflow-x:auto">
+            <table id="equipe-acces-table" style="width:100%;border-collapse:collapse;font-size:0.78rem">
+              <thead id="equipe-acces-thead"></thead>
+              <tbody id="equipe-acces-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ CLIENTS ══ -->
+      <div class="page" id="page-clients">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">CRM</div>
+            <h1 class="page-title">Clients</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-client')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau client
+            </button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Nom / Raison sociale</th><th>WhatsApp</th><th>Email</th><th>Source</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="clients-tbody">
+              <tr><td>Ben Salah, Karim</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8cefe3e2f8edeff8ccefe0e5e9e2f8a2f8e2">[email&#160;protected]</a></td><td>2</td><td class="inline-val">18 000 TND</td><td><span class="badge badge-green">Actif</span></td></tr>
+              <tr><td>Mahjoub SCI</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="40232f2e3421233400232c29252e346e342e">[email&#160;protected]</a></td><td>1</td><td class="inline-val">55 000 TND</td><td><span class="badge badge-green">Actif</span></td></tr>
+              <tr><td>Hamdi, Leila</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="70131f1e0411130430131c19151e045e041e">[email&#160;protected]</a></td><td>1</td><td class="inline-val">24 000 TND</td><td><span class="badge badge-green">Actif</span></td></tr>
+              <tr><td>Invest Djerba SA</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3b5854554f5a584f7b5857525e554f154f55">[email&#160;protected]</a></td><td>1</td><td class="inline-val">3 500 TND</td><td><span class="badge badge-blue">Prospection</span></td></tr>
+              <tr><td>SARL Méditerranée</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="573438392336342317343b3e323923792339">[email&#160;protected]</a></td><td>1</td><td class="inline-val">22 000 TND</td><td><span class="badge badge-green">Actif</span></td></tr>
+              <tr><td>Bouaziz, Omar</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d2b1bdbca6b3b1a692b1bebbb7bca6fca6bc">[email&#160;protected]</a></td><td>1</td><td class="inline-val">14 500 TND</td><td><span class="badge badge-gray">Archivé</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ PARAMÈTRES ══ -->
+      <div class="page" id="page-parametres">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Administration</div>
+            <h1 class="page-title">Paramètres</h1>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Informations de l'agence</div>
+            <div class="form-grid">
+              <div class="form-field"><label class="form-label">Raison sociale</label><input id="param-agence-raison" class="form-input" placeholder="Ex: Cortoba Architecture Studio" /></div>
+              <div class="form-field"><label class="form-label">Email professionnel</label><input id="param-agence-email" class="form-input" type="email" placeholder="contact@cortobaarchitecture.com" /></div>
+              <div class="form-field"><label class="form-label">Téléphone</label><input id="param-agence-tel" class="form-input" placeholder="+216 XX XXX XXX" /></div>
+              <div class="form-field"><label class="form-label">Adresse</label><input id="param-agence-adresse" class="form-input" placeholder="Midoun, Djerba, Tunisie" /></div>
+              <div class="form-field"><label class="form-label">Matricule fiscal</label><input id="param-agence-mf" class="form-input" placeholder="MF-XXXXXXX" /></div>
+              <div class="form-field"><label class="form-label">Numéro CNOA</label><input id="param-agence-cnoa" class="form-input" placeholder="XX/XXXX" /></div>
+            </div>
+            <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+              <button class="btn btn-primary btn-sm" onclick="saveAgenceParams()">Enregistrer</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Sécurité & accès</div>
+            <div class="form-grid">
+              <div class="form-field full"><label class="form-label">Identifiant admin</label><input class="form-input" value="amal.cortoba" /></div>
+              <div class="form-field"><label class="form-label">Nouveau mot de passe</label><input class="form-input" type="password" placeholder="••••••••" /></div>
+              <div class="form-field"><label class="form-label">Confirmer</label><input class="form-input" type="password" placeholder="••••••••" /></div>
+              <div class="form-field full"><label class="form-label">QR Code de connexion</label>
+                <div style="display:flex;gap:0.8rem;align-items:center;margin-top:0.4rem">
+                  <button class="btn btn-sm" onclick="alert('Génération de QR désactivée — connexion par email/mot de passe uniquement.')">Générer nouveau QR</button>
+                  <button class="btn btn-sm" onclick="alert('QR code non disponible dans cette version.')">Télécharger</button>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+              <button class="btn btn-primary btn-sm" onclick="changePassword()">Mettre à jour</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Modèles de documents</div>
+          <div style="display:flex;gap:0.8rem;flex-wrap:wrap">
+            <button class="btn" onclick="alert('Modèle de devis — à configurer dans Paramètres.')">📄 Modèle devis</button>
+            <button class="btn" onclick="alert('Modèle de facture — à configurer dans Paramètres.')">🧾 Modèle facture</button>
+            <button class="btn" onclick="alert('Contrat MOE — à configurer dans Paramètres.')">📋 Contrat de maîtrise d'œuvre</button>
+            <button class="btn" onclick="alert('Email de relance — à configurer dans Paramètres.')">✉️ Email de relance</button>
+          </div>
+        </div>
+
+        <!-- C — Listes déroulantes configurables -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Listes déroulantes</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Personnalisez les options des menus déroulants dans les fiches projet et client.
+            Les options en <span style="color:var(--accent)">or</span> ont été ajoutées manuellement.
+          </div>
+          <div id="param-listes-wrap">
+            <div style="color:var(--text-3);font-size:0.82rem">Chargement…</div>
+          </div>
+        </div>
+
+        <!-- Missions -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Missions architecturales</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Ces missions apparaissent dans l'onglet Missions lors de la création d'un projet.
+          </div>
+          <div id="param-missions-wrap">
+            <div style="color:var(--text-3);font-size:0.82rem">Chargement…</div>
+          </div>
+          <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+            <input id="param-mission-abbr" class="form-input" placeholder="Abbr. (ex: DIAG)" style="width:110px" />
+            <input id="param-mission-nom" class="form-input" placeholder="Nom complet de la mission" style="flex:1;min-width:200px" />
+            <button class="btn btn-primary btn-sm" onclick="addParamMission()">+ Ajouter</button>
+          </div>
+        </div>
+
+        <!-- NAS -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Serveur NAS — Configuration</div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Adresse réseau local</label>
+              <input id="param-nas-local" class="form-input" placeholder="192.168.1.100" />
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">IP locale du NAS (sans le port)</div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Port QTS Web</label>
+              <input id="param-nas-port" class="form-input" placeholder="8080" />
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Visible dans l'URL de l'interface QTS</div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Identifiant QTS</label>
+              <input id="param-nas-user" class="form-input" placeholder="admin" autocomplete="off" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Mot de passe QTS</label>
+              <input id="param-nas-pass" class="form-input" type="password" placeholder="••••••••" autocomplete="off" />
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Stocké localement uniquement</div>
+            </div>
+            <div class="form-field full">
+              <label class="form-label">URL myQNAPcloud / QuickConnect</label>
+              <input id="param-nas-cloud" class="form-input" placeholder="https://www.myqnapcloud.com/smartshare/…" />
+            </div>
+            <div class="form-field full">
+              <label class="form-label">Clé API myQNAPcloud</label>
+              <input id="param-nas-apikey" class="form-input" placeholder="Votre clé API myQNAPcloud" autocomplete="off" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Modèle NAS</label>
+              <input id="param-nas-model" class="form-input" placeholder="Ex: QNAP TS-264" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Capacité totale (To)</label>
+              <input id="param-nas-capacity" class="form-input" type="number" step="0.1" placeholder="Ex: 8" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Espace utilisé (To)</label>
+              <input id="param-nas-used" class="form-input" type="number" step="0.01" placeholder="Ex: 1.84" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Port WebDAV</label>
+              <input id="param-nas-webdav-port" class="form-input" placeholder="5005 (HTTP) ou 5006 (HTTPS)" />
+            </div>
+            <div class="form-field full">
+              <label class="form-label">Dossier WebDAV racine</label>
+              <input id="param-nas-webdav" class="form-input" placeholder="Ex: Projets" />
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Nom du dossier partagé principal</div>
+            </div>
+            <div class="form-field full">
+              <label class="form-label">IP / Domaine public <span style="color:var(--accent);font-size:0.7rem">(Port Forwarding)</span></label>
+              <input id="param-nas-public-ip" class="form-input" placeholder="Ex: 41.230.xx.xx ou monnas.ddns.net" />
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Adresse publique redirigée vers le NAS — utilisée par le serveur pour créer les dossiers projets</div>
+            </div>
+          </div>
+
+          <!-- Guide WebDAV -->
+          <div style="margin-top:1.2rem;padding:1rem;background:var(--bg-2);border-radius:6px;border:1px solid rgba(200,169,110,0.2)">
+            <div style="font-size:0.72rem;font-weight:600;color:var(--accent);margin-bottom:0.7rem;display:flex;align-items:center;gap:0.4rem">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Guide — Activer WebDAV sur votre QNAP
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-2);line-height:1.8">
+              <strong>1.</strong> Ouvrez l'interface QTS → <strong>App Center</strong> → recherchez et installez <strong>WebDAV</strong><br>
+              <strong>2.</strong> Lancez WebDAV → activez le service → notez le port (défaut HTTP : <strong>5005</strong>)<br>
+              <strong>3.</strong> Dans <strong>Panneau de configuration → Dossiers partagés</strong> → clic droit sur votre dossier → Modifier les autorisations → autorisez votre compte en lecture<br>
+              <strong>4.</strong> Renseignez le port WebDAV et le nom du dossier ci-dessus<br>
+              <strong>5.</strong> Test : ouvrez <span style="font-family:var(--font-mono);background:var(--bg-3);padding:0 4px;border-radius:2px">http://[IP_NAS]:5005/dav/[dossier]</span> dans votre navigateur
+            </div>
+          </div>
+
+          <!-- Guide clé API myQNAPcloud -->
+          <div style="margin-top:0.8rem;padding:1rem;background:var(--bg-2);border-radius:6px;border:1px solid rgba(200,169,110,0.2)">
+            <div style="font-size:0.72rem;font-weight:600;color:var(--accent);margin-bottom:0.7rem;display:flex;align-items:center;gap:0.4rem">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              Guide — Créer une clé API myQNAPcloud
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-2);line-height:1.8">
+              <strong>1.</strong> Connectez-vous sur <a href="https://account.qnap.com" target="_blank" style="color:var(--accent)">account.qnap.com</a> avec votre compte QNAP<br>
+              <strong>2.</strong> Allez dans <strong>Security → Application Credentials</strong> (ou <strong>API Keys</strong>)<br>
+              <strong>3.</strong> Cliquez <strong>Create Application</strong> → donnez le nom "Cortoba Atelier"<br>
+              <strong>4.</strong> Copiez la clé générée dans le champ "Clé API myQNAPcloud" ci-dessus<br>
+              <strong>5.</strong> Cette clé permet de récupérer automatiquement la capacité et l'état du NAS depuis internet
+            </div>
+          </div>
+
+          <div style="margin-top:1rem;display:flex;gap:0.6rem;justify-content:flex-end;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="nasTestConnection()">🔌 Tester la connexion</button>
+            <button class="btn btn-sm" onclick="window.open(getSetting('cortoba_nas_cloud',''),'_blank')">🌐 Accès cloud</button>
+            <button class="btn btn-primary btn-sm" onclick="saveNasConfig()">Enregistrer</button>
+          </div>
+          <div id="nas-test-result" style="display:none;margin-top:0.8rem;padding:0.7rem 1rem;border-radius:6px;font-size:0.78rem"></div>
+        </div>
+
+        <!-- Logo de l'agence -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Logo de l'agence</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Le logo apparaît sur les factures générées. Format recommandé : PNG transparent, min. 300×100px.
+          </div>
+          <div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap">
+            <div id="param-logo-preview-wrap" style="width:200px;height:80px;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <img id="param-logo-preview" style="max-width:190px;max-height:70px;display:none;object-fit:contain" />
+              <span id="param-logo-placeholder" style="font-size:0.75rem;color:var(--text-3)">Aucun logo</span>
+            </div>
+            <div style="flex:1">
+              <input type="file" id="param-logo-file" accept="image/*" style="display:none" onchange="uploadLogo(this)" />
+              <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+                <button class="btn btn-sm" onclick="document.getElementById('param-logo-file').click()">📂 Importer un logo</button>
+                <button class="btn btn-sm" onclick="removeLogo()" style="color:#e07070">✕ Supprimer</button>
+              </div>
+              <div id="param-logo-status" style="font-size:0.72rem;color:var(--text-3);margin-top:0.5rem">Aucun logo importé</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIB & coordonnées bancaires pour facturation -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Coordonnées bancaires (pour factures)</div>
+          <div class="form-grid">
+            <div class="form-field"><label class="form-label">Banque</label><input id="param-banque" class="form-input" placeholder="Ex: BNA, STB, BIAT…" /></div>
+            <div class="form-field"><label class="form-label">Numéro de compte / RIB</label><input id="param-rib" class="form-input" placeholder="TN59 XXXX XXXX XXXX XXXX XXXX XX" /></div>
+            <div class="form-field full"><label class="form-label">Mentions additionnelles sur la facture</label><textarea id="param-fa-mentions" class="form-input" rows="2" placeholder="Ex: Exonéré de TVA selon art. XX. Paiement à 30 jours."></textarea></div>
+          </div>
+          <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+            <button class="btn btn-primary btn-sm" onclick="saveFactureParams()">Enregistrer</button>
+          </div>
+        </div>
+
+        <!-- Rôles de l'équipe -->
+        <div class="card" style="margin-bottom:1.5rem" id="param-roles-card">
+          <div class="card-title">Rôles de l'équipe</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Gérez les rôles disponibles lors de l'ajout d'un membre. Les rôles en <span style="color:var(--accent)">or</span> sont personnalisés.
+          </div>
+          <div id="param-roles-wrap"></div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem">
+            <input id="param-role-input" class="form-input" placeholder="Nom du nouveau rôle…" style="flex:1;min-width:200px"
+              onkeydown="if(event.key==='Enter') addParamRole()" />
+            <button class="btn btn-primary btn-sm" onclick="addParamRole()">+ Ajouter</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODALS
+══════════════════════════════════ -->
+
+
+<!-- Modal nouveau client / fiche client -->
+<div class="modal-overlay" id="modal-client">
+  <div class="modal-box" style="max-width:780px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-client-title">Nouveau client</div>
+      <button class="modal-close" onclick="closeModal('modal-client')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto;padding-right:0.5rem">
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem">
+        <button class="cl-tab active" onclick="switchClientTab('identite',this)" style="flex:1;padding:0.6rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent;transition:all .2s">Identité</button>
+        <button class="cl-tab" onclick="switchClientTab('contact',this)" style="flex:1;padding:0.6rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent;transition:all .2s">Contact</button>
+        <button class="cl-tab" onclick="switchClientTab('source',this)" style="flex:1;padding:0.6rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent;transition:all .2s">Source & Suivi</button>
+        <button class="cl-tab" onclick="switchClientTab('contacts-aux',this)" style="flex:1;padding:0.6rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent;transition:all .2s">Contacts secondaires</button>
+      </div>
+
+      <!-- Tab: Identité -->
+      <div class="cl-tab-panel active" id="cl-panel-identite">
+        <!-- Type personne : 3 options -->
+        <div style="display:flex;gap:0.6rem;margin-bottom:1.2rem;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;flex:1;min-width:140px;padding:0.8rem;border:1px solid var(--border);border-radius:4px;transition:border-color .2s" id="lbl-physique">
+            <input type="radio" name="cl-type" value="physique" id="cl-type-physique" checked onchange="togglePersonneType()" style="accent-color:var(--accent)">
+            <div><div style="font-size:0.85rem">Personne physique</div><div style="font-size:0.7rem;color:var(--text-3)">Particulier</div></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;flex:1;min-width:140px;padding:0.8rem;border:1px solid var(--border);border-radius:4px;transition:border-color .2s" id="lbl-morale">
+            <input type="radio" name="cl-type" value="morale" id="cl-type-morale" onchange="togglePersonneType()" style="accent-color:var(--accent)">
+            <div><div style="font-size:0.85rem">Personne morale</div><div style="font-size:0.7rem;color:var(--text-3)">Société, SCI, SARL…</div></div>
+          </label>
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;flex:1;min-width:140px;padding:0.8rem;border:1px solid var(--border);border-radius:4px;transition:border-color .2s" id="lbl-groupe">
+            <input type="radio" name="cl-type" value="groupe" id="cl-type-groupe" onchange="togglePersonneType()" style="accent-color:var(--accent)">
+            <div><div style="font-size:0.85rem">Groupe de clients</div><div style="font-size:0.7rem;color:var(--text-3)">Héritiers, co-investisseurs…</div></div>
+          </label>
+        </div>
+
+        <!-- Personne physique fields -->
+        <div id="cl-fields-physique" class="form-grid">
+          <div class="form-field"><label class="form-label">Prénom</label><input id="cl-prenom" class="form-input" placeholder="Prénom" /></div>
+          <div class="form-field"><label class="form-label">Nom de famille</label><input id="cl-nom" class="form-input" placeholder="Nom de famille" oninput="previewCode()" /></div>
+        </div>
+
+        <!-- Personne morale fields -->
+        <div id="cl-fields-morale" class="form-grid" style="display:none">
+          <div class="form-field full"><label class="form-label">Raison sociale</label><input id="cl-raison" class="form-input" placeholder="Ex: SARL Méditerranée" oninput="previewCode()" /></div>
+          <div class="form-field"><label class="form-label">Matricule fiscal</label><input id="cl-matricule" class="form-input" placeholder="XXXXXXX/X/X/XXX" /></div>
+        </div>
+
+        <!-- Groupe de clients fields -->
+        <div id="cl-fields-groupe" style="display:none">
+          <div class="form-grid" style="margin-bottom:0.8rem">
+            <div class="form-field full">
+              <label class="form-label">Intitulé du groupe <span style="color:#e07070">*</span></label>
+              <input id="cl-groupe-titre" class="form-input" placeholder="Ex: Héritiers Ben Marzouk, SCI Djerba…" oninput="previewCode()" />
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
+            <span style="font-size:0.78rem;color:var(--text-3)">Membres du groupe — cochez le mandataire principal</span>
+            <button type="button" class="btn btn-sm" onclick="addGroupeMembre()">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Ajouter un membre
+            </button>
+          </div>
+          <div id="cl-groupe-list"></div>
+          <div id="cl-groupe-err" style="display:none;color:#e07070;font-size:0.78rem;margin-top:0.4rem">⚠ Un mandataire principal est obligatoire.</div>
+        </div>
+
+        <!-- Code client — saisie manuelle pour groupe, généré pour les autres -->
+        <div style="margin-top:1rem;padding:0.7rem 1rem;background:var(--bg-2);border-radius:4px">
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <span style="font-size:0.72rem;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0">Code client</span>
+            <!-- Affichage pour physique/morale (généré) -->
+            <span id="cl-code-preview" style="font-family:var(--font-mono);color:var(--accent);font-size:0.9rem;letter-spacing:0.15em">—</span>
+            <span id="cl-num-preview" style="font-family:var(--font-mono);color:var(--text-3);font-size:0.8rem"></span>
+            <!-- Saisie manuelle pour groupe -->
+            <div id="cl-code-groupe-wrap" style="display:none;display:flex;align-items:center;gap:0.5rem">
+              <input id="cl-code-groupe-lettres" class="form-input" maxlength="3" placeholder="3 lettres"
+                style="width:80px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.15em;font-size:0.9rem;color:var(--accent)"
+                oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'');previewCodeGroupe()" />
+              <span id="cl-code-groupe-num" style="font-family:var(--font-mono);color:var(--text-3);font-size:0.85rem"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Statut + Date premier contact -->
+        <div class="form-grid" style="margin-top:1rem">
+          <div class="form-field">
+            <label class="form-label">Statut</label>
+            <select id="cl-statut" class="form-select">
+              <option value="Actif">Actif</option>
+              <option value="Standby">Standby</option>
+              <option value="Clôturé">Clôturé</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date du premier contact</label>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <input type="date" id="cl-date-contact" class="form-input" style="flex:1" />
+              <button type="button" class="btn btn-sm" style="white-space:nowrap;flex-shrink:0"
+                onclick="document.getElementById('cl-date-contact').value=new Date().toISOString().split('T')[0]"
+                title="Mettre la date d'aujourd'hui">Aujourd'hui</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /cl-panel-identite -->
+
+      <!-- Tab: Contact -->
+      <div class="cl-tab-panel" id="cl-panel-contact" style="display:none">
+        <div class="form-grid">
+          <div class="form-field full"><label class="form-label">Email</label><input id="cl-email" class="form-input" type="email" placeholder="contact@email.com" /></div>
+          <div class="form-field">
+            <label class="form-label">Téléphone</label>
+            <input id="cl-tel" class="form-input" type="tel" placeholder="+216 XX XXX XXX" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">WhatsApp</label>
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem">
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.78rem;color:var(--text-3)">
+                <input type="checkbox" id="copy-whatsapp-cb" onchange="syncWhatsApp()" style="accent-color:#25D366" />
+                Même numéro que le téléphone
+              </label>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              <input id="cl-whatsapp" class="form-input" style="flex:1" type="tel" placeholder="+216 XX XXX XXX" />
+            </div>
+          </div>
+          <div class="form-field full"><label class="form-label">Adresse</label><input id="cl-adresse" class="form-input" placeholder="Adresse complète, ville, code postal" /></div>
+        </div>
+      </div>
+
+      <!-- Tab: Source & Suivi -->
+      <div class="cl-tab-panel" id="cl-panel-source" style="display:none">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Source d'acquisition</label>
+            <select id="cl-source" class="form-select" onchange="toggleSourceDetail()">
+              <option value="">— Sélectionner —</option>
+              <option value="Google">Google</option>
+              <option value="Facebook">Facebook</option>
+              <option value="Instagram">Instagram</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Site web">Site web</option>
+              <option value="Recommandation client">Recommandation d'un client</option>
+              <option value="Recommandation ami/famille">Recommandation ami / famille</option>
+              <option value="Bouche à oreille">Bouche à oreille</option>
+              <option value="Salon/Exposition">Salon / Exposition</option>
+              <option value="Appel d'offres">Appel d'offres</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+          <div class="form-field" id="cl-source-detail-wrap" style="display:none">
+            <label class="form-label" id="cl-source-detail-label">Nom du référent</label>
+            <input id="cl-source-detail" class="form-input" placeholder="Prénom et nom" />
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:0.5rem">
+          <div class="form-field full">
+            <label class="form-label">Remarques</label>
+            <textarea id="cl-remarques" class="form-textarea" style="min-height:80px" placeholder="Notes, observations, contexte du client…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Contacts secondaires -->
+      <div class="cl-tab-panel" id="cl-panel-contacts-aux" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <span style="font-size:0.82rem;color:var(--text-3)">Contacts secondaires (assistants, comptables, associés…)</span>
+          <button class="btn btn-sm" onclick="addContactAux()">+ Ajouter</button>
+        </div>
+        <div id="cl-contacts-aux-list"></div>
+      </div>
+
+      <div id="cl-err" style="color:#e07070;font-size:0.82rem;margin-top:1rem;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-client')">Annuler</button>
+      <button class="btn btn-primary" id="cl-save-btn" onclick="saveClient()">Créer la fiche client →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouveau devis -->
+<div class="modal-overlay" id="modal-devis">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Nouveau devis</div>
+      <button class="modal-close" onclick="closeModal('modal-devis')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Client</label><input id="dv-client" class="form-input" placeholder="Nom du client" /></div>
+        <div class="form-field"><label class="form-label">Référence</label><input id="dv-ref" class="form-input" placeholder="DV-2026-XXX" /></div>
+        <div class="form-field full"><label class="form-label">Objet du devis</label><input id="dv-objet" class="form-input" placeholder="Description de la mission" /></div>
+        <div class="form-field"><label class="form-label">Montant HT (TND)</label><input id="dv-montant" class="form-input" type="number" placeholder="0" /></div>
+        <div class="form-field"><label class="form-label">Type de mission</label>
+          <select id="dv-type" class="form-select">
+            <option>Maîtrise d'œuvre complète</option>
+            <option>Étude architecturale</option>
+            <option>Permis de construire</option>
+            <option>Suivi de chantier</option>
+            <option>Conseil & expertise</option>
+          </select>
+        </div>
+        <div class="form-field full"><label class="form-label">Notes</label><textarea id="dv-notes" class="form-textarea" placeholder="Conditions, délais, remarques…"></textarea></div>
+      </div>
+      <div id="dv-err" style="display:none;color:#e07070;font-size:0.82rem;margin-top:0.8rem;padding:0.5rem 0.8rem;background:rgba(224,112,112,.1);border-radius:4px;border:1px solid rgba(224,112,112,.3)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-devis')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDevis()">Créer le devis →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouveau projet (complet — onglets Identité, Missions, Intervenants, Localisation) -->
+<div class="modal-overlay" id="modal-projet">
+  <div class="modal-box" style="max-width:780px;width:96%">
+    <div class="modal-header">
+      <div>
+        <div id="pj-modal-eyebrow" style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">NOUVEAU PROJET</div>
+        <div class="modal-title" id="pj-modal-title">Nouveau projet</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-projet')">✕</button>
+    </div>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.2rem">
+      <button class="pj-tab active" onclick="switchPjTab('identite',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">Identité</button>
+      <button class="pj-tab" onclick="switchPjTab('missions',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Missions</button>
+      <button class="pj-tab" onclick="switchPjTab('intervenants',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Intervenants</button>
+      <button class="pj-tab" onclick="switchPjTab('localisation',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Localisation</button>
+    </div>
+    <div class="modal-body" style="max-height:65vh;overflow-y:auto">
+      <div id="pj-err" style="display:none;background:rgba(224,112,112,.1);border:1px solid #e07070;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.82rem;color:#e07070;margin-bottom:1rem"></div>
+      <div id="pj-panel-identite" class="pj-tab-panel">
+        <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.8rem 1rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:1.5rem">
+          <div>
+            <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Code dossier</div>
+            <div id="pj-code-preview" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.08em">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Chemin NAS</div>
+            <div id="pj-nas-preview" style="font-family:var(--mono);font-size:0.75rem;color:var(--text-2)">—</div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field full">
+            <label class="form-label">Nom du projet <span style="color:#e07070">*</span></label>
+            <input id="pj-nom" class="form-input" placeholder="Ex: Villa Djerba" oninput="previewPjCode()" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Client <span style="color:#e07070">*</span></label>
+            <select id="pj-client" class="form-select" onchange="previewPjCode()">
+              <option value="">— Sélectionner un client —</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Phase initiale</label>
+            <select id="pj-phase" class="form-select">
+              <option>Étude préliminaire</option><option>APS</option><option>APD</option><option>PC</option><option>DCE</option><option>EXE</option><option>Livré</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Statut</label>
+            <select id="pj-statut" class="form-select">
+              <option>Actif</option><option>En pause</option><option>Prospection</option><option>Archivé</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Type de bâtiment</label>
+            <select id="pj-type-bat" class="form-select">
+              <option value="">— Sélectionner —</option>
+              <option>Villa / Maison individuelle</option>
+              <option>Immeuble résidentiel</option>
+              <option>Bureau / Coworking</option>
+              <option>Commerce</option>
+              <option>Équipement public</option>
+              <option>Rénovation / Extension</option>
+              <option>Autre</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Délai estimé</label>
+            <input id="pj-delai" class="form-input" type="date" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Honoraires HT (TND)</label>
+            <input id="pj-honoraires" class="form-input" type="number" placeholder="0" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Budget client (TND)</label>
+            <input id="pj-budget" class="form-input" type="number" placeholder="0" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Surface (m²)</label>
+            <input id="pj-surface" class="form-input" type="number" placeholder="0" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Année</label>
+            <input id="pj-annee" class="form-input" type="number" placeholder="2026" value="2026" oninput="previewPjCode()" />
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Description</label>
+            <textarea id="pj-description" class="form-input" rows="2" placeholder="Description courte du projet…" style="resize:vertical"></textarea>
+          </div>
+        </div>
+      </div>
+      <div id="pj-panel-missions" class="pj-tab-panel" style="display:none">
+        <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:1rem">Cochez les missions confiées.</div>
+        <div id="pj-missions-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.5rem"></div>
+      </div>
+      <div id="pj-panel-intervenants" class="pj-tab-panel" style="display:none">
+        <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:1rem">Ajoutez les bureaux d'étude, géomètres et autres intervenants.</div>
+        <div id="pj-intervenants-list"></div>
+        <button class="btn btn-sm" type="button" onclick="addIntervenant()" style="margin-top:0.5rem">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter un intervenant
+        </button>
+      </div>
+      <div id="pj-panel-localisation" class="pj-tab-panel" style="display:none">
+        <div class="form-grid" style="margin-bottom:1rem">
+          <div class="form-field full">
+            <label class="form-label">Adresse / Lieu du projet</label>
+            <input id="pj-adresse" class="form-input" placeholder="Ex: Route de Houmt Souk, Djerba" />
+          </div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">Cliquez sur la carte pour positionner le projet.</div>
+        <div id="pj-map-container" style="height:320px;width:100%;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:0.8rem"></div>
+        <div id="pj-coords-display" style="display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.7rem 1rem;font-size:0.82rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+            <div><span style="color:var(--text-3)">Coordonnées : </span><span id="pj-lat-display" style="font-family:var(--mono);color:var(--accent)"></span><span style="color:var(--text-3);margin:0 0.3rem">,</span><span id="pj-lng-display" style="font-family:var(--mono);color:var(--accent)"></span></div>
+            <a id="pj-maps-link" href="#" target="_blank" style="color:var(--accent);font-size:0.78rem">Ouvrir dans Google Maps</a>
+          </div>
+        </div>
+        <input type="hidden" id="pj-lat" /><input type="hidden" id="pj-lng" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-projet')">Annuler</button>
+      <button class="btn btn-primary" id="pj-save-btn" onclick="saveProjet()">Créer le projet →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouvelle facture -->
+<!-- Modal facture — conforme loi tunisienne 2026 -->
+<div class="modal-overlay" id="modal-facture">
+  <div class="modal-box" style="max-width:860px;width:97%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">FACTURATION</div>
+        <div class="modal-title" id="fa-modal-title">Nouvelle facture</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-facture')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:78vh;overflow-y:auto">
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.2rem">
+        <button class="fa-tab active" onclick="switchFaTab('general',this)" style="background:none;border:none;padding:0.6rem 1rem;font-size:0.78rem;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">Général</button>
+        <button class="fa-tab" onclick="switchFaTab('lignes',this)" style="background:none;border:none;padding:0.6rem 1rem;font-size:0.78rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Prestations</button>
+        <button class="fa-tab" onclick="switchFaTab('fiscal',this)" style="background:none;border:none;padding:0.6rem 1rem;font-size:0.78rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Fiscal & RAS</button>
+        <button class="fa-tab" onclick="switchFaTab('paiement',this)" style="background:none;border:none;padding:0.6rem 1rem;font-size:0.78rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Paiement</button>
+      </div>
+
+      <!-- GÉNÉRAL -->
+      <div class="fa-tab-panel" id="fa-panel-general">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">N° Facture <span style="color:#e07070">*</span></label>
+            <div style="display:flex;gap:0.5rem">
+              <input id="fa-num" class="form-input" placeholder="001/2026" style="flex:1" />
+              <button type="button" class="btn btn-sm" onclick="autoNumFacture()" style="flex-shrink:0">Auto</button>
+            </div>
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Série chronologique ininterrompue (art. 18 Code TVA)</div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date d'émission <span style="color:#e07070">*</span></label>
+            <div style="display:flex;gap:0.5rem">
+              <input id="fa-date" class="form-input" type="date" style="flex:1" />
+              <button type="button" class="btn btn-sm" onclick="document.getElementById('fa-date').value=new Date().toISOString().split('T')[0]">Auj.</button>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date d'échéance</label>
+            <input id="fa-echeance" class="form-input" type="date" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Projet lié</label>
+            <select id="fa-projet" class="form-select" onchange="prefillClientFromProjet()">
+              <option value="">— Sélectionner un projet —</option>
+            </select>
+          </div>
+        </div>
+        <div style="height:1px;background:var(--border);margin:1rem 0"></div>
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Informations client</div>
+        <div class="form-grid">
+          <div class="form-field full">
+            <label class="form-label">Nom / Raison sociale du client <span style="color:#e07070">*</span></label>
+            <input id="fa-client" class="form-input" placeholder="Nom ou raison sociale" list="fa-client-list" />
+            <datalist id="fa-client-list"></datalist>
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Adresse du client</label>
+            <input id="fa-client-adresse" class="form-input" placeholder="Adresse complète" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Matricule fiscal client</label>
+            <input id="fa-client-mf" class="form-input" placeholder="Ex: 1234567/A/A/M/000" />
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Obligatoire si client assujetti à la TVA</div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Objet / Description</label>
+            <input id="fa-objet" class="form-input" placeholder="Ex: Honoraires architecte — Phase APS" />
+          </div>
+        </div>
+      </div>
+
+      <!-- PRESTATIONS -->
+      <div class="fa-tab-panel" id="fa-panel-lignes" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+          <span style="font-size:0.72rem;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase">Lignes de prestation</span>
+          <button type="button" class="btn btn-sm" onclick="addFactureLigne()">+ Ajouter une ligne</button>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 55px 90px 75px 90px 30px;gap:0.4rem;margin-bottom:0.3rem;padding:0 0.2rem">
+          <span style="font-size:0.67rem;color:var(--text-3);text-transform:uppercase">Désignation</span>
+          <span style="font-size:0.67rem;color:var(--text-3);text-transform:uppercase">Qté</span>
+          <span style="font-size:0.67rem;color:var(--text-3);text-transform:uppercase">P.U. HT</span>
+          <span style="font-size:0.67rem;color:var(--text-3);text-transform:uppercase">TVA %</span>
+          <span style="font-size:0.67rem;color:var(--text-3);text-transform:uppercase">Total HT</span>
+          <span></span>
+        </div>
+        <div id="fa-lignes-wrap"></div>
+        <div id="fa-tva-recap" style="margin-top:1rem;display:none">
+          <div style="font-size:0.68rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem">Récapitulatif TVA par taux</div>
+          <div id="fa-tva-recap-lines"></div>
+        </div>
+      </div>
+
+      <!-- FISCAL & RAS -->
+      <div class="fa-tab-panel" id="fa-panel-fiscal" style="display:none">
+        <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1.2rem">
+          <div style="font-size:0.68rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.8rem">Récapitulatif financier</div>
+          <div style="display:flex;flex-direction:column;gap:0.5rem">
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem"><span style="color:var(--text-3)">Total HT</span><span id="fa-total-ht" style="font-family:var(--mono);font-weight:600">0,000 TND</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem"><span style="color:var(--text-3)">Total TVA</span><span id="fa-total-tva" style="font-family:var(--mono)">0,000 TND</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem">
+              <span style="color:var(--text-3)">FODEC <label style="cursor:pointer"><input type="checkbox" id="fa-fodec-active" onchange="calcFactureTotal()" style="accent-color:var(--accent);margin-left:0.3rem;vertical-align:middle" /> <span style="font-size:0.7rem">1% du HT</span></label></span>
+              <span id="fa-total-fodec" style="font-family:var(--mono)">0,000 TND</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem"><span style="color:var(--text-3)">Droit de timbre <span style="font-size:0.7rem">(1,000 TND fixe)</span></span><span id="fa-total-timbre" style="font-family:var(--mono)">1,000 TND</span></div>
+            <div style="height:1px;background:var(--border);margin:0.2rem 0"></div>
+            <div style="display:flex;justify-content:space-between;font-size:1rem;font-weight:700"><span style="color:var(--accent)">Total TTC</span><span id="fa-total-ttc" style="font-family:var(--mono);color:var(--accent)">0,000 TND</span></div>
+          </div>
+        </div>
+
+        <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+            <div>
+              <div style="font-size:0.8rem;font-weight:600;color:var(--text)">Retenue à la source (RAS)</div>
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.1rem">Si client = entreprise ou administration</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.8rem">
+              <input type="checkbox" id="fa-ras-active" onchange="toggleRas()" style="accent-color:var(--accent)" /> Activer
+            </label>
+          </div>
+          <div id="fa-ras-wrap" style="display:none">
+            <div class="form-grid">
+              <div class="form-field">
+                <label class="form-label">Taux RAS</label>
+                <select id="fa-ras-taux" class="form-select" onchange="onRasTauxChange()">
+                  <option value="1">1% — Achats marchandises/matériel</option>
+                  <option value="1.5">1,5% — Achats marchandises/matériel</option>
+                  <option value="10" selected>10% — Honoraires/Services (architecture)</option>
+                  <option value="15">15% — Honoraires/Commissions</option>
+                  <option value="20">20% — Loyers</option>
+                  <option value="custom">Autre taux…</option>
+                </select>
+              </div>
+              <div class="form-field" id="fa-ras-custom-wrap" style="display:none">
+                <label class="form-label">Taux personnalisé (%)</label>
+                <input id="fa-ras-taux-custom" class="form-input" type="number" step="0.5" min="0" placeholder="Ex: 5" oninput="calcFactureTotal()" />
+              </div>
+            </div>
+            <div style="margin-top:0.8rem;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:0.8rem">
+              <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem"><span style="color:var(--text-3)">Base RAS (TTC)</span><span id="fa-ras-base" style="font-family:var(--mono)">0,000 TND</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem"><span style="color:var(--text-3)">Montant RAS retenu</span><span id="fa-ras-montant" style="font-family:var(--mono);color:#e07b72">- 0,000 TND</span></div>
+              <div style="height:1px;background:var(--border);margin:0.4rem 0"></div>
+              <div style="display:flex;justify-content:space-between;font-size:0.95rem;font-weight:700"><span style="color:var(--accent)">Net à payer</span><span id="fa-net-payer" style="font-family:var(--mono);color:var(--accent)">0,000 TND</span></div>
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.4rem">⚠ Le client doit remettre un certificat RAS via la plateforme TEJ (obligatoire)</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:1rem;padding:0.8rem 1rem;background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.25);border-radius:6px">
+          <div style="font-size:0.78rem;font-weight:600;color:var(--accent);margin-bottom:0.6rem">⚡ Facturation électronique — El Fatoora 2026 (TTN/DGI)</div>
+          <div class="form-grid">
+            <div class="form-field"><label class="form-label">Référence El Fatoora / TTN</label><input id="fa-ref-elfatoora" class="form-input" placeholder="Identifiant unique TTN" /></div>
+            <div class="form-field"><label class="form-label">Signature électronique (ANCE/NGSign)</label><input id="fa-signature-elec" class="form-input" placeholder="Référence certificat" /></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAIEMENT -->
+      <div class="fa-tab-panel" id="fa-panel-paiement" style="display:none">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Mode de règlement</label>
+            <select id="fa-mode-paiement" class="form-select">
+              <option>Virement bancaire</option><option>Chèque</option><option>Espèces</option>
+              <option>Traite / Lettre de change</option><option>Mobile banking</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Statut</label>
+            <select id="fa-statut" class="form-select">
+              <option value="Impayée">Impayée</option><option value="Payée">Payée</option>
+              <option value="Partielle">Paiement partiel</option><option value="En litige">En litige</option>
+            </select>
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Notes / Conditions de paiement</label>
+            <textarea id="fa-notes" class="form-input" rows="2" placeholder="Ex: Paiement à 30 jours. Pénalités de retard : 1,5%/mois."></textarea>
+          </div>
+          <div class="form-field full">
+            <label class="form-label">RIB / Coordonnées bancaires</label>
+            <input id="fa-rib" class="form-input" placeholder="Ex: Banque XYZ — IBAN : TN59 XXXX XXXX XXXX XXXX XXXX XX" />
+          </div>
+        </div>
+        <div style="margin-top:1rem;padding:0.8rem 1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+          <div style="font-size:0.68rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem">Montant en lettres</div>
+          <div id="fa-montant-lettres" style="font-size:0.85rem;color:var(--text-2);font-style:italic">—</div>
+        </div>
+      </div>
+
+      <div id="fa-err" style="display:none;color:#e07070;font-size:0.82rem;margin-top:1rem;padding:0.5rem 0.8rem;background:rgba(224,112,112,.1);border-radius:4px;border:1px solid rgba(224,112,112,.3)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-facture')">Annuler</button>
+      <button class="btn" id="fa-pdf-btn" onclick="exportFactureCourante()" disabled style="opacity:0.38;color:#6fa8d6" title="Enregistrez la facture pour activer le PDF">⬇️ PDF</button>
+      <button class="btn btn-primary" id="fa-save-btn" onclick="saveFacture()">Émettre la facture →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouvelle dépense — version enrichie -->
+<div class="modal-overlay" id="modal-depense">
+  <div class="modal-box" style="max-width:760px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title">Ajouter une dépense</div>
+      <button class="modal-close" onclick="closeModal('modal-depense')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <div class="form-grid">
+
+        <!-- 1. Catégorie en premier -->
+        <div class="form-field">
+          <label class="form-label">Catégorie <span style="color:#e07070">*</span></label>
+          <select id="dep-categorie" class="form-select">
+            <option value="">— Sélectionner —</option>
+            <option>Salaires & charges</option>
+            <option>Logiciels & licences</option>
+            <option>Loyer & charges</option>
+            <option>Déplacements</option>
+            <option>Fournitures</option>
+            <option>Marketing & communication</option>
+            <option>Frais bancaires</option>
+            <option>Honoraires externes</option>
+            <option>Autre</option>
+          </select>
+        </div>
+
+        <!-- 2. Date -->
+        <div class="form-field">
+          <label class="form-label">Date</label>
+          <div style="display:flex;gap:0.5rem">
+            <input id="dep-date" class="form-input" type="date" style="flex:1" />
+            <button type="button" class="btn btn-sm" style="flex-shrink:0"
+              onclick="document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]">Auj.</button>
+          </div>
+        </div>
+
+        <!-- 3. Libellé avec historique -->
+        <div class="form-field full">
+          <label class="form-label">Libellé</label>
+          <input id="dep-libelle" class="form-input" placeholder="Description de la dépense"
+            list="dep-libelle-list" autocomplete="off" />
+          <datalist id="dep-libelle-list"></datalist>
+        </div>
+
+        <!-- 4. Référence -->
+        <div class="form-field">
+          <label class="form-label">Référence</label>
+          <input id="dep-reference" class="form-input" placeholder="N° facture, bon de commande…" />
+        </div>
+
+        <!-- 5. Fournisseur -->
+        <div class="form-field">
+          <label class="form-label">Fournisseur / Bénéficiaire</label>
+          <input id="dep-fournisseur" class="form-input" placeholder="Nom du fournisseur"
+            list="dep-fournisseur-list" autocomplete="off" />
+          <datalist id="dep-fournisseur-list"></datalist>
+        </div>
+
+        <!-- 6. Code TVA fournisseur -->
+        <div class="form-field">
+          <label class="form-label">Code TVA fournisseur</label>
+          <input id="dep-code-tva" class="form-input" placeholder="XXXXXXX/X/X/XXX" />
+        </div>
+
+      </div>
+
+      <!-- Lignes de montant (HT + TVA, plusieurs possibles) -->
+      <div style="margin-top:1.2rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
+          <span style="font-size:0.72rem;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase">Montants</span>
+          <button type="button" class="btn btn-sm" onclick="addDepenseLigne()">+ Ajouter une ligne TVA</button>
+        </div>
+        <div id="dep-lignes-wrap">
+          <!-- Ligne par défaut générée par JS -->
+        </div>
+
+        <!-- Totaux automatiques -->
+        <div style="margin-top:1rem;padding:0.8rem 1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+          <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.4rem">
+            <span style="color:var(--text-3)">Total HT</span>
+            <span id="dep-total-ht" style="font-family:var(--mono);color:var(--text)">0,000 TND</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.4rem">
+            <span style="color:var(--text-3)">Total TVA</span>
+            <span id="dep-total-tva" style="font-family:var(--mono);color:var(--text)">0,000 TND</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.4rem">
+            <span style="color:var(--text-3)">Droit de timbre (1%)</span>
+            <span id="dep-timbre" style="font-family:var(--mono);color:var(--text)">0,000 TND</span>
+          </div>
+          <div style="height:1px;background:var(--border);margin:0.4rem 0"></div>
+          <div style="display:flex;justify-content:space-between;font-size:0.95rem;font-weight:600">
+            <span style="color:var(--accent)">Total TTC</span>
+            <span id="dep-total-ttc" style="font-family:var(--mono);color:var(--accent)">0,000 TND</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-depense')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDepense()">Enregistrer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal scan facture IA -->
+<div class="modal-overlay" id="modal-scan-facture">
+  <div class="modal-box" style="max-width:620px;width:96%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Intelligence artificielle</div>
+        <div class="modal-title">Scanner une facture</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-scan-facture');resetScanFacture()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Zone upload / camera -->
+      <div id="scan-zone" style="border:2px dashed var(--border);border-radius:8px;padding:2rem;text-align:center;cursor:pointer;transition:border-color .2s"
+        onclick="document.getElementById('scan-file-input').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor='var(--border)'"
+        ondrop="event.preventDefault();this.style.borderColor='var(--border)';handleScanDrop(event)">
+        <div style="font-size:2rem;margin-bottom:0.8rem">📷</div>
+        <div style="font-size:0.88rem;color:var(--text-2);margin-bottom:0.4rem">Cliquez pour photographier ou importer une facture</div>
+        <div style="font-size:0.75rem;color:var(--text-3)">JPG, PNG, PDF — ou glissez-déposez ici</div>
+        <input type="file" id="scan-file-input" accept="image/*,application/pdf" capture="environment"
+          style="display:none" onchange="handleScanFile(this.files[0])" />
+      </div>
+
+      <!-- Preview image -->
+      <div id="scan-preview-wrap" style="display:none;margin-top:1rem;text-align:center">
+        <img id="scan-preview-img" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--border)" />
+        <div style="margin-top:0.6rem">
+          <button class="btn btn-sm" onclick="document.getElementById('scan-file-input').click()">Changer</button>
+          <button class="btn btn-sm btn-primary" onclick="analyserFacture()" id="scan-analyse-btn" style="margin-left:0.5rem">
+            ✨ Analyser avec l'IA
+          </button>
+        </div>
+      </div>
+
+      <!-- Résultat IA -->
+      <div id="scan-result-wrap" style="display:none;margin-top:1rem">
+        <div style="font-size:0.72rem;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.8rem">Données extraites par l'IA</div>
+        <div class="form-grid">
+          <div class="form-field"><label class="form-label">Fournisseur</label><input id="scan-fournisseur" class="form-input" /></div>
+          <div class="form-field"><label class="form-label">Référence</label><input id="scan-reference" class="form-input" /></div>
+          <div class="form-field"><label class="form-label">Date</label><input id="scan-date" class="form-input" type="date" /></div>
+          <div class="form-field"><label class="form-label">Catégorie</label>
+            <select id="scan-categorie" class="form-select">
+              <option value="">— Sélectionner —</option>
+              <option>Salaires & charges</option><option>Logiciels & licences</option>
+              <option>Loyer & charges</option><option>Déplacements</option>
+              <option>Fournitures</option><option>Marketing & communication</option>
+              <option>Frais bancaires</option><option>Honoraires externes</option><option>Autre</option>
+            </select>
+          </div>
+          <div class="form-field full"><label class="form-label">Libellé</label><input id="scan-libelle" class="form-input" /></div>
+          <div class="form-field"><label class="form-label">Montant HT</label><input id="scan-ht" class="form-input" type="number" step="0.001" /></div>
+          <div class="form-field"><label class="form-label">TVA</label><input id="scan-tva-val" class="form-input" type="number" step="0.001" /></div>
+          <div class="form-field"><label class="form-label">Total TTC</label><input id="scan-ttc" class="form-input" type="number" step="0.001" /></div>
+          <div class="form-field"><label class="form-label">Code TVA fournisseur</label><input id="scan-code-tva" class="form-input" /></div>
+        </div>
+        <div id="scan-ia-msg" style="margin-top:0.8rem;font-size:0.78rem;color:var(--text-3);font-style:italic"></div>
+      </div>
+
+      <!-- Loader -->
+      <div id="scan-loader" style="display:none;text-align:center;padding:2rem">
+        <div style="font-size:1.5rem;margin-bottom:0.6rem">⏳</div>
+        <div style="font-size:0.85rem;color:var(--text-3)">Analyse en cours…</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-scan-facture');resetScanFacture()">Annuler</button>
+      <button class="btn btn-primary" id="scan-import-btn" style="display:none" onclick="importerDepuisScan()">
+        Importer dans la fiche dépense →
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal export factures PDF -->
+<div class="modal-overlay" id="modal-export-factures">
+  <div class="modal-box" style="max-width:620px;width:96%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Facturation</div>
+        <div class="modal-title">Exporter des factures en PDF</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-export-factures')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+        <span style="font-size:0.78rem;color:var(--text-3)">Sélectionnez les factures à exporter</span>
+        <div style="display:flex;gap:0.5rem">
+          <button class="btn btn-sm" onclick="exportSelectAll(true)">Tout cocher</button>
+          <button class="btn btn-sm" onclick="exportSelectAll(false)">Tout décocher</button>
+        </div>
+      </div>
+      <div id="export-factures-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:0.4rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-export-factures')">Annuler</button>
+      <button class="btn btn-primary" onclick="exportFacturesPDFSelection()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Générer le PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal saisie IRPP N-1 -->
+<div class="modal-overlay" id="modal-irpp">
+  <div class="modal-box" style="max-width:520px;width:95%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Fiscalité</div>
+        <div class="modal-title">IRPP payé — Année précédente</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-irpp')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:0.82rem;color:var(--text-3);margin-bottom:1.2rem">
+        Saisissez l'IRPP réellement payé l'année précédente (montant figurant sur votre déclaration annuelle). Ce montant sert au calcul des acomptes provisionnels de l'année en cours (3 × 30%).
+      </div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="form-label">Année de référence</label>
+          <input id="irpp-annee-ref" class="form-input" type="number" placeholder="2025" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">IRPP payé (TND)</label>
+          <input id="irpp-montant-ref" class="form-input" type="number" step="0.001" placeholder="Ex: 8500.000" oninput="previewAcomptes()" />
+        </div>
+        <div class="form-field full">
+          <label class="form-label">Acomptes déjà versés cette année (total)</label>
+          <input id="irpp-acomptes-verses" class="form-input" type="number" step="0.001" placeholder="0.000" oninput="previewAcomptes()" />
+        </div>
+      </div>
+      <div id="irpp-preview" style="margin-top:1rem;padding:1rem;background:var(--bg-2);border-radius:6px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-irpp')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveIRPPRef()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
+
+<!-- ══════════════════════════════════════
+     MODAL MEMBRE — Nouveau / Modifier
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-membre">
+  <div class="modal-box" style="max-width:640px;width:95%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Équipe</div>
+        <div class="modal-title" id="modal-membre-title">Nouveau membre</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-membre')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto;padding-right:0.4rem">
+
+      <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Informations personnelles</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="form-label">Prénom <span style="color:#e07070">*</span></label>
+          <input id="mb-prenom" class="form-input" placeholder="Prénom" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Nom <span style="color:#e07070">*</span></label>
+          <input id="mb-nom" class="form-input" placeholder="Nom de famille" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Rôle <span style="color:#e07070">*</span></label>
+          <select id="mb-role" class="form-select">
+            <option value="">— Sélectionner un rôle —</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Statut</label>
+          <select id="mb-statut" class="form-select">
+            <option value="Actif">Actif</option>
+            <option value="Sur chantier">Sur chantier</option>
+            <option value="En congé">En congé</option>
+            <option value="Inactif">Inactif</option>
+          </select>
+        </div>
+        <div class="form-field"><label class="form-label">Téléphone</label><input id="mb-tel" class="form-input" placeholder="+216 XX XXX XXX" /></div>
+        <div class="form-field"><label class="form-label">Spécialité / Notes</label><input id="mb-spec" class="form-input" placeholder="Ex: HQE, BIM, Paysage…" /></div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
+      <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Compte d'accès à la plateforme</div>
+      <div class="form-grid">
+        <div class="form-field full">
+          <label class="form-label">Email (identifiant de connexion) <span style="color:#e07070">*</span></label>
+          <input id="mb-email" class="form-input" type="email" placeholder="prenom.nom@cortobaarchitecture.com" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Mot de passe initial</label>
+          <div style="position:relative;display:flex;align-items:center">
+            <input id="mb-pass" class="form-input" type="password" placeholder="Min. 6 caractères" style="padding-right:2.8rem;width:100%"/>
+            <button type="button" onclick="togglePwd('mb-pass',this)"
+              style="position:absolute;right:0.7rem;background:none;border:none;cursor:pointer;color:var(--text-3);padding:0.2rem;display:flex;align-items:center"
+              onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-3)'">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Confirmer le mot de passe</label>
+          <input id="mb-pass2" class="form-input" type="password" placeholder="Répéter le mot de passe" />
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3)">Accès aux modules</div>
+        <div style="display:flex;gap:0.5rem">
+          <button class="btn btn-sm" onclick="setAllModules(true)" style="font-size:0.7rem">Tout cocher</button>
+          <button class="btn btn-sm" onclick="setAllModules(false)" style="font-size:0.7rem">Tout décocher</button>
+        </div>
+      </div>
+      <div id="mb-modules-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem"></div>
+
+      <div id="mb-error" style="display:none;margin-top:1rem;padding:0.7rem 1rem;background:rgba(224,112,112,0.08);border:1px solid rgba(224,112,112,0.3);border-radius:6px;font-size:0.8rem;color:#e07b72"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-membre')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveMembre()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmation suppression membre -->
+<div class="modal-overlay" id="modal-delete-membre">
+  <div class="modal-box" style="max-width:420px;width:92%">
+    <div class="modal-header">
+      <div class="modal-title" style="color:#e07b72">Supprimer le membre</div>
+      <button class="modal-close" onclick="closeModal('modal-delete-membre')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-delete-membre-msg" style="font-size:0.88rem;color:var(--text-2)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-delete-      <button class="btn" onclick="closeModal('modal-delete-membre')">Annuler</button>
+      <button class="btn" style="background:rgba(224,112,112,0.12);border-color:rgba(224,112,112,0.35);color:#e07b72" onclick="confirmDeleteMembre()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL Raccourci NAS ══ -->
+<div class="modal-overlay" id="modal-nas-raccourci">
+  <div class="modal-box" style="max-width:480px;width:95%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">NAS — Accès rapide</div>
+        <div class="modal-title" id="modal-raccourci-title">Nouveau raccourci</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-nas-raccourci')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-field full">
+          <label class="form-label">Nom du raccourci <span style="color:#e07070">*</span></label>
+          <input id="rc-nom" class="form-input" placeholder="Ex: Projets actifs" />
+        </div>
+        <div class="form-field full">
+          <label class="form-label">Description</label>
+          <input id="rc-desc" class="form-input" placeholder="Ex: Plans, DCE, PV de chantier" />
+        </div>
+        <div class="form-field full">
+          <label class="form-label">Chemin / URL</label>
+          <input id="rc-url" class="form-input" placeholder="Ex: /Projets/Actifs" />
+          <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Chemin NAS relatif ou URL complète</div>
+        </div>
+        <div class="form-field full">
+          <label class="form-label">Icône</label>
+          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.3rem">
+            <button type="button" onclick="selectRcIcon('folder',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📁</button>
+            <button type="button" onclick="selectRcIcon('doc',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📄</button>
+            <button type="button" onclick="selectRcIcon('image',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">🖼️</button>
+            <button type="button" onclick="selectRcIcon('pdf',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📑</button>
+            <button type="button" onclick="selectRcIcon('archive',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">🗂️</button>
+            <button type="button" onclick="selectRcIcon('plan',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📐</button>
+            <button type="button" onclick="selectRcIcon('photo',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📷</button>
+            <button type="button" onclick="selectRcIcon('contrat',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📋</button>
+          </div>
+          <input type="hidden" id="rc-icone" value="folder" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-nas-raccourci')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveRaccourci()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL Fichier récent NAS ══ -->
+<div class="modal-overlay" id="modal-nas-fichier">
+  <div class="modal-box" style="max-width:480px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-fichier-title">Ajouter un fichier récent</div>
+      <button class="modal-close" onclick="closeModal('modal-nas-fichier')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-field full">
+          <label class="form-label">Nom du fichier <span style="color:#e07070">*</span></label>
+          <input id="nf-nom" class="form-input" placeholder="Ex: Plan_RDC_v4.dwg" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Projet associé</label>
+          <select id="nf-projet" class="form-select"></select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Date de modification</label>
+          <input id="nf-date" class="form-input" type="date" />
+        </div>
+        <div class="form-field full">
+          <label class="form-label">Chemin / Lien</label>
+          <input id="nf-url" class="form-input" placeholder="Ex: /Projets/VillaNabeul/Plan_RDC.dwg" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-nas-fichier')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveNasFichier()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="plateforme-nas.js?v=1"></script>
+<script src="ergonomie.js?v=1"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    var checkTables = setInterval(function() {
+      var devisTable = document.getElementById('devis-table');
+      var facTable   = document.getElementById('factures-table');
+      if (devisTable && facTable) {
+        clearInterval(checkTables);
+        if (window.initBulkSelect) {
+          window.initBulkSelect('#devis-table',    'devis-bulk-bar');
+          window.initBulkSelect('#factures-table', 'factures-bulk-bar');
+        }
+      }
+    }, 600);
+  }, 800);
+});
+</script>
+</body>
+</html>
