@@ -1565,7 +1565,23 @@ function openEditProjet(id){
   if (tcEl) tcEl.value = p.type_construction || p.typeConstruction || 'nouveau';
   var cdEl = document.getElementById('pj-civitas-demande');
   if (cdEl) cdEl.value = p.civitas_demande || p.civitasDemande || 'premiere';
-  // Champs onglet CIVITAS
+  if (p.lat && p.lng) {
+    document.getElementById('pj-lat').value = p.lat;
+    document.getElementById('pj-lng').value = p.lng;
+    showPjCoords(p.lat, p.lng);
+  }
+
+  // ── Client doit être sélectionné AVANT d'activer l'onglet CIVITAS ──
+  populateClientSelect();
+  var sel    = document.getElementById('pj-client');
+  var client = getClients().find(function(c){
+    return c.id===p.clientId || c.id===p.client_id ||
+           (c.displayNom||c.display_nom)===p.client;
+  });
+  if (sel && client) sel.value = client.id;
+  previewPjCode();
+
+  // Champs onglet CIVITAS (après client défini pour que refreshCivitasClientPreview marche)
   var hasCivitas = !!(p.commune || p.delegation || p.type_construction || p.civitas_demande !== 'premiere');
   var cbCiv = document.getElementById('pj-civitas-enabled');
   if (cbCiv) { cbCiv.checked = hasCivitas; toggleCivitasTab(); }
@@ -1577,27 +1593,9 @@ function openEditProjet(id){
   var lieuEl = document.getElementById('pj-civitas-lieu');
   if (lieuEl) lieuEl.value = p.civitas_lieu || '';
 
-  // CIN / date d'émission dans l'onglet CIVITAS
-  // (pré-rempli depuis la fiche client via refreshCivitasClientPreview, mais on peut aussi stocker sur le projet)
-  var civCinEl = document.getElementById('pj-civitas-cin');
-  var civDCEl  = document.getElementById('pj-civitas-date-cin');
-  if (civCinEl) civCinEl.value = '';    // sera rempli par refreshCivitasClientPreview()
-  if (civDCEl)  civDCEl.value  = '';
-
-  if (p.lat && p.lng) {
-    document.getElementById('pj-lat').value = p.lat;
-    document.getElementById('pj-lng').value = p.lng;
-    showPjCoords(p.lat, p.lng);
-  }
-
-  populateClientSelect();
-  var sel    = document.getElementById('pj-client');
-  var client = getClients().find(function(c){
-    return c.id===p.clientId || c.id===p.client_id ||
-           (c.displayNom||c.display_nom)===p.client;
-  });
-  if (sel && client) sel.value = client.id;
-  previewPjCode();
+  // CIN / date : pré-remplis via refreshCivitasClientPreview (déjà appelé par toggleCivitasTab si actif)
+  // Forcer le rafraîchissement si CIVITAS est actif
+  if (hasCivitas) refreshCivitasClientPreview();
 
   populateMissionsList(p.missions||[]);
   if (p.intervenants && p.intervenants.length) p.intervenants.forEach(function(i){ addIntervenant(i); });
@@ -1709,15 +1707,11 @@ function ouvrirCivitas(projetId) {
   apiFetch('api/civitas_store.php', { method: 'POST', body: prefill })
     .then(function(r) {
       var token = r.token || '';
-      // Passer le token ET l'URL de base Cortoba dans les params CIVITAS
-      var cbParam = encodeURIComponent(API_BASE);
-      window.open(
-        'https://app.civitas.tn/admin/addnewdemande?ct=' + token + '&cb=' + cbParam,
-        '_blank'
-      );
+      // Seul le token dans l'URL — le bookmarklet récupère l'URL Cortoba depuis son propre src
+      window.open('https://app.civitas.tn/admin/addnewdemande?ct=' + token, '_blank');
     })
     .catch(function() {
-      // Fallback : base64 dans le hash si le store échoue
+      // Fallback : base64 compacte si le store échoue
       var encoded = '';
       try { encoded = btoa(unescape(encodeURIComponent(JSON.stringify(prefill)))); } catch(e) {}
       window.open('https://app.civitas.tn/admin/addnewdemande?civitas=' + encoded, '_blank');

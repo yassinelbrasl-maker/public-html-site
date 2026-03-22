@@ -17,16 +17,23 @@
 
   // ── 1. Lire les données depuis les paramètres URL (passés par ouvrirCivitas()) ─
   var params  = new URLSearchParams(window.location.search);
-  var ct      = params.get('ct');    // token serveur (méthode principale)
-  var cb      = params.get('cb');    // URL de base Cortoba
+  var ct      = params.get('ct');      // token serveur (méthode principale)
   var civB64  = params.get('civitas'); // fallback base64 direct
 
   // Méthode 1 : token serveur → fetch vers l'API Cortoba
-  if (ct && cb) {
-    var apiUrl = decodeURIComponent(cb) + 'api/civitas_store.php?token=' + encodeURIComponent(ct);
+  // L'URL de base est déduite depuis le src de CE script (pas de cb= dans l'URL pour éviter le WAF)
+  if (ct) {
+    var scriptEl  = document.querySelector('script[src*="civitas-bookmarklet"]');
+    var scriptSrc = scriptEl ? scriptEl.src : '';
+    var apiBase   = scriptSrc ? scriptSrc.replace(/civitas-bookmarklet\.js[^]*$/, '') : null;
+    if (!apiBase) {
+      alert('Cortoba → CIVITAS\n\nImpossible de détecter l\'URL Cortoba.\nVérifiez que le bookmarklet est bien celui fourni par Cortoba.');
+      return;
+    }
+    var apiUrl = apiBase + 'api/civitas_store.php?token=' + encodeURIComponent(ct);
     fetch(apiUrl)
       .then(function(r) {
-        if (!r.ok) throw new Error('Token expiré ou introuvable');
+        if (!r.ok) throw new Error('Token expiré ou introuvable (code ' + r.status + ')');
         return r.json();
       })
       .then(function(d) { runPrefill(d); })
