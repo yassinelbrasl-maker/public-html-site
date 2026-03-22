@@ -15,15 +15,23 @@
 (function () {
   'use strict';
 
-  // ── 1. Lire les données stockées par ouvrirCivitas() ──────────────────────
+  // ── 1. Lire les données depuis le hash de l'URL (passé par ouvrirCivitas()) ─
   var raw = null;
-  try { raw = localStorage.getItem('civitas_prefill'); } catch (e) {}
+  var hash = window.location.hash || '';
+  var hashMatch = hash.match(/[#&]civitas=([^&]*)/);
+  if (hashMatch) {
+    try { raw = decodeURIComponent(escape(atob(hashMatch[1]))); } catch (e) {}
+  }
+  // Fallback : ancienne méthode localStorage (même domaine uniquement)
   if (!raw) {
-    alert('Cortoba → CIVITAS\n\nAucune donnée trouvée.\nOuvrez d\'abord un projet depuis la plateforme Cortoba et cliquez "CIVITAS ↗".');
+    try { raw = localStorage.getItem('civitas_prefill'); } catch (e) {}
+  }
+  if (!raw) {
+    alert('Cortoba → CIVITAS\n\nAucune donnée trouvée.\nOuvrez d\'abord un projet depuis la plateforme Cortoba et cliquez "CIVITAS ↗".\n\nNote : utilisez le bouton CIVITAS ↗ dans la liste des projets pour ouvrir cette page avec les données pré-chargées.');
     return;
   }
   var d;
-  try { d = JSON.parse(raw); } catch (e) { alert('Données invalides dans le localStorage.'); return; }
+  try { d = JSON.parse(raw); } catch (e) { alert('Données invalides.'); return; }
 
   // ── 2. Utilitaires compatibles Vue/Angular/React ───────────────────────────
   /**

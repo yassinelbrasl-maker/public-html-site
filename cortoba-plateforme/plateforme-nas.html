@@ -1723,12 +1723,22 @@
           </div>
         </div>
 
-        <!-- Section 3 : Aperçu maître d'ouvrage -->
-        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">المالك — Maître d'ouvrage (depuis la fiche client)</div>
-        <div id="pj-civitas-client-preview" style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.8rem 1rem;font-size:0.8rem;color:var(--text-2);line-height:1.8">
+        <!-- Section 3 : Maître d'ouvrage — CIN -->
+        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">المالك — Maître d'ouvrage</div>
+        <div id="pj-civitas-client-preview" style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.8rem 1rem;font-size:0.8rem;color:var(--text-2);line-height:1.8;margin-bottom:1rem">
           <span style="color:var(--text-3)">Sélectionnez un client dans l'onglet Identité pour afficher l'aperçu.</span>
         </div>
-        <div style="font-size:0.72rem;color:var(--text-3);margin-top:0.5rem">Le CIN et la date d'émission se renseignent dans la <strong>fiche client</strong> (onglet Contact).</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">N° CIN / Passeport — رقم بطاقة التعريف <span style="color:#e07070">*</span></label>
+            <input id="pj-civitas-cin" class="form-input" placeholder="Ex: 12345678" />
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Pré-rempli depuis la fiche client ; modifiable ici</div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date émission CIN / Passeport — تاريخ الإصدار <span style="color:#e07070">*</span></label>
+            <input id="pj-civitas-date-cin" class="form-input" type="date" />
+          </div>
+        </div>
 
       </div>
       <!-- ══ FIN ONGLET CIVITAS ══════════════════════════════════════════════ -->

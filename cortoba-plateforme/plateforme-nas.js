@@ -1273,16 +1273,20 @@ function refreshCivitasClientPreview() {
     return;
   }
   var rows = [
-    ['Nom / النقب',   client.displayNom || client.display_nom || '—'],
-    ['CIN / Passeport', client.cin || '<span style="color:#e07070">Non renseigné — à compléter dans la fiche client</span>'],
-    ['Date émission',   client.date_cin || client.dateCin || '<span style="color:#e07070">Non renseignée</span>'],
-    ['Téléphone',       client.tel || '—'],
-    ['Email',           client.email || '—'],
-    ['Adresse MO',      client.adresse || '—'],
+    ['Nom / الاسم',   client.displayNom || client.display_nom || '—'],
+    ['Téléphone',     client.tel || '—'],
+    ['Email',         client.email || '—'],
+    ['Adresse MO',    client.adresse || '—'],
   ];
   preview.innerHTML = rows.map(function(r){
-    return '<div style="display:flex;gap:0.5rem"><span style="min-width:130px;color:var(--text-3)">' + r[0] + ' :</span><span>' + r[1] + '</span></div>';
+    return '<div style="display:flex;gap:0.5rem"><span style="min-width:110px;color:var(--text-3)">' + r[0] + ' :</span><span>' + r[1] + '</span></div>';
   }).join('');
+
+  // Pré-remplir les champs CIN/date seulement si vides (ne pas écraser une valeur saisie)
+  var cinEl     = document.getElementById('pj-civitas-cin');
+  var dateCinEl = document.getElementById('pj-civitas-date-cin');
+  if (cinEl && !cinEl.value)     cinEl.value     = client.cin || '';
+  if (dateCinEl && !dateCinEl.value) dateCinEl.value = client.date_cin || client.dateCin || '';
 }
 
 function genProjetCode(annee, clientDisplayNom, clientCode){
@@ -1498,6 +1502,8 @@ function resetProjetForm(){
   var pjTC     = document.getElementById('pj-type-construction'); if(pjTC)     pjTC.value     = 'nouveau';
   var pjCD     = document.getElementById('pj-civitas-demande');   if(pjCD)     pjCD.value     = 'premiere';
   var pjLieu   = document.getElementById('pj-civitas-lieu');      if(pjLieu)   pjLieu.value   = '';
+  var pjCivCin = document.getElementById('pj-civitas-cin');       if(pjCivCin) pjCivCin.value = '';
+  var pjCivDC  = document.getElementById('pj-civitas-date-cin');  if(pjCivDC)  pjCivDC.value  = '';
   // Désactiver l'onglet CIVITAS
   var cbCiv = document.getElementById('pj-civitas-enabled');
   if (cbCiv) { cbCiv.checked = false; toggleCivitasTab(); }
@@ -1570,6 +1576,13 @@ function openEditProjet(id){
   }
   var lieuEl = document.getElementById('pj-civitas-lieu');
   if (lieuEl) lieuEl.value = p.civitas_lieu || '';
+
+  // CIN / date d'émission dans l'onglet CIVITAS
+  // (pré-rempli depuis la fiche client via refreshCivitasClientPreview, mais on peut aussi stocker sur le projet)
+  var civCinEl = document.getElementById('pj-civitas-cin');
+  var civDCEl  = document.getElementById('pj-civitas-date-cin');
+  if (civCinEl) civCinEl.value = '';    // sera rempli par refreshCivitasClientPreview()
+  if (civDCEl)  civDCEl.value  = '';
 
   if (p.lat && p.lng) {
     document.getElementById('pj-lat').value = p.lat;
@@ -1664,11 +1677,17 @@ function ouvrirCivitas(projetId) {
   var typeConst = p.type_construction || p.typeConstruction || 'nouveau';
   var civitasDem = p.civitas_demande || p.civitasDemande || 'premiere';
 
+  // Lire les champs CIN depuis l'onglet CIVITAS (priorité) puis la fiche client
+  var cinEl     = document.getElementById('pj-civitas-cin');
+  var dateCinEl = document.getElementById('pj-civitas-date-cin');
+  var cinVal     = (cinEl && cinEl.value)     ? cinEl.value     : (client.cin || '');
+  var dateCinVal = (dateCinEl && dateCinEl.value) ? dateCinEl.value : (client.date_cin || client.dateCin || '');
+
   var prefill = {
     // Identité maître d'ouvrage
     nom_prenom:   client.displayNom || client.display_nom || p.client || '',
-    cin:          client.cin || '',
-    date_cin:     client.date_cin || '',
+    cin:          cinVal,
+    date_cin:     dateCinVal,
     tel:          client.tel || '',
     email:        client.email || '',
     adresse_moa:  client.adresse || '',
@@ -1686,11 +1705,12 @@ function ouvrirCivitas(projetId) {
     code_projet:    p.code || ''
   };
 
-  // Stocker en localStorage pour le bookmarklet
-  try { localStorage.setItem('civitas_prefill', JSON.stringify(prefill)); } catch(e) {}
+  // Encoder les données dans le hash de l'URL (évite les restrictions cross-origin du localStorage)
+  var encoded;
+  try { encoded = btoa(unescape(encodeURIComponent(JSON.stringify(prefill)))); } catch(e) { encoded = ''; }
 
-  // Ouvrir CIVITAS dans un nouvel onglet
-  window.open('https://app.civitas.tn/admin/addnewdemande', '_blank');
+  // Ouvrir CIVITAS dans un nouvel onglet avec les données encodées dans le hash
+  window.open('https://app.civitas.tn/admin/addnewdemande#civitas=' + encoded, '_blank');
 
   // Toast d'instruction
   var toast = document.createElement('div');
@@ -1702,8 +1722,8 @@ function ouvrirCivitas(projetId) {
   ].join(';');
   toast.innerHTML =
     '<div style="font-weight:600;color:var(--accent);margin-bottom:0.4rem">CIVITAS ouvert</div>' +
-    '<div style="color:var(--text-2)">Données copiées en mémoire.<br>' +
-    'Activez le bookmarklet <strong>Cortoba→CIVITAS</strong> sur la page CIVITAS pour remplir automatiquement.</div>' +
+    '<div style="color:var(--text-2)">Données transmises via l\'URL.<br>' +
+    'Activez le bookmarklet <strong>Cortoba→CIVITAS</strong> sur la page CIVITAS pour remplir le formulaire automatiquement.</div>' +
     '<button onclick="this.closest(\'div\').remove()" ' +
       'style="margin-top:0.6rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.75rem">Fermer ✕</button>';
   document.body.appendChild(toast);
