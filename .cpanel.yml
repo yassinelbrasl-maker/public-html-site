@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home2/dxmmmjkr/public_html/
+    - /bin/cp -rf $DOCUMENT_ROOT/. $DEPLOYPATH
