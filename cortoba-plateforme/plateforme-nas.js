@@ -1098,10 +1098,14 @@ function saveDevis(){
 var PHASES_ORDER = ['Étude préliminaire','APS','APD','PC','DCE','EXE','Livré'];
 var _pjSortKey='nom', _pjSortDir=1, _pjColDropOpen=false;
 
+var _pjPage = 0;
+var PJ_PAGE_SIZE = 10;
+
 function getFilteredSortedProjets(){
   var q       = (document.getElementById('projets-search')||{value:''}).value.trim().toLowerCase();
   var fPhase  = (document.getElementById('projets-filter-phase')||{value:''}).value;
   var fStatut = (document.getElementById('projets-filter-statut')||{value:''}).value;
+  var fAnnee  = (document.getElementById('projets-filter-annee')||{value:''}).value;
   var list    = getProjets();
   if (q) list = list.filter(function(p){
     var hay = [(p.code||''),(p.nom||''),(p.client||''),(p.phase||''),(p.statut||''),(p.adresse||'')].join(' ').toLowerCase();
@@ -1109,10 +1113,11 @@ function getFilteredSortedProjets(){
   });
   if (fPhase)  list = list.filter(function(p){ return p.phase===fPhase; });
   if (fStatut) list = list.filter(function(p){ return p.statut===fStatut; });
+  if (fAnnee)  list = list.filter(function(p){ return String(p.annee||'')===fAnnee; });
   var key=_pjSortKey, dir=_pjSortDir;
   return list.slice().sort(function(a,b){
     var va=a[key]||'', vb=b[key]||'';
-    if (key==='honoraires'||key==='budget'||key==='surface') return dir*((a[key]||0)-(b[key]||0));
+    if (key==='honoraires'||key==='budget'||key==='surface'||key==='annee') return dir*((a[key]||0)-(b[key]||0));
     if (key==='delai'||key==='creeAt') return dir*(new Date(va||0)-new Date(vb||0));
     if (key==='phase') return dir*(PHASES_ORDER.indexOf(va)-PHASES_ORDER.indexOf(vb));
     return dir*(va<vb?-1:va>vb?1:0);
@@ -1122,7 +1127,18 @@ function clearPjSearch(){
   var s=document.getElementById('projets-search');if(s)s.value='';
   var fp=document.getElementById('projets-filter-phase');if(fp)fp.value='';
   var fs=document.getElementById('projets-filter-statut');if(fs)fs.value='';
+  var fa=document.getElementById('projets-filter-annee');if(fa)fa.value='';
+  _pjPage=0;
   renderProjets();
+}
+function refreshAnneeFilter(){
+  var sel = document.getElementById('projets-filter-annee'); if(!sel) return;
+  var cur = sel.value;
+  var years = [];
+  getProjets().forEach(function(p){ if(p.annee && years.indexOf(String(p.annee))===-1) years.push(String(p.annee)); });
+  years.sort(function(a,b){ return b-a; });
+  sel.innerHTML = '<option value="">Toutes années</option>' +
+    years.map(function(y){ return '<option value="'+y+'"'+(cur===y?' selected':'')+'>'+y+'</option>'; }).join('');
 }
 function phaseBadgeClass(ph){
   if(!ph) return 'badge-gray';
@@ -1135,47 +1151,91 @@ function renderProjets(){
   var thead = document.getElementById('projets-thead');
   var tb    = document.getElementById('projets-tbody');
   if (!thead||!tb) return;
-  var active = getPjActiveColumns();
-  var list   = getFilteredSortedProjets();
-  var total  = getProjets().length;
-  var q      = (document.getElementById('projets-search')||{value:''}).value.trim();
-  var fPhase  = (document.getElementById('projets-filter-phase')||{value:''}).value;
-  var fStatut = (document.getElementById('projets-filter-statut')||{value:''}).value;
+
+  refreshAnneeFilter();
+
+  var active      = getPjActiveColumns();
+  var filteredAll = getFilteredSortedProjets();
+  var total       = getProjets().length;
+  var q           = (document.getElementById('projets-search')||{value:''}).value.trim();
+  var fPhase      = (document.getElementById('projets-filter-phase')||{value:''}).value;
+  var fStatut     = (document.getElementById('projets-filter-statut')||{value:''}).value;
+  var fAnnee      = (document.getElementById('projets-filter-annee')||{value:''}).value;
+
+  // Pagination
+  var totalFiltered = filteredAll.length;
+  var totalPages    = Math.max(1, Math.ceil(totalFiltered / PJ_PAGE_SIZE));
+  if (_pjPage >= totalPages) _pjPage = totalPages - 1;
+  var list = filteredAll.slice(_pjPage * PJ_PAGE_SIZE, (_pjPage + 1) * PJ_PAGE_SIZE);
+
   var sortIcon = function(key){
     if(_pjSortKey!==key) return '<span style="margin-left:3px;font-size:0.6rem;color:var(--border);vertical-align:middle">⇅</span>';
     return '<span style="margin-left:3px;font-size:0.65rem;color:var(--accent);vertical-align:middle">'+(_pjSortDir===1?'▲':'▼')+'</span>';
   };
+  var thStyle = 'padding:0.45rem 0.7rem;white-space:nowrap;user-select:none;font-size:0.78rem;';
   var ths = active.map(function(key){
     var col = ALL_PJ_COLUMNS.find(function(c){ return c.key===key; }); if(!col) return '';
-    var s = 'padding:0.7rem 0.8rem;white-space:nowrap;user-select:none;'; if(col.sortable) s+='cursor:pointer;';
+    var s = thStyle + (col.sortable ? 'cursor:pointer;' : '');
     return '<th style="'+s+'" '+(col.sortable?'onclick="sortByPjColumn(\''+key+'\')"':'')+'>'+col.label+(col.sortable?sortIcon(key):'')+'</th>';
   }).join('');
-  var burgerTh = '<th style="width:28px;padding:0.4rem 0.5rem;text-align:center"><button id="pj-col-burger" onclick="togglePjColDropdown(event)" title="Colonnes visibles" style="background:none;border:none;cursor:pointer;color:var(--text-3);opacity:0.6;padding:2px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></th>';
-  thead.innerHTML = '<tr>'+ths+'<th style="width:72px"></th>'+burgerTh+'</tr>';
+  var burgerTh = '<th style="width:24px;padding:0.3rem 0.4rem;text-align:center"><button id="pj-col-burger" onclick="togglePjColDropdown(event)" title="Colonnes visibles" style="background:none;border:none;cursor:pointer;color:var(--text-3);opacity:0.6;padding:2px;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></th>';
+  thead.innerHTML = '<tr>'+ths+
+    '<th style="'+thStyle+'width:68px;text-align:center">CIVITAS</th>'+
+    '<th style="'+thStyle+'width:52px"></th>'+
+    burgerTh+'</tr>';
+
   var ct = document.getElementById('projets-count');
-  if(ct) ct.textContent = list.length===total ? total+' projet'+(total>1?'s':'') : list.length+' / '+total+' projets';
-  if(list.length===0){
-    var hasFilter = q||fPhase||fStatut;
-    tb.innerHTML = '<tr><td colspan="'+(active.length+2)+'" style="text-align:center;color:var(--text-3);padding:3rem">'+
-      (hasFilter?'<div style="font-size:1.5rem;margin-bottom:0.5rem">🔍</div>Aucun résultat.<br><button class="btn btn-sm" style="margin-top:0.6rem" onclick="clearPjSearch()">Effacer les filtres</button>':'<div style="font-size:1.5rem;margin-bottom:0.5rem">🏗️</div>Aucun projet. Créez le premier.')+'</td></tr>';
+  if(ct) ct.textContent = (totalFiltered===total ? total : totalFiltered+' / '+total)+' projet'+(total>1?'s':'')+
+    (totalPages>1 ? ' — page '+ (_pjPage+1)+'/'+totalPages : '');
+
+  if(filteredAll.length===0){
+    var hasFilter = q||fPhase||fStatut||fAnnee;
+    tb.innerHTML = '<tr><td colspan="'+(active.length+3)+'" style="text-align:center;color:var(--text-3);padding:2rem">'+
+      (hasFilter?'<div style="font-size:1.5rem;margin-bottom:0.4rem">🔍</div>Aucun résultat.<br><button class="btn btn-sm" style="margin-top:0.5rem" onclick="clearPjSearch()">Effacer les filtres</button>':'<div style="font-size:1.5rem;margin-bottom:0.4rem">🏗️</div>Aucun projet. Créez le premier.')+'</td></tr>';
+    document.getElementById('projets-pagination').innerHTML = '';
     if(typeof refreshGlobalMap==='function') setTimeout(refreshGlobalMap,100);
     return;
   }
+
+  var tdS = 'padding:0.35rem 0.6rem;vertical-align:middle;';
   tb.innerHTML = list.map(function(p){
     var cells = active.map(function(key){
-      var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td>—</td>';
-      return '<td>'+col.render(p)+'</td>';
+      var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td style="'+tdS+'">—</td>';
+      return '<td style="'+tdS+'">'+col.render(p)+'</td>';
     }).join('');
-    var editBtn     = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent);margin-right:3px">✎</button>';
-    var civitasBtn  = '<button class="btn btn-sm" onclick="event.stopPropagation();ouvrirCivitas(\''+p.id+'\')" title="Préremplir formulaire CIVITAS" style="color:#8a7a5a;margin-right:3px;font-size:0.68rem">CIVITAS ↗</button>';
+    var civitasBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();ouvrirCivitas(\''+p.id+'\')" title="Préremplir formulaire CIVITAS" style="color:#c8a96e;font-size:0.7rem;padding:0.2rem 0.5rem;width:100%">🏛 CIVITAS</button>';
+    var editBtn    = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent)">✎</button>';
+    var delBtn     = '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button>';
     return '<tr onclick="openProjetDetail(\''+p.id+'\')" style="cursor:pointer">'+cells+
-      '<td onclick="event.stopPropagation()">'+editBtn+civitasBtn+'<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button></td><td></td></tr>';
+      '<td style="'+tdS+'text-align:center" onclick="event.stopPropagation()">'+civitasBtn+'</td>'+
+      '<td style="'+tdS+'white-space:nowrap" onclick="event.stopPropagation()">'+editBtn+delBtn+'</td>'+
+      '<td style="'+tdS+'"></td></tr>';
   }).join('');
+
+  // Pagination
+  var pag = document.getElementById('projets-pagination');
+  if (pag) {
+    if (totalPages <= 1) { pag.innerHTML = ''; }
+    else {
+      var btns = '';
+      var btnS = 'style="background:none;border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.6rem;cursor:pointer;font-size:0.78rem;color:var(--text-2)"';
+      var btnA = 'style="background:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0.2rem 0.6rem;cursor:pointer;font-size:0.78rem;color:#1a1a16;font-weight:600"';
+      btns += '<button '+(_pjPage>0?btnS:'style="opacity:0.3;border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.6rem;font-size:0.78rem;background:none;color:var(--text-3)"')+' onclick="_pjPage=Math.max(0,_pjPage-1);renderProjets()">← Préc.</button>';
+      var start = Math.max(0, _pjPage-2), end = Math.min(totalPages-1, start+4);
+      if(end-start<4) start=Math.max(0,end-4);
+      for(var i=start;i<=end;i++){
+        btns += '<button '+(i===_pjPage?btnA:btnS)+' onclick="_pjPage='+i+';renderProjets()">'+(i+1)+'</button>';
+      }
+      btns += '<button '+(_pjPage<totalPages-1?btnS:'style="opacity:0.3;border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.6rem;font-size:0.78rem;background:none;color:var(--text-3)"')+' onclick="_pjPage=Math.min(totalPages-1,_pjPage+1);renderProjets()">Suiv. →</button>';
+      pag.innerHTML = btns;
+    }
+  }
+
   if(document.getElementById('page-projets')&&document.getElementById('page-projets').classList.contains('active')){
     if(typeof refreshGlobalMap==='function') setTimeout(refreshGlobalMap,100);
   }
   var b = document.querySelector('[onclick="showPage(\'projets\')"] .nav-badge');
-  if(b) b.textContent = list.filter(function(p){ return (p.statut||'')==='Actif'; }).length || '';
+  if(b) b.textContent = getProjets().filter(function(p){ return (p.statut||'')==='Actif'; }).length || '';
 }
 
 // ── Carte globale (Leaflet) ──
@@ -1582,7 +1642,10 @@ function openEditProjet(id){
   previewPjCode();
 
   // Champs onglet CIVITAS (après client défini pour que refreshCivitasClientPreview marche)
-  var hasCivitas = !!(p.commune || p.delegation || p.type_construction || p.civitas_demande !== 'premiere');
+  // CIVITAS actif seulement si commune ou delegation renseignées (les valeurs par défaut ne comptent pas)
+  var hasCivitas = !!(p.commune || p.delegation || p.civitas_lieu ||
+                      (p.type_construction && p.type_construction !== 'nouveau') ||
+                      (p.civitas_demande && p.civitas_demande !== 'premiere'));
   var cbCiv = document.getElementById('pj-civitas-enabled');
   if (cbCiv) { cbCiv.checked = hasCivitas; toggleCivitasTab(); }
   var commEl = document.getElementById('pj-commune');
@@ -1824,14 +1887,14 @@ function saveProjet(){
     code:code, annee:annee, phase:phase, statut:statut,
     typeBat: typeBat||null,            // camelCase envoyé; PHP doit accepter les deux
     type_bat: typeBat||null,           // snake_case aussi pour compatibilité API
-    typeConstruction: typeConstruction,
-    civitasDemande: civitasDemande,
+    typeConstruction: civitasEnabled ? typeConstruction       : 'nouveau',
+    civitasDemande:   civitasEnabled ? civitasDemande         : 'premiere',
     delai:delai||null, honoraires:honoraires,
     budget:budget||null, surface:surface||null,
     description:description||null, adresse:adresse||null,
-    commune: civitasEnabled ? (commune||null) : null,
-    delegation: civitasEnabled ? (delegation||null) : null,
-    civitasLieu: civitasEnabled ? (civitasLieu||null) : null,
+    commune:          civitasEnabled ? (commune||null)        : null,
+    delegation:       civitasEnabled ? (delegation||null)     : null,
+    civitasLieu:      civitasEnabled ? (civitasLieu||null)    : null,
     lat:lat, lng:lng, nasPath:nasPath,
     nas_path:nasPath,                  // compatibilité snake_case
     missions:getSelectedMissions(),

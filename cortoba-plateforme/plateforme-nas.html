@@ -409,16 +409,19 @@
         <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:220px">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="projets-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, client, phase…" oninput="renderProjets()" />
+            <input id="projets-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, client, phase…" oninput="_pjPage=0;renderProjets()" />
           </div>
-          <select id="projets-filter-phase" class="form-select" style="width:auto;min-width:130px" onchange="renderProjets()">
+          <select id="projets-filter-phase" class="form-select" style="width:auto;min-width:130px" onchange="_pjPage=0;renderProjets()">
             <option value="">Toutes les phases</option>
             <option>Étude préliminaire</option><option>APS</option><option>APD</option>
             <option>PC</option><option>DCE</option><option>EXE</option><option>Livré</option>
           </select>
-          <select id="projets-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="renderProjets()">
+          <select id="projets-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="_pjPage=0;renderProjets()">
             <option value="">Tous les statuts</option>
             <option>Actif</option><option>En pause</option><option>Archivé</option><option>Prospection</option>
+          </select>
+          <select id="projets-filter-annee" class="form-select" style="width:auto;min-width:100px" onchange="_pjPage=0;renderProjets()">
+            <option value="">Toutes années</option>
           </select>
           <span id="projets-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
         </div>
@@ -434,11 +437,12 @@
 
         <!-- Tableau projets (en-têtes remplis par JS : CODE, PROJET, CLIENT, PHASE, STATUT, HONORAIRES, DÉLAI, NAS + actions) -->
         <div class="table-wrap" style="overflow-x:auto;position:relative;margin-bottom:2rem">
-          <table id="projets-table">
+          <table id="projets-table" style="font-size:0.82rem">
             <thead id="projets-thead"><tr></tr></thead>
             <tbody id="projets-tbody"></tbody>
           </table>
         </div>
+        <div id="projets-pagination" style="display:flex;justify-content:center;align-items:center;gap:0.5rem;margin-bottom:1.5rem;font-size:0.82rem"></div>
 
         <!-- Carte globale tous les projets -->
         <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;overflow:hidden">
