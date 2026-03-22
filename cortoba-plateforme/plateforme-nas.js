@@ -303,7 +303,7 @@ function initExtensibleSelects() {
 // ══════════════════════════════════════════════════════════
 
 var PARAM_LISTES = [
-  { id:'pj-type-bat',  label:"Type de bâtiment",  defauts:['Villa / Maison individuelle','Immeuble résidentiel','Bureau / Coworking','Commerce','Équipement public','Rénovation / Extension'] },
+  { id:'pj-type-bat',  label:"Type d'opération",  defauts:['Villa / Maison individuelle','Immeuble résidentiel','Bureau / Coworking','Commerce','Équipement public','Rénovation / Extension','Lotissement'] },
   { id:'pj-phase',     label:"Phase initiale",     defauts:['Étude préliminaire','APS','APD','PC','DCE','EXE','Livré'] },
   { id:'pj-statut',    label:"Statut projet",      defauts:['Actif','En pause','Prospection','Archivé'] },
   { id:'cl-statut',    label:"Statut client",      defauts:['Actif','Standby','Clôturé'] },
@@ -821,10 +821,20 @@ function resetClientForm() {
 // ── Render Clients ──
 function renderClients() {
   var tb = document.getElementById('clients-tbody'); if (!tb) return;
-  var clients = getClients();
-  tb.innerHTML = clients.length === 0
-    ? '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:2rem">Aucun client. Créez votre premier client.</td></tr>'
-    : clients.map(function(c) {
+  var q       = (document.getElementById('clients-search')||{value:''}).value.trim().toLowerCase();
+  var fStatut = (document.getElementById('clients-filter-statut')||{value:''}).value;
+  var all     = getClients();
+  var list    = all;
+  if (q) list = list.filter(function(c){
+    var hay = [(c.displayNom||''),(c.display_nom||''),(c.nom||''),(c.prenom||''),(c.raison||''),(c.code||''),(c.email||''),(c.tel||''),(c.whatsapp||'')].join(' ').toLowerCase();
+    return q.split(/\s+/).every(function(w){ return hay.indexOf(w)!==-1; });
+  });
+  if (fStatut) list = list.filter(function(c){ return c.statut===fStatut; });
+  var ct = document.getElementById('clients-count');
+  if (ct) ct.textContent = list.length===all.length ? all.length+' client'+(all.length>1?'s':'') : list.length+' / '+all.length+' clients';
+  tb.innerHTML = list.length === 0
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:2rem">'+(q||fStatut?'Aucun résultat.':'Aucun client. Créez votre premier client.')+'</td></tr>'
+    : list.map(function(c) {
         var wa = c.whatsapp || c.tel || '';
         var waLink = wa
           ? '<a href="https://wa.me/'+wa.replace(/[^0-9]/g,'')+'" target="_blank" style="color:#25D366;text-decoration:none" title="WhatsApp">'+
@@ -1203,7 +1213,12 @@ function renderProjets(){
       var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td style="'+tdS+'">—</td>';
       return '<td style="'+tdS+'">'+col.render(p)+'</td>';
     }).join('');
-    var civitasBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();ouvrirCivitas(\''+p.id+'\')" title="Préremplir formulaire CIVITAS" style="color:#c8a96e;font-size:0.7rem;padding:0.2rem 0.5rem;width:100%">🏛 CIVITAS</button>';
+    var hasCiv = !!(p.commune || p.delegation || p.civitas_lieu ||
+                   (p.type_construction && p.type_construction !== 'nouveau') ||
+                   (p.civitas_demande && p.civitas_demande !== 'premiere'));
+    var civitasBtn = hasCiv
+      ? '<button class="btn btn-sm" onclick="event.stopPropagation();ouvrirCivitas(\''+p.id+'\')" title="Préremplir formulaire CIVITAS" style="color:#c8a96e;font-size:0.7rem;padding:0.2rem 0.5rem;width:100%">🏛 CIVITAS</button>'
+      : '<button class="btn btn-sm" disabled title="Activez l\'onglet CIVITAS dans la fiche projet" style="color:var(--text-3);font-size:0.7rem;padding:0.2rem 0.5rem;width:100%;opacity:0.3;cursor:default">🏛 CIVITAS</button>';
     var editBtn    = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent)">✎</button>';
     var delBtn     = '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button>';
     return '<tr onclick="openProjetDetail(\''+p.id+'\')" style="cursor:pointer">'+cells+
@@ -1322,6 +1337,29 @@ function toggleCivitasTab() {
 }
 
 // ── Aperçu maître d'ouvrage dans l'onglet CIVITAS ────────────────────────────
+// ── Translittération Latin → Arabe (approximation pour noms propres) ─────────
+function latinToArabic(str) {
+  if (!str) return '';
+  str = (str + '').trim();
+  var digraphs = {'ch':'ش','kh':'خ','gh':'غ','dh':'ذ','th':'ث','ou':'و','ai':'اي','ei':'اي','au':'او','ph':'ف'};
+  var mono = {
+    'a':'ا','b':'ب','c':'ك','d':'د','e':'','f':'ف','g':'غ','h':'ه','i':'ي',
+    'j':'ج','k':'ك','l':'ل','m':'م','n':'ن','o':'و','p':'ب','q':'ق','r':'ر',
+    's':'س','t':'ت','u':'و','v':'ف','w':'و','x':'كس','y':'ي','z':'ز',
+    ' ':' ','-':' ','\'':''
+  };
+  var result = '';
+  var lower = str.toLowerCase();
+  var i = 0;
+  while (i < lower.length) {
+    var two = lower.slice(i, i+2);
+    if (digraphs[two]) { result += digraphs[two]; i += 2; }
+    else if (mono[lower[i]] !== undefined) { result += mono[lower[i]]; i++; }
+    else { i++; }
+  }
+  return result;
+}
+
 function refreshCivitasClientPreview() {
   var preview = document.getElementById('pj-civitas-client-preview');
   if (!preview) return;
@@ -1347,6 +1385,16 @@ function refreshCivitasClientPreview() {
   var dateCinEl = document.getElementById('pj-civitas-date-cin');
   if (cinEl && !cinEl.value)     cinEl.value     = client.cin || '';
   if (dateCinEl && !dateCinEl.value) dateCinEl.value = client.date_cin || client.dateCin || '';
+
+  // Pré-remplir les champs arabes depuis la fiche client ou translittération
+  var prenomArEl = document.getElementById('pj-civitas-prenom-ar');
+  var nomArEl    = document.getElementById('pj-civitas-nom-ar');
+  if (prenomArEl && !prenomArEl.value) {
+    prenomArEl.value = client.prenom_ar || latinToArabic(client.prenom || '');
+  }
+  if (nomArEl && !nomArEl.value) {
+    nomArEl.value = client.nom_ar || latinToArabic(client.nom || client.raison || '');
+  }
 }
 
 function genProjetCode(annee, clientDisplayNom, clientCode){
@@ -1562,8 +1610,10 @@ function resetProjetForm(){
   var pjTC     = document.getElementById('pj-type-construction'); if(pjTC)     pjTC.value     = 'nouveau';
   var pjCD     = document.getElementById('pj-civitas-demande');   if(pjCD)     pjCD.value     = 'premiere';
   var pjLieu   = document.getElementById('pj-civitas-lieu');      if(pjLieu)   pjLieu.value   = '';
-  var pjCivCin = document.getElementById('pj-civitas-cin');       if(pjCivCin) pjCivCin.value = '';
-  var pjCivDC  = document.getElementById('pj-civitas-date-cin');  if(pjCivDC)  pjCivDC.value  = '';
+  var pjCivCin   = document.getElementById('pj-civitas-cin');        if(pjCivCin)   pjCivCin.value   = '';
+  var pjCivDC    = document.getElementById('pj-civitas-date-cin');   if(pjCivDC)    pjCivDC.value    = '';
+  var pjCivPreAr = document.getElementById('pj-civitas-prenom-ar'); if(pjCivPreAr) pjCivPreAr.value = '';
+  var pjCivNomAr = document.getElementById('pj-civitas-nom-ar');    if(pjCivNomAr) pjCivNomAr.value = '';
   // Désactiver l'onglet CIVITAS
   var cbCiv = document.getElementById('pj-civitas-enabled');
   if (cbCiv) { cbCiv.checked = false; toggleCivitasTab(); }
@@ -1747,6 +1797,8 @@ function ouvrirCivitas(projetId) {
   var prefill = {
     // Identité maître d'ouvrage
     nom_prenom:   client.displayNom || client.display_nom || p.client || '',
+    prenom_ar:    (document.getElementById('pj-civitas-prenom-ar')||{value:''}).value || latinToArabic(client.prenom||''),
+    nom_ar:       (document.getElementById('pj-civitas-nom-ar')||{value:''}).value    || latinToArabic(client.nom||client.raison||''),
     cin:          cinVal,
     date_cin:     dateCinVal,
     tel:          client.tel || '',
@@ -1807,7 +1859,7 @@ function openProjetDetail(id){
     ['Code dossier','<span style="font-family:var(--mono);color:var(--accent);font-weight:700">'+(p.code||'—')+'</span>'],
     ['Statut','<span class="'+badgeClass(p.statut)+'">'+(p.statut||'—')+'</span>'],
     ['Client', p.client||'—'],
-    typeBatVal ? ['Type de bâtiment', typeBatVal] : null,
+    typeBatVal ? ['Type d\'opération', typeBatVal] : null,
     p.description ? ['Description','<em style="color:var(--text-2)">'+p.description+'</em>'] : null,
     ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'],
     p.budget  ? ['Budget client', fmtMontant(p.budget)] : null,
@@ -1930,13 +1982,17 @@ function saveProjet(){
           if (civitasDC)  patchBody.dateCin = civitasDC;
           syncPromise = apiFetch('api/clients.php?id=' + clientId, {method:'PATCH', body:patchBody})
             .then(function(r){
-              // Afficher un toast de confirmation si les colonnes existent bien
-              if (!r.notice) {
-                var t=document.createElement('div');
-                t.style.cssText='position:fixed;bottom:1.5rem;left:1.5rem;z-index:9999;background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:0.6rem 1rem;font-size:0.8rem;color:var(--accent)';
-                t.textContent='✓ CIN / date mis à jour dans la fiche client';
-                document.body.appendChild(t); setTimeout(function(){ t.remove(); },3000);
+              // Mettre à jour le cache local immédiatement (sans attendre loadData)
+              var cached = _cache.clients.find(function(c){ return c.id === clientId; });
+              if (cached) {
+                if (patchBody.cin)     { cached.cin      = patchBody.cin; }
+                if (patchBody.dateCin) { cached.date_cin = patchBody.dateCin; cached.dateCin = patchBody.dateCin; }
               }
+              // Toast confirmation
+              var t=document.createElement('div');
+              t.style.cssText='position:fixed;bottom:1.5rem;left:1.5rem;z-index:9999;background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:0.6rem 1rem;font-size:0.8rem;color:var(--accent)';
+              t.textContent='✓ CIN / date enregistrés dans la fiche client';
+              document.body.appendChild(t); setTimeout(function(){ t.remove(); },3000);
             })
             .catch(function(){});  // silencieux en cas d'erreur réseau
         }
@@ -1957,7 +2013,7 @@ var ALL_PJ_COLUMNS = [
   {key:'client',    label:'Client',     default:true, locked:false,sortable:true, render:function(p){return p.client||'—';}},
   {key:'phase',     label:'Phase',      default:true, locked:false,sortable:true, render:function(p){return'<span class="badge '+phaseBadgeClass(p.phase)+'">'+(p.phase||'—')+'</span>';}},
   {key:'statut',    label:'Statut',     default:true, locked:false,sortable:true, render:function(p){return'<span class="'+badgeClass(p.statut||'')+'">'+(p.statut||'—')+'</span>';}},
-  {key:'typeBat',   label:'Type bât.',  default:false,locked:false,sortable:true, render:function(p){return p.typeBat||p.type_bat||'—';}},
+  {key:'typeBat',   label:"Type op.",  default:false,locked:false,sortable:true, render:function(p){return p.typeBat||p.type_bat||'—';}},
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
   {key:'delai',     label:'Délai',      default:true, locked:false,sortable:true, render:function(p){return p.delai?fmtDate(p.delai):'—';}},
   {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
@@ -2023,13 +2079,31 @@ function populateProjetSelect(){
   var sel=document.getElementById('fa-projet'); if(!sel) return;
   var p=getProjets();
   sel.innerHTML='<option value="">— Sélectionner un projet —</option>'+
-    p.map(function(x){return'<option value="'+x.id+'" data-nom="'+x.nom+'" data-client="'+x.client+'">'+x.nom+'</option>';}).join('');
-  // Remplir la datalist client (autocomplete)
+    p.map(function(x){
+      var label = (x.code?'['+x.code+'] ':'')+(x.nom||'')+(x.client?' — '+x.client:'');
+      return '<option value="'+x.id+'" data-nom="'+x.nom+'" data-client="'+x.client+'" data-label="'+label+'">'+label+'</option>';
+    }).join('');
   var dl = document.getElementById('fa-client-list');
   if (dl) dl.innerHTML = getClients().map(function(c){
     var nom = c.displayNom||c.display_nom||c.nom||c.raison||'';
     return '<option value="'+nom+'">';
   }).join('');
+}
+
+function filterProjetSelect(){
+  var q = (document.getElementById('fa-projet-search').value||'').trim().toLowerCase();
+  var sel = document.getElementById('fa-projet'); if(!sel) return;
+  var projets = getProjets();
+  var filtered = q ? projets.filter(function(x){
+    var hay = [(x.code||''),(x.nom||''),(x.client||'')].join(' ').toLowerCase();
+    return q.split(/\s+/).every(function(w){ return hay.indexOf(w)!==-1; });
+  }) : projets;
+  var prev = sel.value;
+  sel.innerHTML='<option value="">— Sélectionner un projet —</option>'+
+    filtered.map(function(x){
+      var label = (x.code?'['+x.code+'] ':'')+(x.nom||'')+(x.client?' — '+x.client:'');
+      return '<option value="'+x.id+'" data-nom="'+x.nom+'" data-client="'+x.client+'"'+(x.id===prev?' selected':'')+'>'+label+'</option>';
+    }).join('');
 }
 
 function prefillClientFromProjet(){

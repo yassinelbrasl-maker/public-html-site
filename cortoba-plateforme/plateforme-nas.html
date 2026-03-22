@@ -1032,6 +1032,17 @@
             </button>
           </div>
         </div>
+        <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:200px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="clients-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, code, email, tél…" oninput="renderClients()" />
+          </div>
+          <select id="clients-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="renderClients()">
+            <option value="">Tous les statuts</option>
+            <option>Actif</option><option>En pause</option><option>Archivé</option><option>Prospection</option>
+          </select>
+          <span id="clients-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Code</th><th>Nom / Raison sociale</th><th>WhatsApp</th><th>Email</th><th>Source</th><th>Statut</th><th></th></tr></thead>
@@ -1562,7 +1573,7 @@
             </select>
           </div>
           <div class="form-field">
-            <label class="form-label">Type de bâtiment</label>
+            <label class="form-label">Type d'opération</label>
             <select id="pj-type-bat" class="form-select">
               <option value="">— Sélectionner —</option>
               <option>Villa / Maison individuelle</option>
@@ -1734,6 +1745,15 @@
         </div>
         <div class="form-grid">
           <div class="form-field">
+            <label class="form-label">الاسم — Prénom (en arabe) <span style="color:#e07070">*</span></label>
+            <input id="pj-civitas-prenom-ar" class="form-input" placeholder="أدخل الاسم بالعربية" dir="rtl" style="font-size:1rem" />
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Converti automatiquement — modifiable</div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">اللقب — Nom de famille (en arabe) <span style="color:#e07070">*</span></label>
+            <input id="pj-civitas-nom-ar" class="form-input" placeholder="أدخل اللقب بالعربية" dir="rtl" style="font-size:1rem" />
+          </div>
+          <div class="form-field">
             <label class="form-label">N° CIN / Passeport — رقم بطاقة التعريف <span style="color:#e07070">*</span></label>
             <input id="pj-civitas-cin" class="form-input" placeholder="Ex: 12345678" />
             <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Pré-rempli depuis la fiche client ; modifiable ici</div>
@@ -1798,7 +1818,8 @@
           </div>
           <div class="form-field">
             <label class="form-label">Projet lié</label>
-            <select id="fa-projet" class="form-select" onchange="prefillClientFromProjet()">
+            <input id="fa-projet-search" class="form-input" placeholder="Rechercher par code, nom, client…" oninput="filterProjetSelect()" style="margin-bottom:0.3rem" autocomplete="off" />
+            <select id="fa-projet" class="form-select" size="1" onchange="prefillClientFromProjet();document.getElementById('fa-projet-search').value=this.options[this.selectedIndex].text||''">
               <option value="">— Sélectionner un projet —</option>
             </select>
           </div>

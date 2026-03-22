@@ -215,11 +215,14 @@
     clickByLabel('شخص طبيعي') || clickByLabel('Physique') || clickByLabel('physique');
 
     // ── 3f. Identité du maître d'ouvrage ─────────────────────────────────────
-    // الاسم والنقب
-    fillBySelectors(
-      ['input[placeholder*="الاسم"]', 'input[placeholder*="Nom"]', '#nom_prenom'],
-      d.nom_prenom
-    );
+    // الاسم (prénom en arabe) et اللقب (nom en arabe)
+    var fullNameAr = (d.prenom_ar && d.nom_ar) ? d.prenom_ar + ' ' + d.nom_ar : (d.nom_ar || d.prenom_ar || '');
+    if (fullNameAr) {
+      fillBySelectors(['input[placeholder*="الاسم"]', '#nom_prenom'], fullNameAr);
+    }
+    // Champs séparés prénom / nom si présents
+    if (d.prenom_ar) fillBySelectors(['input[id*="prenom"]','input[placeholder*="الاسم الأول"]'], d.prenom_ar);
+    if (d.nom_ar)    fillBySelectors(['input[id*="nom"]','input[placeholder*="اللقب"]'], d.nom_ar);
 
     // رقم بطاقة التهريف
     fillBySelectors(
