@@ -1627,11 +1627,47 @@
           </div>
           <div class="form-field">
             <label class="form-label">Commune <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS — البلدية)</span></label>
-            <input id="pj-commune" class="form-input" placeholder="Ex: Houmt Souk" />
+            <select id="pj-commune" class="form-select" onchange="updateCivitasDelegations()">
+              <option value="">— Sélectionner —</option>
+              <optgroup label="Djerba — جربة">
+                <option value="جربة حومة السوق">جربة حومة السوق</option>
+                <option value="جربة ميدون">جربة ميدون</option>
+                <option value="جربة أجيم">جربة أجيم</option>
+              </optgroup>
+              <optgroup label="Médenine — مدنين">
+                <option value="بلدية مدنين">بلدية مدنين</option>
+                <option value="بلدية بن قردان">بلدية بن قردان</option>
+                <option value="بلدية زرزيس">بلدية زرزيس</option>
+                <option value="بلدية جرجيس">بلدية جرجيس</option>
+                <option value="بلدية بوغرارة">بلدية بوغرارة</option>
+              </optgroup>
+              <optgroup label="Sfax — صفاقس">
+                <option value="بلدية صفاقس">بلدية صفاقس</option>
+                <option value="بلدية ساقية الزيت">بلدية ساقية الزيت</option>
+                <option value="بلدية ساقية الداير">بلدية ساقية الداير</option>
+                <option value="بلدية طينة">بلدية طينة</option>
+                <option value="بلدية العين">بلدية العين</option>
+              </optgroup>
+              <optgroup label="Tunis — تونس">
+                <option value="بلدية تونس">بلدية تونس</option>
+                <option value="بلدية دوار هيشر">بلدية دوار هيشر</option>
+                <option value="بلدية الكريب">بلدية الكريب</option>
+                <option value="بلدية رواد">بلدية رواد</option>
+                <option value="بلدية سيدي بورويس">بلدية سيدي بورويس</option>
+                <option value="بلدية حقام الشط">بلدية حقام الشط</option>
+              </optgroup>
+              <optgroup label="Autres — أخرى">
+                <option value="بلدية عين دراهم">بلدية عين دراهم</option>
+                <option value="بلدية جمنة">بلدية جمنة</option>
+                <option value="بلدية باجة">بلدية باجة</option>
+              </optgroup>
+            </select>
           </div>
           <div class="form-field">
             <label class="form-label">Délégation <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS — الدائرة)</span></label>
-            <input id="pj-delegation" class="form-input" placeholder="Ex: Houmt Souk" />
+            <select id="pj-delegation" class="form-select">
+              <option value="">— Sélectionner la commune d'abord —</option>
+            </select>
           </div>
         </div>
         <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">Cliquez sur la carte pour positionner le projet.</div>

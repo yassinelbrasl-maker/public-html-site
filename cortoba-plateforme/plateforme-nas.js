@@ -1425,10 +1425,14 @@ function resetProjetForm(){
   if (_pjMap) { try{ _pjMap.remove(); }catch(e){} }
   _pjMap = null; _pjMarker = null;
 
-  ['pj-nom','pj-adresse','pj-commune','pj-delegation',
-   'pj-delai','pj-honoraires','pj-budget','pj-surface','pj-description'].forEach(function(id){
+  ['pj-nom','pj-adresse','pj-delai','pj-honoraires','pj-budget','pj-surface','pj-description'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
+  // Reset selects commune/délégation
+  var commReset = document.getElementById('pj-commune');
+  if (commReset) commReset.value = '';
+  var delReset  = document.getElementById('pj-delegation');
+  if (delReset)  { delReset.innerHTML = '<option value="">— Sélectionner la commune d\'abord —</option>'; }
   var anneeEl = document.getElementById('pj-annee');
   if (anneeEl) anneeEl.value = new Date().getFullYear();
 
@@ -1496,9 +1500,11 @@ function openEditProjet(id){
   var cdEl = document.getElementById('pj-civitas-demande');
   if (cdEl) cdEl.value = p.civitas_demande || p.civitasDemande || 'premiere';
   var commEl = document.getElementById('pj-commune');
-  if (commEl) commEl.value = p.commune || '';
-  var delEl = document.getElementById('pj-delegation');
-  if (delEl) delEl.value = p.delegation || '';
+  if (commEl) {
+    commEl.value = p.commune || '';
+    // Peupler les délégations puis restaurer la valeur
+    updateCivitasDelegations(p.delegation || '');
+  }
 
   if (p.lat && p.lng) {
     document.getElementById('pj-lat').value = p.lat;
@@ -1523,6 +1529,44 @@ function openEditProjet(id){
 
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
+}
+
+// ── Données CIVITAS : commune → délégations ──────────────────────────────────
+var CIVITAS_DELEGATIONS = {
+  'جربة حومة السوق': ['دائرة الرياض','دائرة حومة السوق','دائرة مليتة','دائرة مزرابة'],
+  'جربة ميدون':      ['دائرة الـماي','دائرة ميـدون','دائرة سدويكش','دائرة بني معقل','دائرة ارزو'],
+  'جربة أجيم':       ['دائرة أجـيم','دائرة قـلالة'],
+  'بلدية مدنين':     ['دائرة مدنين الشمالية','دائرة مدنين الجنوبية'],
+  'بلدية بن قردان':  ['دائرة بن قردان'],
+  'بلدية زرزيس':     ['دائرة زرزيس'],
+  'بلدية جرجيس':     ['دائرة جرجيس'],
+  'بلدية بوغرارة':   ['دائرة بوغرارة'],
+  'بلدية صفاقس':     ['دائرة صفاقس المدينة','دائرة صفاقس الغربية','دائرة صفاقس الجنوبية'],
+  'بلدية تونس':      ['دائرة تونس'],
+  'بلدية دوار هيشر': ['دائرة دوار هيشر'],
+  'بلدية الكريب':    ['دائرة الكريب'],
+  'بلدية رواد':      ['دائرة رواد'],
+  'بلدية سيدي بورويس':['دائرة سيدي بورويس'],
+  'بلدية حقام الشط': ['دائرة حقام الشط'],
+  'بلدية عين دراهم': ['دائرة عين دراهم'],
+  'بلدية جمنة':      ['دائرة جمنة'],
+  'بلدية باجة':      ['دائرة باجة الشمالية','دائرة باجة الجنوبية']
+};
+
+function updateCivitasDelegations(savedValue) {
+  var commune = document.getElementById('pj-commune').value;
+  var sel = document.getElementById('pj-delegation');
+  if (!sel) return;
+  var delegs = CIVITAS_DELEGATIONS[commune] || [];
+  sel.innerHTML = delegs.length
+    ? '<option value="">— Sélectionner —</option>'
+    : '<option value="">— Aucune délégation disponible —</option>';
+  delegs.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d; opt.textContent = d;
+    sel.appendChild(opt);
+  });
+  if (savedValue) sel.value = savedValue;
 }
 
 function copyNasPath(encoded){

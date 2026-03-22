@@ -121,6 +121,32 @@ function create(array $user) {
                 $parts[0] = str_pad($next, 2, '0', STR_PAD_LEFT);
                 $code = implode('_', $parts);
                 $id = bin2hex(random_bytes(16)); // nouvel ID
+            } elseif ($e->getCode() === '42S22' || strpos($e->getMessage(), 'Column not found') !== false) {
+                // Colonne manquante (migration non encore appliquée) → INSERT minimal
+                $db->prepare('
+                    INSERT INTO CA_projets (id, code, nom, client, client_code, annee, phase, statut, type_bat,
+                        delai, honoraires, budget, surface, description, adresse, lat, lng, nas_path, cree_par)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ')->execute([
+                    $id, $code, $nom,
+                    $body['client']      ?? '',
+                    $body['clientCode']  ?? '',
+                    $annee,
+                    $body['phase']       ?? 'APS',
+                    $body['statut']      ?? 'Actif',
+                    $body['typeBat']     ?? null,
+                    $body['delai']       ?: null,
+                    floatval($body['honoraires'] ?? 0),
+                    floatval($body['budget']     ?? 0),
+                    floatval($body['surface']    ?? 0),
+                    $body['description'] ?? null,
+                    $body['adresse']     ?? null,
+                    !empty($body['lat']) ? floatval($body['lat']) : null,
+                    !empty($body['lng']) ? floatval($body['lng']) : null,
+                    $body['nasPath']     ?? null,
+                    $user['name'],
+                ]);
+                break; // INSERT minimal réussi
             } else {
                 throw $e; // autre erreur → remonter
             }
