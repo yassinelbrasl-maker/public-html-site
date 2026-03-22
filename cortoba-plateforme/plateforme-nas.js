@@ -1232,6 +1232,57 @@ function switchPjTab(tab, btn){
   if (panel) panel.style.display = 'block';
   // A4 — Initialiser la carte à chaque fois qu'on clique l'onglet localisation
   if (tab==='localisation' && typeof L !== 'undefined') setTimeout(initPjMap, 150);
+  // Rafraîchir l'aperçu client si on ouvre l'onglet CIVITAS
+  if (tab==='civitas') refreshCivitasClientPreview();
+}
+
+// ── Activer / désactiver l'onglet CIVITAS ────────────────────────────────────
+function toggleCivitasTab() {
+  var cb     = document.getElementById('pj-civitas-enabled');
+  var tabBtn = document.getElementById('pj-tab-civitas');
+  if (!cb || !tabBtn) return;
+  if (cb.checked) {
+    tabBtn.disabled = false;
+    tabBtn.style.opacity  = '1';
+    tabBtn.style.cursor   = 'pointer';
+    tabBtn.style.pointerEvents = '';
+    // Ouvrir automatiquement l'onglet CIVITAS
+    switchPjTab('civitas', tabBtn);
+  } else {
+    tabBtn.disabled = true;
+    tabBtn.style.opacity  = '0.35';
+    tabBtn.style.cursor   = 'not-allowed';
+    tabBtn.style.pointerEvents = 'none';
+    // Revenir à l'onglet Identité si CIVITAS était actif
+    var civPanel = document.getElementById('pj-panel-civitas');
+    if (civPanel && civPanel.style.display !== 'none') {
+      switchPjTab('identite', document.querySelector('.pj-tab'));
+    }
+  }
+}
+
+// ── Aperçu maître d'ouvrage dans l'onglet CIVITAS ────────────────────────────
+function refreshCivitasClientPreview() {
+  var preview = document.getElementById('pj-civitas-client-preview');
+  if (!preview) return;
+  var clientSel = document.getElementById('pj-client');
+  var clientId  = clientSel ? clientSel.value : '';
+  var client    = clientId ? getClients().find(function(c){ return c.id===clientId; }) : null;
+  if (!client) {
+    preview.innerHTML = '<span style="color:var(--text-3)">Sélectionnez un client dans l\'onglet Identité pour afficher l\'aperçu.</span>';
+    return;
+  }
+  var rows = [
+    ['Nom / النقب',   client.displayNom || client.display_nom || '—'],
+    ['CIN / Passeport', client.cin || '<span style="color:#e07070">Non renseigné — à compléter dans la fiche client</span>'],
+    ['Date émission',   client.date_cin || client.dateCin || '<span style="color:#e07070">Non renseignée</span>'],
+    ['Téléphone',       client.tel || '—'],
+    ['Email',           client.email || '—'],
+    ['Adresse MO',      client.adresse || '—'],
+  ];
+  preview.innerHTML = rows.map(function(r){
+    return '<div style="display:flex;gap:0.5rem"><span style="min-width:130px;color:var(--text-3)">' + r[0] + ' :</span><span>' + r[1] + '</span></div>';
+  }).join('');
 }
 
 function genProjetCode(annee, clientDisplayNom, clientCode){
@@ -1283,6 +1334,11 @@ function previewPjCode(){
   var code    = genProjetCode(annee, clientNom, clientCode);
   var nasPath = client ? genNasPath(code, client) : '—';
   codeEl.textContent = code;
+  // Rafraîchir l'aperçu client dans l'onglet CIVITAS
+  if (document.getElementById('pj-panel-civitas') &&
+      document.getElementById('pj-panel-civitas').style.display !== 'none') {
+    refreshCivitasClientPreview();
+  }
   if (nasEl) nasEl.textContent = nasPath || '—';
 }
 
@@ -1441,6 +1497,10 @@ function resetProjetForm(){
   var pjType   = document.getElementById('pj-type-bat');         if(pjType)   pjType.value   = '';
   var pjTC     = document.getElementById('pj-type-construction'); if(pjTC)     pjTC.value     = 'nouveau';
   var pjCD     = document.getElementById('pj-civitas-demande');   if(pjCD)     pjCD.value     = 'premiere';
+  var pjLieu   = document.getElementById('pj-civitas-lieu');      if(pjLieu)   pjLieu.value   = '';
+  // Désactiver l'onglet CIVITAS
+  var cbCiv = document.getElementById('pj-civitas-enabled');
+  if (cbCiv) { cbCiv.checked = false; toggleCivitasTab(); }
 
   var err     = document.getElementById('pj-err');     if(err)    err.style.display='none';
   var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) codeEl.textContent='—';
@@ -1499,12 +1559,17 @@ function openEditProjet(id){
   if (tcEl) tcEl.value = p.type_construction || p.typeConstruction || 'nouveau';
   var cdEl = document.getElementById('pj-civitas-demande');
   if (cdEl) cdEl.value = p.civitas_demande || p.civitasDemande || 'premiere';
+  // Champs onglet CIVITAS
+  var hasCivitas = !!(p.commune || p.delegation || p.type_construction || p.civitas_demande !== 'premiere');
+  var cbCiv = document.getElementById('pj-civitas-enabled');
+  if (cbCiv) { cbCiv.checked = hasCivitas; toggleCivitasTab(); }
   var commEl = document.getElementById('pj-commune');
   if (commEl) {
     commEl.value = p.commune || '';
-    // Peupler les délégations puis restaurer la valeur
     updateCivitasDelegations(p.delegation || '');
   }
+  var lieuEl = document.getElementById('pj-civitas-lieu');
+  if (lieuEl) lieuEl.value = p.civitas_lieu || '';
 
   if (p.lat && p.lng) {
     document.getElementById('pj-lat').value = p.lat;
@@ -1715,8 +1780,10 @@ function saveProjet(){
   var surface     = parseFloat(document.getElementById('pj-surface').value)||0;
   var description      = (document.getElementById('pj-description').value||'').trim();
   var adresse          = (document.getElementById('pj-adresse').value||'').trim();
+  var civitasEnabled   = document.getElementById('pj-civitas-enabled') && document.getElementById('pj-civitas-enabled').checked;
   var commune          = (document.getElementById('pj-commune').value||'').trim();
   var delegation       = (document.getElementById('pj-delegation').value||'').trim();
+  var civitasLieu      = (document.getElementById('pj-civitas-lieu').value||'').trim();
   var typeConstruction = document.getElementById('pj-type-construction').value||'nouveau';
   var civitasDemande   = document.getElementById('pj-civitas-demande').value||'premiere';
   var lat              = parseFloat(document.getElementById('pj-lat').value)||null;
@@ -1737,7 +1804,9 @@ function saveProjet(){
     delai:delai||null, honoraires:honoraires,
     budget:budget||null, surface:surface||null,
     description:description||null, adresse:adresse||null,
-    commune:commune||null, delegation:delegation||null,
+    commune: civitasEnabled ? (commune||null) : null,
+    delegation: civitasEnabled ? (delegation||null) : null,
+    civitasLieu: civitasEnabled ? (civitasLieu||null) : null,
     lat:lat, lng:lng, nasPath:nasPath,
     nas_path:nasPath,                  // compatibilité snake_case
     missions:getSelectedMissions(),

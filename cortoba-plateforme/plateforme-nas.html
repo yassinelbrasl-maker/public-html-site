@@ -1515,6 +1515,11 @@
       <button class="pj-tab" onclick="switchPjTab('missions',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Missions</button>
       <button class="pj-tab" onclick="switchPjTab('intervenants',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Intervenants</button>
       <button class="pj-tab" onclick="switchPjTab('localisation',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Localisation</button>
+      <button class="pj-tab" id="pj-tab-civitas" onclick="switchPjTab('civitas',this)"
+        style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:not-allowed;border-bottom:2px solid transparent;color:var(--text-3);opacity:0.35;pointer-events:none"
+        disabled title="Cochez 'Dossier CIVITAS' dans l'onglet Identité">
+        🏛 CIVITAS
+      </button>
     </div>
     <div class="modal-body" style="max-height:65vh;overflow-y:auto">
       <div id="pj-err" style="display:none;background:rgba(224,112,112,.1);border:1px solid #e07070;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.82rem;color:#e07070;margin-bottom:1rem"></div>
@@ -1565,21 +1570,15 @@
               <option>Autre</option>
             </select>
           </div>
-          <div class="form-field">
-            <label class="form-label">Type de construction <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS — نوع البناء)</span></label>
-            <select id="pj-type-construction" class="form-select">
-              <option value="nouveau">Bâtiment neuf — بناء جديد</option>
-              <option value="extension">Extension — توسعة</option>
-              <option value="reconstruction">Reconstruction — إعادة بناء</option>
-              <option value="touristique">Touristique — بناء سياحي</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label class="form-label">Type de demande <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS — نوع المطلب)</span></label>
-            <select id="pj-civitas-demande" class="form-select">
-              <option value="premiere">Première fois — أول مرة</option>
-              <option value="revision">Révision — إعادة نظر</option>
-            </select>
+          <div class="form-field full">
+            <label style="display:flex;align-items:center;gap:0.7rem;cursor:pointer;padding:0.7rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;transition:border-color .2s"
+              onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" id="pj-civitas-enabled" onchange="toggleCivitasTab()" style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0" />
+              <div>
+                <div style="font-size:0.82rem;font-weight:500;color:var(--text-1)">Dossier CIVITAS — permis de bâtir</div>
+                <div style="font-size:0.72rem;color:var(--text-3);margin-top:0.1rem">Active l'onglet CIVITAS pour renseigner les données du permis</div>
+              </div>
+            </label>
           </div>
           <div class="form-field">
             <label class="form-label">Délai estimé</label>
@@ -1625,8 +1624,56 @@
             <label class="form-label">Adresse / Lieu du projet</label>
             <input id="pj-adresse" class="form-input" placeholder="Ex: Route de Houmt Souk, Djerba" />
           </div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">Cliquez sur la carte pour positionner le projet.</div>
+        <div id="pj-map-container" style="height:320px;width:100%;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:0.8rem"></div>
+        <div id="pj-coords-display" style="display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.7rem 1rem;font-size:0.82rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+            <div><span style="color:var(--text-3)">Coordonnées : </span><span id="pj-lat-display" style="font-family:var(--mono);color:var(--accent)"></span><span style="color:var(--text-3);margin:0 0.3rem">,</span><span id="pj-lng-display" style="font-family:var(--mono);color:var(--accent)"></span></div>
+            <a id="pj-maps-link" href="#" target="_blank" style="color:var(--accent);font-size:0.78rem">Ouvrir dans Google Maps</a>
+          </div>
+        </div>
+        <input type="hidden" id="pj-lat" /><input type="hidden" id="pj-lng" />
+      </div>
+
+      <!-- ══ ONGLET CIVITAS ══════════════════════════════════════════════════ -->
+      <div id="pj-panel-civitas" class="pj-tab-panel" style="display:none">
+
+        <!-- En-tête -->
+        <div style="background:linear-gradient(135deg,rgba(200,169,110,0.08),rgba(200,169,110,0.03));border:1px solid rgba(200,169,110,0.25);border-radius:8px;padding:0.9rem 1.1rem;margin-bottom:1.4rem;display:flex;align-items:center;gap:0.9rem">
+          <div style="font-size:1.4rem">🏛</div>
+          <div>
+            <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:0.15rem">CIVITAS — بطاقة إرشادات فنية</div>
+            <div style="font-size:0.8rem;color:var(--text-2)">Données pour le formulaire de permis de bâtir. Cliquez <strong>CIVITAS ↗</strong> dans le tableau pour préremplir automatiquement.</div>
+          </div>
+        </div>
+
+        <!-- Section 1 : Type de demande -->
+        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">نوع المطلب — Type de demande</div>
+        <div class="form-grid" style="margin-bottom:1.2rem">
           <div class="form-field">
-            <label class="form-label">Commune <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS — البلدية)</span></label>
+            <label class="form-label">Type de demande</label>
+            <select id="pj-civitas-demande" class="form-select">
+              <option value="premiere">Première fois — أول مرة</option>
+              <option value="revision">Révision — إعادة نظر</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Type de construction — نوع البناء</label>
+            <select id="pj-type-construction" class="form-select">
+              <option value="nouveau">Bâtiment neuf — بناء جديد</option>
+              <option value="extension">Extension — توسعة</option>
+              <option value="reconstruction">Reconstruction — إعادة بناء</option>
+              <option value="touristique">Touristique — بناء سياحي</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Section 2 : Localisation CIVITAS -->
+        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">الموقع — Localisation administrative</div>
+        <div class="form-grid" style="margin-bottom:1.2rem">
+          <div class="form-field">
+            <label class="form-label">Commune — البلدية <span style="color:#e07070">*</span></label>
             <select id="pj-commune" class="form-select" onchange="updateCivitasDelegations()">
               <option value="">— Sélectionner —</option>
               <optgroup label="Djerba — جربة">
@@ -1664,22 +1711,28 @@
             </select>
           </div>
           <div class="form-field">
-            <label class="form-label">Délégation <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS — الدائرة)</span></label>
+            <label class="form-label">Délégation — الدائرة البلدية</label>
             <select id="pj-delegation" class="form-select">
               <option value="">— Sélectionner la commune d'abord —</option>
             </select>
           </div>
-        </div>
-        <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">Cliquez sur la carte pour positionner le projet.</div>
-        <div id="pj-map-container" style="height:320px;width:100%;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:0.8rem"></div>
-        <div id="pj-coords-display" style="display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.7rem 1rem;font-size:0.82rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
-            <div><span style="color:var(--text-3)">Coordonnées : </span><span id="pj-lat-display" style="font-family:var(--mono);color:var(--accent)"></span><span style="color:var(--text-3);margin:0 0.3rem">,</span><span id="pj-lng-display" style="font-family:var(--mono);color:var(--accent)"></span></div>
-            <a id="pj-maps-link" href="#" target="_blank" style="color:var(--accent);font-size:0.78rem">Ouvrir dans Google Maps</a>
+          <div class="form-field full">
+            <label class="form-label">Lieu de la bâtisse — مكان البيناية</label>
+            <input id="pj-civitas-lieu" class="form-input" placeholder="Adresse complète en arabe si possible" />
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Si vide, l'adresse du projet (onglet Localisation) sera utilisée</div>
           </div>
         </div>
-        <input type="hidden" id="pj-lat" /><input type="hidden" id="pj-lng" />
+
+        <!-- Section 3 : Aperçu maître d'ouvrage -->
+        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">المالك — Maître d'ouvrage (depuis la fiche client)</div>
+        <div id="pj-civitas-client-preview" style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.8rem 1rem;font-size:0.8rem;color:var(--text-2);line-height:1.8">
+          <span style="color:var(--text-3)">Sélectionnez un client dans l'onglet Identité pour afficher l'aperçu.</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-3);margin-top:0.5rem">Le CIN et la date d'émission se renseignent dans la <strong>fiche client</strong> (onglet Contact).</div>
+
       </div>
+      <!-- ══ FIN ONGLET CIVITAS ══════════════════════════════════════════════ -->
+
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-projet')">Annuler</button>
