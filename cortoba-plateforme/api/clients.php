@@ -209,16 +209,25 @@ function patch($id, array $user) {
     if (!$id) jsonError('ID requis');
     $body = getBody();
     $db   = getDB();
-    $sets  = [];
-    $params = [];
-    if (array_key_exists('cin', $body))     { $sets[] = 'cin=?';      $params[] = $body['cin'] ?: null; }
-    if (array_key_exists('dateCin', $body)) { $sets[] = 'date_cin=?'; $params[] = $body['dateCin'] ?: null; }
-    if (empty($sets)) jsonError('Aucun champ à mettre à jour');
+    $cin     = array_key_exists('cin', $body)     ? ($body['cin'] ?: null)     : false;
+    $dateCin = array_key_exists('dateCin', $body) ? ($body['dateCin'] ?: null) : false;
+    if ($cin === false && $dateCin === false) jsonError('Aucun champ à mettre à jour');
+
+    // Tenter avec les deux colonnes
+    $sets = []; $params = [];
+    if ($cin !== false)     { $sets[] = 'cin=?';      $params[] = $cin; }
+    if ($dateCin !== false) { $sets[] = 'date_cin=?'; $params[] = $dateCin; }
     $sets[] = 'modifie_par=?'; $params[] = $user['name'];
     $params[] = $id;
+
     try {
         $db->prepare('UPDATE CA_clients SET ' . implode(', ', $sets) . ' WHERE id=?')->execute($params);
-    } catch (\Exception $e) {
+    } catch (\PDOException $e) {
+        if ($e->getCode() === '42S22' || strpos($e->getMessage(), 'Unknown column') !== false) {
+            // Colonnes cin/date_cin absentes : migration non encore exécutée
+            // Retourner un succès partiel pour ne pas bloquer l'UX
+            jsonOk(['id' => $id, 'notice' => 'Colonnes cin/date_cin absentes — exécutez la migration SQL']);
+        }
         jsonError('Erreur mise à jour CIN : ' . $e->getMessage(), 500);
     }
     getOne($id);

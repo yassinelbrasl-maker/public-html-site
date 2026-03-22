@@ -15,23 +15,42 @@
 (function () {
   'use strict';
 
-  // ── 1. Lire les données depuis le hash de l'URL (passé par ouvrirCivitas()) ─
+  // ── 1. Lire les données depuis les paramètres URL (passés par ouvrirCivitas()) ─
+  var params  = new URLSearchParams(window.location.search);
+  var ct      = params.get('ct');    // token serveur (méthode principale)
+  var cb      = params.get('cb');    // URL de base Cortoba
+  var civB64  = params.get('civitas'); // fallback base64 direct
+
+  // Méthode 1 : token serveur → fetch vers l'API Cortoba
+  if (ct && cb) {
+    var apiUrl = decodeURIComponent(cb) + 'api/civitas_store.php?token=' + encodeURIComponent(ct);
+    fetch(apiUrl)
+      .then(function(r) {
+        if (!r.ok) throw new Error('Token expiré ou introuvable');
+        return r.json();
+      })
+      .then(function(d) { runPrefill(d); })
+      .catch(function(e) {
+        alert('Cortoba → CIVITAS\n\nImpossible de récupérer les données :\n' + e.message +
+              '\n\nRelancez depuis la plateforme Cortoba (bouton CIVITAS ↗).');
+      });
+    return;   // attendre le fetch
+  }
+
+  // Méthode 2 : base64 dans ?civitas= (fallback si store indisponible)
   var raw = null;
-  var hash = window.location.hash || '';
-  var hashMatch = hash.match(/[#&]civitas=([^&]*)/);
-  if (hashMatch) {
-    try { raw = decodeURIComponent(escape(atob(hashMatch[1]))); } catch (e) {}
-  }
-  // Fallback : ancienne méthode localStorage (même domaine uniquement)
-  if (!raw) {
-    try { raw = localStorage.getItem('civitas_prefill'); } catch (e) {}
+  if (civB64) {
+    try { raw = decodeURIComponent(escape(atob(civB64))); } catch (e) {}
   }
   if (!raw) {
-    alert('Cortoba → CIVITAS\n\nAucune donnée trouvée.\nOuvrez d\'abord un projet depuis la plateforme Cortoba et cliquez "CIVITAS ↗".\n\nNote : utilisez le bouton CIVITAS ↗ dans la liste des projets pour ouvrir cette page avec les données pré-chargées.');
+    alert('Cortoba → CIVITAS\n\nAucune donnée trouvée.\nOuvrez d\'abord un projet depuis la plateforme Cortoba et cliquez "CIVITAS ↗".');
     return;
   }
   var d;
   try { d = JSON.parse(raw); } catch (e) { alert('Données invalides.'); return; }
+  runPrefill(d);
+
+  function runPrefill(d) {
 
   // ── 2. Utilitaires compatibles Vue/Angular/React ───────────────────────────
   /**
@@ -239,5 +258,7 @@
     setTimeout(function () { if (banner.parentNode) banner.remove(); }, 10000);
 
   }, 600); // délai 600ms pour Vue.js
+
+  } // fin runPrefill()
 
 })();

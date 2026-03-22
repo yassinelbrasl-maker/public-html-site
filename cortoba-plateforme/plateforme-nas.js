@@ -1705,12 +1705,23 @@ function ouvrirCivitas(projetId) {
     code_projet:    p.code || ''
   };
 
-  // Encoder les données dans le hash de l'URL (évite les restrictions cross-origin du localStorage)
-  var encoded;
-  try { encoded = btoa(unescape(encodeURIComponent(JSON.stringify(prefill)))); } catch(e) { encoded = ''; }
-
-  // Ouvrir CIVITAS dans un nouvel onglet avec les données encodées dans le hash
-  window.open('https://app.civitas.tn/admin/addnewdemande#civitas=' + encoded, '_blank');
+  // Stocker les données côté serveur (token court) — évite les restrictions cross-origin
+  apiFetch('api/civitas_store.php', { method: 'POST', body: prefill })
+    .then(function(r) {
+      var token = r.token || '';
+      // Passer le token ET l'URL de base Cortoba dans les params CIVITAS
+      var cbParam = encodeURIComponent(API_BASE);
+      window.open(
+        'https://app.civitas.tn/admin/addnewdemande?ct=' + token + '&cb=' + cbParam,
+        '_blank'
+      );
+    })
+    .catch(function() {
+      // Fallback : base64 dans le hash si le store échoue
+      var encoded = '';
+      try { encoded = btoa(unescape(encodeURIComponent(JSON.stringify(prefill)))); } catch(e) {}
+      window.open('https://app.civitas.tn/admin/addnewdemande?civitas=' + encoded, '_blank');
+    });
 
   // Toast d'instruction
   var toast = document.createElement('div');
@@ -1721,8 +1732,8 @@ function ouvrirCivitas(projetId) {
     'box-shadow:0 4px 20px rgba(0,0,0,.4);font-size:0.82rem;line-height:1.5'
   ].join(';');
   toast.innerHTML =
-    '<div style="font-weight:600;color:var(--accent);margin-bottom:0.4rem">CIVITAS ouvert</div>' +
-    '<div style="color:var(--text-2)">Données transmises via l\'URL.<br>' +
+    '<div style="font-weight:600;color:var(--accent);margin-bottom:0.4rem">CIVITAS ouvert ✓</div>' +
+    '<div style="color:var(--text-2)">Données prêtes.<br>' +
     'Activez le bookmarklet <strong>Cortoba→CIVITAS</strong> sur la page CIVITAS pour remplir le formulaire automatiquement.</div>' +
     '<button onclick="this.closest(\'div\').remove()" ' +
       'style="margin-top:0.6rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.75rem">Fermer ✕</button>';
@@ -1861,7 +1872,16 @@ function saveProjet(){
           if (civitasCin) patchBody.cin = civitasCin;
           if (civitasDC)  patchBody.dateCin = civitasDC;
           syncPromise = apiFetch('api/clients.php?id=' + clientId, {method:'PATCH', body:patchBody})
-            .catch(function(){});  // silencieux si colonnes absentes
+            .then(function(r){
+              // Afficher un toast de confirmation si les colonnes existent bien
+              if (!r.notice) {
+                var t=document.createElement('div');
+                t.style.cssText='position:fixed;bottom:1.5rem;left:1.5rem;z-index:9999;background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:0.6rem 1rem;font-size:0.8rem;color:var(--accent)';
+                t.textContent='✓ CIN / date mis à jour dans la fiche client';
+                document.body.appendChild(t); setTimeout(function(){ t.remove(); },3000);
+              }
+            })
+            .catch(function(){});  // silencieux en cas d'erreur réseau
         }
       }
       syncPromise.then(function(){
