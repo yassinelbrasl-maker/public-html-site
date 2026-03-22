@@ -62,13 +62,13 @@ function create(array $user) {
         $groupeJson = json_encode($body['groupe'], JSON_UNESCAPED_UNICODE);
     }
 
-    // Essayer d'abord avec la colonne groupe_json
+    // Essayer d'abord avec toutes les colonnes optionnelles
     try {
         $db->prepare('
             INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule,
-                display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
+                cin, date_cin, display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
                 date_contact, remarques, groupe_json, cree_par)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ')->execute([
             $id,
             $body['code']         ?? '',
@@ -78,6 +78,8 @@ function create(array $user) {
             $body['nom']          ?? null,
             $body['raison']       ?? null,
             $body['matricule']    ?? null,
+            $body['cin']          ?? null,
+            $body['dateCin']      ?: null,
             $body['displayNom']   ?? '',
             $body['email']        ?? null,
             $body['tel']          ?? null,
@@ -92,7 +94,7 @@ function create(array $user) {
             $user['name'],
         ]);
     } catch (\Exception $e) {
-        // Colonne groupe_json inexistante — fallback sans groupe
+        // Fallback sans cin/date_cin/groupe_json si colonnes absentes
         $db->prepare('
             INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule,
                 display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
@@ -139,7 +141,7 @@ function update($id, array $user) {
         $db->prepare('
             UPDATE CA_clients SET
                 code=?, num_client=?, type=?, prenom=?, nom=?, raison=?, matricule=?,
-                display_nom=?, email=?, tel=?, whatsapp=?, adresse=?, statut=?,
+                cin=?, date_cin=?, display_nom=?, email=?, tel=?, whatsapp=?, adresse=?, statut=?,
                 source=?, source_detail=?, date_contact=?, remarques=?, groupe_json=?, modifie_par=?
             WHERE id=?
         ')->execute([
@@ -150,6 +152,8 @@ function update($id, array $user) {
             $body['nom']          ?? null,
             $body['raison']       ?? null,
             $body['matricule']    ?? null,
+            $body['cin']          ?? null,
+            $body['dateCin']      ?: null,
             $body['displayNom']   ?? '',
             $body['email']        ?? null,
             $body['tel']          ?? null,
@@ -165,7 +169,7 @@ function update($id, array $user) {
             $id,
         ]);
     } catch (\Exception $e) {
-        // Fallback sans groupe_json
+        // Fallback sans cin/date_cin/groupe_json
         $db->prepare('
             UPDATE CA_clients SET
                 code=?, num_client=?, type=?, prenom=?, nom=?, raison=?, matricule=?,
@@ -201,8 +205,7 @@ function update($id, array $user) {
 
 function remove($id, array $user) {
     if (!$id) jsonError('ID requis');
-    $role = $user['role'] ?? '';
-    if ($role !== 'admin' && $role !== 'Architecte gérant') jsonError('Seul un Architecte gérant peut supprimer', 403);
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     getDB()->prepare('DELETE FROM CA_clients WHERE id = ?')->execute([$id]);
     getDB()->prepare('DELETE FROM CA_clients_contacts_aux WHERE client_id = ?')->execute([$id]);
     jsonOk(['deleted' => $id]);

@@ -82,6 +82,13 @@ CREATE TABLE IF NOT EXISTS `CA_projets` (
   `lat` decimal(10,7) DEFAULT NULL,
   `lng` decimal(10,7) DEFAULT NULL,
   `nas_path` varchar(500) DEFAULT NULL,
+  `surface_shon` decimal(12,2) DEFAULT NULL,
+  `surface_shob` decimal(12,2) DEFAULT NULL,
+  `surface_terrain` decimal(12,2) DEFAULT NULL,
+  `standing` varchar(40) DEFAULT NULL,
+  `zone` varchar(40) DEFAULT NULL,
+  `cout_construction` decimal(14,2) DEFAULT NULL,
+  `cout_m2` decimal(10,2) DEFAULT NULL,
   `cree_par` varchar(120) DEFAULT NULL,
   `modifie_par` varchar(120) DEFAULT NULL,
   `cree_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -90,6 +97,15 @@ CREATE TABLE IF NOT EXISTS `CA_projets` (
   KEY `statut` (`statut`),
   KEY `client_code` (`client_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migration : nouvelles colonnes configurateur (à exécuter sur les installations existantes)
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_shon` decimal(12,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_shob` decimal(12,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_terrain` decimal(12,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `standing` varchar(40) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `zone` varchar(40) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_construction` decimal(14,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_m2` decimal(10,2) DEFAULT NULL;
 
 -- Missions par projet
 CREATE TABLE IF NOT EXISTS `CA_projets_missions` (
@@ -176,3 +192,19 @@ CREATE TABLE IF NOT EXISTS `CA_parametres` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================
+--  MIGRATION CIVITAS — Exécuter une seule fois dans phpMyAdmin
+-- ============================================================
+
+-- Champs client pour le formulaire CIVITAS (permis de bâtir)
+ALTER TABLE `CA_clients`
+  ADD COLUMN IF NOT EXISTS `cin`       varchar(20)  DEFAULT NULL COMMENT 'N° CIN ou passeport (CIVITAS)' AFTER `matricule`,
+  ADD COLUMN IF NOT EXISTS `date_cin`  date         DEFAULT NULL COMMENT 'Date émission CIN/passeport (CIVITAS)' AFTER `cin`;
+
+-- Champs projet pour le formulaire CIVITAS
+ALTER TABLE `CA_projets`
+  ADD COLUMN IF NOT EXISTS `commune`           varchar(100) DEFAULT NULL COMMENT 'البلدية — Commune (CIVITAS)' AFTER `adresse`,
+  ADD COLUMN IF NOT EXISTS `delegation`        varchar(100) DEFAULT NULL COMMENT 'الدائرة — Délégation (CIVITAS)' AFTER `commune`,
+  ADD COLUMN IF NOT EXISTS `type_construction` enum('nouveau','extension','reconstruction','touristique') DEFAULT 'nouveau' COMMENT 'نوع البناء (CIVITAS)' AFTER `type_bat`,
+  ADD COLUMN IF NOT EXISTS `civitas_demande`   enum('premiere','revision') DEFAULT 'premiere' COMMENT 'نوع المطلب (CIVITAS)' AFTER `type_construction`;

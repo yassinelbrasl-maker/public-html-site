@@ -636,6 +636,8 @@ function saveClient() {
   var nom          = (document.getElementById('cl-nom').value||'').trim();
   var raison       = (document.getElementById('cl-raison').value||'').trim();
   var matricule    = (document.getElementById('cl-matricule').value||'').trim();
+  var cin          = (document.getElementById('cl-cin').value||'').trim();
+  var dateCin      = document.getElementById('cl-date-cin').value||null;
   var email        = (document.getElementById('cl-email').value||'').trim();
   var tel          = (document.getElementById('cl-tel').value||'').trim();
   var whatsapp     = (document.getElementById('cl-whatsapp').value||'').trim();
@@ -735,7 +737,8 @@ function saveClient() {
   var body = {
     code: finalCode,
     numClient: numClient, type: type, prenom: prenom, nom: nom,
-    raison: raison, matricule: matricule, displayNom: displayNom,
+    raison: raison, matricule: matricule, cin: cin||null, dateCin: dateCin||null,
+    displayNom: displayNom,
     email: email, tel: tel, whatsapp: whatsapp, adresse: adresse,
     statut: statut, dateContact: dateContact||null, source: source||null,
     sourceDetail: sourceDetail||null, remarques: remarques,
@@ -757,7 +760,7 @@ function saveClient() {
 }
 
 function resetClientForm() {
-  ['cl-prenom','cl-nom','cl-raison','cl-matricule','cl-email','cl-tel','cl-whatsapp',
+  ['cl-prenom','cl-nom','cl-raison','cl-matricule','cl-cin','cl-date-cin','cl-email','cl-tel','cl-whatsapp',
    'cl-adresse','cl-date-contact','cl-source-detail','cl-remarques'].forEach(function(id){
     var el = document.getElementById(id); if (el) el.value = '';
   });
@@ -839,7 +842,7 @@ function renderClients() {
           '<td><span class="'+badgeClass(c.statut)+'">'+c.statut+'</span></td>'+
           '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+
             '<button class="btn btn-sm" onclick="openEditClient(\''+c.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>'+
-            (canDelete() ? '<button class="btn btn-sm" onclick="deleteRow(\'client\',\''+c.id+'\')" style="color:#e07070" title="Supprimer">✕</button>' : '')+
+            '<button class="btn btn-sm" onclick="deleteRow(\'client\',\''+c.id+'\')" style="color:#e07070" title="Supprimer">✕</button>'+
           '</td>'+
         '</tr>';
       }).join('');
@@ -924,10 +927,12 @@ function openEditClient(id) {
   if (numEl) numEl.textContent = c.numClient ? '· N° '+String(c.numClient).padStart(4,'0') : '';
 
   // Onglet Contact
-  var emailEl = document.getElementById('cl-email'); if (emailEl) emailEl.value = c.email||'';
-  var telEl   = document.getElementById('cl-tel');   if (telEl)   telEl.value   = c.tel||'';
-  var waEl    = document.getElementById('cl-whatsapp'); if (waEl) waEl.value    = c.whatsapp||'';
-  var adrEl   = document.getElementById('cl-adresse'); if (adrEl) adrEl.value   = c.adresse||'';
+  var emailEl   = document.getElementById('cl-email');    if (emailEl)   emailEl.value   = c.email||'';
+  var telEl     = document.getElementById('cl-tel');      if (telEl)     telEl.value     = c.tel||'';
+  var waEl      = document.getElementById('cl-whatsapp'); if (waEl)      waEl.value      = c.whatsapp||'';
+  var adrEl     = document.getElementById('cl-adresse');  if (adrEl)     adrEl.value     = c.adresse||'';
+  var cinEl     = document.getElementById('cl-cin');      if (cinEl)     cinEl.value     = c.cin||'';
+  var dateCinEl = document.getElementById('cl-date-cin'); if (dateCinEl) dateCinEl.value = c.date_cin||'';
 
   // Onglet Identité suite
   var statutEl = document.getElementById('cl-statut');
@@ -1001,12 +1006,7 @@ function openEditClient(id) {
 // ══════════════════════════════════════════════════════════
 //  OTHER CRUD
 // ══════════════════════════════════════════════════════════
-function canDelete(){
-  var s = getSession();
-  return s && (s.isAdmin || s.role === 'Architecte gérant');
-}
 function deleteRow(type, id){
-  if (!canDelete()) { alert('Seul un Architecte gérant peut supprimer.'); return; }
   if (!confirm('Supprimer cet élément ?')) return;
   var path = '';
   if (type==='client')  path = 'api/clients.php?id='+id;
@@ -1166,9 +1166,10 @@ function renderProjets(){
       var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td>—</td>';
       return '<td>'+col.render(p)+'</td>';
     }).join('');
-    var editBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent);margin-right:3px">✎</button>';
+    var editBtn     = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent);margin-right:3px">✎</button>';
+    var civitasBtn  = '<button class="btn btn-sm" onclick="event.stopPropagation();ouvrirCivitas(\''+p.id+'\')" title="Préremplir formulaire CIVITAS" style="color:#8a7a5a;margin-right:3px;font-size:0.68rem">CIVITAS ↗</button>';
     return '<tr onclick="openProjetDetail(\''+p.id+'\')" style="cursor:pointer">'+cells+
-      '<td onclick="event.stopPropagation()">'+editBtn+(canDelete() ? '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button>' : '')+'</td><td></td></tr>';
+      '<td onclick="event.stopPropagation()">'+editBtn+civitasBtn+'<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button></td><td></td></tr>';
   }).join('');
   if(document.getElementById('page-projets')&&document.getElementById('page-projets').classList.contains('active')){
     if(typeof refreshGlobalMap==='function') setTimeout(refreshGlobalMap,100);
@@ -1424,15 +1425,18 @@ function resetProjetForm(){
   if (_pjMap) { try{ _pjMap.remove(); }catch(e){} }
   _pjMap = null; _pjMarker = null;
 
-  ['pj-nom','pj-adresse','pj-delai','pj-honoraires','pj-budget','pj-surface','pj-description'].forEach(function(id){
+  ['pj-nom','pj-adresse','pj-commune','pj-delegation',
+   'pj-delai','pj-honoraires','pj-budget','pj-surface','pj-description'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
   var anneeEl = document.getElementById('pj-annee');
   if (anneeEl) anneeEl.value = new Date().getFullYear();
 
-  var pjPhase  = document.getElementById('pj-phase');   if(pjPhase)  pjPhase.value  = 'APS';
-  var pjStatut = document.getElementById('pj-statut');  if(pjStatut) pjStatut.value = 'Actif';
-  var pjType   = document.getElementById('pj-type-bat');if(pjType)   pjType.value   = '';
+  var pjPhase  = document.getElementById('pj-phase');            if(pjPhase)  pjPhase.value  = 'APS';
+  var pjStatut = document.getElementById('pj-statut');           if(pjStatut) pjStatut.value = 'Actif';
+  var pjType   = document.getElementById('pj-type-bat');         if(pjType)   pjType.value   = '';
+  var pjTC     = document.getElementById('pj-type-construction'); if(pjTC)     pjTC.value     = 'nouveau';
+  var pjCD     = document.getElementById('pj-civitas-demande');   if(pjCD)     pjCD.value     = 'premiere';
 
   var err     = document.getElementById('pj-err');     if(err)    err.style.display='none';
   var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) codeEl.textContent='—';
@@ -1486,6 +1490,15 @@ function openEditProjet(id){
   // A3 — typeBat : gérer snake_case (type_bat) et camelCase (typeBat)
   var typeBatVal = p.typeBat || p.type_bat || '';
   document.getElementById('pj-type-bat').value = typeBatVal;
+  // Champs CIVITAS
+  var tcEl = document.getElementById('pj-type-construction');
+  if (tcEl) tcEl.value = p.type_construction || p.typeConstruction || 'nouveau';
+  var cdEl = document.getElementById('pj-civitas-demande');
+  if (cdEl) cdEl.value = p.civitas_demande || p.civitasDemande || 'premiere';
+  var commEl = document.getElementById('pj-commune');
+  if (commEl) commEl.value = p.commune || '';
+  var delEl = document.getElementById('pj-delegation');
+  if (delEl) delEl.value = p.delegation || '';
 
   if (p.lat && p.lng) {
     document.getElementById('pj-lat').value = p.lat;
@@ -1520,6 +1533,72 @@ function copyNasPath(encoded){
   toast.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-1);border:1px solid var(--accent);border-radius:6px;padding:0.6rem 1rem;font-size:0.8rem;color:var(--accent);z-index:9999';
   toast.textContent = '📋 Chemin NAS copié';
   document.body.appendChild(toast); setTimeout(function(){ toast.remove(); }, 2000);
+}
+
+// ── Préremplir CIVITAS depuis la fiche projet ──
+function ouvrirCivitas(projetId) {
+  var p = getProjets().find(function(x){ return x.id===projetId; });
+  if (!p) return;
+
+  // Récupérer le client pour cin/date_cin
+  var client = getClients().find(function(c){
+    return c.id===p.clientId || c.id===p.client_id ||
+           (c.displayNom||c.display_nom)===p.client;
+  }) || {};
+
+  var typeConstMap = {
+    'nouveau':        'بناء جديد',
+    'extension':      'توسعة',
+    'reconstruction': 'إعادة بناء',
+    'touristique':    'بناء سياحي'
+  };
+  var typeConst = p.type_construction || p.typeConstruction || 'nouveau';
+  var civitasDem = p.civitas_demande || p.civitasDemande || 'premiere';
+
+  var prefill = {
+    // Identité maître d'ouvrage
+    nom_prenom:   client.displayNom || client.display_nom || p.client || '',
+    cin:          client.cin || '',
+    date_cin:     client.date_cin || '',
+    tel:          client.tel || '',
+    email:        client.email || '',
+    adresse_moa:  client.adresse || '',
+    // Localisation projet
+    adresse_projet: p.adresse || '',
+    commune:        p.commune || '',
+    delegation:     p.delegation || '',
+    // Type demande CIVITAS
+    type_demande:   civitasDem,       // 'premiere' | 'revision'
+    type_construction: typeConst,     // 'nouveau' | 'extension' | 'reconstruction' | 'touristique'
+    type_construction_ar: typeConstMap[typeConst] || '',
+    // Données projet
+    surface:        p.surface || '',
+    description:    p.description || '',
+    code_projet:    p.code || ''
+  };
+
+  // Stocker en localStorage pour le bookmarklet
+  try { localStorage.setItem('civitas_prefill', JSON.stringify(prefill)); } catch(e) {}
+
+  // Ouvrir CIVITAS dans un nouvel onglet
+  window.open('https://app.civitas.tn/admin/addnewdemande', '_blank');
+
+  // Toast d'instruction
+  var toast = document.createElement('div');
+  toast.style.cssText = [
+    'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999',
+    'background:var(--bg-card);border:1px solid var(--accent)',
+    'border-radius:8px;padding:1rem 1.2rem;max-width:340px',
+    'box-shadow:0 4px 20px rgba(0,0,0,.4);font-size:0.82rem;line-height:1.5'
+  ].join(';');
+  toast.innerHTML =
+    '<div style="font-weight:600;color:var(--accent);margin-bottom:0.4rem">CIVITAS ouvert</div>' +
+    '<div style="color:var(--text-2)">Données copiées en mémoire.<br>' +
+    'Activez le bookmarklet <strong>Cortoba→CIVITAS</strong> sur la page CIVITAS pour remplir automatiquement.</div>' +
+    '<button onclick="this.closest(\'div\').remove()" ' +
+      'style="margin-top:0.6rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.75rem">Fermer ✕</button>';
+  document.body.appendChild(toast);
+  setTimeout(function(){ if(toast.parentNode) toast.remove(); }, 8000);
 }
 
 function openProjetDetail(id){
@@ -1590,10 +1669,14 @@ function saveProjet(){
   var honoraires  = parseFloat(document.getElementById('pj-honoraires').value)||0;
   var budget      = parseFloat(document.getElementById('pj-budget').value)||0;
   var surface     = parseFloat(document.getElementById('pj-surface').value)||0;
-  var description = (document.getElementById('pj-description').value||'').trim();
-  var adresse     = (document.getElementById('pj-adresse').value||'').trim();
-  var lat         = parseFloat(document.getElementById('pj-lat').value)||null;
-  var lng         = parseFloat(document.getElementById('pj-lng').value)||null;
+  var description      = (document.getElementById('pj-description').value||'').trim();
+  var adresse          = (document.getElementById('pj-adresse').value||'').trim();
+  var commune          = (document.getElementById('pj-commune').value||'').trim();
+  var delegation       = (document.getElementById('pj-delegation').value||'').trim();
+  var typeConstruction = document.getElementById('pj-type-construction').value||'nouveau';
+  var civitasDemande   = document.getElementById('pj-civitas-demande').value||'premiere';
+  var lat              = parseFloat(document.getElementById('pj-lat').value)||null;
+  var lng              = parseFloat(document.getElementById('pj-lng').value)||null;
   var displayNom  = client.displayNom||client.display_nom||client.nom||client.raison||'';
   var code        = _editingProjetId
     ? (document.getElementById('pj-code-preview').textContent || genProjetCode(annee, displayNom, client.code))
@@ -1605,9 +1688,12 @@ function saveProjet(){
     code:code, annee:annee, phase:phase, statut:statut,
     typeBat: typeBat||null,            // camelCase envoyé; PHP doit accepter les deux
     type_bat: typeBat||null,           // snake_case aussi pour compatibilité API
+    typeConstruction: typeConstruction,
+    civitasDemande: civitasDemande,
     delai:delai||null, honoraires:honoraires,
     budget:budget||null, surface:surface||null,
     description:description||null, adresse:adresse||null,
+    commune:commune||null, delegation:delegation||null,
     lat:lat, lng:lng, nasPath:nasPath,
     nas_path:nasPath,                  // compatibilité snake_case
     missions:getSelectedMissions(),
