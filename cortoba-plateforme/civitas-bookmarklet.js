@@ -167,8 +167,8 @@
     }, 300);
   }
 
-  // ── 3. Délai pour attendre le rendu Vue.js ─────────────────────────────────
-  setTimeout(function () {
+  // ── 3. Remplissage (exécuté 2 fois : 700ms et 1800ms pour contrer le reset Vue) ─
+  function doFill() {
 
     // ── 3a. Type de demande : أول مرة / إعادة نظر ────────────────────────────
     if (d.type_demande === 'premiere') {
@@ -187,13 +187,12 @@
     }
 
     // ── 3c. Lieu de la bâtisse ────────────────────────────────────────────────
-    // مكان البيناية (champ texte adresse projet côté gauche)
     fillBySelectors(
       ['input[placeholder*="مكان"]', 'input[placeholder*="Adresse"]', '#adresse_batisse'],
       d.adresse_projet
     );
 
-    // نوع البيناية (type de bâtiment — description)
+    // نوع البيناية
     fillBySelectors(
       ['input[placeholder*="نوع"]', 'input[placeholder*="Type de b"]', '#type_batisse'],
       d.description || d.code_projet
@@ -203,7 +202,6 @@
     if (d.commune) {
       var communeEl = document.querySelector('select[name*="commune"], select[name*="baladia"], .el-select:nth-of-type(1)');
       if (communeEl) setSelect(communeEl, d.commune);
-      // Sinon tenter par texte du label
       else clickByLabel(d.commune);
     }
     if (d.delegation) {
@@ -215,22 +213,33 @@
     clickByLabel('شخص طبيعي') || clickByLabel('Physique') || clickByLabel('physique');
 
     // ── 3f. Identité du maître d'ouvrage ─────────────────────────────────────
-    // الاسم (prénom en arabe) et اللقب (nom en arabe)
-    var fullNameAr = (d.prenom_ar && d.nom_ar) ? d.prenom_ar + ' ' + d.nom_ar : (d.nom_ar || d.prenom_ar || '');
-    if (fullNameAr) {
-      fillBySelectors(['input[placeholder*="الاسم"]', '#nom_prenom'], fullNameAr);
+    // En arabe : "الاسم" = prénom, "اللقب" = nom de famille (champs séparés)
+    // Essayer d'abord les champs séparés, puis le champ combiné en dernier recours
+    var prenomFilled = false, nomFilled = false;
+    if (d.prenom_ar) {
+      prenomFilled = !!(
+        fillBySelectors(['input[placeholder*="الاسم الأول"]', 'input[id*="prenom"]'], d.prenom_ar) ||
+        fillBySelectors(['input[placeholder*="الاسم"]'], d.prenom_ar)
+      );
     }
-    // Champs séparés prénom / nom si présents
-    if (d.prenom_ar) fillBySelectors(['input[id*="prenom"]','input[placeholder*="الاسم الأول"]'], d.prenom_ar);
-    if (d.nom_ar)    fillBySelectors(['input[id*="nom"]','input[placeholder*="اللقب"]'], d.nom_ar);
+    if (d.nom_ar) {
+      nomFilled = !!(
+        fillBySelectors(['input[placeholder*="اللقب"]', 'input[id*="nom"]', 'input[placeholder*="العائلة"]'], d.nom_ar)
+      );
+    }
+    // Champ combiné "الاسم واللقب" ou "#nom_prenom" si champs séparés introuvables
+    if (!prenomFilled && !nomFilled) {
+      var fullNameAr = (d.prenom_ar && d.nom_ar) ? d.prenom_ar + ' ' + d.nom_ar : (d.nom_ar || d.prenom_ar || '');
+      if (fullNameAr) fillBySelectors(['input[placeholder*="الاسم واللقب"]', 'input[placeholder*="الاسم الكامل"]', '#nom_prenom'], fullNameAr);
+    }
 
-    // رقم بطاقة التهريف
+    // رقم بطاقة التعريف
     fillBySelectors(
       ['input[placeholder*="بطاقة"]', 'input[placeholder*="CIN"]', 'input[placeholder*="جواز"]', '#cin'],
       d.cin
     );
 
-    // تاريخ إصدار بطاقة التهريف
+    // تاريخ إصدار بطاقة التعريف
     fillBySelectors(
       ['input[placeholder*="تاريخ"]', 'input[type="date"]', '#date_cin'],
       d.date_cin
@@ -247,8 +256,16 @@
       ['input[placeholder*="البريد"]', 'input[placeholder*="mail"]', 'input[type="email"]', '#email'],
       d.email
     );
+  }
 
-    // ── 3g. Feedback visuel ───────────────────────────────────────────────────
+  // Premier passage : 700ms (Vue.js doit être monté)
+  setTimeout(doFill, 700);
+
+  // Second passage : 1800ms (contrer le reset réactif de Vue après chargement async)
+  setTimeout(doFill, 1800);
+
+  // ── 3g. Feedback visuel ───────────────────────────────────────────────────
+  setTimeout(function () {
     var banner = document.createElement('div');
     banner.style.cssText = [
       'position:fixed;top:16px;right:16px;z-index:99999',
@@ -266,8 +283,7 @@
         'border-radius:4px;padding:2px 10px;cursor:pointer;font-size:11px">Fermer</button>';
     document.body.appendChild(banner);
     setTimeout(function () { if (banner.parentNode) banner.remove(); }, 10000);
-
-  }, 600); // délai 600ms pour Vue.js
+  }, 700);
 
   } // fin runPrefill()
 

@@ -53,11 +53,29 @@ function getOne(string $id) {
     jsonOk($p);
 }
 
+// ── Auto-migration : ajoute les colonnes CIVITAS manquantes (idempotent) ──────
+function ensureCivitasProjectColumns() {
+    static $done = false;
+    if ($done) return;
+    try {
+        getDB()->exec("
+            ALTER TABLE CA_projets
+                ADD COLUMN IF NOT EXISTS civitas_lieu       varchar(300) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS civitas_prenom_ar  varchar(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS civitas_nom_ar     varchar(100) DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS civitas_cin        varchar(20)  DEFAULT NULL,
+                ADD COLUMN IF NOT EXISTS civitas_date_cin   date         DEFAULT NULL
+        ");
+    } catch (\Exception $e) { /* silent — DB peut ne pas supporter IF NOT EXISTS */ }
+    $done = true;
+}
+
 function create(array $user) {
     $body = getBody();
     $nom  = trim($body['nom'] ?? '');
     if (!$nom) jsonError('Nom du projet requis');
 
+    ensureCivitasProjectColumns();
     $db = getDB();
     $id = bin2hex(random_bytes(16));
 
@@ -72,11 +90,12 @@ function create(array $user) {
             $db->prepare('
                 INSERT INTO CA_projets (id, code, nom, client, client_code, annee, phase, statut, type_bat,
                     type_construction, civitas_demande,
+                    civitas_lieu, civitas_prenom_ar, civitas_nom_ar, civitas_cin, civitas_date_cin,
                     delai, honoraires, budget, surface, description, adresse, commune, delegation,
                     lat, lng, nas_path,
                     surface_shon, surface_shob, surface_terrain, standing, zone, cout_construction, cout_m2,
                     cree_par)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ')->execute([
                 $id,
                 $code,
@@ -89,6 +108,11 @@ function create(array $user) {
                 $body['typeBat']          ?? null,
                 $body['typeConstruction'] ?? 'nouveau',
                 $body['civitasDemande']   ?? 'premiere',
+                $body['civitasLieu']      ?? null,
+                $body['civitasPrenomAr']  ?? null,
+                $body['civitasNomAr']     ?? null,
+                $body['civitasCin']       ?? null,
+                $body['civitasDateCin']   ?? null,
                 $body['delai']            ?: null,
                 floatval($body['honoraires'] ?? 0),
                 floatval($body['budget']     ?? 0),
@@ -186,6 +210,7 @@ function create(array $user) {
 
 function update($id, array $user) {
     if (!$id) jsonError('ID requis');
+    ensureCivitasProjectColumns();
     $body = getBody();
     $db   = getDB();
 
@@ -198,6 +223,7 @@ function update($id, array $user) {
             UPDATE CA_projets SET
                 nom=?, client=?, client_code=?, annee=?, phase=?, statut=?, type_bat=?,
                 type_construction=?, civitas_demande=?,
+                civitas_lieu=?, civitas_prenom_ar=?, civitas_nom_ar=?, civitas_cin=?, civitas_date_cin=?,
                 delai=?, honoraires=?, budget=?, surface=?, description=?, adresse=?,
                 commune=?, delegation=?,
                 lat=?, lng=?,
@@ -215,6 +241,11 @@ function update($id, array $user) {
             $body['typeBat']              ?? null,
             $body['typeConstruction']     ?? 'nouveau',
             $body['civitasDemande']       ?? 'premiere',
+            $body['civitasLieu']          ?? null,
+            $body['civitasPrenomAr']      ?? null,
+            $body['civitasNomAr']         ?? null,
+            $body['civitasCin']           ?? null,
+            $body['civitasDateCin']       ?? null,
             $body['delai']                ?: null,
             floatval($body['honoraires']  ?? 0),
             floatval($body['budget']      ?? 0),

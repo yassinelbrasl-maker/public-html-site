@@ -1214,6 +1214,7 @@ function renderProjets(){
       return '<td style="'+tdS+'">'+col.render(p)+'</td>';
     }).join('');
     var hasCiv = !!(p.commune || p.delegation || p.civitas_lieu ||
+                   p.civitas_cin || p.civitas_prenom_ar || p.civitas_nom_ar ||
                    (p.type_construction && p.type_construction !== 'nouveau') ||
                    (p.civitas_demande && p.civitas_demande !== 'premiere'));
     var civitasBtn = hasCiv
@@ -1290,6 +1291,144 @@ function refreshGlobalMap(){
   setTimeout(function(){ try{ _globalMap.invalidateSize(); }catch(e){}}, 300);
 }
 
+// ── Export KMZ (KML zippé) pour Google Earth ─────────────────────────────────
+function exportKmz() {
+  var projets = getProjets().filter(function(p){ return p.lat && p.lng; });
+  if (!projets.length) {
+    alert('Aucun projet géolocalisé à exporter.\nPositionnez d\'abord les projets sur la carte dans leur fiche.');
+    return;
+  }
+
+  // ── 1. Générer le KML ──────────────────────────────────────────────────────
+  var statColors = { Actif:'ff5aab6e', 'En pause':'ffe0a46e', Prospection:'ff6fa8d6', Archivé:'ff555555' };
+  var esc = function(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+
+  // Styles par statut
+  var styles = ['Actif','En pause','Prospection','Archivé'].map(function(st){
+    var col = statColors[st] || 'ffc8a96e';
+    return '<Style id="st-'+st.replace(/\s/g,'-')+'">'+
+      '<IconStyle><color>'+col+'</color><scale>1.1</scale>'+
+      '<Icon><href>http://maps.google.com/mapfiles/kml/paddle/wht-blank.png</href></Icon></IconStyle>'+
+      '<LabelStyle><scale>0.8</scale></LabelStyle>'+
+      '</Style>';
+  }).join('\n');
+
+  // Placemarks
+  var placemarks = projets.map(function(p){
+    var styleId = 'st-'+(p.statut||'Actif').replace(/\s/g,'-');
+    var descLines = [
+      p.client   ? '<b>Client :</b> '+esc(p.client) : '',
+      p.phase    ? '<b>Phase :</b> '+esc(p.phase)   : '',
+      p.statut   ? '<b>Statut :</b> '+esc(p.statut) : '',
+      p.adresse  ? '<b>Adresse :</b> '+esc(p.adresse) : '',
+      p.honoraires ? '<b>Honoraires :</b> '+fmtMontant(p.honoraires) : '',
+      p.surface  ? '<b>Surface :</b> '+p.surface+' m²' : '',
+      p.description ? '<br><em>'+esc(p.description)+'</em>' : ''
+    ].filter(Boolean).join('<br>');
+    return '<Placemark>'+
+      '<name>'+esc((p.code?'['+p.code+'] ':'')+p.nom)+'</name>'+
+      '<description><![CDATA['+descLines+']]></description>'+
+      '<styleUrl>#'+styleId+'</styleUrl>'+
+      '<Point><coordinates>'+p.lng+','+p.lat+',0</coordinates></Point>'+
+      '</Placemark>';
+  }).join('\n');
+
+  var kml =
+    '<?xml version="1.0" encoding="UTF-8"?>\n'+
+    '<kml xmlns="http://www.opengis.net/kml/2.2">\n'+
+    '<Document>\n'+
+    '<name>Projets Cortoba — '+new Date().toLocaleDateString('fr-FR')+'</name>\n'+
+    '<description>Exporté depuis Cortoba Atelier le '+new Date().toLocaleString('fr-FR')+'</description>\n'+
+    styles + '\n' + placemarks + '\n'+
+    '</Document>\n</kml>';
+
+  // ── 2. Créer un ZIP minimal (méthode stored) ───────────────────────────────
+  var enc      = new TextEncoder();
+  var kmlBytes = enc.encode(kml);
+  var fname    = enc.encode('doc.kml');
+
+  // CRC-32
+  var crcTable = (function(){
+    var t = new Uint32Array(256);
+    for (var i=0;i<256;i++){
+      var c=i; for(var j=0;j<8;j++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[i]=c;
+    }
+    return t;
+  })();
+  var crc = 0xFFFFFFFF;
+  for (var i=0;i<kmlBytes.length;i++) crc = crcTable[(crc^kmlBytes[i])&0xFF]^(crc>>>8);
+  crc = (crc^0xFFFFFFFF)>>>0;
+
+  // Date/heure DOS
+  var now = new Date();
+  var dosDate = (((now.getFullYear()-1980)&0x7F)<<9)|(((now.getMonth()+1)&0xF)<<5)|(now.getDate()&0x1F);
+  var dosTime = ((now.getHours()&0x1F)<<11)|((now.getMinutes()&0x3F)<<5)|((now.getSeconds()>>1)&0x1F);
+
+  function le2(n){ return [(n)&0xFF,(n>>8)&0xFF]; }
+  function le4(n){ return [(n>>>0)&0xFF,(n>>>8)&0xFF,(n>>>16)&0xFF,(n>>>24)&0xFF]; }
+
+  var localHdr = [].concat(
+    [0x50,0x4B,0x03,0x04],                      // sig
+    le2(20), le2(0), le2(0),                     // version, flags, method (stored)
+    le2(dosTime), le2(dosDate),
+    le4(crc), le4(kmlBytes.length), le4(kmlBytes.length),
+    le2(fname.length), le2(0),                   // fname len, extra len
+    Array.from(fname)
+  );
+
+  var localOffset = localHdr.length;             // offset of data in file
+  var dataOffset  = 0;                           // offset of local header from start
+
+  var centralDir = [].concat(
+    [0x50,0x4B,0x01,0x02],
+    le2(20), le2(20),                            // version made/needed
+    le2(0), le2(0),                              // flags, method
+    le2(dosTime), le2(dosDate),
+    le4(crc), le4(kmlBytes.length), le4(kmlBytes.length),
+    le2(fname.length), le2(0), le2(0),           // fname, extra, comment
+    le2(0), le2(0),                              // disk start, int attrs
+    le4(0), le4(dataOffset),                     // ext attrs, local hdr offset
+    Array.from(fname)
+  );
+
+  var cdStart = localHdr.length + kmlBytes.length;
+
+  var eocd = [].concat(
+    [0x50,0x4B,0x05,0x06],
+    le2(0), le2(0),                              // disk num, disk with cd
+    le2(1), le2(1),                              // entries on disk, total
+    le4(centralDir.length),                      // cd size
+    le4(cdStart),                                // cd offset
+    le2(0)                                       // comment len
+  );
+
+  var zip = new Uint8Array(localHdr.length + kmlBytes.length + centralDir.length + eocd.length);
+  var pos = 0;
+  localHdr.forEach(function(b){ zip[pos++]=b; });
+  kmlBytes.forEach(function(b){ zip[pos++]=b; });
+  centralDir.forEach(function(b){ zip[pos++]=b; });
+  eocd.forEach(function(b){ zip[pos++]=b; });
+
+  // ── 3. Déclencher le téléchargement ───────────────────────────────────────
+  var blob     = new Blob([zip], {type:'application/vnd.google-earth.kmz'});
+  var url      = URL.createObjectURL(blob);
+  var a        = document.createElement('a');
+  var datePart = new Date().toISOString().slice(0,10);
+  a.href       = url;
+  a.download   = 'cortoba-projets-'+datePart+'.kmz';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+
+  // Toast
+  var t = document.createElement('div');
+  t.style.cssText='position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg-card);border:1px solid var(--accent);border-radius:6px;padding:0.7rem 1.1rem;font-size:0.82rem;color:var(--accent)';
+  t.textContent = '✓ '+projets.length+' projet'+(projets.length>1?'s':'')+' exporté'+(projets.length>1?'s':'')+' — ouvrez le fichier .kmz dans Google Earth';
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 4000);
+}
+
+
 // ═══════════════════════════════════════════════════════════
 //  A — MODAL PROJET — onglets, code, NAS, missions, intervenants
 // ═══════════════════════════════════════════════════════════
@@ -1337,27 +1476,129 @@ function toggleCivitasTab() {
 }
 
 // ── Aperçu maître d'ouvrage dans l'onglet CIVITAS ────────────────────────────
-// ── Translittération Latin → Arabe (approximation pour noms propres) ─────────
-function latinToArabic(str) {
-  if (!str) return '';
-  str = (str + '').trim();
-  var digraphs = {'ch':'ش','kh':'خ','gh':'غ','dh':'ذ','th':'ث','ou':'و','ai':'اي','ei':'اي','au':'او','ph':'ف'};
-  var mono = {
+// ── Translittération Latin → Arabe (noms tunisiens) ─────────────────────────
+
+// Dictionnaire des noms de famille (article inclus selon usage)
+var _AR_NOM_DICT = {
+  // ── Exceptions phonétiques imposées ──
+  'DHIF':'الضيف','KBESS':'كباس','KOUKEN':'كوكان','MAZOUZ':'مزوز',
+  'REBAOUI':'الربعاوي','REBAI':'الربعي','TAIEB':'التايب',
+  'ESSAFI':'السعفي','ASSADI':'العصادي','SAKAL':'الصقال',
+  // ── Sans article (usage local) ──
+  'MAAREF':'معرف','OUENNICH':'ونيش','ABICHOU':'عبيشو','KORTOBBA':'قرطبة',
+  'DAOUD':'داود','AYEYDA':'عيايدة',
+  // ── Noms courants avec ال ──
+  'TRABELSI':'الطرابلسي','GHARBI':'الغربي','HAMMAMI':'الحمامي',
+  'CHERIF':'الشريف','DRIDI':'الدريدي','ZOUARI':'الزواري',
+  'JEBALI':'الجبالي','CHABBI':'الشابي','SOUISSI':'السويسي',
+  'MEDDEB':'المدب','JAZIRI':'الجزيري','FERCHICHI':'الفرشيشي',
+  'TOUIL':'التويل','CHAOUCH':'الشاوش','MASMOUDI':'المصمودي',
+  'LOUATI':'اللواتي','RIAHI':'الرياحي','OUESLATI':'الواسلاتي',
+  'BAHRI':'البحري','NASRI':'النصري','TRIKI':'الطريقي',
+  'GABBOUJ':'الغبوج','KAMOUN':'الكامون','MANSOUR':'المنصور',
+  'QALLEL':'القلال','FARHAT':'الفرحات','REZGUI':'الرزقي',
+  'HMRONI':'الحمروني','MAHJOUB':'المحجوب','FRADJANI':'الفرجاني',
+  'ACHOUR':'العاشور','ABBES':'العباس','KHEMIRI':'الخميري',
+  'GARGOURI':'الغرقوري','LASSOUED':'الأسود','GASMI':'الغصمي',
+  'BESBES':'البسباس','HANNACHI':'الحناشي','MRABET':'المرابط',
+  'BARHOUMI':'البرهومي','FAKHFAKH':'الفخفاخ','ZAOUAUI':'الزواوي',
+  'CHTOUROU':'الشتروى','BAKKOUSH':'الباكوش','MOUALLA':'المعلا',
+  'WERGHI':'الورغي','ZITOUNI':'الزيتوني','SASSAI':'الساساي',
+  'GZAGZE':'الغزاغزة',
+  // ── Noms Djerbiens / Nafousa ──
+  'ANDALOUSSI':'الأندلسي','LATRECH':'اللطرش','AZZABI':'العزابي',
+  // ── Noms étrangers (phonétique corrigée, sans article) ──
+  'SMITH':'سميث','MULLER':'مولر','DUPONT':'دوبون',
+  // ── Composés BEL/BOU/BEN/BA (déjà sans article) ──
+  'BELHADJ':'بلحاج','BELKAHLA':'بلكحلة','BELGACEM':'بلقاسم',
+  'BOUBAKER':'بوبكر','BOUHLAL':'بوهلال','BOUZIRI':'بوزيري',
+  'BAAZIZ':'بعزيز',
+  // ── BEN composés ──
+  'BEN OMAR':'بن عمر','BEN SALEM':'بن سالم','BEN ABDALLAH':'بن عبد الله',
+  'BEN YOUSSEF':'بن يوسف','BEN ALI':'بن علي',
+  // ── Composés multi-mots ──
+  'BELHADJ YAHYA':'بلحاج يحيى'
+};
+
+// Dictionnaire des prénoms (abréviations + prénoms courants tunisiens)
+var _AR_PRENOM_DICT = {
+  // Abréviations spéciales
+  'MED':'محمد','DALI':'دالي','MOHAMED':'محمد',
+  // Prénoms masculins
+  'ALI':'علي','SAMIR':'سمير','KHALED':'خالد','FAOUZI':'فوزي',
+  'AMINE':'أمين','ISSAM':'عصام','TAREK':'طارق','ANIS':'أنيس',
+  'KAMEL':'كمال','NACEUR':'ناصر','IMED':'عماد','FOUED':'فؤاد',
+  'NABIL':'نبيل','ZIED':'زياد','MUSTAPHA':'مصطفى','SOFIENE':'سفيان',
+  'OUSSAMA':'أسامة','JIHED':'جهاد','HABIB':'حبيب','WALID':'وليد',
+  'SALAH':'صالح','HASSEN':'حسن','YAHYA':'يحيى','YASSINE':'ياسين',
+  'LAZHER':'لزهر','AHMED':'أحمد','MAHMOUD':'محمود',
+  'CHEDLY':'الشاذلي','TAHER':'الطاهر',
+  // Prénoms féminins
+  'FATMA':'فاطمة','SANA':'سناء','AMINA':'أمينة','SALMA':'سلمى',
+  'DALILA':'دليلة','LILIA':'ليليا','AMIRA':'أميرة','BOCHRA':'بشرى',
+  'MARIE':'ماري',
+  // Prénoms étrangers
+  'JOHN':'جون','THOMAS':'توماس','JEAN':'جان'
+};
+
+// Préfixes qui n'ajoutent pas l'article ال
+var _AR_NO_ART = ['BEN ','BOU','BEL','BA'];
+
+// Phonétique lettre à lettre (arabe tunisien)
+function _arPhon(str) {
+  str = (str + '').trim().toLowerCase();
+  var dg = {'ch':'ش','kh':'خ','gh':'غ','dh':'ذ','th':'ث','ou':'و','ai':'اي','ei':'اي','au':'او','ph':'ف'};
+  var mn = {
     'a':'ا','b':'ب','c':'ك','d':'د','e':'','f':'ف','g':'غ','h':'ه','i':'ي',
     'j':'ج','k':'ك','l':'ل','m':'م','n':'ن','o':'و','p':'ب','q':'ق','r':'ر',
     's':'س','t':'ت','u':'و','v':'ف','w':'و','x':'كس','y':'ي','z':'ز',
-    ' ':' ','-':' ','\'':''
+    ' ':' ','-':' ',"'":''
   };
-  var result = '';
-  var lower = str.toLowerCase();
-  var i = 0;
-  while (i < lower.length) {
-    var two = lower.slice(i, i+2);
-    if (digraphs[two]) { result += digraphs[two]; i += 2; }
-    else if (mono[lower[i]] !== undefined) { result += mono[lower[i]]; i++; }
-    else { i++; }
+  var res = '', i = 0;
+  while (i < str.length) {
+    var two = str.slice(i, i+2);
+    if (dg[two] !== undefined) { res += dg[two]; i += 2; }
+    else if (mn[str[i]] !== undefined) { res += mn[str[i]]; i++; }
+    else i++;
   }
-  return result;
+  return res;
+}
+
+// Convertir un nom de famille en arabe (avec article ال selon règles tunisiennes)
+function nomToArabic(nom, isMorale) {
+  if (!nom) return '';
+  var up = nom.trim().toUpperCase();
+  // 1. Dictionnaire exact (priorité absolue)
+  if (_AR_NOM_DICT[up]) return _AR_NOM_DICT[up];
+  // 2. FRÈRES → إخوان + nom récursif (gère BEN/BOU automatiquement)
+  if (/\bFR[EÈ]RES\b/i.test(up)) {
+    var base = up.replace(/\s*FR[EÈ]RES\s*/i, '').trim();
+    return 'إخوان ' + nomToArabic(base, false);
+  }
+  // 3. Nom moral / étranger → phonétique sans article
+  if (isMorale) return _arPhon(nom);
+  // 4. Préfixes sans article (BEN, BOU, BEL, BA)
+  for (var _i = 0; _i < _AR_NO_ART.length; _i++) {
+    if (up.indexOf(_AR_NO_ART[_i]) === 0) return _arPhon(nom);
+  }
+  // 5. Règle générale : ajouter ال
+  return 'ال' + _arPhon(nom);
+}
+
+// Convertir un ou plusieurs prénoms (avec abréviations et ET/&) en arabe
+function latinToArabic(str) {
+  if (!str) return '';
+  str = str.trim();
+  var up = str.toUpperCase();
+  // ET / & → prénoms liés par و
+  if (/\bET\b|&/.test(up)) {
+    return up.split(/\s+ET\s+|&/).map(function(p){ return latinToArabic(p.trim()); }).join(' و');
+  }
+  // Chercher d'abord le prénom composé dans le dict (ex: MED ALI, MED AMINE)
+  if (_AR_PRENOM_DICT[up]) return _AR_PRENOM_DICT[up];
+  // Sinon token par token
+  var tokens = up.split(/\s+/);
+  return tokens.map(function(t){ return _AR_PRENOM_DICT[t] || _arPhon(t.toLowerCase()); }).join(' ');
 }
 
 function refreshCivitasClientPreview() {
@@ -1393,7 +1634,7 @@ function refreshCivitasClientPreview() {
     prenomArEl.value = client.prenom_ar || latinToArabic(client.prenom || '');
   }
   if (nomArEl && !nomArEl.value) {
-    nomArEl.value = client.nom_ar || latinToArabic(client.nom || client.raison || '');
+    nomArEl.value = client.nom_ar || nomToArabic(client.nom || client.raison || '', client.type === 'morale');
   }
 }
 
@@ -1694,6 +1935,7 @@ function openEditProjet(id){
   // Champs onglet CIVITAS (après client défini pour que refreshCivitasClientPreview marche)
   // CIVITAS actif seulement si commune ou delegation renseignées (les valeurs par défaut ne comptent pas)
   var hasCivitas = !!(p.commune || p.delegation || p.civitas_lieu ||
+                      p.civitas_cin || p.civitas_prenom_ar || p.civitas_nom_ar ||
                       (p.type_construction && p.type_construction !== 'nouveau') ||
                       (p.civitas_demande && p.civitas_demande !== 'premiere'));
   var cbCiv = document.getElementById('pj-civitas-enabled');
@@ -1706,8 +1948,17 @@ function openEditProjet(id){
   var lieuEl = document.getElementById('pj-civitas-lieu');
   if (lieuEl) lieuEl.value = p.civitas_lieu || '';
 
-  // CIN / date : pré-remplis via refreshCivitasClientPreview (déjà appelé par toggleCivitasTab si actif)
-  // Forcer le rafraîchissement si CIVITAS est actif
+  // Restaurer les 4 champs sauvegardés au niveau projet (priorité sur les données client)
+  var pjCinEl2   = document.getElementById('pj-civitas-cin');
+  var pjDCEl2    = document.getElementById('pj-civitas-date-cin');
+  var pjPreArEl2 = document.getElementById('pj-civitas-prenom-ar');
+  var pjNomArEl2 = document.getElementById('pj-civitas-nom-ar');
+  if (pjCinEl2   && p.civitas_cin)        pjCinEl2.value   = p.civitas_cin;
+  if (pjDCEl2    && p.civitas_date_cin)   pjDCEl2.value    = p.civitas_date_cin;
+  if (pjPreArEl2 && p.civitas_prenom_ar)  pjPreArEl2.value = p.civitas_prenom_ar;
+  if (pjNomArEl2 && p.civitas_nom_ar)     pjNomArEl2.value = p.civitas_nom_ar;
+
+  // refreshCivitasClientPreview remplit uniquement les champs encore vides (depuis la fiche client)
   if (hasCivitas) refreshCivitasClientPreview();
 
   populateMissionsList(p.missions||[]);
@@ -1798,7 +2049,7 @@ function ouvrirCivitas(projetId) {
     // Identité maître d'ouvrage
     nom_prenom:   client.displayNom || client.display_nom || p.client || '',
     prenom_ar:    (document.getElementById('pj-civitas-prenom-ar')||{value:''}).value || latinToArabic(client.prenom||''),
-    nom_ar:       (document.getElementById('pj-civitas-nom-ar')||{value:''}).value    || latinToArabic(client.nom||client.raison||''),
+    nom_ar:       (document.getElementById('pj-civitas-nom-ar')||{value:''}).value    || nomToArabic(client.nom||client.raison||'', client.type==='morale'),
     cin:          cinVal,
     date_cin:     dateCinVal,
     tel:          client.tel || '',
@@ -1926,6 +2177,13 @@ function saveProjet(){
   var civitasLieu      = (document.getElementById('pj-civitas-lieu').value||'').trim();
   var typeConstruction = document.getElementById('pj-type-construction').value||'nouveau';
   var civitasDemande   = document.getElementById('pj-civitas-demande').value||'premiere';
+  // Lire les 4 champs CIVITAS à sauvegarder au niveau projet
+  var civCinEl        = document.getElementById('pj-civitas-cin');
+  var civDCEl         = document.getElementById('pj-civitas-date-cin');
+  var civitasCin      = civCinEl  ? civCinEl.value.trim()  : '';
+  var civitasDC       = civDCEl   ? civDCEl.value.trim()   : '';
+  var civitasPrenomAr = ((document.getElementById('pj-civitas-prenom-ar')||{}).value||'').trim();
+  var civitasNomAr    = ((document.getElementById('pj-civitas-nom-ar')||{}).value||'').trim();
   var lat              = parseFloat(document.getElementById('pj-lat').value)||null;
   var lng              = parseFloat(document.getElementById('pj-lng').value)||null;
   var displayNom  = client.displayNom||client.display_nom||client.nom||client.raison||'';
@@ -1944,9 +2202,13 @@ function saveProjet(){
     delai:delai||null, honoraires:honoraires,
     budget:budget||null, surface:surface||null,
     description:description||null, adresse:adresse||null,
-    commune:          civitasEnabled ? (commune||null)        : null,
-    delegation:       civitasEnabled ? (delegation||null)     : null,
-    civitasLieu:      civitasEnabled ? (civitasLieu||null)    : null,
+    commune:          civitasEnabled ? (commune||null)         : null,
+    delegation:       civitasEnabled ? (delegation||null)      : null,
+    civitasLieu:      civitasEnabled ? (civitasLieu||null)     : null,
+    civitasPrenomAr:  civitasEnabled ? (civitasPrenomAr||null) : null,
+    civitasNomAr:     civitasEnabled ? (civitasNomAr||null)    : null,
+    civitasCin:       civitasEnabled ? (civitasCin||null)      : null,
+    civitasDateCin:   civitasEnabled ? (civitasDC||null)       : null,
     lat:lat, lng:lng, nasPath:nasPath,
     nas_path:nasPath,                  // compatibilité snake_case
     missions:getSelectedMissions(),
@@ -1963,12 +2225,6 @@ function saveProjet(){
     method = 'POST';
     url    = 'api/projets.php';
   }
-
-  // Lire les champs CIN depuis l'onglet CIVITAS pour sync client
-  var civCinEl    = document.getElementById('pj-civitas-cin');
-  var civDCEl     = document.getElementById('pj-civitas-date-cin');
-  var civitasCin  = civCinEl  ? civCinEl.value.trim()  : '';
-  var civitasDC   = civDCEl   ? civDCEl.value.trim()   : '';
 
   apiFetch(url, {method:method, body:body})
     .then(function(){

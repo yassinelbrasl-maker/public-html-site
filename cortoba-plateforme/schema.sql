@@ -208,3 +208,11 @@ ALTER TABLE `CA_projets`
   ADD COLUMN IF NOT EXISTS `delegation`        varchar(100) DEFAULT NULL COMMENT 'الدائرة — Délégation (CIVITAS)' AFTER `commune`,
   ADD COLUMN IF NOT EXISTS `type_construction` enum('nouveau','extension','reconstruction','touristique') DEFAULT 'nouveau' COMMENT 'نوع البناء (CIVITAS)' AFTER `type_bat`,
   ADD COLUMN IF NOT EXISTS `civitas_demande`   enum('premiere','revision') DEFAULT 'premiere' COMMENT 'نوع المطلب (CIVITAS)' AFTER `type_construction`;
+
+-- Migration : champs CIVITAS supplémentaires au niveau projet (lieu, identité MO arabe, CIN)
+ALTER TABLE `CA_projets`
+  ADD COLUMN IF NOT EXISTS `civitas_lieu`       varchar(300) DEFAULT NULL COMMENT 'مكان البناية — Adresse bâtisse (CIVITAS)' AFTER `delegation`,
+  ADD COLUMN IF NOT EXISTS `civitas_prenom_ar`  varchar(100) DEFAULT NULL COMMENT 'الاسم بالعربية — Prénom arabe MO (CIVITAS)' AFTER `civitas_lieu`,
+  ADD COLUMN IF NOT EXISTS `civitas_nom_ar`     varchar(100) DEFAULT NULL COMMENT 'اللقب بالعربية — Nom arabe MO (CIVITAS)' AFTER `civitas_prenom_ar`,
+  ADD COLUMN IF NOT EXISTS `civitas_cin`        varchar(20)  DEFAULT NULL COMMENT 'رقم بطاقة التعريف — CIN/passeport (CIVITAS)' AFTER `civitas_nom_ar`,
+  ADD COLUMN IF NOT EXISTS `civitas_date_cin`   date         DEFAULT NULL COMMENT 'تاريخ الإصدار — Date émission CIN (CIVITAS)' AFTER `civitas_cin`;
