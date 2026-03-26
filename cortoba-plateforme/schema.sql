@@ -98,15 +98,6 @@ CREATE TABLE IF NOT EXISTS `CA_projets` (
   KEY `client_code` (`client_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Migration : nouvelles colonnes configurateur (à exécuter sur les installations existantes)
--- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_shon` decimal(12,2) DEFAULT NULL;
--- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_shob` decimal(12,2) DEFAULT NULL;
--- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_terrain` decimal(12,2) DEFAULT NULL;
--- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `standing` varchar(40) DEFAULT NULL;
--- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `zone` varchar(40) DEFAULT NULL;
--- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_construction` decimal(14,2) DEFAULT NULL;
--- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_m2` decimal(10,2) DEFAULT NULL;
-
 -- Missions par projet
 CREATE TABLE IF NOT EXISTS `CA_projets_missions` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -193,26 +184,14 @@ CREATE TABLE IF NOT EXISTS `CA_parametres` (
 
 SET FOREIGN_KEY_CHECKS = 1;
 
--- ============================================================
---  MIGRATION CIVITAS — Exécuter une seule fois dans phpMyAdmin
--- ============================================================
-
--- Champs client pour le formulaire CIVITAS (permis de bâtir)
-ALTER TABLE `CA_clients`
-  ADD COLUMN IF NOT EXISTS `cin`       varchar(20)  DEFAULT NULL COMMENT 'N° CIN ou passeport (CIVITAS)' AFTER `matricule`,
-  ADD COLUMN IF NOT EXISTS `date_cin`  date         DEFAULT NULL COMMENT 'Date émission CIN/passeport (CIVITAS)' AFTER `cin`;
-
--- Champs projet pour le formulaire CIVITAS
-ALTER TABLE `CA_projets`
-  ADD COLUMN IF NOT EXISTS `commune`           varchar(100) DEFAULT NULL COMMENT 'البلدية — Commune (CIVITAS)' AFTER `adresse`,
-  ADD COLUMN IF NOT EXISTS `delegation`        varchar(100) DEFAULT NULL COMMENT 'الدائرة — Délégation (CIVITAS)' AFTER `commune`,
-  ADD COLUMN IF NOT EXISTS `type_construction` enum('nouveau','extension','reconstruction','touristique') DEFAULT 'nouveau' COMMENT 'نوع البناء (CIVITAS)' AFTER `type_bat`,
-  ADD COLUMN IF NOT EXISTS `civitas_demande`   enum('premiere','revision') DEFAULT 'premiere' COMMENT 'نوع المطلب (CIVITAS)' AFTER `type_construction`;
-
--- Migration : champs CIVITAS supplémentaires au niveau projet (lieu, identité MO arabe, CIN)
-ALTER TABLE `CA_projets`
-  ADD COLUMN IF NOT EXISTS `civitas_lieu`       varchar(300) DEFAULT NULL COMMENT 'مكان البناية — Adresse bâtisse (CIVITAS)' AFTER `delegation`,
-  ADD COLUMN IF NOT EXISTS `civitas_prenom_ar`  varchar(100) DEFAULT NULL COMMENT 'الاسم بالعربية — Prénom arabe MO (CIVITAS)' AFTER `civitas_lieu`,
-  ADD COLUMN IF NOT EXISTS `civitas_nom_ar`     varchar(100) DEFAULT NULL COMMENT 'اللقب بالعربية — Nom arabe MO (CIVITAS)' AFTER `civitas_prenom_ar`,
-  ADD COLUMN IF NOT EXISTS `civitas_cin`        varchar(20)  DEFAULT NULL COMMENT 'رقم بطاقة التعريف — CIN/passeport (CIVITAS)' AFTER `civitas_nom_ar`,
-  ADD COLUMN IF NOT EXISTS `civitas_date_cin`   date         DEFAULT NULL COMMENT 'تاريخ الإصدار — Date émission CIN (CIVITAS)' AFTER `civitas_cin`;
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : ajouter les colonnes configurateur à CA_projets
+-- Exécuter si la table existe déjà sans ces colonnes
+-- ════════════════════════════════════════════════════════════
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_shon` decimal(12,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_shob` decimal(12,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `surface_terrain` decimal(12,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `standing` varchar(40) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `zone` varchar(40) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_construction` decimal(14,2) DEFAULT NULL;
+-- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_m2` decimal(10,2) DEFAULT NULL;

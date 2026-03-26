@@ -53,29 +53,11 @@ function getOne(string $id) {
     jsonOk($p);
 }
 
-// ── Auto-migration : ajoute les colonnes CIVITAS manquantes (idempotent) ──────
-function ensureCivitasProjectColumns() {
-    static $done = false;
-    if ($done) return;
-    try {
-        getDB()->exec("
-            ALTER TABLE CA_projets
-                ADD COLUMN IF NOT EXISTS civitas_lieu       varchar(300) DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS civitas_prenom_ar  varchar(100) DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS civitas_nom_ar     varchar(100) DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS civitas_cin        varchar(20)  DEFAULT NULL,
-                ADD COLUMN IF NOT EXISTS civitas_date_cin   date         DEFAULT NULL
-        ");
-    } catch (\Exception $e) { /* silent — DB peut ne pas supporter IF NOT EXISTS */ }
-    $done = true;
-}
-
 function create(array $user) {
     $body = getBody();
     $nom  = trim($body['nom'] ?? '');
     if (!$nom) jsonError('Nom du projet requis');
 
-    ensureCivitasProjectColumns();
     $db = getDB();
     $id = bin2hex(random_bytes(16));
 
@@ -89,48 +71,36 @@ function create(array $user) {
         try {
             $db->prepare('
                 INSERT INTO CA_projets (id, code, nom, client, client_code, annee, phase, statut, type_bat,
-                    type_construction, civitas_demande,
-                    civitas_lieu, civitas_prenom_ar, civitas_nom_ar, civitas_cin, civitas_date_cin,
-                    delai, honoraires, budget, surface, description, adresse, commune, delegation,
-                    lat, lng, nas_path,
+                    delai, honoraires, budget, surface, description, adresse, lat, lng, nas_path,
                     surface_shon, surface_shob, surface_terrain, standing, zone, cout_construction, cout_m2,
                     cree_par)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ')->execute([
                 $id,
                 $code,
                 $nom,
-                $body['client']           ?? '',
-                $body['clientCode']       ?? '',
+                $body['client']      ?? '',
+                $body['clientCode']  ?? '',
                 $annee,
-                $body['phase']            ?? 'APS',
-                $body['statut']           ?? 'Actif',
-                $body['typeBat']          ?? null,
-                $body['typeConstruction'] ?? 'nouveau',
-                $body['civitasDemande']   ?? 'premiere',
-                $body['civitasLieu']      ?? null,
-                $body['civitasPrenomAr']  ?? null,
-                $body['civitasNomAr']     ?? null,
-                $body['civitasCin']       ?? null,
-                $body['civitasDateCin']   ?? null,
-                $body['delai']            ?: null,
+                $body['phase']       ?? 'APS',
+                $body['statut']      ?? 'Actif',
+                $body['typeBat']     ?? null,
+                $body['delai']       ?: null,
                 floatval($body['honoraires'] ?? 0),
                 floatval($body['budget']     ?? 0),
                 floatval($body['surface']    ?? 0),
-                $body['description']      ?? null,
-                $body['adresse']          ?? null,
-                $body['commune']          ?? null,
-                $body['delegation']       ?? null,
+                $body['description'] ?? null,
+                $body['adresse']     ?? null,
                 !empty($body['lat']) ? floatval($body['lat']) : null,
                 !empty($body['lng']) ? floatval($body['lng']) : null,
-                $body['nasPath']          ?? null,
-                !empty($body['surface_shon'])      ? floatval($body['surface_shon'])      : null,
-                !empty($body['surface_shob'])      ? floatval($body['surface_shob'])      : null,
-                !empty($body['surface_terrain'])   ? floatval($body['surface_terrain'])   : null,
-                $body['standing']          ?? null,
-                $body['zone']              ?? null,
+                $body['nasPath']     ?? null,
+                !empty($body['surface_shon']) ? floatval($body['surface_shon']) : null,
+                !empty($body['surface_shob']) ? floatval($body['surface_shob']) : null,
+                !empty($body['surface_terrain']) ? floatval($body['surface_terrain']) : null,
+                $body['standing']    ?? null,
+                $body['zone']        ?? null,
                 !empty($body['cout_construction']) ? floatval($body['cout_construction']) : null,
-                !empty($body['cout_m2'])           ? floatval($body['cout_m2'])           : null,
+                !empty($body['cout_m2']) ? floatval($body['cout_m2']) : null,
                 $user['name'],
             ]);
             break; // INSERT réussi
@@ -145,32 +115,6 @@ function create(array $user) {
                 $parts[0] = str_pad($next, 2, '0', STR_PAD_LEFT);
                 $code = implode('_', $parts);
                 $id = bin2hex(random_bytes(16)); // nouvel ID
-            } elseif ($e->getCode() === '42S22' || strpos($e->getMessage(), 'Column not found') !== false) {
-                // Colonne manquante (migration non encore appliquée) → INSERT minimal
-                $db->prepare('
-                    INSERT INTO CA_projets (id, code, nom, client, client_code, annee, phase, statut, type_bat,
-                        delai, honoraires, budget, surface, description, adresse, lat, lng, nas_path, cree_par)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                ')->execute([
-                    $id, $code, $nom,
-                    $body['client']      ?? '',
-                    $body['clientCode']  ?? '',
-                    $annee,
-                    $body['phase']       ?? 'APS',
-                    $body['statut']      ?? 'Actif',
-                    $body['typeBat']     ?? null,
-                    $body['delai']       ?: null,
-                    floatval($body['honoraires'] ?? 0),
-                    floatval($body['budget']     ?? 0),
-                    floatval($body['surface']    ?? 0),
-                    $body['description'] ?? null,
-                    $body['adresse']     ?? null,
-                    !empty($body['lat']) ? floatval($body['lat']) : null,
-                    !empty($body['lng']) ? floatval($body['lng']) : null,
-                    $body['nasPath']     ?? null,
-                    $user['name'],
-                ]);
-                break; // INSERT minimal réussi
             } else {
                 throw $e; // autre erreur → remonter
             }
@@ -202,7 +146,14 @@ function create(array $user) {
 
     // Créer le dossier sur le NAS via WebDAV (silencieux si indisponible)
     if ($code) {
-        createProjectNasFolder($code, $annee, $body['client'] ?? '');
+        // Extraire le nom du dossier depuis le nasPath généré par le JS
+        $nasPath = $body['nasPath'] ?? '';
+        $nasFolderName = '';
+        if ($nasPath) {
+            $parts = preg_split('/[\\\\\/]/', rtrim($nasPath, '\\/'));
+            $nasFolderName = end($parts); // ex: 03_26_KRA001_Ahmed_Kortoba
+        }
+        createProjectNasFolder($code, $annee, '', $nasFolderName);
     }
 
     getOne($id);
@@ -210,7 +161,6 @@ function create(array $user) {
 
 function update($id, array $user) {
     if (!$id) jsonError('ID requis');
-    ensureCivitasProjectColumns();
     $body = getBody();
     $db   = getDB();
 
@@ -218,91 +168,41 @@ function update($id, array $user) {
     $stmt->execute([$id]);
     if (!$stmt->fetch()) jsonError('Projet introuvable', 404);
 
-    try {
-        $db->prepare('
-            UPDATE CA_projets SET
-                nom=?, client=?, client_code=?, annee=?, phase=?, statut=?, type_bat=?,
-                type_construction=?, civitas_demande=?,
-                civitas_lieu=?, civitas_prenom_ar=?, civitas_nom_ar=?, civitas_cin=?, civitas_date_cin=?,
-                delai=?, honoraires=?, budget=?, surface=?, description=?, adresse=?,
-                commune=?, delegation=?,
-                lat=?, lng=?,
-                surface_shon=?, surface_shob=?, surface_terrain=?, standing=?, zone=?,
-                cout_construction=?, cout_m2=?,
-                modifie_par=?
-            WHERE id=?
-        ')->execute([
-            trim($body['nom']             ?? ''),
-            $body['client']               ?? '',
-            $body['clientCode']           ?? '',
-            $body['annee']                ?? date('Y'),
-            $body['phase']                ?? 'APS',
-            $body['statut']               ?? 'Actif',
-            $body['typeBat']              ?? null,
-            $body['typeConstruction']     ?? 'nouveau',
-            $body['civitasDemande']       ?? 'premiere',
-            $body['civitasLieu']          ?? null,
-            $body['civitasPrenomAr']      ?? null,
-            $body['civitasNomAr']         ?? null,
-            $body['civitasCin']           ?? null,
-            $body['civitasDateCin']       ?? null,
-            $body['delai']                ?: null,
-            floatval($body['honoraires']  ?? 0),
-            floatval($body['budget']      ?? 0),
-            floatval($body['surface']     ?? 0),
-            $body['description']          ?? null,
-            $body['adresse']              ?? null,
-            $body['commune']              ?? null,
-            $body['delegation']           ?? null,
-            !empty($body['lat']) ? floatval($body['lat']) : null,
-            !empty($body['lng']) ? floatval($body['lng']) : null,
-            !empty($body['surface_shon'])      ? floatval($body['surface_shon'])      : null,
-            !empty($body['surface_shob'])      ? floatval($body['surface_shob'])      : null,
-            !empty($body['surface_terrain'])   ? floatval($body['surface_terrain'])   : null,
-            $body['standing']              ?? null,
-            $body['zone']                  ?? null,
-            !empty($body['cout_construction']) ? floatval($body['cout_construction']) : null,
-            !empty($body['cout_m2'])           ? floatval($body['cout_m2'])           : null,
-            $user['name'],
-            $id,
-        ]);
-    } catch (\PDOException $e) {
-        // Fallback sans les colonnes CIVITAS si migration non encore appliquée
-        $db->prepare('
-            UPDATE CA_projets SET
-                nom=?, client=?, client_code=?, annee=?, phase=?, statut=?, type_bat=?,
-                delai=?, honoraires=?, budget=?, surface=?, description=?, adresse=?,
-                lat=?, lng=?,
-                surface_shon=?, surface_shob=?, surface_terrain=?, standing=?, zone=?,
-                cout_construction=?, cout_m2=?, modifie_par=?
-            WHERE id=?
-        ')->execute([
-            trim($body['nom']        ?? ''),
-            $body['client']          ?? '',
-            $body['clientCode']      ?? '',
-            $body['annee']           ?? date('Y'),
-            $body['phase']           ?? 'APS',
-            $body['statut']          ?? 'Actif',
-            $body['typeBat']         ?? null,
-            $body['delai']           ?: null,
-            floatval($body['honoraires'] ?? 0),
-            floatval($body['budget']     ?? 0),
-            floatval($body['surface']    ?? 0),
-            $body['description']     ?? null,
-            $body['adresse']         ?? null,
-            !empty($body['lat']) ? floatval($body['lat']) : null,
-            !empty($body['lng']) ? floatval($body['lng']) : null,
-            !empty($body['surface_shon'])      ? floatval($body['surface_shon'])      : null,
-            !empty($body['surface_shob'])      ? floatval($body['surface_shob'])      : null,
-            !empty($body['surface_terrain'])   ? floatval($body['surface_terrain'])   : null,
-            $body['standing']          ?? null,
-            $body['zone']              ?? null,
-            !empty($body['cout_construction']) ? floatval($body['cout_construction']) : null,
-            !empty($body['cout_m2'])           ? floatval($body['cout_m2'])           : null,
-            $user['name'],
-            $id,
-        ]);
-    }
+    $db->prepare('
+        UPDATE CA_projets SET
+            nom=?, client=?, client_code=?, annee=?, phase=?, statut=?, type_bat=?,
+            delai=?, honoraires=?, budget=?, surface=?, description=?, adresse=?,
+            lat=?, lng=?,
+            surface_shon=?, surface_shob=?, surface_terrain=?, standing=?, zone=?,
+            cout_construction=?, cout_m2=?,
+            modifie_par=?
+        WHERE id=?
+    ')->execute([
+        trim($body['nom']        ?? ''),
+        $body['client']          ?? '',
+        $body['clientCode']      ?? '',
+        $body['annee']           ?? date('Y'),
+        $body['phase']           ?? 'APS',
+        $body['statut']          ?? 'Actif',
+        $body['typeBat']         ?? null,
+        $body['delai']           ?: null,
+        floatval($body['honoraires'] ?? 0),
+        floatval($body['budget']     ?? 0),
+        floatval($body['surface']    ?? 0),
+        $body['description']     ?? null,
+        $body['adresse']         ?? null,
+        !empty($body['lat']) ? floatval($body['lat']) : null,
+        !empty($body['lng']) ? floatval($body['lng']) : null,
+        !empty($body['surface_shon']) ? floatval($body['surface_shon']) : null,
+        !empty($body['surface_shob']) ? floatval($body['surface_shob']) : null,
+        !empty($body['surface_terrain']) ? floatval($body['surface_terrain']) : null,
+        $body['standing']        ?? null,
+        $body['zone']            ?? null,
+        !empty($body['cout_construction']) ? floatval($body['cout_construction']) : null,
+        !empty($body['cout_m2']) ? floatval($body['cout_m2']) : null,
+        $user['name'],
+        $id,
+    ]);
 
     saveMissions($id, $body['missions'] ?? []);
     saveIntervenants($id, $body['intervenants'] ?? []);
@@ -312,7 +212,8 @@ function update($id, array $user) {
 
 function remove($id, array $user) {
     if (!$id) jsonError('ID requis');
-    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
+    $role = $user['role'] ?? '';
+    if ($role !== 'admin' && $role !== 'Architecte gérant') jsonError('Seul un Architecte gérant peut supprimer', 403);
     $db = getDB();
     $db->prepare('DELETE FROM CA_projets_missions WHERE projet_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM CA_projets_intervenants WHERE projet_id = ?')->execute([$id]);
@@ -418,7 +319,7 @@ function webdavCopy($srcUrl, $destUrl, $user, $pass) {
 }
 
 // ── Créer le dossier projet sur le NAS via WebDAV ──
-function createProjectNasFolder($code, $annee, $clientNom) {
+function createProjectNasFolder($code, $annee, $clientNom, $nasFolderName = '') {
     try {
         $local      = getNasCfg('cortoba_nas_local', '');
         $publicIp   = getNasCfg('cortoba_nas_public_ip', '');
@@ -447,10 +348,14 @@ function createProjectNasFolder($code, $annee, $clientNom) {
 
         if (!$ip || !$webdavPort) return;
 
-        // Sanitiser le nom du client pour le dossier
-        $suffix = preg_replace('/\s+/', '_', trim($clientNom));
-        $suffix = preg_replace('/[^\w\-.]/', '', $suffix);
-        $folderName = $code . ($suffix ? '_' . $suffix : '');
+        // Utiliser le nom de dossier du JS si fourni, sinon construire depuis le client
+        if ($nasFolderName) {
+            $folderName = $nasFolderName;
+        } else {
+            $suffix = preg_replace('/\s+/', '_', trim($clientNom));
+            $suffix = preg_replace('/[^\w\-.]/', '', $suffix);
+            $folderName = $code . ($suffix ? '_' . $suffix : '');
+        }
 
         $base = rtrim('http://' . $ip . ':' . $webdavPort . ($webdavBase ? '/' . ltrim(str_replace('\\', '/', $webdavBase), '/') : ''), '/');
 

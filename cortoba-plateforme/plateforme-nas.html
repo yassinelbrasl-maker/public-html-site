@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="plateforme.css">
+  <link rel="stylesheet" href="ergonomie.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
     /* Garantir que l'écran de login est visible immédiatement, avant que le CSS externe charge */
@@ -317,12 +318,18 @@
         <div class="table-wrap">
           <div class="table-header">
             <span class="table-title">Devis 2026</span>
-            <div class="table-search">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" placeholder="Rechercher…" />
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+              <div class="table-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" placeholder="Rechercher…" />
+              </div>
+              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('devis-table'),'devis-2026')" title="Exporter en CSV">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                CSV
+              </button>
             </div>
           </div>
-          <table>
+          <table id="devis-table">
             <thead><tr>
               <th>Réf.</th><th>Client</th><th>Objet</th><th>Montant</th><th>Date</th><th>Statut</th><th></th>
             </tr></thead>
@@ -334,7 +341,7 @@
                 <td class="inline-val">12 500 TND</td>
                 <td>08 Mar 2026</td>
                 <td><span class="badge badge-green">Accepté</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-042')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-039</td>
@@ -343,7 +350,7 @@
                 <td class="inline-val">38 000 TND</td>
                 <td>02 Mar 2026</td>
                 <td><span class="badge badge-orange">En attente</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-039')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-036</td>
@@ -352,7 +359,7 @@
                 <td class="inline-val">6 200 TND</td>
                 <td>22 Fév 2026</td>
                 <td><span class="badge badge-orange">En attente</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-036')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-031</td>
@@ -361,7 +368,7 @@
                 <td class="inline-val">95 000 TND</td>
                 <td>10 Fév 2026</td>
                 <td><span class="badge badge-blue">En négociation</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-031')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-028</td>
@@ -370,7 +377,7 @@
                 <td class="inline-val">9 800 TND</td>
                 <td>01 Fév 2026</td>
                 <td><span class="badge badge-red">Refusé</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-028')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-021</td>
@@ -379,10 +386,17 @@
                 <td class="inline-val">22 000 TND</td>
                 <td>15 Jan 2026</td>
                 <td><span class="badge badge-green">Accepté</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-021')" title="Dupliquer">⧉</button></td>
               </tr>
             </tbody>
           </table>
+          <div id="devis-bulk-bar" class="ergo-bulk-bar">
+            <span class="ergo-bulk-count">0 sélectionné</span>
+            <div class="ergo-bulk-actions">
+              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('devis-table'),'devis-selection')">Exporter CSV</button>
+              <button class="btn btn-sm" style="color:var(--red)" onclick="alert('Archivage groupé — fonctionnalité à connecter à l\'API')">Archiver</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -398,7 +412,7 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
               Serveur NAS
             </button>
-            <button class="btn btn-primary" onclick="openModal('modal-projet')">
+            <button class="btn btn-primary" onclick="openConfigurateur()">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Nouveau projet
             </button>
@@ -409,19 +423,16 @@
         <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:220px">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="projets-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, client, phase…" oninput="_pjPage=0;renderProjets()" />
+            <input id="projets-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, client, phase…" oninput="renderProjets()" />
           </div>
-          <select id="projets-filter-phase" class="form-select" style="width:auto;min-width:130px" onchange="_pjPage=0;renderProjets()">
+          <select id="projets-filter-phase" class="form-select" style="width:auto;min-width:130px" onchange="renderProjets()">
             <option value="">Toutes les phases</option>
             <option>Étude préliminaire</option><option>APS</option><option>APD</option>
             <option>PC</option><option>DCE</option><option>EXE</option><option>Livré</option>
           </select>
-          <select id="projets-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="_pjPage=0;renderProjets()">
+          <select id="projets-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="renderProjets()">
             <option value="">Tous les statuts</option>
             <option>Actif</option><option>En pause</option><option>Archivé</option><option>Prospection</option>
-          </select>
-          <select id="projets-filter-annee" class="form-select" style="width:auto;min-width:100px" onchange="_pjPage=0;renderProjets()">
-            <option value="">Toutes années</option>
           </select>
           <span id="projets-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
         </div>
@@ -437,12 +448,11 @@
 
         <!-- Tableau projets (en-têtes remplis par JS : CODE, PROJET, CLIENT, PHASE, STATUT, HONORAIRES, DÉLAI, NAS + actions) -->
         <div class="table-wrap" style="overflow-x:auto;position:relative;margin-bottom:2rem">
-          <table id="projets-table" style="font-size:0.82rem">
+          <table id="projets-table">
             <thead id="projets-thead"><tr></tr></thead>
             <tbody id="projets-tbody"></tbody>
           </table>
         </div>
-        <div id="projets-pagination" style="display:flex;justify-content:center;align-items:center;gap:0.5rem;margin-bottom:1.5rem;font-size:0.82rem"></div>
 
         <!-- Carte globale tous les projets -->
         <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;overflow:hidden">
@@ -451,16 +461,10 @@
               <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.1rem">Cartographie</div>
               <div style="font-size:0.9rem;font-weight:500">Tous les projets géolocalisés</div>
             </div>
-            <div style="display:flex;gap:0.5rem">
-              <button class="btn btn-sm" onclick="exportKmz()" title="Exporter vers Google Earth (KMZ)" style="color:var(--accent)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                Exporter KMZ
-              </button>
-              <button class="btn btn-sm" onclick="refreshGlobalMap()">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                Actualiser
-              </button>
-            </div>
+            <button class="btn btn-sm" onclick="refreshGlobalMap()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Actualiser
+            </button>
           </div>
           <div id="projets-global-map" style="height:380px;width:100%"></div>
         </div>
@@ -500,10 +504,14 @@
         <div class="table-wrap">
           <div class="table-header">
             <span class="table-title">Factures 2026</span>
+            <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-2026')" title="Exporter en CSV">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              CSV
+            </button>
           </div>
-          <table>
+          <table id="factures-table">
             <thead><tr>
-              <th>N° Facture</th><th>Client</th><th>Projet</th><th>Montant HT</th><th>Total TTC</th><th>Échéance</th><th>Statut</th><th></th>
+              <th>N° Facture</th><th>Client</th><th>Projet</th><th>Montant HT</th><th>TVA</th><th>Total TTC</th><th>Échéance</th><th>Statut</th><th></th>
             </tr></thead>
             <tbody id="factures-tbody">
               <tr>
@@ -515,6 +523,7 @@
                 <td class="inline-val">6 420 TND</td>
                 <td>31 Mar 2026</td>
                 <td><span class="badge badge-orange">Envoyée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
               </tr>
               <tr>
                 <td class="inline-val">F-2026-020</td>
@@ -525,6 +534,7 @@
                 <td class="inline-val">5 992 TND</td>
                 <td>06 Mar 2026</td>
                 <td><span class="badge badge-red">Impayée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
               </tr>
               <tr>
                 <td class="inline-val">F-2026-019</td>
@@ -535,6 +545,7 @@
                 <td class="inline-val">3 745 TND</td>
                 <td>28 Fév 2026</td>
                 <td><span class="badge badge-red">Impayée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
               </tr>
               <tr>
                 <td class="inline-val">F-2026-018</td>
@@ -545,6 +556,7 @@
                 <td class="inline-val">6 420 TND</td>
                 <td>20 Fév 2026</td>
                 <td><span class="badge badge-green">Payée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
               </tr>
               <tr>
                 <td class="inline-val">F-2026-015</td>
@@ -555,9 +567,17 @@
                 <td class="inline-val">12 840 TND</td>
                 <td>15 Jan 2026</td>
                 <td><span class="badge badge-green">Payée</span></td>
+                <td><button class="btn btn-sm">Voir</button></td>
               </tr>
             </tbody>
           </table>
+          <div id="factures-bulk-bar" class="ergo-bulk-bar">
+            <span class="ergo-bulk-count">0 sélectionné</span>
+            <div class="ergo-bulk-actions">
+              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-selection')">Exporter CSV</button>
+              <button class="btn btn-sm" style="color:var(--orange)" onclick="alert('Relance groupée — fonctionnalité à connecter à l\'API')">Relancer</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1038,17 +1058,6 @@
             </button>
           </div>
         </div>
-        <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
-          <div style="position:relative;flex:1;min-width:200px">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="clients-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, code, email, tél…" oninput="renderClients()" />
-          </div>
-          <select id="clients-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="renderClients()">
-            <option value="">Tous les statuts</option>
-            <option>Actif</option><option>En pause</option><option>Archivé</option><option>Prospection</option>
-          </select>
-          <span id="clients-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
-        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Code</th><th>Nom / Raison sociale</th><th>WhatsApp</th><th>Email</th><th>Source</th><th>Statut</th><th></th></tr></thead>
@@ -1426,14 +1435,6 @@
             </div>
           </div>
           <div class="form-field full"><label class="form-label">Adresse</label><input id="cl-adresse" class="form-input" placeholder="Adresse complète, ville, code postal" /></div>
-          <div class="form-field">
-            <label class="form-label">N° CIN / Passeport <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS)</span></label>
-            <input id="cl-cin" class="form-input" placeholder="Ex: 12345678" />
-          </div>
-          <div class="form-field">
-            <label class="form-label">Date émission CIN / Passeport <span style="font-size:0.7rem;color:var(--text-3)">(CIVITAS)</span></label>
-            <input id="cl-date-cin" class="form-input" type="date" />
-          </div>
         </div>
       </div>
 
@@ -1536,11 +1537,6 @@
       <button class="pj-tab" onclick="switchPjTab('missions',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Missions</button>
       <button class="pj-tab" onclick="switchPjTab('intervenants',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Intervenants</button>
       <button class="pj-tab" onclick="switchPjTab('localisation',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Localisation</button>
-      <button class="pj-tab" id="pj-tab-civitas" onclick="switchPjTab('civitas',this)"
-        style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:not-allowed;border-bottom:2px solid transparent;color:var(--text-3);opacity:0.35;pointer-events:none"
-        disabled title="Cochez 'Dossier CIVITAS' dans l'onglet Identité">
-        🏛 CIVITAS
-      </button>
     </div>
     <div class="modal-body" style="max-height:65vh;overflow-y:auto">
       <div id="pj-err" style="display:none;background:rgba(224,112,112,.1);border:1px solid #e07070;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.82rem;color:#e07070;margin-bottom:1rem"></div>
@@ -1579,7 +1575,7 @@
             </select>
           </div>
           <div class="form-field">
-            <label class="form-label">Type d'opération</label>
+            <label class="form-label">Type de bâtiment</label>
             <select id="pj-type-bat" class="form-select">
               <option value="">— Sélectionner —</option>
               <option>Villa / Maison individuelle</option>
@@ -1590,16 +1586,6 @@
               <option>Rénovation / Extension</option>
               <option>Autre</option>
             </select>
-          </div>
-          <div class="form-field full">
-            <label style="display:flex;align-items:center;gap:0.7rem;cursor:pointer;padding:0.7rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;transition:border-color .2s"
-              onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-              <input type="checkbox" id="pj-civitas-enabled" onchange="toggleCivitasTab()" style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0" />
-              <div>
-                <div style="font-size:0.82rem;font-weight:500;color:var(--text-1)">Dossier CIVITAS — permis de bâtir</div>
-                <div style="font-size:0.72rem;color:var(--text-3);margin-top:0.1rem">Active l'onglet CIVITAS pour renseigner les données du permis</div>
-              </div>
-            </label>
           </div>
           <div class="form-field">
             <label class="form-label">Délai estimé</label>
@@ -1624,6 +1610,46 @@
           <div class="form-field full">
             <label class="form-label">Description</label>
             <textarea id="pj-description" class="form-input" rows="2" placeholder="Description courte du projet…" style="resize:vertical"></textarea>
+          </div>
+        </div>
+        <!-- Données techniques (configurateur) -->
+        <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem">
+          <div style="font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Données techniques</div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Surface SHON (m²)</label>
+              <input id="pj-shon" class="form-input" type="number" step="0.01" placeholder="0" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Surface SHOB (m²)</label>
+              <input id="pj-shob" class="form-input" type="number" step="0.01" placeholder="0" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Surface terrain (m²)</label>
+              <input id="pj-terrain" class="form-input" type="number" step="0.01" placeholder="0" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Standing</label>
+              <select id="pj-standing" class="form-select" onchange="pjAutoCalcCoutM2()">
+                <option value="">— Sélectionner —</option>
+                <option>Économique</option><option>Standard</option><option>Moyen-Haut</option><option>Haut standing</option><option>Luxe</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Zone</label>
+              <select id="pj-zone" class="form-select" onchange="pjAutoCalcCoutM2()">
+                <option value="">— Sélectionner —</option>
+                <option>Urbaine</option><option>Périurbaine</option><option>Rurale</option><option>Agricole</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Coût construction (TND)</label>
+              <input id="pj-cout-construction" class="form-input" type="number" step="0.01" placeholder="0" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Coût / m² (TND)</label>
+              <input id="pj-cout-m2" class="form-input" type="number" step="0.01" placeholder="0" />
+            </div>
           </div>
         </div>
       </div>
@@ -1656,123 +1682,6 @@
         </div>
         <input type="hidden" id="pj-lat" /><input type="hidden" id="pj-lng" />
       </div>
-
-      <!-- ══ ONGLET CIVITAS ══════════════════════════════════════════════════ -->
-      <div id="pj-panel-civitas" class="pj-tab-panel" style="display:none">
-
-        <!-- En-tête -->
-        <div style="background:linear-gradient(135deg,rgba(200,169,110,0.08),rgba(200,169,110,0.03));border:1px solid rgba(200,169,110,0.25);border-radius:8px;padding:0.9rem 1.1rem;margin-bottom:1.4rem;display:flex;align-items:center;gap:0.9rem">
-          <div style="font-size:1.4rem">🏛</div>
-          <div>
-            <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:0.15rem">CIVITAS — بطاقة إرشادات فنية</div>
-            <div style="font-size:0.8rem;color:var(--text-2)">Données pour le formulaire de permis de bâtir. Cliquez <strong>CIVITAS ↗</strong> dans le tableau pour préremplir automatiquement.</div>
-          </div>
-        </div>
-
-        <!-- Section 1 : Type de demande -->
-        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">نوع المطلب — Type de demande</div>
-        <div class="form-grid" style="margin-bottom:1.2rem">
-          <div class="form-field">
-            <label class="form-label">Type de demande</label>
-            <select id="pj-civitas-demande" class="form-select">
-              <option value="premiere">Première fois — أول مرة</option>
-              <option value="revision">Révision — إعادة نظر</option>
-            </select>
-          </div>
-          <div class="form-field">
-            <label class="form-label">Type de construction — نوع البناء</label>
-            <select id="pj-type-construction" class="form-select">
-              <option value="nouveau">Bâtiment neuf — بناء جديد</option>
-              <option value="extension">Extension — توسعة</option>
-              <option value="reconstruction">Reconstruction — إعادة بناء</option>
-              <option value="touristique">Touristique — بناء سياحي</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Section 2 : Localisation CIVITAS -->
-        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">الموقع — Localisation administrative</div>
-        <div class="form-grid" style="margin-bottom:1.2rem">
-          <div class="form-field">
-            <label class="form-label">Commune — البلدية <span style="color:#e07070">*</span></label>
-            <select id="pj-commune" class="form-select" onchange="updateCivitasDelegations()">
-              <option value="">— Sélectionner —</option>
-              <optgroup label="Djerba — جربة">
-                <option value="جربة حومة السوق">جربة حومة السوق</option>
-                <option value="جربة ميدون">جربة ميدون</option>
-                <option value="جربة أجيم">جربة أجيم</option>
-              </optgroup>
-              <optgroup label="Médenine — مدنين">
-                <option value="بلدية مدنين">بلدية مدنين</option>
-                <option value="بلدية بن قردان">بلدية بن قردان</option>
-                <option value="بلدية زرزيس">بلدية زرزيس</option>
-                <option value="بلدية جرجيس">بلدية جرجيس</option>
-                <option value="بلدية بوغرارة">بلدية بوغرارة</option>
-              </optgroup>
-              <optgroup label="Sfax — صفاقس">
-                <option value="بلدية صفاقس">بلدية صفاقس</option>
-                <option value="بلدية ساقية الزيت">بلدية ساقية الزيت</option>
-                <option value="بلدية ساقية الداير">بلدية ساقية الداير</option>
-                <option value="بلدية طينة">بلدية طينة</option>
-                <option value="بلدية العين">بلدية العين</option>
-              </optgroup>
-              <optgroup label="Tunis — تونس">
-                <option value="بلدية تونس">بلدية تونس</option>
-                <option value="بلدية دوار هيشر">بلدية دوار هيشر</option>
-                <option value="بلدية الكريب">بلدية الكريب</option>
-                <option value="بلدية رواد">بلدية رواد</option>
-                <option value="بلدية سيدي بورويس">بلدية سيدي بورويس</option>
-                <option value="بلدية حقام الشط">بلدية حقام الشط</option>
-              </optgroup>
-              <optgroup label="Autres — أخرى">
-                <option value="بلدية عين دراهم">بلدية عين دراهم</option>
-                <option value="بلدية جمنة">بلدية جمنة</option>
-                <option value="بلدية باجة">بلدية باجة</option>
-              </optgroup>
-            </select>
-          </div>
-          <div class="form-field">
-            <label class="form-label">Délégation — الدائرة البلدية</label>
-            <select id="pj-delegation" class="form-select">
-              <option value="">— Sélectionner la commune d'abord —</option>
-            </select>
-          </div>
-          <div class="form-field full">
-            <label class="form-label">Lieu de la bâtisse — مكان البيناية</label>
-            <input id="pj-civitas-lieu" class="form-input" placeholder="Adresse complète en arabe si possible" />
-            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Si vide, l'adresse du projet (onglet Localisation) sera utilisée</div>
-          </div>
-        </div>
-
-        <!-- Section 3 : Maître d'ouvrage — CIN -->
-        <div style="font-size:0.65rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem;padding-bottom:0.3rem;border-bottom:1px solid var(--border)">المالك — Maître d'ouvrage</div>
-        <div id="pj-civitas-client-preview" style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.8rem 1rem;font-size:0.8rem;color:var(--text-2);line-height:1.8;margin-bottom:1rem">
-          <span style="color:var(--text-3)">Sélectionnez un client dans l'onglet Identité pour afficher l'aperçu.</span>
-        </div>
-        <div class="form-grid">
-          <div class="form-field">
-            <label class="form-label">الاسم — Prénom (en arabe) <span style="color:#e07070">*</span></label>
-            <input id="pj-civitas-prenom-ar" class="form-input" placeholder="أدخل الاسم بالعربية" dir="rtl" style="font-size:1rem" />
-            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Converti automatiquement — modifiable</div>
-          </div>
-          <div class="form-field">
-            <label class="form-label">اللقب — Nom de famille (en arabe) <span style="color:#e07070">*</span></label>
-            <input id="pj-civitas-nom-ar" class="form-input" placeholder="أدخل اللقب بالعربية" dir="rtl" style="font-size:1rem" />
-          </div>
-          <div class="form-field">
-            <label class="form-label">N° CIN / Passeport — رقم بطاقة التعريف <span style="color:#e07070">*</span></label>
-            <input id="pj-civitas-cin" class="form-input" placeholder="Ex: 12345678" />
-            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem">Pré-rempli depuis la fiche client ; modifiable ici</div>
-          </div>
-          <div class="form-field">
-            <label class="form-label">Date émission CIN / Passeport — تاريخ الإصدار <span style="color:#e07070">*</span></label>
-            <input id="pj-civitas-date-cin" class="form-input" type="date" />
-          </div>
-        </div>
-
-      </div>
-      <!-- ══ FIN ONGLET CIVITAS ══════════════════════════════════════════════ -->
-
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-projet')">Annuler</button>
@@ -1824,8 +1733,7 @@
           </div>
           <div class="form-field">
             <label class="form-label">Projet lié</label>
-            <input id="fa-projet-search" class="form-input" placeholder="Rechercher par code, nom, client…" oninput="filterProjetSelect()" style="margin-bottom:0.3rem" autocomplete="off" />
-            <select id="fa-projet" class="form-select" size="1" onchange="prefillClientFromProjet();document.getElementById('fa-projet-search').value=this.options[this.selectedIndex].text||''">
+            <select id="fa-projet" class="form-select" onchange="prefillClientFromProjet()">
               <option value="">— Sélectionner un projet —</option>
             </select>
           </div>
@@ -2420,5 +2328,23 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="plateforme-nas.js?v=1"></script>
+<script src="ergonomie.js?v=1"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    var checkTables = setInterval(function() {
+      var devisTable = document.getElementById('devis-table');
+      var facTable   = document.getElementById('factures-table');
+      if (devisTable && facTable) {
+        clearInterval(checkTables);
+        if (window.initBulkSelect) {
+          window.initBulkSelect('#devis-table',    'devis-bulk-bar');
+          window.initBulkSelect('#factures-table', 'factures-bulk-bar');
+        }
+      }
+    }, 600);
+  }, 800);
+});
+</script>
 </body>
 </html>
