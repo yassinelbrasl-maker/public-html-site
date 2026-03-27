@@ -55,10 +55,10 @@ if ($method === 'POST') {
 
     $stmt = $db->prepare("
         INSERT INTO CA_settings (setting_key, setting_value)
-        VALUES (:k, :v)
-        ON DUPLICATE KEY UPDATE setting_value = :v2, updated_at = NOW()
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()
     ");
-    $stmt->execute([':k' => $key, ':v' => $stored, ':v2' => $stored]);
+    $stmt->execute([$key, $stored]);
     jsonOk(['key' => $key, 'saved' => true]);
 }
 

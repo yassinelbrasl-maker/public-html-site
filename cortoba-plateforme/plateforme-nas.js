@@ -4604,12 +4604,31 @@ function saveNasConfig() {
     cortoba_nas_webdav:       'param-nas-webdav',
     cortoba_nas_public_ip:    'param-nas-public-ip',
   };
+  var saved = 0;
+  var promises = [];
   Object.keys(fields).forEach(function(key) {
     var el = document.getElementById(fields[key]);
-    if (el) saveSetting(key, el.value);
+    if (el) {
+      var val = el.value || '';
+      _settingsCache[key] = val;
+      setLS(key, val);
+      saved++;
+      // Sauvegarde serveur avec promesse pour vérifier
+      promises.push(
+        apiFetch('api/settings.php', {method:'POST', body:{key:key, value:val}})
+          .catch(function(e) { console.error('NAS save error for ' + key + ':', e); return {error:true}; })
+      );
+    }
   });
-  showToast('Configuration NAS enregistrée ✓');
-  nasRefreshStatus();
+  Promise.all(promises).then(function(results) {
+    var errors = results.filter(function(r) { return r && r.error; });
+    if (errors.length > 0) {
+      showToast('⚠ ' + saved + ' paramètres sauvegardés localement, mais ' + errors.length + ' erreur(s) serveur', 'error');
+    } else {
+      showToast('✓ Configuration NAS enregistrée (' + saved + ' paramètres)');
+    }
+    nasRefreshStatus();
+  });
 }
 
 // ── Charger les champs Paramètres NAS ──

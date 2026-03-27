@@ -9,9 +9,20 @@ require_once __DIR__ . '/../config/middleware.php';
 
 $action = isset($_GET['action']) ? $_GET['action'] : 'status';
 
-// ── Lire la config NAS depuis les paramètres ──
+// ── Lire la config NAS depuis les paramètres (CA_settings) ──
 function getNasParam($key, $default = '') {
     $db = getDB();
+    // Chercher d'abord dans CA_settings (source de vérité, utilisée par saveSetting JS)
+    try {
+        $stmt = $db->prepare('SELECT setting_value FROM CA_settings WHERE setting_key = ? LIMIT 1');
+        $stmt->execute(array($key));
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $decoded = json_decode($row['setting_value'], true);
+            return ($decoded !== null) ? $decoded : $row['setting_value'];
+        }
+    } catch (Exception $e) {}
+    // Fallback sur CA_parametres (ancien schéma)
     try {
         $stmt = $db->prepare('SELECT valeur FROM CA_parametres WHERE cle = ? LIMIT 1');
         $stmt->execute(array($key));
