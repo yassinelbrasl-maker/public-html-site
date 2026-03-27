@@ -2747,14 +2747,8 @@ function removeParamMission(id){
   renderParametresMissions();
 }
 
-// ── NAS config ──
-function saveNasConfig(){
-  var local = (document.getElementById('param-nas-local')||{value:''}).value.trim();
-  var cloud = (document.getElementById('param-nas-cloud')||{value:''}).value.trim();
-  if (local) saveSetting('cortoba_nas_local', local);
-  if (cloud) saveSetting('cortoba_nas_cloud', cloud);
-  showToast('Configuration NAS enregistrée');
-}
+// ── NAS config (ancien — remplacé par version complète plus bas) ──
+// saveNasConfig() est défini à la section NAS complète (~ligne 4598)
 function getNasUrl(){
   return getSetting('cortoba_nas_cloud', 'https://www.myqnapcloud.com/smartshare/79e3hh7i5m13n741tx673995_d1731k4140o82pqur26146zbb4761i64');
 }
@@ -5216,6 +5210,132 @@ function esc(s) {
   return d.innerHTML;
 }
 
+// ── Affichage structuré des données configurateur ──
+function renderCfgDataStructured(cfg, d) {
+  var s = '<style>.dem-section{margin-bottom:1.2rem}.dem-section-title{font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:0.6rem;font-weight:600;display:flex;align-items:center;gap:0.4rem}.dem-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 1.5rem}.dem-item{display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid rgba(255,255,255,.04)}.dem-item-label{color:var(--text-3);font-size:0.78rem}.dem-item-val{font-size:0.78rem;font-weight:500;text-align:right}.dem-rooms-table{width:100%;border-collapse:collapse;font-size:0.78rem;margin-top:0.4rem}.dem-rooms-table th{text-align:left;padding:0.4rem 0.6rem;color:var(--text-3);border-bottom:1px solid var(--border);font-weight:400;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em}.dem-rooms-table td{padding:0.4rem 0.6rem;border-bottom:1px solid rgba(255,255,255,.04)}.dem-rooms-table tr:last-child td{border-bottom:none;font-weight:600}.dem-tag{display:inline-block;padding:0.15rem 0.5rem;border-radius:3px;font-size:0.72rem;background:var(--accent-bg);color:var(--accent);border:1px solid rgba(200,169,110,.25);margin:0.1rem 0.15rem}</style>';
+
+  function item(label, val) {
+    if (val === null || val === undefined || val === '' || val === false || val === 0) return '';
+    var display = val === true ? '✓' : esc(String(val));
+    return '<div class="dem-item"><span class="dem-item-label">' + label + '</span><span class="dem-item-val">' + display + '</span></div>';
+  }
+  function fmtNum(n) { return n ? Number(n).toLocaleString('fr-FR') : '—'; }
+
+  // ── Section 1 : Identité du projet ──
+  s += '<div class="dem-section"><div class="dem-section-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> Identité du projet</div>';
+  s += '<div class="dem-grid">';
+  s += item('Type de bâtiment', cfg.cfg_type);
+  s += item('Catégorie', cfg.cfg_type_group);
+  s += item('Opération', cfg.cfg_operation);
+  s += item('Style architectural', cfg.cfg_style);
+  s += item('Niveau de standing', cfg.cfg_standing);
+  s += item('Nombre de niveaux', cfg.cfg_niveaux);
+  s += item('Budget prévisionnel', cfg.cfg_budget_custom ? fmtNum(cfg.cfg_budget_custom) + ' TND' : null);
+  s += item('Forme', cfg.cfg_forme);
+  s += '</div></div>';
+
+  // ── Section 2 : Terrain & localisation ──
+  if (cfg.cfg_terrain || cfg.cfg_lat) {
+    s += '<div class="dem-section"><div class="dem-section-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Terrain & localisation</div>';
+    s += '<div class="dem-grid">';
+    s += item('Surface terrain', cfg.cfg_terrain ? fmtNum(cfg.cfg_terrain) + ' m²' : null);
+    s += item('Nature du terrain', cfg.cfg_terrain_nature);
+    if (cfg.cfg_lat && cfg.cfg_lng) {
+      s += '<div class="dem-item"><span class="dem-item-label">Coordonnées GPS</span><span class="dem-item-val"><a href="https://maps.google.com/?q=' + cfg.cfg_lat + ',' + cfg.cfg_lng + '" target="_blank" style="color:var(--accent);text-decoration:none">' + cfg.cfg_lat + ', ' + cfg.cfg_lng + ' ↗</a></span></div>';
+    }
+    s += '</div></div>';
+  }
+
+  // ── Section 3 : Programme — tableau des pièces ──
+  var bilanRooms = cfg.bilanRooms || [];
+  if (bilanRooms.length > 0) {
+    var habRooms = bilanRooms.filter(function(r) { return !r.ext; });
+    var extRooms = bilanRooms.filter(function(r) { return r.ext; });
+    var totalHab = habRooms.reduce(function(a, r) { return a + (r.s || 0); }, 0);
+    var totalExt = extRooms.reduce(function(a, r) { return a + (r.s || 0); }, 0);
+
+    s += '<div class="dem-section"><div class="dem-section-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg> Programme des espaces</div>';
+    s += '<table class="dem-rooms-table"><thead><tr><th>Espace</th><th style="text-align:right;width:80px">Surface</th></tr></thead><tbody>';
+    habRooms.forEach(function(r) {
+      s += '<tr><td>' + esc(r.label) + '</td><td style="text-align:right">' + r.s + ' m²</td></tr>';
+    });
+    s += '<tr><td>Total habitable (hors circulations)</td><td style="text-align:right;color:var(--accent)">' + totalHab + ' m²</td></tr>';
+    s += '</tbody></table>';
+
+    if (extRooms.length > 0) {
+      s += '<table class="dem-rooms-table" style="margin-top:0.6rem"><thead><tr><th>Annexes</th><th style="text-align:right;width:80px">Surface</th></tr></thead><tbody>';
+      extRooms.forEach(function(r) {
+        s += '<tr><td>' + esc(r.label) + '</td><td style="text-align:right">' + r.s + ' m²</td></tr>';
+      });
+      s += '<tr><td>Total annexes</td><td style="text-align:right;color:var(--accent)">' + totalExt + ' m²</td></tr>';
+      s += '</tbody></table>';
+    }
+
+    // Barre visuelle proportionnelle
+    if (habRooms.length > 1) {
+      var colors = ['#c8a96e','#8bc8a0','#6ea8c8','#c86e8b','#c8b46e','#6ec8c8','#a06ec8','#c89e6e','#6e8bc8','#c86e6e'];
+      s += '<div style="display:flex;height:18px;border-radius:4px;overflow:hidden;margin-top:0.8rem;gap:1px">';
+      habRooms.forEach(function(r, i) {
+        var pct = totalHab > 0 ? (r.s / totalHab * 100) : 0;
+        if (pct < 2) pct = 2;
+        s += '<div title="' + esc(r.label) + ' — ' + r.s + ' m²" style="flex:' + r.s + ';background:' + colors[i % colors.length] + ';min-width:4px;transition:flex .3s"></div>';
+      });
+      s += '</div>';
+      // Légende
+      s += '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.5rem">';
+      habRooms.forEach(function(r, i) {
+        s += '<span style="font-size:0.65rem;display:flex;align-items:center;gap:0.25rem;color:var(--text-3)"><span style="width:8px;height:8px;border-radius:2px;background:' + colors[i % colors.length] + ';flex-shrink:0"></span>' + esc(r.label) + '</span>';
+      });
+      s += '</div>';
+    }
+    s += '</div>';
+  }
+
+  // ── Section 4 : Équipements extérieurs ──
+  var extFeatures = [];
+  if (cfg.cfg_piscine) {
+    var pDesc = (cfg.cfg_piscine_type === 'debordement' ? 'À débordement' : 'À skimmer');
+    if (cfg.cfg_piscine_forma) pDesc += ', ' + cfg.cfg_piscine_forma;
+    if (cfg.cfg_pisc_length && cfg.cfg_pisc_width) pDesc += ' (' + cfg.cfg_pisc_length + '×' + cfg.cfg_pisc_width + ' m)';
+    else if (cfg.cfg_pisc_area) pDesc += ' (' + cfg.cfg_pisc_area + ' m²)';
+    extFeatures.push({ label: 'Piscine', detail: pDesc });
+  }
+  if (cfg.cfg_terrasse) extFeatures.push({ label: 'Terrasse aménagée', detail: '' });
+  if (cfg.cfg_cuisine_ext) extFeatures.push({ label: 'Cuisine extérieure', detail: '' });
+  if (cfg.cfg_sanitaires_ext) extFeatures.push({ label: 'Sanitaires extérieurs', detail: '' });
+  if (cfg.cfg_salon_ext) extFeatures.push({ label: 'Salon extérieur', detail: '' });
+  if (cfg.cfg_debarrat) extFeatures.push({ label: 'Débarras', detail: '' });
+  if (cfg.cfg_toit_terrasse) extFeatures.push({ label: 'Toit terrasse', detail: '' });
+  if (cfg.cfg_cloture) extFeatures.push({ label: 'Clôture', detail: cfg.cfg_cloture_length ? cfg.cfg_cloture_length + ' ml' : '' });
+
+  if (extFeatures.length > 0) {
+    s += '<div class="dem-section"><div class="dem-section-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Équipements extérieurs</div>';
+    s += '<div style="display:flex;flex-wrap:wrap;gap:0.4rem">';
+    extFeatures.forEach(function(f) {
+      s += '<span class="dem-tag">' + esc(f.label) + (f.detail ? ' <span style="opacity:0.7">· ' + esc(f.detail) + '</span>' : '') + '</span>';
+    });
+    s += '</div></div>';
+  }
+
+  // ── Section 5 : Estimation financière ──
+  if (d.surface_estimee || d.cout_estime_low) {
+    s += '<div class="dem-section"><div class="dem-section-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Estimation financière</div>';
+    s += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.8rem;text-align:center">';
+    if (d.surface_estimee) {
+      s += '<div style="background:var(--bg-2);border-radius:6px;padding:0.8rem 0.5rem;border:1px solid var(--border)"><div style="font-size:1.2rem;font-weight:700;color:var(--text)">' + fmtNum(Math.round(d.surface_estimee)) + '</div><div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">m² estimés</div></div>';
+    }
+    if (d.cout_estime_low) {
+      s += '<div style="background:var(--bg-2);border-radius:6px;padding:0.8rem 0.5rem;border:1px solid var(--border)"><div style="font-size:1.2rem;font-weight:700;color:var(--text)">' + fmtNum(Math.round(d.cout_estime_low/1000)) + 'k</div><div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">TND (estimation basse)</div></div>';
+    }
+    if (d.cout_estime_high) {
+      s += '<div style="background:var(--bg-2);border-radius:6px;padding:0.8rem 0.5rem;border:1px solid var(--border)"><div style="font-size:1.2rem;font-weight:700;color:var(--accent)">' + fmtNum(Math.round(d.cout_estime_high/1000)) + 'k</div><div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">TND (estimation haute)</div></div>';
+    }
+    s += '</div></div>';
+  }
+
+  return s;
+}
+
 function openDemande(id) {
   _openDemandeId = id;
   var d = getDemandes().find(function(x) { return x.id === id; });
@@ -5247,58 +5367,13 @@ function openDemande(id) {
       + 'Coût estimé : ' + cout;
   }
 
-  // Cfg data
+  // Cfg data — affichage structuré
   var cfgEl = document.getElementById('dem-detail-cfg');
   if (cfgEl) {
     try {
       var cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {});
-      var lines = [];
-      var labelMap = {
-        cfg_nom_projet: 'Nom du projet',
-        cfg_type: 'Type de bâtiment', cfg_type_group: 'Catégorie',
-        cfg_operation: 'Nature de l\'opération',
-        cfg_budget_custom: 'Budget prévisionnel (TND)',
-        cfg_style: 'Style architectural', cfg_standing: 'Niveau de standing',
-        cfg_niveaux: 'Nombre de niveaux',
-        cfg_terrain: 'Surface terrain (m²)', cfg_terrain_nature: 'Nature du terrain',
-        cfg_terrainUnknown: 'Terrain non défini',
-        cfg_lat: 'Latitude', cfg_lng: 'Longitude',
-        cfg_salon: 'Salon', cfg_sejour: 'Séjour', cfg_entree: 'Entrée / Hall',
-        cfg_cuisine: 'Type de cuisine', cfg_cuisine_table: 'Salle à manger',
-        cfg_sde_commune: 'Salle d\'eau commune',
-        cfg_chambres: 'Nombre de chambres',
-        cfg_suite_parentale: 'Suite parentale',
-        cfg_suite_parentale_type: 'Type de suite parentale',
-        cfg_suites: 'Nombre de suites',
-        cfg_sdb: 'Salles de bain privatives',
-        cfg_bureau: 'Bureau / Télétravail', cfg_sport: 'Espace de sport',
-        cfg_buanderie: 'Buanderie', cfg_cellier: 'Cellier',
-        cfg_buanderie_cellier: 'Buanderie & cellier',
-        cfg_garage1: 'Garage 1 voiture', cfg_garage2: 'Garage 2 voitures',
-        cfg_garage2_config: 'Configuration garage',
-        cfg_carport: 'Abri de voiture (carport)',
-        cfg_piscine: 'Piscine', cfg_piscine_type: 'Type de piscine',
-        cfg_piscine_forma: 'Forme de la piscine',
-        cfg_pisc_length: 'Longueur piscine (m)', cfg_pisc_width: 'Largeur piscine (m)',
-        cfg_pisc_area: 'Surface piscine (m²)',
-        cfg_terrasse: 'Terrasse aménagée', cfg_cuisine_ext: 'Cuisine extérieure',
-        cfg_sanitaires_ext: 'Sanitaires extérieurs', cfg_salon_ext: 'Salon extérieur',
-        cfg_debarrat: 'Débarras', cfg_toit_terrasse: 'Toit terrasse',
-        cfg_cloture: 'Clôture', cfg_cloture_length: 'Longueur clôture (ml)',
-        cfg_nb_bureaux: 'Nombre de bureaux', cfg_nb_apparts: 'Nombre d\'appartements',
-        cfg_nb_commerces: 'Nombre de commerces'
-      };
-      var hiddenKeys = {cfg_chambres_list:1, cfg_suites_list:1, cfg_mixte_niveaux:1,
-        _lastSurfaceInt:1, _lastVillaLow:1, _lastVillaHigh:1, _lastCpp:1};
-      Object.keys(cfg).forEach(function(k) {
-        if (hiddenKeys[k]) return;
-        if (cfg[k] === null || cfg[k] === '' || cfg[k] === undefined || cfg[k] === false || cfg[k] === 0) return;
-        var label = labelMap[k] || k.replace(/^cfg_/, '').replace(/_/g, ' ');
-        var val = cfg[k] === true ? 'Oui' : cfg[k];
-        if (typeof val === 'object') val = JSON.stringify(val);
-        lines.push('<span style="color:var(--text-3)">' + label + ' :</span> ' + esc(String(val)));
-      });
-      cfgEl.innerHTML = lines.length > 0 ? lines.join('<br>') : '<span style="color:var(--text-3)">Aucune donnée</span>';
+      var html = renderCfgDataStructured(cfg, d);
+      cfgEl.innerHTML = html || '<span style="color:var(--text-3)">Aucune donnée</span>';
     } catch(e) {
       cfgEl.innerHTML = '<span style="color:var(--text-3)">Données non disponibles</span>';
     }
@@ -5390,30 +5465,31 @@ function createDevisFromDemande() {
   showPage('devis');
   setTimeout(function() {
     openModal('modal-devis');
-    // Pré-remplir les champs si possible
-    var client = getClients().find(function(c) { return c.id === d.client_id; });
-    var selClient = document.getElementById('dv-client');
-    if (selClient && client) {
-      for (var i = 0; i < selClient.options.length; i++) {
-        if (selClient.options[i].value === client.displayNom || selClient.options[i].textContent.indexOf(client.displayNom) !== -1) {
-          selClient.selectedIndex = i; break;
-        }
-      }
+    // Pré-remplir le client (input texte)
+    var clientEl = document.getElementById('dv-client');
+    if (clientEl) {
+      var client = getClients().find(function(c) { return c.id === d.client_id; });
+      clientEl.value = client ? (client.displayNom || client.display_nom || d.prenom + ' ' + d.nom) : (d.prenom + ' ' + d.nom);
     }
-    var selProjet = document.getElementById('dv-projet');
-    if (selProjet && d.projet_id) {
-      var projet = getProjets().find(function(p) { return p.id === d.projet_id; });
-      if (projet) {
-        for (var i = 0; i < selProjet.options.length; i++) {
-          if (selProjet.options[i].textContent.indexOf(projet.nom) !== -1) {
-            selProjet.selectedIndex = i; break;
-          }
-        }
-      }
-    }
-    // Objet
+    // Objet du devis
     var objEl = document.getElementById('dv-objet');
-    if (objEl) objEl.value = 'Projet ' + d.nom_projet + ' — Estimation configurateur';
+    if (objEl) {
+      var cfg = {};
+      try { cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {}); } catch(e){}
+      var parts = ['Projet ' + d.nom_projet];
+      if (cfg.cfg_type) parts.push(cfg.cfg_type);
+      if (cfg.cfg_operation) parts.push(cfg.cfg_operation);
+      objEl.value = parts.join(' — ');
+    }
+    // Montant estimé
+    var montantEl = document.getElementById('dv-montant');
+    if (montantEl && d.cout_estime_high) {
+      montantEl.value = Math.round(parseFloat(d.cout_estime_high) * 0.08); // ~8% honoraires
+    }
+    // Marquer la demande comme devis créé après fermeture
+    var _demId = _openDemandeId;
+    var origSave = window._origSaveDevis || null;
+    // On ne modifie pas saveDevis, mais on met à jour le statut après la création
   }, 200);
 }
 
