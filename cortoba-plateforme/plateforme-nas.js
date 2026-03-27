@@ -5200,19 +5200,49 @@ function openDemande(id) {
       var cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {});
       var lines = [];
       var labelMap = {
-        type_bat: 'Type de bâtiment', operation: 'Opération', style: 'Style architectural',
-        standing: 'Standing', niveaux: 'Niveaux', sous_sol: 'Sous-sol',
-        chambres: 'Chambres', salons: 'Salons', sdb: 'Salles de bain',
-        cuisine: 'Cuisine', bureau: 'Bureau', garage: 'Garage', piscine: 'Piscine',
-        terrasse: 'Terrasse', jardin: 'Jardin', surface_terrain: 'Surface terrain',
-        zone: 'Zone géographique', fondation: 'Type de fondation', terrain: 'Topographie terrain'
+        cfg_nom_projet: 'Nom du projet',
+        cfg_type: 'Type de bâtiment', cfg_type_group: 'Catégorie',
+        cfg_operation: 'Nature de l\'opération',
+        cfg_budget_custom: 'Budget prévisionnel (TND)',
+        cfg_style: 'Style architectural', cfg_standing: 'Niveau de standing',
+        cfg_niveaux: 'Nombre de niveaux',
+        cfg_terrain: 'Surface terrain (m²)', cfg_terrain_nature: 'Nature du terrain',
+        cfg_terrainUnknown: 'Terrain non défini',
+        cfg_lat: 'Latitude', cfg_lng: 'Longitude',
+        cfg_salon: 'Salon', cfg_sejour: 'Séjour', cfg_entree: 'Entrée / Hall',
+        cfg_cuisine: 'Type de cuisine', cfg_cuisine_table: 'Salle à manger',
+        cfg_sde_commune: 'Salle d\'eau commune',
+        cfg_chambres: 'Nombre de chambres',
+        cfg_suite_parentale: 'Suite parentale',
+        cfg_suite_parentale_type: 'Type de suite parentale',
+        cfg_suites: 'Nombre de suites',
+        cfg_sdb: 'Salles de bain privatives',
+        cfg_bureau: 'Bureau / Télétravail', cfg_sport: 'Espace de sport',
+        cfg_buanderie: 'Buanderie', cfg_cellier: 'Cellier',
+        cfg_buanderie_cellier: 'Buanderie & cellier',
+        cfg_garage1: 'Garage 1 voiture', cfg_garage2: 'Garage 2 voitures',
+        cfg_garage2_config: 'Configuration garage',
+        cfg_carport: 'Abri de voiture (carport)',
+        cfg_piscine: 'Piscine', cfg_piscine_type: 'Type de piscine',
+        cfg_piscine_forma: 'Forme de la piscine',
+        cfg_pisc_length: 'Longueur piscine (m)', cfg_pisc_width: 'Largeur piscine (m)',
+        cfg_pisc_area: 'Surface piscine (m²)',
+        cfg_terrasse: 'Terrasse aménagée', cfg_cuisine_ext: 'Cuisine extérieure',
+        cfg_sanitaires_ext: 'Sanitaires extérieurs', cfg_salon_ext: 'Salon extérieur',
+        cfg_debarrat: 'Débarras', cfg_toit_terrasse: 'Toit terrasse',
+        cfg_cloture: 'Clôture', cfg_cloture_length: 'Longueur clôture (ml)',
+        cfg_nb_bureaux: 'Nombre de bureaux', cfg_nb_apparts: 'Nombre d\'appartements',
+        cfg_nb_commerces: 'Nombre de commerces'
       };
+      var hiddenKeys = {cfg_chambres_list:1, cfg_suites_list:1, cfg_mixte_niveaux:1,
+        _lastSurfaceInt:1, _lastVillaLow:1, _lastVillaHigh:1, _lastCpp:1};
       Object.keys(cfg).forEach(function(k) {
-        if (cfg[k] !== null && cfg[k] !== '' && cfg[k] !== undefined && cfg[k] !== false) {
-          var label = labelMap[k] || k;
-          var val = cfg[k] === true ? 'Oui' : cfg[k];
-          lines.push('<span style="color:var(--text-3)">' + label + ' :</span> ' + esc(String(val)));
-        }
+        if (hiddenKeys[k]) return;
+        if (cfg[k] === null || cfg[k] === '' || cfg[k] === undefined || cfg[k] === false || cfg[k] === 0) return;
+        var label = labelMap[k] || k.replace(/^cfg_/, '').replace(/_/g, ' ');
+        var val = cfg[k] === true ? 'Oui' : cfg[k];
+        if (typeof val === 'object') val = JSON.stringify(val);
+        lines.push('<span style="color:var(--text-3)">' + label + ' :</span> ' + esc(String(val)));
       });
       cfgEl.innerHTML = lines.length > 0 ? lines.join('<br>') : '<span style="color:var(--text-3)">Aucune donnée</span>';
     } catch(e) {
