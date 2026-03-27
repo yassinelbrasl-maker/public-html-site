@@ -1104,6 +1104,7 @@ function getFilteredSortedProjets(){
   var q       = (document.getElementById('projets-search')||{value:''}).value.trim().toLowerCase();
   var fPhase  = (document.getElementById('projets-filter-phase')||{value:''}).value;
   var fStatut = (document.getElementById('projets-filter-statut')||{value:''}).value;
+  var fAnnee  = (document.getElementById('projets-filter-annee')||{value:''}).value;
   var list    = getProjets();
   if (q) list = list.filter(function(p){
     var hay = [(p.code||''),(p.nom||''),(p.client||''),(p.phase||''),(p.statut||''),(p.adresse||'')].join(' ').toLowerCase();
@@ -1111,6 +1112,7 @@ function getFilteredSortedProjets(){
   });
   if (fPhase)  list = list.filter(function(p){ return p.phase===fPhase; });
   if (fStatut) list = list.filter(function(p){ return p.statut===fStatut; });
+  if (fAnnee)  list = list.filter(function(p){ return String(p.annee)===fAnnee; });
   var key=_pjSortKey, dir=_pjSortDir;
   return list.slice().sort(function(a,b){
     var va=a[key]||'', vb=b[key]||'';
@@ -1120,10 +1122,21 @@ function getFilteredSortedProjets(){
     return dir*(va<vb?-1:va>vb?1:0);
   });
 }
+function populateAnneeFilter(){
+  var sel = document.getElementById('projets-filter-annee'); if(!sel) return;
+  var current = sel.value;
+  var years = {};
+  getProjets().forEach(function(p){ if(p.annee) years[p.annee]=1; });
+  var sorted = Object.keys(years).sort().reverse();
+  var html = '<option value="">Toutes les années</option>';
+  sorted.forEach(function(y){ html += '<option'+(y===current?' selected':'')+'>'+y+'</option>'; });
+  sel.innerHTML = html;
+}
 function clearPjSearch(){
   var s=document.getElementById('projets-search');if(s)s.value='';
   var fp=document.getElementById('projets-filter-phase');if(fp)fp.value='';
   var fs=document.getElementById('projets-filter-statut');if(fs)fs.value='';
+  var fa=document.getElementById('projets-filter-annee');if(fa)fa.value='';
   renderProjets();
 }
 function phaseBadgeClass(ph){
@@ -1134,6 +1147,7 @@ function phaseBadgeClass(ph){
 }
 
 function renderProjets(){
+  populateAnneeFilter();
   var thead = document.getElementById('projets-thead');
   var tb    = document.getElementById('projets-tbody');
   if (!thead||!tb) return;
@@ -1561,8 +1575,11 @@ function copyNasPath(encoded){
 function openProjetDetail(id){
   var p = getProjets().find(function(x){ return x.id===id; }); if(!p) return;
   var typeBatVal = p.typeBat||p.type_bat||'';
-  var nasBtn = (p.nasPath||p.nas_path||p.nas)
-    ? '<button class="btn btn-sm" onclick="copyNasPath(\''+encodeURIComponent(p.nasPath||p.nas_path||p.nas)+'\')" title="'+(p.nasPath||p.nas_path||p.nas)+'">📋 Copier chemin NAS</button>' : '';
+  var nasPath = p.nasPath||p.nas_path||p.nas||'';
+  var nasBtn = nasPath
+    ? '<button class="btn btn-sm" onclick="copyNasPath(\''+encodeURIComponent(nasPath)+'\')" title="'+nasPath+'">📋 Copier</button> '
+      + '<button class="btn btn-sm" onclick="createNasFolderForProjet(\''+p.id+'\')" title="Créer le dossier sur le NAS">📁 Créer dossier</button>'
+    : '';
   var rows = [
     ['Code dossier','<span style="font-family:var(--mono);color:var(--accent);font-weight:700">'+(p.code||'—')+'</span>'],
     ['Statut','<span class="'+badgeClass(p.statut)+'">'+(p.statut||'—')+'</span>'],
@@ -1668,8 +1685,14 @@ function saveProjet(){
     url    = 'api/projets.php';
   }
 
+  var shouldCreateNas = !_editingProjetId && document.getElementById('pj-nas-create') && document.getElementById('pj-nas-create').checked;
+
   apiFetch(url, {method:method, body:body})
     .then(function(){
+      // Créer le dossier NAS si demandé (nouvelle création uniquement)
+      if (shouldCreateNas && nasPath) {
+        createNasFolder(nasPath);
+      }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
       resetProjetForm();
@@ -5058,6 +5081,37 @@ function renderNasPage() {
   renderNasRaccourcis();
   renderNasFichiers();
   nasRefreshStatus();
+}
+
+// ══════════════════════════════════════════════════════════
+//  CRÉATION DOSSIER NAS (WebDAV MKCOL)
+// ══════════════════════════════════════════════════════════
+
+function createNasFolder(nasPath, callback) {
+  if (!nasPath || nasPath === '—') {
+    if (callback) callback(false, 'Chemin NAS non défini');
+    return;
+  }
+  apiFetch('api/nas.php?action=mkdir', {
+    method: 'POST',
+    body: { path: nasPath }
+  }).then(function(r) {
+    var msg = (r.data && r.data.message) || 'Dossier créé';
+    if (typeof showToast === 'function') showToast('📁 ' + msg);
+    if (callback) callback(true, msg);
+  }).catch(function(e) {
+    var msg = e.message || 'Erreur création dossier NAS';
+    if (typeof showToast === 'function') showToast('⚠ ' + msg, 'error');
+    if (callback) callback(false, msg);
+  });
+}
+
+function createNasFolderForProjet(projetId) {
+  var p = getProjets().find(function(x){ return x.id === projetId; });
+  if (!p) return;
+  var path = p.nasPath || p.nas_path || '';
+  if (!path) { showToast('Aucun chemin NAS pour ce projet', 'error'); return; }
+  createNasFolder(path);
 }
 
 // ══════════════════════════════════════════════════════════

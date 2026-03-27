@@ -189,6 +189,96 @@ elseif ($action === 'files') {
     jsonOk($files);
 }
 
+// ── ACTION : mkdir (créer un dossier via WebDAV) ──
+elseif ($action === 'mkdir') {
+    $user = requireAuth();
+    $body = getBody();
+    $path = isset($body['path']) ? trim($body['path']) : (isset($_GET['path']) ? trim($_GET['path']) : '');
+    if (!$path) jsonError('Chemin du dossier requis', 400);
+
+    $ip         = getNasParam('cortoba_nas_local', '');
+    $webdavPort = getNasParam('cortoba_nas_webdav_port', '5005');
+    $nasUser    = getNasParam('cortoba_nas_user', 'admin');
+    $nasPass    = getNasParam('cortoba_nas_pass', '');
+    $publicIp   = getNasParam('cortoba_nas_public_ip', '');
+
+    if (!$webdavPort) jsonError('WebDAV non configuré — renseignez le port dans Paramètres → NAS', 400);
+
+    // Essayer d'abord l'IP publique (serveur hébergé), puis l'IP locale
+    $hosts = array();
+    if ($publicIp) $hosts[] = $publicIp;
+    if ($ip)       $hosts[] = $ip;
+    if (empty($hosts)) jsonError('Aucune adresse NAS configurée', 400);
+
+    // Normaliser le chemin : retirer le préfixe UNC Windows et ne garder que le chemin relatif
+    // Ex: \\NAS\Projets\2026\01_26_XXX → Projets/2026/01_26_XXX
+    $cleanPath = str_replace('\\', '/', $path);
+    $cleanPath = preg_replace('#^//[^/]+/#', '', $cleanPath); // Retirer \\NAS\
+    $cleanPath = ltrim($cleanPath, '/');
+
+    // Créer chaque niveau du chemin (mkdir -p équivalent)
+    $parts = explode('/', $cleanPath);
+    $created = array();
+    $currentPath = '';
+    $lastError = '';
+    $success = false;
+
+    foreach ($hosts as $host) {
+        $success = true;
+        $currentPath = '';
+        $created = array();
+
+        foreach ($parts as $part) {
+            if (!$part) continue;
+            $currentPath .= '/' . $part;
+            $url = 'http://' . $host . ':' . $webdavPort . $currentPath . '/';
+
+            if (!function_exists('curl_init')) { jsonError('cURL non disponible', 500); }
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'MKCOL');
+            curl_setopt($ch, CURLOPT_USERPWD, $nasUser . ':' . $nasPass);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            $response = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+
+            // 201 = créé, 405 = existe déjà, 301 = redirigé (existe)
+            if ($code === 201) {
+                $created[] = $currentPath;
+            } elseif ($code === 405 || $code === 301) {
+                // Dossier existe déjà — OK
+            } elseif ($code === 0) {
+                $lastError = 'Connexion impossible à ' . $host . ':' . $webdavPort . ' — ' . $err;
+                $success = false;
+                break;
+            } else {
+                $lastError = 'Erreur WebDAV ' . $code . ' pour ' . $currentPath;
+                $success = false;
+                break;
+            }
+        }
+
+        if ($success) break; // Réussi avec cet hôte
+    }
+
+    if (!$success) {
+        jsonError($lastError ?: 'Impossible de créer le dossier NAS', 503);
+    }
+
+    jsonOk(array(
+        'path'    => $cleanPath,
+        'created' => $created,
+        'message' => count($created) > 0
+            ? count($created) . ' dossier(s) créé(s) sur le NAS'
+            : 'Le dossier existe déjà sur le NAS'
+    ));
+}
+
 // ── ACTION : ping ──
 elseif ($action === 'ping') {
     $ip   = getNasParam('cortoba_nas_local', '');
