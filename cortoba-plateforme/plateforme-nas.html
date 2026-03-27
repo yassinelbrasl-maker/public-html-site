@@ -96,6 +96,11 @@
 
       <div class="sidebar-section">
         <div class="sidebar-label">Activité</div>
+        <button class="nav-item" onclick="showPage('demandes')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Demandes
+          <span class="nav-badge" id="demandes-badge">0</span>
+        </button>
         <button class="nav-item" onclick="showPage('devis')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
           Offres & Devis
@@ -995,6 +1000,68 @@
         </div>
       </div>
 
+      <!-- ══ DEMANDES ══ -->
+      <div class="page" id="page-demandes">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Configurateur</div>
+            <h1 class="page-title">Demandes</h1>
+          </div>
+          <div class="page-actions">
+            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+              <input id="demandes-search" class="form-input" placeholder="Rechercher…" style="width:200px;font-size:0.8rem;padding:0.4rem 0.8rem" oninput="filterDemandes()" />
+              <select id="demandes-filtre-statut" class="form-select" style="width:160px;font-size:0.8rem;padding:0.4rem 0.6rem" onchange="filterDemandes()">
+                <option value="">Tous les statuts</option>
+                <option value="nouvelle">Nouvelle</option>
+                <option value="en_cours">En cours</option>
+                <option value="client_cree">Client créé</option>
+                <option value="projet_cree">Projet créé</option>
+                <option value="devis_cree">Devis créé</option>
+                <option value="archivee">Archivée</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs demandes -->
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));margin-bottom:1.5rem">
+          <div class="kpi-card">
+            <div class="kpi-label">Nouvelles</div>
+            <div class="kpi-value" id="dem-kpi-nouvelles">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">En cours</div>
+            <div class="kpi-value" id="dem-kpi-encours">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Converties</div>
+            <div class="kpi-value" id="dem-kpi-converties">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total</div>
+            <div class="kpi-value" id="dem-kpi-total">0</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table id="demandes-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Projet</th>
+                <th>Client</th>
+                <th>Téléphone</th>
+                <th>Surface</th>
+                <th>Coût estimé</th>
+                <th>Statut</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="demandes-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ══ ÉQUIPE ══ -->
       <div class="page" id="page-equipe">
         <div class="page-header">
@@ -1295,6 +1362,93 @@
             <input id="param-role-input" class="form-input" placeholder="Nom du nouveau rôle…" style="flex:1;min-width:200px"
               onkeydown="if(event.key==='Enter') addParamRole()" />
             <button class="btn btn-primary btn-sm" onclick="addParamRole()">+ Ajouter</button>
+          </div>
+        </div>
+
+        <!-- Configurateur de projet — Paramètres -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Configurateur de projet</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1.2rem">
+            Ces valeurs sont utilisées par le configurateur public pour estimer les coûts et surfaces. Toute modification sera appliquée immédiatement.
+          </div>
+
+          <!-- Coût au m² par standing × style -->
+          <div style="margin-bottom:1.5rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Coût de construction au m² (TND)</div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--border)">
+                    <th style="text-align:left;padding:0.5rem;color:var(--text-3)">Standing \ Style</th>
+                    <th style="padding:0.5rem;color:var(--text-3)">Contemporain</th>
+                    <th style="padding:0.5rem;color:var(--text-3)">Traditionnel</th>
+                    <th style="padding:0.5rem;color:var(--text-3)">Industriel</th>
+                    <th style="padding:0.5rem;color:var(--text-3)">Bioclimatique</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding:0.5rem;font-weight:500">Standard</td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-standard-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-standard-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-standard-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-standard-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0.5rem;font-weight:500">Confort</td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-confort-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-confort-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-confort-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-confort-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0.5rem;font-weight:500">Premium</td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-premium-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-premium-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-premium-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                    <td style="padding:0.3rem"><input id="cfg-cost-premium-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Coefficients de zone -->
+          <div style="margin-bottom:1.5rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Coefficients de zone géographique</div>
+            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+              <div class="form-field"><label class="form-label">Grand Tunis</label><input id="cfg-zone-grand-tunis" class="form-input" type="number" step="0.01" /></div>
+              <div class="form-field"><label class="form-label">Sahel (Sousse, Monastir)</label><input id="cfg-zone-sahel" class="form-input" type="number" step="0.01" /></div>
+              <div class="form-field"><label class="form-label">Sfax</label><input id="cfg-zone-sfax" class="form-input" type="number" step="0.01" /></div>
+              <div class="form-field"><label class="form-label">Djerba / Médenine</label><input id="cfg-zone-djerba" class="form-input" type="number" step="0.01" /></div>
+              <div class="form-field"><label class="form-label">Bizerte / Nord</label><input id="cfg-zone-nord" class="form-input" type="number" step="0.01" /></div>
+              <div class="form-field"><label class="form-label">Autres régions</label><input id="cfg-zone-autres" class="form-input" type="number" step="0.01" /></div>
+            </div>
+          </div>
+
+          <!-- Coûts externes -->
+          <div style="margin-bottom:1.5rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Coûts externes (TND/m²)</div>
+            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+              <div class="form-field"><label class="form-label">VRD (Voirie & Réseaux)</label><input id="cfg-ext-vrd" class="form-input" type="number" /></div>
+              <div class="form-field"><label class="form-label">Aménagement extérieur</label><input id="cfg-ext-amenagement" class="form-input" type="number" /></div>
+              <div class="form-field"><label class="form-label">Branchements</label><input id="cfg-ext-branchements" class="form-input" type="number" /></div>
+              <div class="form-field"><label class="form-label">Honoraires (% coût)</label><input id="cfg-ext-honoraires" class="form-input" type="number" step="0.5" /></div>
+            </div>
+          </div>
+
+          <!-- Ratios de surface -->
+          <div style="margin-bottom:1rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Ratios de surface</div>
+            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+              <div class="form-field"><label class="form-label">SHOB / SHON (coeff.)</label><input id="cfg-ratio-shob" class="form-input" type="number" step="0.01" /></div>
+              <div class="form-field"><label class="form-label">Emprise / Terrain (%)</label><input id="cfg-ratio-emprise" class="form-input" type="number" step="1" /></div>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1rem">
+            <button class="btn btn-sm" onclick="resetCfgParams()">Réinitialiser par défaut</button>
+            <button class="btn btn-primary btn-sm" onclick="saveCfgParams()">Enregistrer</button>
           </div>
         </div>
       </div>
@@ -2322,6 +2476,71 @@
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-nas-fichier')">Annuler</button>
       <button class="btn btn-primary" onclick="saveNasFichier()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal détail demande -->
+<div class="modal-overlay" id="modal-demande">
+  <div class="modal-box" style="max-width:820px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-demande-title">Détail de la demande</div>
+      <button class="modal-close" onclick="closeModal('modal-demande')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto;padding-right:0.5rem">
+
+      <!-- Info client -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title" style="font-size:0.78rem">Coordonnées client</div>
+          <div id="dem-detail-client" style="font-size:0.82rem;line-height:1.8"></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title" style="font-size:0.78rem">Résumé du projet</div>
+          <div id="dem-detail-projet" style="font-size:0.82rem;line-height:1.8"></div>
+        </div>
+      </div>
+
+      <!-- Données configurateur -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-title" style="font-size:0.78rem">Données du configurateur</div>
+        <div id="dem-detail-cfg" style="font-size:0.82rem;line-height:1.8"></div>
+      </div>
+
+      <!-- Remarques -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-title" style="font-size:0.78rem">Remarques internes</div>
+        <textarea id="dem-remarques" class="form-input" rows="3" placeholder="Notes internes sur cette demande…" style="width:100%"></textarea>
+        <div style="margin-top:0.5rem;display:flex;justify-content:flex-end">
+          <button class="btn btn-sm" onclick="saveDemandeRemarques()">Enregistrer les remarques</button>
+        </div>
+      </div>
+
+      <!-- Actions de conversion -->
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap;padding:1rem;background:var(--bg-2);border-radius:8px;border:1px solid var(--border)">
+        <div style="width:100%;font-size:0.72rem;color:var(--text-3);margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.1em;font-weight:600">Actions de conversion</div>
+        <button class="btn btn-primary btn-sm" id="dem-btn-client" onclick="convertDemandeToClient()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Créer fiche client
+        </button>
+        <button class="btn btn-sm" id="dem-btn-projet" onclick="convertDemandeToProjet()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          Créer fiche projet
+        </button>
+        <button class="btn btn-sm" id="dem-btn-devis" onclick="createDevisFromDemande()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Transférer vers devis
+        </button>
+        <button class="btn btn-sm" id="dem-btn-archiver" onclick="archiveDemande()" style="margin-left:auto;color:var(--text-3)">Archiver</button>
+      </div>
+
+      <!-- Statut actuel -->
+      <div style="margin-top:1rem;display:flex;align-items:center;gap:0.6rem;font-size:0.78rem;color:var(--text-3)">
+        <span>Statut actuel :</span>
+        <span class="badge" id="dem-detail-statut"></span>
+        <span id="dem-detail-traite" style="margin-left:auto"></span>
+      </div>
+
     </div>
   </div>
 </div>

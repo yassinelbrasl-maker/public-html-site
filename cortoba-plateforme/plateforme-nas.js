@@ -34,12 +34,13 @@ function getLS(k,d){ try{return JSON.parse(localStorage.getItem(k)||JSON.stringi
 function setLS(k,v){ localStorage.setItem(k,JSON.stringify(v)); }
 
 // ── Cache ──
-var _cache = { clients:[], projets:[], devis:[], factures:[], depenses:[] };
+var _cache = { clients:[], projets:[], devis:[], factures:[], depenses:[], demandes:[] };
 function getClients(){ return _cache.clients; }
 function getProjets(){ return _cache.projets; }
 function getDevis(){ return _cache.devis; }
 function getFactures(){ return _cache.factures; }
 function getDepenses(){ return _cache.depenses; }
+function getDemandes(){ return _cache.demandes; }
 
 function loadData(){
   return Promise.all([
@@ -113,7 +114,8 @@ function loadData(){
         return{id:d.id,libelle:d.description,montant:d.montant,date:d.date_dep,cat:d.categorie};
       });
       return _cache.depenses;
-    })
+    }),
+    apiFetch('api/demandes.php').then(function(r){ _cache.demandes = r.data || []; return _cache.demandes; }).catch(function(){ _cache.demandes = []; return []; }),
   ]).then(function(){
     _cache.factures = _cache.factures.map(function(f){
       var p = _cache.projets.find(function(x){return x.id===f.projetId;});
@@ -2777,7 +2779,7 @@ function openEditDepense(id) {
 }
 
 // ── Render all ──
-function renderAll(){ renderClients(); renderDevisList(); renderProjets(); renderFactures(); renderDepenses(); populateProjetSelect(); renderCharts(); renderFiscalAlerts(); }
+function renderAll(){ renderClients(); renderDevisList(); renderProjets(); renderFactures(); renderDepenses(); renderDemandes(); populateProjetSelect(); renderCharts(); renderFiscalAlerts(); }
 
 function renderDepenses(){
   var tb=document.getElementById('depenses-tbody'); if(!tb) return;
@@ -3110,7 +3112,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','devis','projets','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -3235,7 +3237,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',devis:'Offres & Devis',projets:'Projets',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   var _allowed = getAllowedModules();
@@ -3250,6 +3252,7 @@ function showPage(id){
   var btn=document.querySelector('[onclick="showPage(\''+id+'\')"]');
   if(btn) btn.classList.add('active');
   document.getElementById('section-label').textContent=pageLabels[id]||'';
+  if(id==='demandes')   setTimeout(renderDemandes,80);
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
@@ -3267,6 +3270,7 @@ function showPage(id){
       // NAS params chargés par loadNasParams()
       // Logo
       loadLogoParam();
+      loadCfgParams();
       // Coordonnées bancaires
       var ribEl = document.getElementById('param-rib');
       if(ribEl) ribEl.value = getSetting('cortoba_rib', '');
@@ -4034,6 +4038,7 @@ function renderFiscalitePage() {
 // ── Modules disponibles dans la plateforme ──
 var MODULES_PLATEFORME = [
   { id: 'dashboard',   label: 'Tableau de bord' },
+  { id: 'demandes',   label: 'Demandes' },
   { id: 'devis',       label: 'Offres & Devis' },
   { id: 'projets',     label: 'Projets' },
   { id: 'facturation', label: 'Facturation' },
@@ -4048,7 +4053,7 @@ var MODULES_PLATEFORME = [
 
 // Modules par défaut selon rôle (pré-coché automatiquement à la sélection)
 var MODULES_PAR_ROLE = {
-  'Architecte gérant':       ['dashboard','devis','projets','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
+  'Architecte gérant':       ['dashboard','demandes','devis','projets','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
   'Architecte collaborateur':['dashboard','devis','projets','nas','clients'],
   'Décorateur':              ['dashboard','projets','nas','clients'],
   'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite'],
@@ -5053,5 +5058,392 @@ function renderNasPage() {
   renderNasRaccourcis();
   renderNasFichiers();
   nasRefreshStatus();
+}
+
+// ══════════════════════════════════════════════════════════
+//  DEMANDES (configurateur public)
+// ══════════════════════════════════════════════════════════
+
+var _openDemandeId = null;
+
+function renderDemandes() {
+  var demandes = getDemandes();
+  var tbody = document.getElementById('demandes-tbody');
+  if (!tbody) return;
+
+  // KPIs
+  var nouvelles = 0, encours = 0, converties = 0;
+  demandes.forEach(function(d) {
+    if (d.statut === 'nouvelle') nouvelles++;
+    else if (d.statut === 'en_cours') encours++;
+    else if (d.statut === 'client_cree' || d.statut === 'projet_cree' || d.statut === 'devis_cree') converties++;
+  });
+  var el;
+  el = document.getElementById('dem-kpi-nouvelles'); if (el) el.textContent = nouvelles;
+  el = document.getElementById('dem-kpi-encours');   if (el) el.textContent = encours;
+  el = document.getElementById('dem-kpi-converties'); if (el) el.textContent = converties;
+  el = document.getElementById('dem-kpi-total');     if (el) el.textContent = demandes.length;
+
+  // Badge sidebar
+  var badge = document.getElementById('demandes-badge');
+  if (badge) { badge.textContent = nouvelles; badge.style.display = nouvelles > 0 ? '' : 'none'; }
+
+  // Filtres
+  var q = (document.getElementById('demandes-search') || {}).value || '';
+  var statut = (document.getElementById('demandes-filtre-statut') || {}).value || '';
+  var filtered = demandes.filter(function(d) {
+    if (statut && d.statut !== statut) return false;
+    if (q) {
+      var lq = q.toLowerCase();
+      var searchStr = (d.nom_projet + ' ' + d.prenom + ' ' + d.nom + ' ' + d.tel + ' ' + (d.email || '')).toLowerCase();
+      if (searchStr.indexOf(lq) === -1) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucune demande</td></tr>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(d) {
+    var date = d.cree_at ? d.cree_at.substring(0, 10) : '—';
+    var surface = d.surface_estimee ? parseFloat(d.surface_estimee).toFixed(0) + ' m²' : '—';
+    var cout = '—';
+    if (d.cout_estime_low && d.cout_estime_high) {
+      cout = Math.round(d.cout_estime_low/1000) + 'k – ' + Math.round(d.cout_estime_high/1000) + 'k TND';
+    }
+    var statutBadge = getDemandeStatutBadge(d.statut);
+    html += '<tr style="cursor:pointer" onclick="openDemande(\'' + d.id + '\')">'
+      + '<td>' + date + '</td>'
+      + '<td><strong>' + esc(d.nom_projet) + '</strong></td>'
+      + '<td>' + esc(d.prenom + ' ' + d.nom) + '</td>'
+      + '<td>' + esc(d.tel) + '</td>'
+      + '<td>' + surface + '</td>'
+      + '<td>' + cout + '</td>'
+      + '<td>' + statutBadge + '</td>'
+      + '<td><button class="btn btn-sm" onclick="event.stopPropagation();openDemande(\'' + d.id + '\')">Voir</button></td>'
+      + '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function getDemandeStatutBadge(statut) {
+  var map = {
+    'nouvelle':     'badge-blue',
+    'en_cours':     'badge-yellow',
+    'client_cree':  'badge-green',
+    'projet_cree':  'badge-green',
+    'devis_cree':   'badge-green',
+    'archivee':     'badge-gray'
+  };
+  var labels = {
+    'nouvelle':     'Nouvelle',
+    'en_cours':     'En cours',
+    'client_cree':  'Client créé',
+    'projet_cree':  'Projet créé',
+    'devis_cree':   'Devis créé',
+    'archivee':     'Archivée'
+  };
+  var cls = map[statut] || 'badge-gray';
+  var label = labels[statut] || statut;
+  return '<span class="badge ' + cls + '">' + label + '</span>';
+}
+
+function filterDemandes() {
+  renderDemandes();
+}
+
+function esc(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function openDemande(id) {
+  _openDemandeId = id;
+  var d = getDemandes().find(function(x) { return x.id === id; });
+  if (!d) return;
+
+  // Titre
+  var title = document.getElementById('modal-demande-title');
+  if (title) title.textContent = d.nom_projet || 'Demande';
+
+  // Client info
+  var clientEl = document.getElementById('dem-detail-client');
+  if (clientEl) {
+    clientEl.innerHTML = '<strong>' + esc(d.prenom) + ' ' + esc(d.nom) + '</strong><br>'
+      + '📞 ' + esc(d.tel) + '<br>'
+      + (d.whatsapp ? '💬 ' + esc(d.whatsapp) + '<br>' : '')
+      + (d.email ? '✉ ' + esc(d.email) : '<span style="color:var(--text-3)">Pas d\'email</span>');
+  }
+
+  // Projet info
+  var projetEl = document.getElementById('dem-detail-projet');
+  if (projetEl) {
+    var surface = d.surface_estimee ? parseFloat(d.surface_estimee).toFixed(0) + ' m²' : '—';
+    var cout = '—';
+    if (d.cout_estime_low && d.cout_estime_high) {
+      cout = Number(d.cout_estime_low).toLocaleString('fr-FR') + ' – ' + Number(d.cout_estime_high).toLocaleString('fr-FR') + ' TND';
+    }
+    projetEl.innerHTML = '<strong>' + esc(d.nom_projet) + '</strong><br>'
+      + 'Surface estimée : ' + surface + '<br>'
+      + 'Coût estimé : ' + cout;
+  }
+
+  // Cfg data
+  var cfgEl = document.getElementById('dem-detail-cfg');
+  if (cfgEl) {
+    try {
+      var cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {});
+      var lines = [];
+      var labelMap = {
+        type_bat: 'Type de bâtiment', operation: 'Opération', style: 'Style architectural',
+        standing: 'Standing', niveaux: 'Niveaux', sous_sol: 'Sous-sol',
+        chambres: 'Chambres', salons: 'Salons', sdb: 'Salles de bain',
+        cuisine: 'Cuisine', bureau: 'Bureau', garage: 'Garage', piscine: 'Piscine',
+        terrasse: 'Terrasse', jardin: 'Jardin', surface_terrain: 'Surface terrain',
+        zone: 'Zone géographique', fondation: 'Type de fondation', terrain: 'Topographie terrain'
+      };
+      Object.keys(cfg).forEach(function(k) {
+        if (cfg[k] !== null && cfg[k] !== '' && cfg[k] !== undefined && cfg[k] !== false) {
+          var label = labelMap[k] || k;
+          var val = cfg[k] === true ? 'Oui' : cfg[k];
+          lines.push('<span style="color:var(--text-3)">' + label + ' :</span> ' + esc(String(val)));
+        }
+      });
+      cfgEl.innerHTML = lines.length > 0 ? lines.join('<br>') : '<span style="color:var(--text-3)">Aucune donnée</span>';
+    } catch(e) {
+      cfgEl.innerHTML = '<span style="color:var(--text-3)">Données non disponibles</span>';
+    }
+  }
+
+  // Remarques
+  var remEl = document.getElementById('dem-remarques');
+  if (remEl) remEl.value = d.remarques || '';
+
+  // Statut
+  var statutEl = document.getElementById('dem-detail-statut');
+  if (statutEl) statutEl.innerHTML = getDemandeStatutBadge(d.statut);
+
+  var traiteEl = document.getElementById('dem-detail-traite');
+  if (traiteEl) {
+    traiteEl.textContent = d.traite_par ? ('Traité par ' + d.traite_par + (d.traite_at ? ' le ' + d.traite_at.substring(0,10) : '')) : '';
+  }
+
+  // Boutons état
+  var btnClient = document.getElementById('dem-btn-client');
+  var btnProjet = document.getElementById('dem-btn-projet');
+  var btnDevis  = document.getElementById('dem-btn-devis');
+  if (btnClient) btnClient.disabled = !!d.client_id;
+  if (btnProjet) btnProjet.disabled = !d.client_id || !!d.projet_id;
+  if (btnDevis)  btnDevis.disabled  = !d.projet_id;
+
+  openModal('modal-demande');
+}
+
+function saveDemandeRemarques() {
+  if (!_openDemandeId) return;
+  var rem = (document.getElementById('dem-remarques') || {}).value || '';
+  apiFetch('api/demandes.php?id=' + _openDemandeId, {
+    method: 'PUT',
+    body: { action: 'update_remarques', remarques: rem }
+  }).then(function() {
+    // Mettre à jour le cache
+    var d = getDemandes().find(function(x) { return x.id === _openDemandeId; });
+    if (d) d.remarques = rem;
+    showToast('Remarques enregistrées');
+  }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+function convertDemandeToClient() {
+  if (!_openDemandeId) return;
+  if (!confirm('Créer une fiche client à partir de cette demande ?')) return;
+  apiFetch('api/demandes.php?id=' + _openDemandeId, {
+    method: 'PUT',
+    body: { action: 'convertir_client' }
+  }).then(function(r) {
+    showToast('✓ Fiche client créée');
+    // Recharger les données
+    return loadData();
+  }).then(function() {
+    renderAll();
+    openDemande(_openDemandeId); // Refresh la modal
+  }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+function convertDemandeToProjet() {
+  if (!_openDemandeId) return;
+  var d = getDemandes().find(function(x) { return x.id === _openDemandeId; });
+  if (d && !d.client_id) {
+    showToast('Veuillez d\'abord créer la fiche client', 'error');
+    return;
+  }
+  if (!confirm('Créer une fiche projet à partir de cette demande ?')) return;
+  apiFetch('api/demandes.php?id=' + _openDemandeId, {
+    method: 'PUT',
+    body: { action: 'convertir_projet' }
+  }).then(function(r) {
+    showToast('✓ Fiche projet créée');
+    return loadData();
+  }).then(function() {
+    renderAll();
+    openDemande(_openDemandeId);
+  }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+function createDevisFromDemande() {
+  if (!_openDemandeId) return;
+  var d = getDemandes().find(function(x) { return x.id === _openDemandeId; });
+  if (d && !d.projet_id) {
+    showToast('Veuillez d\'abord créer la fiche projet', 'error');
+    return;
+  }
+  // Ouvrir le modal devis pré-rempli
+  closeModal('modal-demande');
+  showPage('devis');
+  setTimeout(function() {
+    openModal('modal-devis');
+    // Pré-remplir les champs si possible
+    var client = getClients().find(function(c) { return c.id === d.client_id; });
+    var selClient = document.getElementById('dv-client');
+    if (selClient && client) {
+      for (var i = 0; i < selClient.options.length; i++) {
+        if (selClient.options[i].value === client.displayNom || selClient.options[i].textContent.indexOf(client.displayNom) !== -1) {
+          selClient.selectedIndex = i; break;
+        }
+      }
+    }
+    var selProjet = document.getElementById('dv-projet');
+    if (selProjet && d.projet_id) {
+      var projet = getProjets().find(function(p) { return p.id === d.projet_id; });
+      if (projet) {
+        for (var i = 0; i < selProjet.options.length; i++) {
+          if (selProjet.options[i].textContent.indexOf(projet.nom) !== -1) {
+            selProjet.selectedIndex = i; break;
+          }
+        }
+      }
+    }
+    // Objet
+    var objEl = document.getElementById('dv-objet');
+    if (objEl) objEl.value = 'Projet ' + d.nom_projet + ' — Estimation configurateur';
+  }, 200);
+}
+
+function archiveDemande() {
+  if (!_openDemandeId) return;
+  if (!confirm('Archiver cette demande ?')) return;
+  apiFetch('api/demandes.php?id=' + _openDemandeId, {
+    method: 'PUT',
+    body: { action: 'update_statut', statut: 'archivee' }
+  }).then(function() {
+    var d = getDemandes().find(function(x) { return x.id === _openDemandeId; });
+    if (d) d.statut = 'archivee';
+    renderDemandes();
+    closeModal('modal-demande');
+    showToast('Demande archivée');
+  }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+// ══════════════════════════════════════════════════════════
+//  PARAMÈTRES CONFIGURATEUR
+// ══════════════════════════════════════════════════════════
+
+var CFG_DEFAULTS = {
+  cfg_cost_per_m2: {
+    standard:  { contemporain: 1200, traditionnel: 1100, industriel: 1050, bioclimatique: 1350 },
+    confort:   { contemporain: 1600, traditionnel: 1450, industriel: 1400, bioclimatique: 1750 },
+    premium:   { contemporain: 2200, traditionnel: 2000, industriel: 1900, bioclimatique: 2400 }
+  },
+  cfg_zone_coefficients: {
+    'grand-tunis': 1.15, sahel: 1.05, sfax: 1.00, djerba: 1.10, nord: 0.95, autres: 0.90
+  },
+  cfg_ext_costs: {
+    vrd: 80, amenagement: 60, branchements: 40, honoraires: 8
+  },
+  cfg_ratios: {
+    shob: 1.15, emprise: 40
+  }
+};
+
+function loadCfgParams() {
+  var costs = getSetting('cfg_cost_per_m2', CFG_DEFAULTS.cfg_cost_per_m2);
+  var zones = getSetting('cfg_zone_coefficients', CFG_DEFAULTS.cfg_zone_coefficients);
+  var ext   = getSetting('cfg_ext_costs', CFG_DEFAULTS.cfg_ext_costs);
+  var ratios = getSetting('cfg_ratios', CFG_DEFAULTS.cfg_ratios);
+
+  // Remplir les inputs coûts
+  ['standard','confort','premium'].forEach(function(standing) {
+    ['contemporain','traditionnel','industriel','bioclimatique'].forEach(function(style) {
+      var el = document.getElementById('cfg-cost-' + standing + '-' + style);
+      if (el) el.value = (costs[standing] && costs[standing][style]) || CFG_DEFAULTS.cfg_cost_per_m2[standing][style];
+    });
+  });
+
+  // Zones
+  var zoneIds = {'grand-tunis':'grand-tunis', sahel:'sahel', sfax:'sfax', djerba:'djerba', nord:'nord', autres:'autres'};
+  Object.keys(zoneIds).forEach(function(k) {
+    var el = document.getElementById('cfg-zone-' + k);
+    if (el) el.value = zones[k] !== undefined ? zones[k] : CFG_DEFAULTS.cfg_zone_coefficients[k];
+  });
+
+  // Ext costs
+  ['vrd','amenagement','branchements','honoraires'].forEach(function(k) {
+    var el = document.getElementById('cfg-ext-' + k);
+    if (el) el.value = ext[k] !== undefined ? ext[k] : CFG_DEFAULTS.cfg_ext_costs[k];
+  });
+
+  // Ratios
+  var elShob = document.getElementById('cfg-ratio-shob');
+  if (elShob) elShob.value = ratios.shob || CFG_DEFAULTS.cfg_ratios.shob;
+  var elEmprise = document.getElementById('cfg-ratio-emprise');
+  if (elEmprise) elEmprise.value = ratios.emprise || CFG_DEFAULTS.cfg_ratios.emprise;
+}
+
+function saveCfgParams() {
+  var costs = {};
+  ['standard','confort','premium'].forEach(function(standing) {
+    costs[standing] = {};
+    ['contemporain','traditionnel','industriel','bioclimatique'].forEach(function(style) {
+      var el = document.getElementById('cfg-cost-' + standing + '-' + style);
+      costs[standing][style] = el ? parseFloat(el.value) || 0 : 0;
+    });
+  });
+
+  var zones = {};
+  ['grand-tunis','sahel','sfax','djerba','nord','autres'].forEach(function(k) {
+    var el = document.getElementById('cfg-zone-' + k);
+    zones[k] = el ? parseFloat(el.value) || 0 : 0;
+  });
+
+  var ext = {};
+  ['vrd','amenagement','branchements','honoraires'].forEach(function(k) {
+    var el = document.getElementById('cfg-ext-' + k);
+    ext[k] = el ? parseFloat(el.value) || 0 : 0;
+  });
+
+  var ratios = {
+    shob: parseFloat((document.getElementById('cfg-ratio-shob') || {}).value) || 1.15,
+    emprise: parseFloat((document.getElementById('cfg-ratio-emprise') || {}).value) || 40
+  };
+
+  saveSetting('cfg_cost_per_m2', costs);
+  saveSetting('cfg_zone_coefficients', zones);
+  saveSetting('cfg_ext_costs', ext);
+  saveSetting('cfg_ratios', ratios);
+  showToast('✓ Paramètres configurateur enregistrés');
+}
+
+function resetCfgParams() {
+  if (!confirm('Réinitialiser tous les paramètres du configurateur aux valeurs par défaut ?')) return;
+  saveSetting('cfg_cost_per_m2', CFG_DEFAULTS.cfg_cost_per_m2);
+  saveSetting('cfg_zone_coefficients', CFG_DEFAULTS.cfg_zone_coefficients);
+  saveSetting('cfg_ext_costs', CFG_DEFAULTS.cfg_ext_costs);
+  saveSetting('cfg_ratios', CFG_DEFAULTS.cfg_ratios);
+  loadCfgParams();
+  showToast('Paramètres réinitialisés');
 }
 

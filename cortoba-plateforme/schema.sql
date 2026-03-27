@@ -182,6 +182,31 @@ CREATE TABLE IF NOT EXISTS `CA_parametres` (
   PRIMARY KEY (`cle`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Demandes (configurateur public)
+CREATE TABLE IF NOT EXISTS `CA_demandes` (
+  `id` varchar(32) NOT NULL,
+  `nom_projet` varchar(200) NOT NULL,
+  `prenom` varchar(80) NOT NULL,
+  `nom` varchar(80) NOT NULL,
+  `tel` varchar(40) NOT NULL,
+  `whatsapp` varchar(40) DEFAULT NULL,
+  `email` varchar(180) DEFAULT NULL,
+  `cfg_data` longtext NOT NULL,
+  `surface_estimee` decimal(12,2) DEFAULT NULL,
+  `cout_estime_low` decimal(14,2) DEFAULT NULL,
+  `cout_estime_high` decimal(14,2) DEFAULT NULL,
+  `statut` varchar(40) NOT NULL DEFAULT 'nouvelle',
+  `client_id` varchar(32) DEFAULT NULL,
+  `projet_id` varchar(32) DEFAULT NULL,
+  `devis_id` varchar(32) DEFAULT NULL,
+  `remarques` text,
+  `cree_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `traite_par` varchar(120) DEFAULT NULL,
+  `traite_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_statut` (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ════════════════════════════════════════════════════════════
@@ -195,3 +220,19 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `zone` varchar(40) DEFAULT NULL;
 -- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_construction` decimal(14,2) DEFAULT NULL;
 -- ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `cout_m2` decimal(10,2) DEFAULT NULL;
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : créer la table CA_demandes (configurateur public)
+-- Exécuter si la table n'existe pas encore
+-- ════════════════════════════════════════════════════════════
+-- CREATE TABLE IF NOT EXISTS `CA_demandes` ( ... );  -- voir définition complète ci-dessus
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : ajouter les colonnes de liaison à CA_demandes
+-- Exécuter si la table existe déjà sans ces colonnes
+-- ════════════════════════════════════════════════════════════
+-- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `client_id` varchar(32) DEFAULT NULL;
+-- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `projet_id` varchar(32) DEFAULT NULL;
+-- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `devis_id` varchar(32) DEFAULT NULL;
+-- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `traite_par` varchar(120) DEFAULT NULL;
+-- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `traite_at` datetime DEFAULT NULL;

@@ -958,26 +958,47 @@
         <!-- Step indicator -->
         <div class="cfg-header">
           <div class="cfg-steps" id="cfg-steps">
-            <div class="cfg-step active" data-step="1"><span class="cfg-step-num">1</span><span class="cfg-step-lbl">Fondations</span></div>
+            <div class="cfg-step active" data-step="1"><span class="cfg-step-num">1</span><span class="cfg-step-lbl">Projet</span></div>
             <div class="cfg-step-line"></div>
-            <div class="cfg-step" data-step="2"><span class="cfg-step-num">2</span><span class="cfg-step-lbl">Identité</span></div>
+            <div class="cfg-step" data-step="2"><span class="cfg-step-num">2</span><span class="cfg-step-lbl">Fondations</span></div>
             <div class="cfg-step-line"></div>
-            <div class="cfg-step" data-step="3"><span class="cfg-step-num">3</span><span class="cfg-step-lbl">Programme</span></div>
+            <div class="cfg-step" data-step="3"><span class="cfg-step-num">3</span><span class="cfg-step-lbl">Identité</span></div>
             <div class="cfg-step-line"></div>
-            <div class="cfg-step" data-step="4"><span class="cfg-step-num">4</span><span class="cfg-step-lbl">Terrain</span></div>
+            <div class="cfg-step" data-step="4"><span class="cfg-step-num">4</span><span class="cfg-step-lbl">Programme</span></div>
+            <div class="cfg-step-line"></div>
+            <div class="cfg-step" data-step="5"><span class="cfg-step-num">5</span><span class="cfg-step-lbl">Terrain</span></div>
           </div>
           <!-- Progress bar -->
           <div class="cfg-progress-bar-wrap">
-            <div class="cfg-progress-bar" id="cfg-progress-bar" style="width:25%"></div>
+            <div class="cfg-progress-bar" id="cfg-progress-bar" style="width:20%"></div>
           </div>
         </div>
 
         <div class="cfg-body">
 
-          <!-- ── ÉTAPE 1 ── -->
+          <!-- ── ÉTAPE 1 : NOM DU PROJET ── -->
           <div class="cfg-page active" id="cfg-step-1">
-            <div class="cfg-page-heading">
+            <div class="cfg-page-heading" style="text-align:center;border-bottom:none;padding-bottom:0">
               <div class="cfg-step-big">01</div>
+              <h3 class="cfg-page-title">Comment s'appelle votre projet ?</h3>
+              <p class="cfg-page-desc">Donnez un nom à votre projet. Ce sera votre référence tout au long du processus.</p>
+            </div>
+            <div class="cfg-field" style="max-width:500px;margin:2rem auto 0">
+              <input type="text" id="cfg_nom_projet" placeholder="Ex : Villa Djerba, Résidence Les Oliviers…"
+                     style="width:100%;padding:1.2rem 1.5rem;background:var(--bg-card,#161616);border:1.5px solid rgba(200,169,110,0.3);color:var(--text,#e8e4dc);font-family:inherit;font-size:1.1rem;text-align:center;outline:none;transition:border-color 0.3s;letter-spacing:0.03em"
+                     onfocus="this.style.borderColor='var(--accent,#c8a96e)'" onblur="this.style.borderColor='rgba(200,169,110,0.3)'"
+                     oninput="cfgState.cfg_nom_projet=this.value.trim()">
+              <div class="cfg-field-error" id="cfg-nom-error">⚠ Veuillez donner un nom à votre projet</div>
+            </div>
+            <div class="cfg-nav" style="justify-content:center">
+              <button class="cfg-btn-calc" onclick="cfgGo(2)">Commencer →</button>
+            </div>
+          </div>
+
+          <!-- ── ÉTAPE 2 : FONDATIONS (ex-étape 1) ── -->
+          <div class="cfg-page" id="cfg-step-2">
+            <div class="cfg-page-heading">
+              <div class="cfg-step-big">02</div>
               <h3 class="cfg-page-title">🛠️ Les fondations du projet</h3>
               <p class="cfg-page-desc">Définissez le type, la nature de l'opération et votre budget.</p>
             </div>
@@ -1134,14 +1155,15 @@
             </div>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-next" onclick="cfgGo(2)">Étape suivante →</button>
+              <button class="cfg-btn-back" onclick="cfgGo(1)">← Retour</button>
+              <button class="cfg-btn-next" onclick="cfgGo(3)">Étape suivante →</button>
             </div>
           </div>
 
-          <!-- ── ÉTAPE 2 ── -->
-          <div class="cfg-page" id="cfg-step-2">
+          <!-- ── ÉTAPE 3 : IDENTITÉ (ex-étape 2) ── -->
+          <div class="cfg-page" id="cfg-step-3">
             <div class="cfg-page-heading">
-              <div class="cfg-step-big">02</div>
+              <div class="cfg-step-big">03</div>
               <h3 class="cfg-page-title">🎨 Identité visuelle & qualité</h3>
               <p class="cfg-page-desc">Projetez-vous dans l'esthétique et le confort de votre futur espace.</p>
             </div>
@@ -1277,15 +1299,15 @@
             <button class="cfg-standing-compare-toggle" onclick="cfgToggleStandingCompare()">▼ Voir le comparatif détaillé</button>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-back" onclick="cfgGo(1)">← Retour</button>
-              <button class="cfg-btn-next" onclick="cfgGo(3)">Étape suivante →</button>
+              <button class="cfg-btn-back" onclick="cfgGo(2)">← Retour</button>
+              <button class="cfg-btn-next" onclick="cfgGo(4)">Étape suivante →</button>
             </div>
           </div>
 
-          <!-- ── ÉTAPE 3 ── -->
-          <div class="cfg-page" id="cfg-step-3">
+          <!-- ── ÉTAPE 4 : PROGRAMME (ex-étape 3) ── -->
+          <div class="cfg-page" id="cfg-step-4">
             <div class="cfg-page-heading">
-              <div class="cfg-step-big">03</div>
+              <div class="cfg-step-big">04</div>
               <h3 class="cfg-page-title">📋 Le programme</h3>
               <p class="cfg-page-desc">Détaillez votre façon de vivre. Ces informations alimentent notre moteur de calcul.</p>
             </div>
@@ -1602,15 +1624,15 @@
             </div>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-back" onclick="cfgGo(2)">← Retour</button>
-              <button class="cfg-btn-next" onclick="cfgGo(4)">Étape suivante →</button>
+              <button class="cfg-btn-back" onclick="cfgGo(3)">← Retour</button>
+              <button class="cfg-btn-next" onclick="cfgGo(5)">Étape suivante →</button>
             </div>
           </div>
 
-          <!-- ── ÉTAPE 4 : TERRAIN ── -->
-          <div class="cfg-page" id="cfg-step-4">
+          <!-- ── ÉTAPE 5 : TERRAIN (ex-étape 4) ── -->
+          <div class="cfg-page" id="cfg-step-5">
             <div class="cfg-page-heading">
-              <div class="cfg-step-big">04</div>
+              <div class="cfg-step-big">05</div>
               <h3 class="cfg-page-title">📍 Localisation du terrain</h3>
               <p class="cfg-page-desc">Placez un repère sur votre terrain. Nous extrairons les coordonnées GPS pour adapter notre analyse au site.</p>
             </div>
@@ -1643,7 +1665,7 @@
             </div>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-back" onclick="cfgGo(3)">← Retour</button>
+              <button class="cfg-btn-back" onclick="cfgGo(4)">← Retour</button>
               <button class="cfg-btn-calc" onclick="cfgCalculate()">✦ &nbsp;Calculer mon estimation</button>
             </div>
           </div>
@@ -1741,12 +1763,73 @@
             <!-- CTA -->
             <div class="cfg-cta-block">
               <h4 class="cfg-cta-title">Prêt à <em>concrétiser</em> cette vision ?</h4>
-              <p class="cfg-cta-text">Cette estimation vous donne une première idée. Chaque projet est unique — nature du sol, contraintes locales, choix des matériaux.</p>
+              <p class="cfg-cta-text">Laissez-nous vos coordonnées pour recevoir un devis détaillé et gratuit de nos architectes.</p>
               <div style="display:flex;flex-wrap:wrap;gap:0.8rem;justify-content:center;margin-top:1rem">
-                <button class="cfg-btn-calc" onclick="document.getElementById('cfg-modal').style.display='flex'">📩 &nbsp;Demander un devis détaillé &amp; gratuit</button>
+                <button class="cfg-btn-calc" onclick="cfgShowClientStep()">📩 &nbsp;Continuer → Vos coordonnées</button>
                 <button class="cfg-export-pdf" onclick="cfgExportPDF()">📄 Télécharger l'estimation PDF</button>
               </div>
               <button class="cfg-btn-back" style="margin-top:1rem" onclick="cfgRestart()">↩ Recommencer</button>
+            </div>
+          </div>
+
+          <!-- ── ÉTAPE FINALE : COORDONNÉES CLIENT ── -->
+          <div class="cfg-page" id="cfg-step-client">
+            <div class="cfg-page-heading" style="text-align:center">
+              <div class="cfg-step-big">📩</div>
+              <h3 class="cfg-page-title">Vos coordonnées</h3>
+              <p class="cfg-page-desc">Pour recevoir votre devis détaillé, laissez-nous vos informations de contact.</p>
+            </div>
+
+            <div style="max-width:520px;margin:0 auto">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+                <div class="cfg-form-field">
+                  <label>Prénom <span style="color:#e07b72">*</span></label>
+                  <input type="text" id="cfg-f-prenom" placeholder="Prénom" required>
+                </div>
+                <div class="cfg-form-field">
+                  <label>Nom de famille <span style="color:#e07b72">*</span></label>
+                  <input type="text" id="cfg-f-nom" placeholder="Nom" required>
+                </div>
+              </div>
+
+              <div class="cfg-form-field">
+                <label>Numéro de téléphone <span style="color:#e07b72">*</span></label>
+                <input type="tel" id="cfg-f-tel" placeholder="+216 XX XXX XXX" required>
+              </div>
+
+              <div class="cfg-form-field">
+                <label>Numéro WhatsApp</label>
+                <div style="display:flex;align-items:center;gap:0.6rem">
+                  <input type="tel" id="cfg-f-whatsapp" placeholder="+216 XX XXX XXX" style="flex:1">
+                  <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--text-muted);cursor:pointer;white-space:nowrap;user-select:none">
+                    <input type="checkbox" id="cfg-wa-same" onchange="cfgSyncWhatsApp(this)" style="accent-color:var(--accent)">
+                    Même n°
+                  </label>
+                </div>
+              </div>
+
+              <div class="cfg-form-field">
+                <label>Email</label>
+                <input type="email" id="cfg-f-email" placeholder="email@exemple.com">
+              </div>
+
+              <div class="cfg-field-error" id="cfg-client-error" style="margin-bottom:1rem">⚠ Veuillez remplir les champs obligatoires</div>
+
+              <div class="cfg-nav" style="justify-content:center;gap:1rem">
+                <button class="cfg-btn-back" onclick="cfgBackToResults()">← Retour aux résultats</button>
+                <button class="cfg-btn-calc" id="cfg-submit-btn" onclick="cfgSubmit()">✦ &nbsp;Envoyer ma demande</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── ÉCRAN DE SUCCÈS ── -->
+          <div class="cfg-page" id="cfg-step-success" style="text-align:center;padding:4rem 2rem">
+            <div style="font-size:4rem;margin-bottom:1rem">✉️</div>
+            <h3 class="cfg-page-title">Demande envoyée avec succès !</h3>
+            <p class="cfg-page-desc" style="max-width:500px;margin:1rem auto 2rem">Un architecte de notre équipe vous contactera dans les 48h pour discuter de votre projet <strong id="cfg-success-projet"></strong>.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:0.8rem;justify-content:center">
+              <a href="index.html" class="cfg-btn-calc" style="text-decoration:none">← Retour au site</a>
+              <button class="cfg-btn-next" onclick="cfgRestart()">🔄 Nouveau projet</button>
             </div>
           </div>
 
@@ -1769,33 +1852,13 @@
 
       </div><!-- /config-app -->
 
-      <!-- Modal devis -->
-      <div id="cfg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:3000;align-items:center;justify-content:center;padding:1rem">
-        <div class="cfg-modal-box" id="cfg-modal-form-wrap">
-          <button onclick="document.getElementById('cfg-modal').style.display='none'" style="position:absolute;top:1rem;right:1.2rem;background:none;border:none;color:#888;font-size:1.3rem;cursor:pointer">✕</button>
-          <h4 class="cfg-modal-title">Votre devis gratuit</h4>
-          <p class="cfg-modal-sub">Nos architectes vous recontactent sous 48h pour affiner l'estimation.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
-            <div class="cfg-form-field"><label>Prénom</label><input type="text" id="cfg-f-prenom" placeholder="Jean"></div>
-            <div class="cfg-form-field"><label>Nom</label><input type="text" id="cfg-f-nom" placeholder="Dupont"></div>
-          </div>
-          <div class="cfg-form-field"><label>Email</label><input type="email" id="cfg-f-email" placeholder="jean@email.com"></div>
-          <div class="cfg-form-field"><label>Téléphone</label><input type="tel" id="cfg-f-tel" placeholder="+33 6 00 00 00 00"></div>
-          <div class="cfg-form-field"><label>Code postal du terrain</label><input type="text" id="cfg-f-cp" placeholder="75001" maxlength="5"></div>
-          <div class="cfg-form-field"><label>Commentaire <span style="text-transform:none;font-weight:300;color:#666">(optionnel)</span></label><textarea id="cfg-f-comment" placeholder="Précisez vos contraintes, délais, questions..."></textarea></div>
-          <button class="cfg-btn-calc" style="width:100%;margin-top:0.5rem" onclick="cfgSubmit()">Envoyer ma demande →</button>
-        </div>
-        <div class="cfg-modal-box" id="cfg-modal-success" style="display:none;text-align:center;padding:3rem 2rem">
-          <div style="font-size:3rem;margin-bottom:1rem">✉️</div>
-          <h4 class="cfg-modal-title">Message envoyé !</h4>
-          <p class="cfg-modal-sub" style="margin-top:0.5rem">Un architecte vous contactera dans les 48h pour discuter de votre projet.</p>
-        </div>
-      </div>
+      <!-- Old modal removed — replaced by inline cfg-step-client -->
 
     </section>
   <script>
       // ─── CONFIGURATEUR ──────────────────────────────────────────────
       const cfgState = {
+        cfg_nom_projet: '',       // Project name (step 1)
         cfg_type: null,           // 'individuel','collectif','residentiel','commercial','bureautique','mixte'
         cfg_type_group: null,     // 'logement' | 'immeuble'
         cfg_operation: null,      // 'neuf','reamenagement','extension'
@@ -2100,24 +2163,33 @@
           if (sn < n) d.classList.add('done');
           if (sn === n) d.classList.add('active');
         });
-        // Progress bar (4 steps = 25% each)
-        const pct = Math.round((n / 4) * 100);
+        // Progress bar (5 steps = 20% each)
+        const pct = Math.round((n / 5) * 100);
         const pb = document.getElementById('cfg-progress-bar');
         if (pb) pb.style.width = pct + '%';
 
         cfgCurrentStep = n;
-        document.getElementById('configurateur').scrollIntoView({behavior:'smooth'});
-        if (n === 4) { setTimeout(cfgInitMap, 200); }
-        if (n === 3) { cfgUpdateProgramme(); }
+        window.scrollTo({top:0, behavior:'smooth'});
+        if (n === 5) { setTimeout(cfgInitMap, 200); }
+        if (n === 4) { cfgUpdateProgramme(); }
         cfgUpdateRecap();
       }
 
       function cfgValidateStep(step) {
         if (step === 1) {
+          if (!cfgState.cfg_nom_projet || cfgState.cfg_nom_projet.trim().length < 2) {
+            var errEl = document.getElementById('cfg-nom-error');
+            if (errEl) errEl.classList.add('visible');
+            return 'Veuillez donner un nom à votre projet.';
+          }
+          var errEl2 = document.getElementById('cfg-nom-error');
+          if (errEl2) errEl2.classList.remove('visible');
+        }
+        if (step === 2) {
           if (!cfgState.cfg_type) return 'Veuillez choisir un type de bâtiment pour continuer.';
           if (!cfgState.cfg_operation) return "Veuillez choisir la nature de l'opération.";
         }
-        if (step === 2) {
+        if (step === 3) {
           if (!cfgState.cfg_style)   return 'Veuillez choisir un style architectural.';
           if (!cfgState.cfg_standing) return 'Veuillez sélectionner un niveau de standing.';
         }
@@ -2322,7 +2394,29 @@
         }
       });
 
-
+      /* ── Paramètres dynamiques (chargés depuis la plateforme) ── */
+      var cfgSettings = {
+        costMap: {
+          standard:  {contemporain:1900, traditionnel:1700, industriel:2100, bioclimatique:2000},
+          confort:   {contemporain:2400, traditionnel:2200, industriel:2600, bioclimatique:2500},
+          premium:   {contemporain:3200, traditionnel:3000, industriel:3500, bioclimatique:3300}
+        },
+        zoneCoeff: {'grand-tunis':1.15, sahel:1.05, sfax:1.00, djerba:1.10, nord:0.95, autres:0.90},
+        extCosts: {vrd:80, amenagement:60, branchements:40, honoraires:8},
+        ratios: {shob:1.15, emprise:40}
+      };
+      (function loadCfgSettings(){
+        fetch('/cortoba-plateforme/api/settings.php')
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            var d = j.data || {};
+            if (d.cfg_cost_per_m2)       cfgSettings.costMap   = typeof d.cfg_cost_per_m2 === 'string' ? JSON.parse(d.cfg_cost_per_m2) : d.cfg_cost_per_m2;
+            if (d.cfg_zone_coefficients) cfgSettings.zoneCoeff = typeof d.cfg_zone_coefficients === 'string' ? JSON.parse(d.cfg_zone_coefficients) : d.cfg_zone_coefficients;
+            if (d.cfg_ext_costs)         cfgSettings.extCosts  = typeof d.cfg_ext_costs === 'string' ? JSON.parse(d.cfg_ext_costs) : d.cfg_ext_costs;
+            if (d.cfg_ratios)            cfgSettings.ratios    = typeof d.cfg_ratios === 'string' ? JSON.parse(d.cfg_ratios) : d.cfg_ratios;
+          })
+          .catch(function(){}); // Silencieux si API indisponible — utilise les valeurs par défaut
+      })();
 
       function cfgCalculate() {
         const group = cfgState.cfg_type_group;
@@ -2394,11 +2488,7 @@
         }
 
         /* ── COÛT VILLA ── */
-        const costMap = {
-          standard: {contemporain:1900, traditionnel:1700, industriel:2100, bioclimatique:2000},
-          confort:  {contemporain:2400, traditionnel:2200, industriel:2600, bioclimatique:2500},
-          premium:  {contemporain:3200, traditionnel:3000, industriel:3500, bioclimatique:3300}
-        };
+        const costMap = cfgSettings.costMap;
         const opMult = {neuf:1, reamenagement:0.65, extension:0.8};
         const standing = cfgState.cfg_standing  || 'confort';
         const style    = cfgState.cfg_style      || 'contemporain';
@@ -2579,7 +2669,7 @@
         document.querySelectorAll('.cfg-page').forEach(p=>p.classList.remove('active'));
         document.getElementById('cfg-result').classList.add('active');
         document.getElementById('cfg-steps').style.display='none';
-        document.getElementById('configurateur').scrollIntoView({behavior:'smooth'});
+        window.scrollTo({top:0, behavior:'smooth'});
         cfgUpdateRecap();
       }
 
@@ -2915,127 +3005,120 @@
         document.getElementById('cfg-step-1').classList.add('active');
         document.querySelectorAll('.cfg-step').forEach(d=>{d.classList.remove('active','done'); if(parseInt(d.dataset.step)===1) d.classList.add('active');});
         if (cfgMap) { cfgMap.remove(); } cfgMap = null; cfgMarker = null;
-        document.getElementById('configurateur').scrollIntoView({behavior:'smooth'});
+        window.scrollTo({top:0, behavior:'smooth'});
+      }
+
+      // ── CLIENT STEP FUNCTIONS ──
+      function cfgShowClientStep() {
+        document.querySelectorAll('.cfg-page').forEach(function(p){p.classList.remove('active','slide-back')});
+        document.getElementById('cfg-step-client').classList.add('active');
+        document.getElementById('cfg-steps').style.display = 'none';
+        window.scrollTo({top:0, behavior:'smooth'});
+      }
+
+      function cfgBackToResults() {
+        document.querySelectorAll('.cfg-page').forEach(function(p){p.classList.remove('active','slide-back')});
+        document.getElementById('cfg-result').classList.add('active');
+        window.scrollTo({top:0, behavior:'smooth'});
+      }
+
+      function cfgSyncWhatsApp(cb) {
+        var telInput = document.getElementById('cfg-f-tel');
+        var waInput = document.getElementById('cfg-f-whatsapp');
+        if (!waInput || !telInput) return;
+        if (cb.checked) {
+          waInput.value = telInput.value;
+          waInput.disabled = true;
+          waInput.style.opacity = '0.5';
+          // Keep synced as user types phone
+          telInput.addEventListener('input', cfgWaSyncHandler);
+        } else {
+          waInput.value = '';
+          waInput.disabled = false;
+          waInput.style.opacity = '1';
+          telInput.removeEventListener('input', cfgWaSyncHandler);
+        }
+      }
+      function cfgWaSyncHandler() {
+        var waInput = document.getElementById('cfg-f-whatsapp');
+        if (waInput) waInput.value = this.value;
       }
 
       async function cfgSubmit() {
-        const email  = document.getElementById('cfg-f-email').value;
-        const nom    = document.getElementById('cfg-f-nom').value;
-        const prenom = document.getElementById('cfg-f-prenom').value;
-        const tel    = document.getElementById('cfg-f-tel').value;
-        const cp     = document.getElementById('cfg-f-cp').value;
-        const comment= document.getElementById('cfg-f-comment').value;
-        if (!email||!nom){alert('Veuillez renseigner votre nom et email.');return;}
+        var prenom = (document.getElementById('cfg-f-prenom')||{}).value||'';
+        var nom    = (document.getElementById('cfg-f-nom')||{}).value||'';
+        var tel    = (document.getElementById('cfg-f-tel')||{}).value||'';
+        var wa     = (document.getElementById('cfg-f-whatsapp')||{}).value||'';
+        var email  = (document.getElementById('cfg-f-email')||{}).value||'';
 
-        const tl  = {individuel:'Logement individuel',collectif:'Logement collectif',residentiel:'Immeuble résidentiel',commercial:'Immeuble commercial',bureautique:'Immeuble bureautique',mixte:'Immeuble mixte'};
-        const sl  = {contemporain:'Contemporain',traditionnel:'Traditionnel',industriel:'Industriel',bioclimatique:'Bioclimatique / Bois'};
-        const svl = {standard:'Standard',confort:'Confort',premium:'Premium / Luxe'};
-        const opL = {neuf:'Nouvelle construction',reamenagement:'Réaménagement',extension:'Extension'};
-        const extrasKeys   = ['cfg_bureau','cfg_garage1','cfg_garage2','cfg_carport','cfg_cellier','cfg_piscine','cfg_terrasse'];
-        const extrasLabels = {cfg_bureau:'Bureau/Télétravail',cfg_garage1:'Garage 1 voit.',cfg_garage2:'Garage 2 voit.',cfg_carport:'Carport',cfg_cellier:'Cellier/Buanderie',cfg_piscine:'Piscine',cfg_terrasse:'Terrasse aménagée'};
-        const checkedExtras = extrasKeys.filter(k=>cfgState[k]).map(k=>extrasLabels[k]).join(', ');
+        // Validation
+        var errEl = document.getElementById('cfg-client-error');
+        if (!prenom.trim() || !nom.trim() || !tel.trim()) {
+          if (errEl) { errEl.textContent = '⚠ Veuillez remplir le prénom, le nom et le téléphone.'; errEl.classList.add('visible'); }
+          return;
+        }
+        if (errEl) errEl.classList.remove('visible');
 
-        const summaryMsg = [
-          '=== DEMANDE DE DEVIS — CONFIGURATEUR DE PROJET ===',
-          '',
-          'CONTACT',
-          'Nom : ' + prenom + ' ' + nom,
-          'Email : ' + email,
-          'Téléphone : ' + (tel||'—'),
-          'Code postal : ' + (cp||'—'),
-          '',
-          'PROJET',
-          'Type : ' + (tl[cfgState.cfg_type]||cfgState.cfg_type||'—'),
-          'Nature : ' + (opL[cfgState.cfg_operation]||'—'),
-          'Style : ' + (sl[cfgState.cfg_style]||'—'),
-          'Standing : ' + (svl[cfgState.cfg_standing]||'—'),
-          'Budget envisagé : ' + (cfgState.cfg_budget_custom ? cfgState.cfg_budget_custom.toLocaleString('fr') + ' €' : '—'),
-          'Terrain : ' + (cfgState.cfg_terrainUnknown ? 'Pas encore de terrain' : cfgState.cfg_terrain + ' m²'),
-          'Nature du terrain : ' + ({'urbaine':'Zone urbaine','agricole':'Zone agricole','inconnu':'Non définie'}[cfgState.cfg_terrain_nature] || '—'),
-          'Coordonnées GPS : ' + (cfgState.cfg_lat && cfgState.cfg_lng ? cfgState.cfg_lat + ', ' + cfgState.cfg_lng : '—'),
-          '',
-          'PROGRAMME',
-          'Chambres : ' + cfgState.cfg_chambres_list.length,
-          'Suite parentale : ' + (cfgState.cfg_suite_parentale ? 'Oui ('+cfgState.cfg_suite_parentale_type+')' : 'Non'),
-          'Suites : ' + cfgState.cfg_suites_list.length,
-          'Salles de bain : ' + cfgState.cfg_sdb,
-          'Annexes : ' + (checkedExtras||'Aucune'),
-          '',
-          'ESTIMATION',
-          'Surface : ' + document.getElementById('cfg-surface-val').textContent + ' m²',
-          'Budget : ' + document.getElementById('cfg-budget-val').textContent,
-          '',
-          'COMMENTAIRE',
-          comment||'—'
-        ].join('\n');
-
-        const submitBtn = document.querySelector('#cfg-modal-form-wrap .cfg-btn-calc');
-        submitBtn.textContent = 'Envoi en cours…';
-        submitBtn.disabled = true;
+        var submitBtn = document.getElementById('cfg-submit-btn');
+        if (submitBtn) { submitBtn.textContent = 'Envoi en cours…'; submitBtn.disabled = true; }
 
         try {
-          const res = await fetch('https://formspree.io/f/mbdzlnny', {
+          var res = await fetch('/cortoba-plateforme/api/demandes.php', {
             method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              _subject: 'Nouvelle demande de devis — Configurateur Cortoba',
-              nom: prenom + ' ' + nom,
-              email: email,
-              telephone: tel,
-              code_postal: cp,
-              message: summaryMsg
+              source: 'configurateur',
+              nom_projet: cfgState.cfg_nom_projet || 'Projet sans nom',
+              prenom: prenom.trim(),
+              nom: nom.trim(),
+              tel: tel.trim(),
+              whatsapp: wa.trim() || tel.trim(),
+              email: email.trim(),
+              cfg_data: JSON.stringify(cfgState),
+              surface_estimee: cfgState._lastSurfaceInt || null,
+              cout_estime_low: cfgState._lastVillaLow || null,
+              cout_estime_high: cfgState._lastVillaHigh || null
             })
           });
-          if (!res.ok) throw new Error('Erreur serveur');
-          document.getElementById('cfg-modal-form-wrap').style.display='none';
-          document.getElementById('cfg-modal-success').style.display='block';
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Erreur serveur');
+
+          // Show success
+          document.querySelectorAll('.cfg-page').forEach(function(p){p.classList.remove('active')});
+          var successEl = document.getElementById('cfg-step-success');
+          if (successEl) successEl.classList.add('active');
+          var spEl = document.getElementById('cfg-success-projet');
+          if (spEl) spEl.textContent = '"' + (cfgState.cfg_nom_projet || '') + '"';
+          window.scrollTo({top:0, behavior:'smooth'});
         } catch(err) {
-          submitBtn.textContent = 'Envoyer ma demande →';
-          submitBtn.disabled = false;
-          alert('Erreur lors de l\'envoi. Veuillez réessayer.');
+          if (submitBtn) { submitBtn.textContent = '✦  Envoyer ma demande'; submitBtn.disabled = false; }
+          alert('Erreur lors de l\'envoi : ' + err.message + '. Veuillez réessayer.');
         }
       }
 
-    </script>
-
-    // Override cfgRestart for standalone page — scroll to top instead of section
-    var _origRestart = cfgRestart;
-    cfgRestart = function() {
-      document.getElementById('config-app').style.display='none';
-      document.querySelector('.config-intro-banner').style.display='block';
-      document.getElementById('cfg-steps').style.display='flex';
-      document.querySelectorAll('.cfg-page').forEach(function(p){p.classList.remove('active')});
-      document.getElementById('cfg-step-1').classList.add('active');
-      document.querySelectorAll('.cfg-step').forEach(function(d){d.classList.remove('active','done'); if(parseInt(d.dataset.step)===1) d.classList.add('active');});
-      if (cfgMap) { cfgMap.remove(); } cfgMap = null; cfgMarker = null;
-      window.scrollTo({top:0, behavior:'smooth'});
-    };
-
-    // Override cfgGo scroll target for standalone page
-    var _origGo = cfgGo;
-    cfgGo = function(n) {
-      // Replace scrollIntoView target
-      var origScroll = Element.prototype.scrollIntoView;
-      var cfgSection = document.getElementById('configurateur');
-      if (cfgSection) {
-        cfgSection.scrollIntoView = function(opts) { window.scrollTo({top:0, behavior:'smooth'}); };
+      // ── RESTART ──
+      function cfgRestart() {
+        document.getElementById('config-app').style.display='none';
+        document.querySelector('.config-intro-banner').style.display='block';
+        document.getElementById('cfg-steps').style.display='flex';
+        document.querySelectorAll('.cfg-page').forEach(function(p){p.classList.remove('active')});
+        document.getElementById('cfg-step-1').classList.add('active');
+        document.querySelectorAll('.cfg-step').forEach(function(d){
+          d.classList.remove('active','done');
+          if(parseInt(d.dataset.step)===1) d.classList.add('active');
+        });
+        var pb = document.getElementById('cfg-progress-bar');
+        if (pb) pb.style.width = '20%';
+        // Reset form fields
+        ['cfg_nom_projet','cfg-f-prenom','cfg-f-nom','cfg-f-tel','cfg-f-whatsapp','cfg-f-email'].forEach(function(id){
+          var el = document.getElementById(id); if(el){el.value='';el.disabled=false;el.style.opacity='1';}
+        });
+        var waCb = document.getElementById('cfg-wa-same'); if(waCb) waCb.checked = false;
+        cfgState.cfg_nom_projet = '';
+        cfgCurrentStep = 1;
+        if (cfgMap) { cfgMap.remove(); } cfgMap = null; cfgMarker = null;
+        window.scrollTo({top:0, behavior:'smooth'});
       }
-      _origGo(n);
-      if (cfgSection) cfgSection.scrollIntoView = origScroll;
-    };
-
-    // Override cfgCalculate scroll target
-    var _origCalc = cfgCalculate;
-    cfgCalculate = function() {
-      var cfgSection = document.getElementById('configurateur');
-      var origScroll;
-      if (cfgSection) {
-        origScroll = cfgSection.scrollIntoView;
-        cfgSection.scrollIntoView = function(opts) { window.scrollTo({top:0, behavior:'smooth'}); };
-      }
-      _origCalc();
-      if (cfgSection && origScroll) cfgSection.scrollIntoView = origScroll;
-    };
   </script>
 </body>
 </html>
