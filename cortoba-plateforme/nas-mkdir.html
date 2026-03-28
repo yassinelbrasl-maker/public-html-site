@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<title>NAS - Dossier projet</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#16213e;border-radius:12px;padding:28px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+h2{color:#4ecdc4;font-size:1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.log{font-size:0.82rem;color:#aaa;line-height:1.8}
+.ok{color:#4ecdc4}.err{color:#e74c3c}.warn{color:#f39c12}
+.path{background:#0f0f23;border:1px solid #333;border-radius:6px;padding:10px;margin:12px 0;font-family:monospace;font-size:0.75rem;color:#f39c12;word-break:break-all}
+button{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:0.82rem;margin-top:10px}
+.btn-close{background:#4ecdc4;color:#111;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>&#128193; Dossier NAS</h2>
+  <div class="path" id="pathDisplay">...</div>
+  <div class="log" id="log">Initialisation...</div>
+  <div style="text-align:center;margin-top:16px">
+    <button class="btn-close" onclick="window.close()">Fermer</button>
+  </div>
+</div>
+<script>
+var logEl = document.getElementById('log');
+var pathEl = document.getElementById('pathDisplay');
+
+function log(msg, cls) {
+  logEl.innerHTML += '<div class="'+(cls||'')+'">'+ msg +'</div>';
+}
+
+// Params from hash: #user=X&pass=X&folders=Public/CAS_PROJETS/2026/XX
+var h = location.hash.substring(1);
+var P = {};
+h.split('&').forEach(function(s){ var kv=s.split('='); if(kv[0]) P[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||''); });
+
+var user = P.user || '';
+var pass = P.pass || '';
+var folders = P.folders || '';
+var nasPath = P.nasPath || '';
+
+pathEl.textContent = nasPath || folders.replace(/\//g, '\\');
+
+if (!user || !folders) {
+  log('Parametres manquants (user, folders)', 'err');
+} else {
+  start();
+}
+
+function start() {
+  var parts = folders.split('/').filter(function(p){return p;});
+  // Base URL = same origin (cette page est servie depuis le NAS)
+  var base = location.protocol + '//' + location.host;
+
+  log('Connexion au NAS...', 'warn');
+
+  // Login
+  var loginUrl = base + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+               + '&pwd=' + encodeURIComponent(btoa(pass));
+
+  fetch(loginUrl).then(function(r){ return r.text(); }).then(function(xml) {
+    var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
+            xml.match(/<authSid>(.*?)<\/authSid>/);
+    if (!m || !m[1] || m[1].length < 5) throw new Error('Login echoue');
+    var sid = m[1];
+    log('Connecte &#10003;', 'ok');
+
+    var created = 0, i = 0;
+    function mkNext() {
+      if (i >= parts.length) {
+        log('<br><strong>' + (created > 0 ? created + ' dossier(s) cree(s) &#10003;' : 'Le dossier existe deja &#10003;') + '</strong>', 'ok');
+        // Notifier la fenetre parent
+        try { if(window.opener) window.opener.postMessage({type:'nas-folder-result',success:true,message:created+' cree(s)'},'*'); } catch(e){}
+        setTimeout(function(){ try{window.close();}catch(e){} }, 3000);
+        return;
+      }
+      var pp = (i === 0) ? '/' : '/' + parts.slice(0,i).join('/');
+      var cn = parts[i]; i++;
+      log('Creation: ' + cn + '...', 'warn');
+      var mkUrl = base + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
+      fetch(mkUrl, {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'dest_folder=' + encodeURIComponent(pp) + '&dest_path=' + encodeURIComponent(cn)
+      }).then(function(r2){ return r2.text(); }).then(function(t){
+        try {
+          var j = JSON.parse(t);
+          if (j.status === 1) { created++; log(cn + ' &#10003;', 'ok'); }
+          else if (j.status === 2 || j.status === 5) { log(cn + ' (existe)', 'ok'); }
+          else { log(cn + ' status=' + j.status, 'warn'); }
+        } catch(e) { log(cn + ' reponse inattendue', 'warn'); }
+        mkNext();
+      }).catch(function(e){ log(cn + ' erreur: ' + e.message, 'err'); mkNext(); });
+    }
+    mkNext();
+  }).catch(function(e) {
+    log('Erreur: ' + e.message, 'err');
+    log('Verifiez que cette page est ouverte depuis le NAS (https://192.168.1.165/nas-mkdir.html)', 'err');
+    try { if(window.opener) window.opener.postMessage({type:'nas-folder-result',success:false,error:e.message},'*'); } catch(ex){}
+  });
+}
+</script>
+</body>
+</html>

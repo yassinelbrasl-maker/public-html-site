@@ -1965,15 +1965,9 @@ function saveProjet(){
 
   apiFetch(url, {method:method, body:body})
     .then(function(){
-      // Copier le chemin NAS dans le presse-papier si demandé
+      // Créer le dossier NAS si demandé (popup sur réseau local, sinon clipboard)
       if (shouldCreateNas && nasPath) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(nasPath).then(function(){
-            showToast('📋 Chemin NAS copié — collez dans l\'Explorateur Windows (Ctrl+V)');
-          }).catch(function(){
-            showToast('📁 Chemin NAS : ' + nasPath);
-          });
-        }
+        createNasFolder(nasPath);
       }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
@@ -5475,16 +5469,86 @@ function createNasFolder(nasPath, callback) {
     return;
   }
 
-  // Copier automatiquement le chemin dans le presse-papier
+  // Extraire les composants du chemin NAS : \\IP\Public\CAS_PROJETS\YYYY\FolderName
+  var cfg = getNasConfig();
+  var nasIp = cfg.local || '192.168.1.165';
+  var nasUser = cfg.user || '';
+  var nasPass = cfg.pass || '';
+
+  // Convertir le chemin UNC en chemin File Station : Public/CAS_PROJETS/2026/XX
+  var foldersPath = nasPath.replace(/\\\\/g, '/').replace(/\\/g, '/');
+  // Retirer l'IP du début : //192.168.1.165/Public/CAS_PROJETS/... → Public/CAS_PROJETS/...
+  foldersPath = foldersPath.replace(/^\/\/[^\/]+\//, '');
+
+  if (nasUser && nasIp) {
+    // Tenter la création via popup NAS (fonctionne sur le réseau local)
+    _openNasMkdirPopup(nasIp, nasUser, nasPass, foldersPath, nasPath, callback);
+  } else {
+    // Fallback : copier dans le presse-papier
+    _nasCopyClipboard(nasPath, callback);
+  }
+}
+
+// Ouvrir nas-mkdir.html hébergée sur le NAS en popup
+function _openNasMkdirPopup(nasIp, user, pass, foldersPath, nasPath, callback) {
+  var hash = 'user=' + encodeURIComponent(user)
+           + '&pass=' + encodeURIComponent(pass)
+           + '&folders=' + encodeURIComponent(foldersPath)
+           + '&nasPath=' + encodeURIComponent(nasPath);
+  var url = 'https://' + nasIp + '/nas-mkdir.html#' + hash;
+  console.log('[NAS] Ouverture popup:', url.replace(/pass=[^&]+/, 'pass=***'));
+
+  // Écouter le postMessage de retour
+  var handled = false;
+  function onMsg(evt) {
+    if (handled) return;
+    var d = evt.data;
+    if (!d || d.type !== 'nas-folder-result') return;
+    handled = true;
+    window.removeEventListener('message', onMsg);
+    if (d.success) {
+      console.log('[NAS] Dossier créé avec succès:', d.message);
+      showToast('✅ Dossier NAS créé avec succès');
+      if (callback) callback(true, d.message);
+    } else {
+      console.warn('[NAS] Échec création:', d.error);
+      // Fallback clipboard
+      _nasCopyClipboard(nasPath, callback);
+    }
+  }
+  window.addEventListener('message', onMsg);
+
+  // Ouvrir la popup
+  var popup = window.open(url, 'nas_mkdir', 'width=500,height=400,scrollbars=yes');
+
+  // Timeout : si pas de réponse en 15s, fallback clipboard
+  setTimeout(function() {
+    if (!handled) {
+      handled = true;
+      window.removeEventListener('message', onMsg);
+      console.warn('[NAS] Timeout popup — fallback clipboard');
+      _nasCopyClipboard(nasPath, callback);
+    }
+  }, 15000);
+
+  // Si la popup est bloquée
+  if (!popup || popup.closed) {
+    handled = true;
+    window.removeEventListener('message', onMsg);
+    console.warn('[NAS] Popup bloquée — fallback clipboard');
+    _nasCopyClipboard(nasPath, callback);
+  }
+}
+
+// Fallback : copier le chemin NAS dans le presse-papier
+function _nasCopyClipboard(nasPath, callback) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(nasPath).then(function() {
-      console.log('[NAS] Chemin copié dans le presse-papier:', nasPath);
+      showToast('📋 Chemin NAS copié — collez dans l\'Explorateur Windows (Ctrl+V)');
     }).catch(function() {
-      console.warn('[NAS] Impossible de copier le chemin');
+      showToast('📁 Chemin NAS : ' + nasPath);
     });
   }
-
-  // Retourner le succès avec le chemin — le dossier sera créé via l'explorateur Windows
   if (callback) callback('clipboard', nasPath);
 }
 
