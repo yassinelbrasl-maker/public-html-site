@@ -1369,15 +1369,50 @@ var _editingProjetId = null;
 var _pjMap = null, _pjMarker = null;
 var _intervenantCount = 0;
 
+var PJ_TABS = [
+  {id:'identite',     label:'Identité',         icon:'📋'},
+  {id:'surfaces',     label:'Surfaces & Coûts',  icon:'📐'},
+  {id:'missions',     label:'Missions',          icon:'🎯'},
+  {id:'intervenants', label:'Intervenants',      icon:'👥'},
+  {id:'localisation', label:'Localisation',      icon:'📍'}
+];
+function buildPjTabBar(){
+  var bar = document.getElementById('pj-tab-bar');
+  if(!bar) return;
+  bar.innerHTML = PJ_TABS.map(function(t, i){
+    return '<button class="pj-tab" data-tab="'+t.id+'" onclick="switchPjTab(\''+t.id+'\',this)" '+
+      'style="background:none;border:none;padding:0.55rem 0.8rem;font-size:0.78rem;cursor:pointer;'+
+      'border-bottom:2px solid transparent;color:var(--text-3);display:flex;align-items:center;gap:0.4rem;'+
+      'transition:all 0.15s;border-radius:6px 6px 0 0;white-space:nowrap">'+
+      '<span style="font-size:0.7rem">'+t.icon+'</span>'+
+      '<span style="display:inline-block;width:16px;height:16px;line-height:16px;text-align:center;border-radius:50%;font-size:0.65rem;font-weight:700;background:var(--border);color:var(--text-3)">'+(i+1)+'</span> '+
+      t.label+'</button>';
+  }).join('');
+  // Activer le premier
+  var first = bar.querySelector('.pj-tab');
+  if(first) { first.classList.add('active'); applyPjTabStyle(first, true); }
+}
+function applyPjTabStyle(btn, active){
+  var num = btn.querySelector('span:nth-child(2)');
+  if(active){
+    btn.style.color='var(--accent)';
+    btn.style.borderBottomColor='var(--accent)';
+    btn.style.background='rgba(200,169,110,0.08)';
+    if(num){ num.style.background='var(--accent)'; num.style.color='#fff'; }
+  } else {
+    btn.style.color='var(--text-3)';
+    btn.style.borderBottomColor='transparent';
+    btn.style.background='none';
+    if(num){ num.style.background='var(--border)'; num.style.color='var(--text-3)'; }
+  }
+}
 function switchPjTab(tab, btn){
-  document.querySelectorAll('.pj-tab').forEach(function(t){
-    t.classList.remove('active'); t.style.color='var(--text-3)'; t.style.borderBottomColor='transparent';
-  });
+  document.querySelectorAll('.pj-tab').forEach(function(t){ t.classList.remove('active'); applyPjTabStyle(t, false); });
   document.querySelectorAll('.pj-tab-panel').forEach(function(p){ p.style.display='none'; });
-  btn.classList.add('active'); btn.style.color='var(--accent)'; btn.style.borderBottomColor='var(--accent)';
+  if(!btn) btn = document.querySelector('.pj-tab[data-tab="'+tab+'"]');
+  if(btn){ btn.classList.add('active'); applyPjTabStyle(btn, true); }
   var panel = document.getElementById('pj-panel-'+tab);
   if (panel) panel.style.display = 'block';
-  // A4 — Initialiser la carte à chaque fois qu'on clique l'onglet localisation
   if (tab==='localisation' && typeof L !== 'undefined') setTimeout(initPjMap, 150);
 }
 
@@ -1699,12 +1734,8 @@ function resetProjetForm(){
   populateClientSelect();
   populateMissionsList([]);
 
-  // Revenir au premier onglet
-  document.querySelectorAll('.pj-tab').forEach(function(t,i){
-    t.style.color = i===0 ? 'var(--accent)' : 'var(--text-3)';
-    t.style.borderBottomColor = i===0 ? 'var(--accent)' : 'transparent';
-    t.classList.toggle('active', i===0);
-  });
+  // Construire et revenir au premier onglet
+  buildPjTabBar();
   document.querySelectorAll('.pj-tab-panel').forEach(function(p,i){ p.style.display = i===0 ? 'block' : 'none'; });
 
   // Réinitialiser selects extensibles
@@ -1936,7 +1967,11 @@ function saveProjet(){
     .then(function(){
       // Créer le dossier NAS si demandé (nouvelle création uniquement)
       if (shouldCreateNas && nasPath) {
-        createNasFolder(nasPath);
+        console.log('[NAS] Création dossier:', nasPath);
+        createNasFolder(nasPath, function(ok, msg){
+          if(ok) showToast('📁 Dossier NAS créé avec succès');
+          else showToast('⚠ Erreur NAS : '+(msg||'échec de création'), 'error');
+        });
       }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');

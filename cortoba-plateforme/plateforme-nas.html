@@ -1700,13 +1700,7 @@
       </div>
       <button class="modal-close" onclick="closeModal('modal-projet')">✕</button>
     </div>
-    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.2rem;flex-wrap:wrap">
-      <button class="pj-tab active" onclick="switchPjTab('identite',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent)">Identité</button>
-      <button class="pj-tab" onclick="switchPjTab('surfaces',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Surfaces & Coûts</button>
-      <button class="pj-tab" onclick="switchPjTab('missions',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Missions</button>
-      <button class="pj-tab" onclick="switchPjTab('intervenants',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Intervenants</button>
-      <button class="pj-tab" onclick="switchPjTab('localisation',this)" style="background:none;border:none;padding:0.65rem 1rem;font-size:0.82rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-3)">Localisation</button>
-    </div>
+    <div id="pj-tab-bar" style="display:flex;gap:0.3rem;border-bottom:1px solid var(--border);margin-bottom:1.2rem;flex-wrap:wrap;padding:0 0.5rem"></div>
     <div class="modal-body" style="max-height:65vh;overflow-y:auto">
       <div id="pj-err" style="display:none;background:rgba(224,112,112,.1);border:1px solid #e07070;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.82rem;color:#e07070;margin-bottom:1rem"></div>
       <div id="pj-panel-identite" class="pj-tab-panel">
@@ -2568,7 +2562,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="plateforme-nas.js?t=20260328g"></script>
+<script src="plateforme-nas.js?t=20260328h"></script>
 <script src="ergonomie.js?t=20260328d"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
