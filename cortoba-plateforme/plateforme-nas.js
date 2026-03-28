@@ -191,52 +191,58 @@ var _settingsCache = {};
 function loadSettings() {
   // 1) Charger depuis localStorage immédiatement (synchrone)
   _settingsCache = {};
-  var localKeys = {};
+  var localData = {};
   try {
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
       if (k && (k.indexOf('cortoba_') === 0 || k.indexOf('cfg_') === 0)) {
-        try { _settingsCache[k] = JSON.parse(localStorage.getItem(k)); localKeys[k] = true; } catch(e) {}
+        try {
+          var parsed = JSON.parse(localStorage.getItem(k));
+          _settingsCache[k] = parsed;
+          localData[k] = parsed;
+        } catch(e) {}
       }
     }
   } catch(e) {}
 
-  // 2) Sync serveur : fusionner serveur ↔ localStorage
+  // 2) Sync serveur ↔ localStorage
   return apiFetch('api/settings.php')
     .then(function(r){
       var serverData = r.data || {};
       var serverKeys = {};
 
-      // Serveur → cache + localStorage
+      // Serveur → cache : le serveur a priorité sauf pour les valeurs vides
       Object.keys(serverData).forEach(function(k){
         serverKeys[k] = true;
-        var v = serverData[k];
-        if(v !== null && v !== undefined && v !== '') {
-          _settingsCache[k] = v;
-          try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){}
+        var sv = serverData[k];
+        var lv = localData[k];
+        var svEmpty = (sv === null || sv === undefined || sv === '' || (Array.isArray(sv) && sv.length === 0));
+        var lvEmpty = (lv === null || lv === undefined || lv === '' || (Array.isArray(lv) && lv.length === 0));
+
+        if (!svEmpty) {
+          // Serveur a une valeur non-vide → utiliser serveur
+          _settingsCache[k] = sv;
+          try { localStorage.setItem(k, JSON.stringify(sv)); } catch(e){}
+        } else if (!lvEmpty) {
+          // Serveur vide mais localStorage a une valeur → garder localStorage et pousser vers serveur
+          _settingsCache[k] = lv;
+          apiFetch('api/settings.php', {method:'POST', body:{key:k, value:lv}}).catch(function(){});
         }
       });
 
-      // 3) Push localStorage → serveur pour les clés manquantes sur le serveur
-      var missingOnServer = [];
-      Object.keys(localKeys).forEach(function(k){
-        if (!serverKeys[k] && _settingsCache[k] !== undefined && _settingsCache[k] !== null && _settingsCache[k] !== '') {
-          missingOnServer.push(k);
+      // 3) Clés locales absentes du serveur → pousser vers serveur
+      Object.keys(localData).forEach(function(k){
+        if (!serverKeys[k]) {
+          var lv = localData[k];
+          if (lv !== null && lv !== undefined && lv !== '') {
+            apiFetch('api/settings.php', {method:'POST', body:{key:k, value:lv}}).catch(function(){});
+          }
         }
       });
-
-      if (missingOnServer.length > 0) {
-        console.info('[loadSettings] Syncing ' + missingOnServer.length + ' clés localStorage → serveur');
-        missingOnServer.forEach(function(k){
-          apiFetch('api/settings.php', {method:'POST', body:{key:k, value:_settingsCache[k]}})
-            .catch(function(e){ console.error('[sync] Erreur push ' + k + ':', e); });
-        });
-      }
 
       return _settingsCache;
     })
     .catch(function(){
-      // API indisponible : localStorage suffit pour cette session
       return _settingsCache;
     });
 }
@@ -2544,10 +2550,16 @@ function saveAgenceParams(){
     'param-agence-cnoa':    'cortoba_agence_cnoa'
   };
   var promises = [];
+  var saved = 0;
   Object.keys(map).forEach(function(id){
     var el = document.getElementById(id);
-    if (el) promises.push(saveSetting(map[id], el.value.trim()));
+    if (!el) return;
+    var val = el.value.trim();
+    // Ne sauvegarder que les champs avec une valeur
+    if (!val && _settingsCache[map[id]]) return;
+    if (val) { saved++; promises.push(saveSetting(map[id], val)); }
   });
+  if (saved === 0) { showToast('⚠ Aucun champ à sauvegarder', 'error'); return; }
   Promise.all(promises).then(function(results) {
     var errors = results.filter(function(r){ return r && r.error; });
     if (errors.length > 0) {
@@ -3494,27 +3506,29 @@ function showPage(id){
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
   if(id==='parametres') {
-    setTimeout(renderParametresListes, 100);
-    setTimeout(renderParametresMissions, 100);
-    setTimeout(renderParametresRoles, 120);
-    setTimeout(function(){
-      // Infos agence
+    // Attendre que loadSettings soit terminé avant de remplir les champs
+    var fillParams = function(){
+      renderParametresListes();
+      renderParametresMissions();
+      if (typeof renderParametresRoles === 'function') renderParametresRoles();
       loadAgenceParams();
-      // NAS params
       loadNasParams();
-      // NAS
-      // NAS params chargés par loadNasParams()
-      // Logo
       loadLogoParam();
       loadCfgParams();
-      // Coordonnées bancaires
       var ribEl = document.getElementById('param-rib');
       if(ribEl) ribEl.value = getSetting('cortoba_rib', '');
       var banqueEl = document.getElementById('param-banque');
       if(banqueEl) banqueEl.value = getSetting('cortoba_banque', '');
       var mentEl = document.getElementById('param-fa-mentions');
       if(mentEl) mentEl.value = getSetting('cortoba_fa_mentions', '');
-    }, 150);
+    };
+    // Si le cache est déjà rempli (loadData terminé), remplir immédiatement
+    if (Object.keys(_settingsCache).length > 3) {
+      setTimeout(fillParams, 50);
+    } else {
+      // Sinon attendre que loadSettings termine via l'API
+      loadSettings().then(function() { setTimeout(fillParams, 50); });
+    }
   }
   if(window.innerWidth<=900) closeSidebar();
 }
@@ -4827,21 +4841,27 @@ function saveNasConfig() {
     cortoba_nas_public_ip:    'param-nas-public-ip',
   };
   var saved = 0;
+  var skipped = 0;
   var promises = [];
   Object.keys(fields).forEach(function(key) {
     var el = document.getElementById(fields[key]);
-    if (el) {
-      var val = el.value || '';
-      _settingsCache[key] = val;
-      setLS(key, val);
-      saved++;
-      // Sauvegarde serveur avec promesse pour vérifier
-      promises.push(
-        apiFetch('api/settings.php', {method:'POST', body:{key:key, value:val}})
-          .catch(function(e) { console.error('NAS save error for ' + key + ':', e); return {error:true}; })
-      );
-    }
+    if (!el) return;
+    var val = el.value;
+    // Ne pas sauvegarder un champ vide s'il y a déjà une valeur enregistrée
+    if (!val && _settingsCache[key]) { skipped++; return; }
+    if (!val) { skipped++; return; }
+    _settingsCache[key] = val;
+    setLS(key, val);
+    saved++;
+    promises.push(
+      apiFetch('api/settings.php', {method:'POST', body:{key:key, value:val}})
+        .catch(function(e) { console.error('NAS save error for ' + key + ':', e); return {error:true}; })
+    );
   });
+  if (saved === 0) {
+    showToast('⚠ Aucun champ à sauvegarder — remplissez au moins un champ', 'error');
+    return;
+  }
   Promise.all(promises).then(function(results) {
     var errors = results.filter(function(r) { return r && r.error; });
     if (errors.length > 0) {
