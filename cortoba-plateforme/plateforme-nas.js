@@ -1426,7 +1426,15 @@ var DEFAULT_MISSIONS = [
 
 function getMissions(){
   var m = getSetting('cortoba_missions', []);
-  return (Array.isArray(m) && m.length) ? m : DEFAULT_MISSIONS;
+  if (!Array.isArray(m) || m.length === 0) return DEFAULT_MISSIONS;
+  // Migration : si les missions sauvegardées n'ont pas de champ 'cat' (ancien format {id,abbr,nom}),
+  // on retourne les missions par défaut catégorisées et on efface l'ancien format
+  if (m[0] && !m[0].cat && m[0].abbr !== undefined) {
+    console.info('[getMissions] Migration ancien format → missions catégorisées par défaut');
+    saveSetting('cortoba_missions', DEFAULT_MISSIONS);
+    return DEFAULT_MISSIONS;
+  }
+  return m;
 }
 function getMissionCategories(){
   var c = getSetting('cortoba_mission_categories', []);
