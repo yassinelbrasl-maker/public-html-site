@@ -1125,65 +1125,51 @@ function goBack() {
 function createNasFolderCfg(nasPath, callback) {
   if (!nasPath) { callback(false, 'Chemin NAS non défini'); return; }
 
-  // Normaliser le chemin
   var absPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '/');
   if (absPath.charAt(0) !== '/') absPath = '/' + absPath;
   var parts = absPath.split('/').filter(function(p){ return p; });
+  if (parts.length === 0) { callback(false, 'Chemin invalide'); return; }
 
-  // Charger la config NAS puis essayer depuis le navigateur
+  // Charger la config NAS
   apiFetch('api/settings.php').then(function(r) {
     var d = r.data || {};
     var ip = (d.cortoba_nas_local || '').replace(/\\/g, '/').replace(/^\/+/, '');
     var m = ip.match(/^(\d+\.\d+\.\d+\.\d+)/); if (m) ip = m[1];
-    var port = d.cortoba_nas_port || '8080';
     var user = d.cortoba_nas_user || '';
     var pass = d.cortoba_nas_pass || '';
 
-    var tryUrls = [];
-    if (ip) tryUrls.push('https://' + ip);
-    if (ip && port) tryUrls.push('http://' + ip + ':' + port);
+    if (!ip) { callback(false, 'IP NAS non configurée'); return; }
 
-    var urlIdx = 0;
-    function tryNext() {
-      if (urlIdx >= tryUrls.length) {
-        // Fallback serveur
-        apiFetch('api/nas.php?action=mkdir', {method:'POST', body:{path:nasPath}})
-          .then(function(r2){ callback(true, (r2.data && r2.data.message) || 'Dossier créé'); })
-          .catch(function(e){ callback(false, e.message || 'Erreur création dossier'); });
+    var baseUrl = 'https://' + ip;
+    var loginUrl = baseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+                 + '&pwd=' + encodeURIComponent(btoa(pass));
+
+    // Popup vers le NAS local HTTPS pour créer les dossiers
+    var popup;
+    try { popup = window.open(loginUrl, '_nas_mkdir', 'width=1,height=1,left=-1000,top=-1000'); } catch(e) {}
+    if (!popup || popup.closed) {
+      // Popup bloqué → fallback serveur
+      apiFetch('api/nas.php?action=mkdir', {method:'POST', body:{path:nasPath}})
+        .then(function(r2){ callback(true, (r2.data && r2.data.message) || 'Dossier créé'); })
+        .catch(function(e){ callback(false, e.message || 'Erreur création dossier'); });
+      return;
+    }
+
+    var step = 0;
+    function nextFolder() {
+      if (step >= parts.length) {
+        try { popup.close(); } catch(e) {}
+        callback(true, 'Dossier créé sur le NAS');
         return;
       }
-      var baseUrl = tryUrls[urlIdx]; urlIdx++;
-      var loginUrl = baseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
-                   + '&pwd=' + encodeURIComponent(btoa(pass));
-      fetch(loginUrl, {method:'GET', mode:'cors', credentials:'omit'})
-        .then(function(r2){ return r2.text(); })
-        .then(function(xml) {
-          var sm = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
-                   xml.match(/<authSid>(.*?)<\/authSid>/);
-          if (!sm || !sm[1]) throw new Error('Login échoué');
-          var sid = sm[1];
-          var created = []; var i = 0;
-          function mkN() {
-            if (i >= parts.length) {
-              callback(true, created.length > 0 ? created.length + ' dossier(s) créé(s)' : 'Dossier existe déjà');
-              return;
-            }
-            var pp = (i === 0) ? '/' : '/' + parts.slice(0,i).join('/');
-            var cn = parts[i]; i++;
-            var mkUrl = baseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
-            fetch(mkUrl, {
-              method:'POST', mode:'cors', credentials:'omit',
-              headers:{'Content-Type':'application/x-www-form-urlencoded'},
-              body:'dest_folder=' + encodeURIComponent(pp) + '&dest_path=' + encodeURIComponent(cn)
-            }).then(function(r3){ return r3.json().catch(function(){return {};}); })
-              .then(function(j){ if(j.status===1) created.push(pp+'/'+cn); mkN(); })
-              .catch(function(){ tryNext(); });
-          }
-          mkN();
-        })
-        .catch(function(){ tryNext(); });
+      var pp = (step === 0) ? '/' : '/' + parts.slice(0, step).join('/');
+      var cn = parts[step]; step++;
+      var mkUrl = baseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir'
+                + '&dest_folder=' + encodeURIComponent(pp) + '&dest_path=' + encodeURIComponent(cn);
+      try { popup.location.href = mkUrl; } catch(e) {}
+      setTimeout(nextFolder, 1200);
     }
-    tryNext();
+    setTimeout(nextFolder, 2000);
   }).catch(function(e) {
     callback(false, e.message || 'Erreur chargement config NAS');
   });
