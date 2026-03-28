@@ -3499,7 +3499,8 @@ function showPage(id){
   document.getElementById('page-'+id).classList.add('active');
   var btn=document.querySelector('[onclick="showPage(\''+id+'\')"]');
   if(btn) btn.classList.add('active');
-  document.getElementById('section-label').textContent=pageLabels[id]||'';
+  var _secLabel = document.getElementById('section-label');
+  if (_secLabel) _secLabel.textContent=pageLabels[id]||'';
   if(id==='demandes')   setTimeout(renderDemandes,80);
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
   if(id==='nas')        setTimeout(renderNasPage,80);
