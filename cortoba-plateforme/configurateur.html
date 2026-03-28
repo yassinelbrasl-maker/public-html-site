@@ -1022,9 +1022,12 @@ function saveProjet() {
         // Créer le dossier NAS si la case est cochée
         var nasCheck = document.getElementById('cfg-nas-create');
         if (nasCheck && nasCheck.checked && nasPath) {
-          apiFetch('api/nas.php?action=mkdir', {method:'POST', body:{path:nasPath}}).catch(function(){});
+          createNasFolderCfg(nasPath, function(ok, msg){
+            showSuccess(v('cfg-nom'), projet.code || code, (ok ? '📁 ' : '⚠ NAS : ') + msg);
+          });
+        } else {
+          showSuccess(v('cfg-nom'), projet.code || code);
         }
-        showSuccess(v('cfg-nom'), projet.code || code);
       })
       .catch(function(e) {
         showErr(6, 'Erreur : ' + (e.message || 'Erreur serveur'));
@@ -1071,7 +1074,7 @@ function saveProjet() {
   }
 }
 
-function showSuccess(nom, code) {
+function showSuccess(nom, code, nasMsg) {
   // Cacher le wizard
   for (var i = 1; i <= TOTAL; i++) {
     var s = document.getElementById('cfg-s' + i); if (s) s.classList.remove('active');
@@ -1083,6 +1086,19 @@ function showSuccess(nom, code) {
     success.style.display = 'flex';
     var pn = document.getElementById('success-projet-name'); if (pn) pn.textContent = nom;
     var pc = document.getElementById('success-code'); if (pc) pc.textContent = code;
+    // Message NAS
+    var nasEl = document.getElementById('success-nas-msg');
+    if (!nasEl && nasMsg) {
+      nasEl = document.createElement('div');
+      nasEl.id = 'success-nas-msg';
+      nasEl.style.cssText = 'margin-top:1rem;font-size:0.82rem;padding:0.5rem 1rem;border-radius:6px;' +
+        (nasMsg.indexOf('⚠') === 0 ? 'background:rgba(224,164,110,.1);color:#e0a46e;border:1px solid rgba(224,164,110,.3)' : 'background:rgba(90,171,110,.1);color:#5aab6e;border:1px solid rgba(90,171,110,.3)');
+      nasEl.textContent = nasMsg;
+      success.querySelector('div').appendChild(nasEl);
+    } else if (nasEl && nasMsg) {
+      nasEl.textContent = nasMsg;
+      nasEl.style.display = 'block';
+    }
   }
 }
 
@@ -1095,6 +1111,70 @@ function goBack() {
 }
 
 // ── Initialisation ──
+// ── Création dossier NAS (WebDAV local + fallback serveur) ──
+function createNasFolderCfg(nasPath, callback) {
+  var cleanPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '').replace(/^\/+/, '');
+  var parts = cleanPath.split('/').filter(function(p){ return p; });
+  if (parts.length === 0) { callback(false, 'Chemin invalide'); return; }
+
+  // Charger la config NAS
+  apiFetch('api/settings.php').then(function(r){
+    var d = r.data || {};
+    var ip = d.cortoba_nas_local || '';
+    var webdavP = d.cortoba_nas_webdav_port || '5005';
+    var user = d.cortoba_nas_user || '';
+    var pass = d.cortoba_nas_pass || '';
+
+    if (!ip || !webdavP) {
+      // Pas de config → essayer via serveur
+      cfgNasFallback(nasPath, callback);
+      return;
+    }
+
+    var baseUrl = 'http://' + ip + ':' + webdavP;
+    var headers = new Headers();
+    headers.set('Authorization', 'Basic ' + btoa(user + ':' + pass));
+
+    var currentP = '';
+    var created = [];
+    var idx = 0;
+
+    function mkNext() {
+      if (idx >= parts.length) {
+        var msg = created.length > 0
+          ? created.length + ' dossier(s) créé(s) sur le NAS'
+          : 'Le dossier existe déjà sur le NAS';
+        callback(true, msg);
+        return;
+      }
+      currentP += '/' + parts[idx];
+      idx++;
+      fetch(baseUrl + currentP + '/', {method:'MKCOL', headers:headers})
+        .then(function(resp){
+          if (resp.status === 201) created.push(currentP);
+          if (resp.status === 201 || resp.status === 405 || resp.status === 301) mkNext();
+          else throw new Error('WebDAV ' + resp.status);
+        })
+        .catch(function(){
+          cfgNasFallback(nasPath, callback);
+        });
+    }
+    mkNext();
+  }).catch(function(){
+    cfgNasFallback(nasPath, callback);
+  });
+}
+
+function cfgNasFallback(nasPath, callback) {
+  apiFetch('api/nas.php?action=mkdir', {method:'POST', body:{path:nasPath}})
+    .then(function(r){
+      callback(true, (r.data && r.data.message) || 'Dossier créé');
+    })
+    .catch(function(e){
+      callback(false, e.message || 'Erreur création dossier');
+    });
+}
+
 // ── Pré-remplissage depuis une demande ──
 function prefillFromDemande(demandeId) {
   apiFetch('api/demandes.php?id=' + demandeId).then(function(r) {
