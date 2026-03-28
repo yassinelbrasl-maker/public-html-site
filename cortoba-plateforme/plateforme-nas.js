@@ -1170,6 +1170,7 @@ function saveDevis(){
 // ── Filtres et tri projets ──
 var PHASES_ORDER = ['Étude préliminaire','APS','APD','PC','DCE','EXE','Livré'];
 var _pjSortKey='nom', _pjSortDir=1, _pjColDropOpen=false;
+var _pjPage=1, _pjPerPage=10, _pjAnneeInitDone=false;
 
 function getFilteredSortedProjets(){
   var q       = (document.getElementById('projets-search')||{value:''}).value.trim().toLowerCase();
@@ -1199,17 +1200,25 @@ function populateAnneeFilter(){
   var years = {};
   getProjets().forEach(function(p){ if(p.annee) years[p.annee]=1; });
   var sorted = Object.keys(years).sort().reverse();
+  // Première ouverture : sélectionner la dernière année par défaut
+  if (!_pjAnneeInitDone && !current && sorted.length > 0) {
+    current = sorted[0];
+    _pjAnneeInitDone = true;
+  }
   var html = '<option value="">Toutes les années</option>';
-  sorted.forEach(function(y){ html += '<option'+(y===current?' selected':'')+'>'+y+'</option>'; });
+  sorted.forEach(function(y){ html += '<option value="'+y+'"'+(y===current?' selected':'')+'>'+y+'</option>'; });
   sel.innerHTML = html;
+  if (current) sel.value = current;
 }
 function clearPjSearch(){
   var s=document.getElementById('projets-search');if(s)s.value='';
   var fp=document.getElementById('projets-filter-phase');if(fp)fp.value='';
   var fs=document.getElementById('projets-filter-statut');if(fs)fs.value='';
   var fa=document.getElementById('projets-filter-annee');if(fa)fa.value='';
+  _pjPage=1; _pjAnneeInitDone=false;
   renderProjets();
 }
+function pjFilterChanged(){ _pjPage=1; renderProjets(); }
 function phaseBadgeClass(ph){
   if(!ph) return 'badge-gray';
   if(ph==='EXE'||ph==='Livré') return 'badge-gold';
@@ -1240,15 +1249,30 @@ function renderProjets(){
   var burgerTh = '<th style="width:28px;padding:0.4rem 0.5rem;text-align:center"><button id="pj-col-burger" onclick="togglePjColDropdown(event)" title="Colonnes visibles" style="background:none;border:none;cursor:pointer;color:var(--text-3);opacity:0.6;padding:2px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></th>';
   thead.innerHTML = '<tr>'+ths+'<th style="width:72px"></th>'+burgerTh+'</tr>';
   var ct = document.getElementById('projets-count');
-  if(ct) ct.textContent = list.length===total ? total+' projet'+(total>1?'s':'') : list.length+' / '+total+' projets';
-  if(list.length===0){
+  // Pagination
+  var totalFiltered = list.length;
+  var totalPages = Math.max(1, Math.ceil(totalFiltered / _pjPerPage));
+  if (_pjPage > totalPages) _pjPage = totalPages;
+  if (_pjPage < 1) _pjPage = 1;
+  var startIdx = (_pjPage - 1) * _pjPerPage;
+  var pageList = list.slice(startIdx, startIdx + _pjPerPage);
+
+  if(ct) {
+    var showing = totalFiltered === total
+      ? total+' projet'+(total>1?'s':'')
+      : totalFiltered+' / '+total+' projets';
+    if (totalPages > 1) showing += '  ·  page '+_pjPage+'/'+totalPages;
+    ct.textContent = showing;
+  }
+  if(totalFiltered===0){
     var hasFilter = q||fPhase||fStatut;
     tb.innerHTML = '<tr><td colspan="'+(active.length+2)+'" style="text-align:center;color:var(--text-3);padding:3rem">'+
       (hasFilter?'<div style="font-size:1.5rem;margin-bottom:0.5rem">🔍</div>Aucun résultat.<br><button class="btn btn-sm" style="margin-top:0.6rem" onclick="clearPjSearch()">Effacer les filtres</button>':'<div style="font-size:1.5rem;margin-bottom:0.5rem">🏗️</div>Aucun projet. Créez le premier.')+'</td></tr>';
+    renderPjPagination(0, 1);
     if(typeof refreshGlobalMap==='function') setTimeout(refreshGlobalMap,100);
     return;
   }
-  tb.innerHTML = list.map(function(p){
+  tb.innerHTML = pageList.map(function(p){
     var cells = active.map(function(key){
       var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td>—</td>';
       return '<td>'+col.render(p)+'</td>';
@@ -1257,11 +1281,48 @@ function renderProjets(){
     return '<tr onclick="openProjetDetail(\''+p.id+'\')" style="cursor:pointer">'+cells+
       '<td onclick="event.stopPropagation()">'+editBtn+(canDelete() ? '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button>' : '')+'</td><td></td></tr>';
   }).join('');
+  renderPjPagination(totalFiltered, totalPages);
   if(document.getElementById('page-projets')&&document.getElementById('page-projets').classList.contains('active')){
     if(typeof refreshGlobalMap==='function') setTimeout(refreshGlobalMap,100);
   }
   var b = document.querySelector('[onclick="showPage(\'projets\')"] .nav-badge');
   if(b) b.textContent = list.filter(function(p){ return (p.statut||'')==='Actif'; }).length || '';
+}
+
+// ── Pagination projets ──
+function renderPjPagination(totalItems, totalPages){
+  var container = document.getElementById('pj-pagination');
+  if (!container) return;
+  if (totalPages <= 1) { container.innerHTML = ''; return; }
+  var html = '<div style="display:flex;align-items:center;justify-content:center;gap:0.4rem;padding:1rem 0;font-size:0.82rem">';
+  // Bouton précédent
+  html += '<button class="btn btn-sm" onclick="goToPjPage('+(_pjPage-1)+')" '+(_pjPage<=1?'disabled style="opacity:0.3;pointer-events:none"':'')+' style="padding:0.3rem 0.6rem">← Préc.</button>';
+  // Numéros de pages
+  var startP = Math.max(1, _pjPage - 2);
+  var endP   = Math.min(totalPages, _pjPage + 2);
+  if (startP > 1) {
+    html += '<button class="btn btn-sm" onclick="goToPjPage(1)" style="padding:0.3rem 0.5rem">1</button>';
+    if (startP > 2) html += '<span style="color:var(--text-3);padding:0 0.2rem">…</span>';
+  }
+  for (var i = startP; i <= endP; i++) {
+    var isActive = i === _pjPage;
+    html += '<button class="btn btn-sm" onclick="goToPjPage('+i+')" style="padding:0.3rem 0.5rem;'+(isActive?'background:var(--accent);color:#fff;font-weight:600':'')+'">'+i+'</button>';
+  }
+  if (endP < totalPages) {
+    if (endP < totalPages - 1) html += '<span style="color:var(--text-3);padding:0 0.2rem">…</span>';
+    html += '<button class="btn btn-sm" onclick="goToPjPage('+totalPages+')" style="padding:0.3rem 0.5rem">'+totalPages+'</button>';
+  }
+  // Bouton suivant
+  html += '<button class="btn btn-sm" onclick="goToPjPage('+(_pjPage+1)+')" '+(_pjPage>=totalPages?'disabled style="opacity:0.3;pointer-events:none"':'')+' style="padding:0.3rem 0.6rem">Suiv. →</button>';
+  html += '</div>';
+  container.innerHTML = html;
+}
+function goToPjPage(p){
+  _pjPage = p;
+  renderProjets();
+  // Scroll en haut de la table
+  var tbl = document.getElementById('projets-table');
+  if (tbl) tbl.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // ── Carte globale (Leaflet) ──
