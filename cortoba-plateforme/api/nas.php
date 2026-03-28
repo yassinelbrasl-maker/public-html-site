@@ -54,6 +54,22 @@ function curlGet($url, $user = '', $pass = '', $timeout = 5) {
     return array('body' => $response, 'code' => $httpCode, 'error' => $error);
 }
 
+// ── Helper : extraire IP pure d'un champ qui peut contenir un chemin UNC ──
+function extractIp($val) {
+    if (!$val) return '';
+    $val = trim($val);
+    // Si c'est une URL (https://...), ne pas modifier
+    if (strpos($val, 'http') === 0) return '';
+    // Nettoyer les backslashes
+    $val = str_replace('\\', '/', $val);
+    $val = ltrim($val, '/');
+    // Extraire l'IP (première partie avant /)
+    if (preg_match('/^(\d+\.\d+\.\d+\.\d+)/', $val, $m)) return $m[1];
+    // Si c'est un hostname simple
+    $parts = explode('/', $val);
+    return $parts[0];
+}
+
 // ── ACTION : status ──
 if ($action === 'status') {
     $ip       = getNasParam('cortoba_nas_local', '192.168.1.100');
@@ -207,11 +223,13 @@ elseif ($action === 'mkdir') {
     $path = isset($body['path']) ? trim($body['path']) : (isset($_GET['path']) ? trim($_GET['path']) : '');
     if (!$path) jsonError('Chemin du dossier requis', 400);
 
-    $ip         = getNasParam('cortoba_nas_local', '');
+    $rawIp      = getNasParam('cortoba_nas_local', '');
+    $ip         = extractIp($rawIp);
     $webdavPort = getNasParam('cortoba_nas_webdav_port', '5005');
     $nasUser    = getNasParam('cortoba_nas_user', 'admin');
     $nasPass    = getNasParam('cortoba_nas_pass', '');
-    $publicIp   = getNasParam('cortoba_nas_public_ip', '');
+    $rawPublic  = getNasParam('cortoba_nas_public_ip', '');
+    $publicIp   = extractIp($rawPublic);
 
     if (!$webdavPort) jsonError('WebDAV non configuré — renseignez le port dans Paramètres → NAS', 400);
 

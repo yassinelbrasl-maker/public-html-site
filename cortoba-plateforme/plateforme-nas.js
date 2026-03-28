@@ -1445,7 +1445,7 @@ function genNasPath(code, clientObj){
       suffix = suffix.replace(/\s+/g,'_');
     }
   }
-  var ip = getSetting('cortoba_nas_local', '192.168.1.165');
+  var ip = extractNasIp(getSetting('cortoba_nas_local', '192.168.1.165'));
   var folderName = code + (suffix ? '_' + suffix : '');
   return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + year + '\\' + folderName;
 }
@@ -4958,6 +4958,8 @@ function saveNasConfig() {
     var el = document.getElementById(fields[key]);
     if (!el) return;
     var val = el.value;
+    // Sanitiser l'IP locale : extraire juste l'IP si l'utilisateur colle un chemin UNC
+    if (key === 'cortoba_nas_local' && val) val = extractNasIp(val);
     // Ne pas sauvegarder un champ vide s'il y a déjà une valeur enregistrée
     if (!val && _settingsCache[key]) { skipped++; return; }
     if (!val) { skipped++; return; }
@@ -5453,6 +5455,18 @@ function renderNasPage() {
 //  CRÉATION DOSSIER NAS (WebDAV MKCOL)
 // ══════════════════════════════════════════════════════════
 
+// Extraire l'IP pure d'une valeur qui peut contenir un chemin UNC
+function extractNasIp(val) {
+  if (!val) return '';
+  var s = val.replace(/\\/g, '/').replace(/^\/+/, '');
+  // Si c'est une IP ou hostname (pas de /)
+  if (s.indexOf('/') === -1) return s;
+  // Sinon extraire la première partie (IP)
+  var m = s.match(/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/);
+  if (m) return m[1];
+  return s.split('/')[0];
+}
+
 function createNasFolder(nasPath, callback) {
   if (!nasPath || nasPath === '—') {
     if (callback) callback(false, 'Chemin NAS non défini');
@@ -5466,8 +5480,9 @@ function createNasFolder(nasPath, callback) {
     return;
   }
 
-  // Lire la config NAS
-  var ip       = getSetting('cortoba_nas_local', '');
+  // Lire la config NAS (extraire l'IP pure si le champ contient un chemin UNC)
+  var rawIp    = getSetting('cortoba_nas_local', '');
+  var ip       = extractNasIp(rawIp);
   var webdavP  = getSetting('cortoba_nas_webdav_port', '5005');
   var user     = getSetting('cortoba_nas_user', '');
   var pass     = getSetting('cortoba_nas_pass', '');
