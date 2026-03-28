@@ -1135,7 +1135,8 @@ function _cfgCreateNasFolder(nasPath, callback) {
              + '&pass=' + encodeURIComponent(nasPass)
              + '&folders=' + encodeURIComponent(foldersPath)
              + '&nasPath=' + encodeURIComponent(nasPath);
-    var url = 'https://' + nasIp + '/nas-mkdir.html#' + hash;
+    // Web Server QNAP = port 8081 (HTTPS) ou 80 (HTTP), pas 443 (QTS admin)
+    var url = 'https://' + nasIp + ':8081/nas-mkdir.html#' + hash;
     console.log('[NAS] Ouverture popup NAS');
 
     var handled = false;

@@ -5490,12 +5490,14 @@ function createNasFolder(nasPath, callback) {
 }
 
 // Ouvrir nas-mkdir.html hébergée sur le NAS en popup
+// Le Web Server QNAP est sur port 80 (HTTP) et 8081 (HTTPS), pas sur 443 (QTS admin)
 function _openNasMkdirPopup(nasIp, user, pass, foldersPath, nasPath, callback) {
   var hash = 'user=' + encodeURIComponent(user)
            + '&pass=' + encodeURIComponent(pass)
            + '&folders=' + encodeURIComponent(foldersPath)
            + '&nasPath=' + encodeURIComponent(nasPath);
-  var url = 'https://' + nasIp + '/nas-mkdir.html#' + hash;
+  // Essayer le Web Server HTTPS (8081), puis HTTP (80)
+  var url = 'https://' + nasIp + ':8081/nas-mkdir.html#' + hash;
   console.log('[NAS] Ouverture popup:', url.replace(/pass=[^&]+/, 'pass=***'));
 
   // Écouter le postMessage de retour

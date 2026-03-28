@@ -32,7 +32,7 @@ function log(msg, cls) {
   logEl.innerHTML += '<div class="'+(cls||'')+'">'+ msg +'</div>';
 }
 
-// Params from hash: #user=X&pass=X&folders=Public/CAS_PROJETS/2026/XX
+// Params from hash: #user=X&pass=X&folders=Public/CAS_PROJETS/2026/XX&nasPath=\\..
 var h = location.hash.substring(1);
 var P = {};
 h.split('&').forEach(function(s){ var kv=s.split('='); if(kv[0]) P[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||''); });
@@ -50,56 +50,111 @@ if (!user || !folders) {
   start();
 }
 
+// Essayer plusieurs base URLs pour trouver l'API QTS
+// Le serveur Web QNAP (port 80/8081) est séparé du QTS admin (port 443/8080)
+// L'API File Station est sur QTS admin
+function findApiBase(callback) {
+  var hostname = location.hostname;
+  var candidates = [
+    // 1) Même origine (si la page est servie par QTS admin)
+    location.protocol + '//' + location.host,
+    // 2) HTTPS port 443 (QTS admin HTTPS)
+    'https://' + hostname,
+    // 3) HTTP port 8080 (QTS admin HTTP)
+    'http://' + hostname + ':8080',
+    // 4) HTTPS port 8081 (au cas où)
+    'https://' + hostname + ':8081'
+  ];
+  // Dédupliquer
+  var seen = {};
+  var unique = [];
+  for (var i = 0; i < candidates.length; i++) {
+    if (!seen[candidates[i]]) { seen[candidates[i]] = true; unique.push(candidates[i]); }
+  }
+
+  var idx = 0;
+  function tryNext() {
+    if (idx >= unique.length) {
+      callback(null);
+      return;
+    }
+    var base = unique[idx]; idx++;
+    var testUrl = base + '/cgi-bin/authLogin.cgi';
+    log('Tentative: ' + base + '...', 'warn');
+    fetch(testUrl, {method:'GET', mode:'cors', credentials:'omit'})
+      .then(function(r) {
+        if (r.ok || r.status === 200) {
+          log('API trouvee sur ' + base + ' &#10003;', 'ok');
+          callback(base);
+        } else {
+          tryNext();
+        }
+      })
+      .catch(function() {
+        // CORS bloqué ou réseau — essayer suivant
+        tryNext();
+      });
+  }
+  tryNext();
+}
+
 function start() {
   var parts = folders.split('/').filter(function(p){return p;});
-  // Base URL = same origin (cette page est servie depuis le NAS)
-  var base = location.protocol + '//' + location.host;
 
-  log('Connexion au NAS...', 'warn');
+  log('Recherche de l\'API NAS...', 'warn');
 
-  // Login
-  var loginUrl = base + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
-               + '&pwd=' + encodeURIComponent(btoa(pass));
-
-  fetch(loginUrl).then(function(r){ return r.text(); }).then(function(xml) {
-    var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
-            xml.match(/<authSid>(.*?)<\/authSid>/);
-    if (!m || !m[1] || m[1].length < 5) throw new Error('Login echoue');
-    var sid = m[1];
-    log('Connecte &#10003;', 'ok');
-
-    var created = 0, i = 0;
-    function mkNext() {
-      if (i >= parts.length) {
-        log('<br><strong>' + (created > 0 ? created + ' dossier(s) cree(s) &#10003;' : 'Le dossier existe deja &#10003;') + '</strong>', 'ok');
-        // Notifier la fenetre parent
-        try { if(window.opener) window.opener.postMessage({type:'nas-folder-result',success:true,message:created+' cree(s)'},'*'); } catch(e){}
-        setTimeout(function(){ try{window.close();}catch(e){} }, 3000);
-        return;
-      }
-      var pp = (i === 0) ? '/' : '/' + parts.slice(0,i).join('/');
-      var cn = parts[i]; i++;
-      log('Creation: ' + cn + '...', 'warn');
-      var mkUrl = base + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
-      fetch(mkUrl, {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:'dest_folder=' + encodeURIComponent(pp) + '&dest_path=' + encodeURIComponent(cn)
-      }).then(function(r2){ return r2.text(); }).then(function(t){
-        try {
-          var j = JSON.parse(t);
-          if (j.status === 1) { created++; log(cn + ' &#10003;', 'ok'); }
-          else if (j.status === 2 || j.status === 5) { log(cn + ' (existe)', 'ok'); }
-          else { log(cn + ' status=' + j.status, 'warn'); }
-        } catch(e) { log(cn + ' reponse inattendue', 'warn'); }
-        mkNext();
-      }).catch(function(e){ log(cn + ' erreur: ' + e.message, 'err'); mkNext(); });
+  findApiBase(function(base) {
+    if (!base) {
+      log('Impossible de joindre l\'API QTS sur aucun port.', 'err');
+      log('Assurez-vous que cette page est servie depuis le NAS et que CORS est autorise.', 'err');
+      try { if(window.opener) window.opener.postMessage({type:'nas-folder-result',success:false,error:'API QTS introuvable'},'*'); } catch(ex){}
+      return;
     }
-    mkNext();
-  }).catch(function(e) {
-    log('Erreur: ' + e.message, 'err');
-    log('Verifiez que cette page est ouverte depuis le NAS (https://192.168.1.165/nas-mkdir.html)', 'err');
-    try { if(window.opener) window.opener.postMessage({type:'nas-folder-result',success:false,error:e.message},'*'); } catch(ex){}
+
+    // Login
+    var loginUrl = base + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+                 + '&pwd=' + encodeURIComponent(btoa(pass));
+
+    log('Connexion au NAS...', 'warn');
+
+    fetch(loginUrl).then(function(r){ return r.text(); }).then(function(xml) {
+      var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
+              xml.match(/<authSid>(.*?)<\/authSid>/);
+      if (!m || !m[1] || m[1].length < 5) throw new Error('Login echoue — verifiez user/pass NAS');
+      var sid = m[1];
+      log('Connecte &#10003;', 'ok');
+
+      var created = 0, i = 0;
+      function mkNext() {
+        if (i >= parts.length) {
+          log('<br><strong>' + (created > 0 ? created + ' dossier(s) cree(s) &#10003;' : 'Le dossier existe deja &#10003;') + '</strong>', 'ok');
+          try { if(window.opener) window.opener.postMessage({type:'nas-folder-result',success:true,message:created+' cree(s)'},'*'); } catch(e){}
+          setTimeout(function(){ try{window.close();}catch(e){} }, 3000);
+          return;
+        }
+        var pp = (i === 0) ? '/' : '/' + parts.slice(0,i).join('/');
+        var cn = parts[i]; i++;
+        log('Creation: ' + cn + '...', 'warn');
+        var mkUrl = base + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
+        fetch(mkUrl, {
+          method:'POST',
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:'dest_folder=' + encodeURIComponent(pp) + '&dest_path=' + encodeURIComponent(cn)
+        }).then(function(r2){ return r2.text(); }).then(function(t){
+          try {
+            var j = JSON.parse(t);
+            if (j.status === 1) { created++; log(cn + ' &#10003;', 'ok'); }
+            else if (j.status === 2 || j.status === 5) { log(cn + ' (existe)', 'ok'); }
+            else { log(cn + ' status=' + j.status, 'warn'); }
+          } catch(e) { log(cn + ' reponse inattendue', 'warn'); }
+          mkNext();
+        }).catch(function(e){ log(cn + ' erreur: ' + e.message, 'err'); mkNext(); });
+      }
+      mkNext();
+    }).catch(function(e) {
+      log('Erreur: ' + e.message, 'err');
+      try { if(window.opener) window.opener.postMessage({type:'nas-folder-result',success:false,error:e.message},'*'); } catch(ex){}
+    });
   });
 }
 </script>
