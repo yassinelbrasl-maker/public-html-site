@@ -189,29 +189,50 @@ var _settingsCache = {};
 
 // Charger les paramètres : localStorage d'abord, puis API si disponible
 function loadSettings() {
-  // Charger depuis localStorage immédiatement (synchrone, toujours disponible)
+  // 1) Charger depuis localStorage immédiatement (synchrone)
   _settingsCache = {};
+  var localKeys = {};
   try {
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
       if (k && (k.indexOf('cortoba_') === 0 || k.indexOf('cfg_') === 0)) {
-        try { _settingsCache[k] = JSON.parse(localStorage.getItem(k)); } catch(e) {}
+        try { _settingsCache[k] = JSON.parse(localStorage.getItem(k)); localKeys[k] = true; } catch(e) {}
       }
     }
   } catch(e) {}
 
-  // Sync serveur : le serveur est la source de vérité (multi-sessions)
+  // 2) Sync serveur : fusionner serveur ↔ localStorage
   return apiFetch('api/settings.php')
     .then(function(r){
       var serverData = r.data || {};
+      var serverKeys = {};
+
+      // Serveur → cache + localStorage
       Object.keys(serverData).forEach(function(k){
+        serverKeys[k] = true;
         var v = serverData[k];
-        // Ne pas écraser un localStorage récent si le serveur retourne vide
         if(v !== null && v !== undefined && v !== '') {
           _settingsCache[k] = v;
           try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){}
         }
       });
+
+      // 3) Push localStorage → serveur pour les clés manquantes sur le serveur
+      var missingOnServer = [];
+      Object.keys(localKeys).forEach(function(k){
+        if (!serverKeys[k] && _settingsCache[k] !== undefined && _settingsCache[k] !== null && _settingsCache[k] !== '') {
+          missingOnServer.push(k);
+        }
+      });
+
+      if (missingOnServer.length > 0) {
+        console.info('[loadSettings] Syncing ' + missingOnServer.length + ' clés localStorage → serveur');
+        missingOnServer.forEach(function(k){
+          apiFetch('api/settings.php', {method:'POST', body:{key:k, value:_settingsCache[k]}})
+            .catch(function(e){ console.error('[sync] Erreur push ' + k + ':', e); });
+        });
+      }
+
       return _settingsCache;
     })
     .catch(function(){
