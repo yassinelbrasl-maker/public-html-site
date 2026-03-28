@@ -5854,17 +5854,10 @@ function convertDemandeToProjet() {
     showToast('Veuillez d\'abord créer la fiche client', 'error');
     return;
   }
-  if (!confirm('Créer une fiche projet à partir de cette demande ?')) return;
-  apiFetch('api/demandes.php?id=' + _openDemandeId, {
-    method: 'PUT',
-    body: { action: 'convertir_projet' }
-  }).then(function(r) {
-    showToast('✓ Fiche projet créée');
-    return loadData();
-  }).then(function() {
-    renderAll();
-    openDemande(_openDemandeId);
-  }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+  // Ouvrir le configurateur pré-rempli avec les données de la demande
+  var token = sessionStorage.getItem('cortoba_token');
+  if (token) localStorage.setItem('cortoba_xfer_token', JSON.stringify({token:token, ts:Date.now()}));
+  window.open('configurateur.html?demande=' + _openDemandeId, '_blank');
 }
 
 function createDevisFromDemande() {

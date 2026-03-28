@@ -577,7 +577,7 @@
 
     var items = [
       { label: 'Nouveau devis',    fn: "fabAction(function(){showPage('devis');setTimeout(function(){openModal('modal-devis');},120);})" },
-      { label: 'Nouveau projet',   fn: "fabAction(function(){showPage('projets');setTimeout(function(){openModal('modal-projet');},120);})" },
+      { label: 'Nouveau projet',   fn: "fabAction(function(){openConfigurateur();})" },
       { label: 'Nouveau client',   fn: "fabAction(function(){showPage('clients');setTimeout(function(){openModal('modal-client');},120);})" },
       { label: 'Nouvelle facture', fn: "fabAction(function(){showPage('facturation');setTimeout(function(){openModal('modal-facture');},120);})" },
       { label: 'Ajouter dépense', fn: "fabAction(function(){showPage('depenses');setTimeout(function(){openModal('modal-depense');},120);})" },

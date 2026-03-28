@@ -462,6 +462,11 @@
   <div id="cfg-footer">
     <div id="cfg-footer-inner">
       <button id="btn-prev" onclick="goPrev()" class="btn" style="visibility:hidden">← Précédent</button>
+      <label id="cfg-nas-wrap" style="display:none;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2)">
+        <input type="checkbox" id="cfg-nas-create" checked style="accent-color:var(--accent)" />
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        Créer le dossier NAS
+      </label>
       <div id="cfg-hint" style="font-size:0.7rem;color:var(--text-3);text-align:center;flex:1;min-width:0"></div>
       <div style="display:flex;gap:0.5rem">
         <button id="btn-next" onclick="goNext()" class="btn btn-primary">Suivant →</button>
@@ -600,6 +605,7 @@ var ZONE_COEFF = {'Urbaine':1.00,'Périurbaine':0.92,'Rurale':0.82,'Agricole':0.
 
 // ── État du wizard ──
 var _step = 1;
+var _maxStep = 1;
 var TOTAL = 6;
 var STEPS = [
   {n:1,label:'Identité'},
@@ -619,12 +625,15 @@ function goNext() { goStep(_step + 1); }
 function goPrev() { goStep(_step - 1); }
 
 function goStep(n) {
-  if (n > _step && !validateStep(_step)) return;
+  // Navigation libre : pas de validation bloquante sauf à l'enregistrement
+  if (n < 1 || n > TOTAL) return;
   var cur = document.getElementById('cfg-s' + _step);
   var nxt = document.getElementById('cfg-s' + n);
   if (!nxt) return;
   if (cur) cur.classList.remove('active');
   nxt.classList.add('active');
+  // Mémoriser le pas le plus avancé atteint (pour la barre de progression)
+  if (n > _maxStep) _maxStep = n;
   _step = n;
   renderProgress();
   updateFooter();
@@ -674,8 +683,8 @@ function renderProgress() {
     bar.innerHTML = '';
     for (var i = 1; i <= TOTAL; i++) {
       var seg = document.createElement('div');
-      seg.style.cssText = 'flex:1;height:3px;border-radius:2px;transition:background .3s;background:' + (i <= _step ? 'var(--accent)' : 'var(--border)');
-      if (i < _step) { (function(s){ seg.style.cursor='pointer'; seg.addEventListener('click',function(){goStep(s);}); })(i); }
+      seg.style.cssText = 'flex:1;height:3px;border-radius:2px;transition:background .3s;cursor:pointer;background:' + (i <= _step ? 'var(--accent)' : 'var(--border)');
+      (function(s){ seg.addEventListener('click',function(){goStep(s);}); })(i);
       bar.appendChild(seg);
     }
   }
@@ -685,7 +694,7 @@ function renderProgress() {
   var tabs = document.getElementById('cfg-step-tabs');
   if (tabs) tabs.innerHTML = STEPS.map(function(s) {
     var active = s.n === _step, done = s.n < _step;
-    return '<button onclick="' + (done ? 'goStep(' + s.n + ')' : '') + '" style="background:none;border:none;border-bottom:2px solid ' + (active ? 'var(--accent)' : 'transparent') + ';padding:0.45rem 0.8rem;font-size:0.72rem;color:' + (active ? 'var(--accent)' : done ? 'var(--text-2)' : 'var(--text-3)') + ';cursor:' + (done ? 'pointer' : 'default') + ';white-space:nowrap;letter-spacing:0.06em;font-family:var(--font);transition:color .2s">' + (done ? '✓ ' : '') + s.label + '</button>';
+    return '<button onclick="goStep(' + s.n + ')" style="background:none;border:none;border-bottom:2px solid ' + (active ? 'var(--accent)' : 'transparent') + ';padding:0.45rem 0.8rem;font-size:0.72rem;color:' + (active ? 'var(--accent)' : done ? 'var(--text-2)' : 'var(--text-3)') + ';cursor:pointer;white-space:nowrap;letter-spacing:0.06em;font-family:var(--font);transition:color .2s">' + (done ? '✓ ' : '') + s.label + '</button>';
   }).join('');
 }
 
@@ -696,6 +705,8 @@ function updateFooter() {
   if (prev) prev.style.visibility = _step > 1 ? 'visible' : 'hidden';
   if (next) next.style.display = _step < TOTAL ? 'inline-flex' : 'none';
   if (save) save.style.display = _step === TOTAL ? 'inline-flex' : 'none';
+  var nasWrap = document.getElementById('cfg-nas-wrap');
+  if (nasWrap) nasWrap.style.display = _step === TOTAL ? 'flex' : 'none';
 }
 
 // ── Utilitaires ──
@@ -966,8 +977,12 @@ function discardDraft() {
 
 // ── Sauvegarde projet ──
 function saveProjet() {
-  if (!validateStep(6)) return;
-  var mode = document.querySelector('input[name="cl-mode"]:checked'); if (!mode) return;
+  // Validation de tous les champs obligatoires avant enregistrement
+  var nom = (v('cfg-nom') || '').trim();
+  if (!nom) { goStep(1); showErr(1, 'Le nom du projet est obligatoire.'); document.getElementById('cfg-nom').focus(); return; }
+  hideErr(1);
+  if (!validateStep(6)) { goStep(6); return; }
+  var mode = document.querySelector('input[name="cl-mode"]:checked'); if (!mode) { goStep(6); showErr(6, 'Veuillez sélectionner ou créer un client.'); return; }
   var saveBtn = document.getElementById('btn-save');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Création…'; }
 
@@ -1004,6 +1019,11 @@ function saveProjet() {
       .then(function(resp) {
         localStorage.removeItem('cortoba_cfg_draft');
         var projet = resp.data || resp || {};
+        // Créer le dossier NAS si la case est cochée
+        var nasCheck = document.getElementById('cfg-nas-create');
+        if (nasCheck && nasCheck.checked && nasPath) {
+          apiFetch('api/nas.php?action=mkdir', {method:'POST', body:{path:nasPath}}).catch(function(){});
+        }
         showSuccess(v('cfg-nom'), projet.code || code);
       })
       .catch(function(e) {
@@ -1075,6 +1095,82 @@ function goBack() {
 }
 
 // ── Initialisation ──
+// ── Pré-remplissage depuis une demande ──
+function prefillFromDemande(demandeId) {
+  apiFetch('api/demandes.php?id=' + demandeId).then(function(r) {
+    var d = r.data || r;
+    if (!d) return;
+    // Données de la demande
+    var cfg = {};
+    try { cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {}); } catch(e) {}
+    // Nom du projet
+    var nomEl = document.getElementById('cfg-nom');
+    if (nomEl && cfg.type_batiment) nomEl.value = cfg.type_batiment;
+    // Type de bâtiment
+    var typeEl = document.getElementById('cfg-type-bat');
+    if (typeEl && cfg.type_batiment) typeEl.value = cfg.type_batiment;
+    // Surfaces
+    if (cfg.surface_terrain) { var el = document.getElementById('cfg-terrain'); if(el) el.value = cfg.surface_terrain; }
+    if (cfg.surface_shon || cfg.surface_construite) { var el = document.getElementById('cfg-shon'); if(el) el.value = cfg.surface_shon || cfg.surface_construite; }
+    if (cfg.surface_shob) { var el = document.getElementById('cfg-shob'); if(el) el.value = cfg.surface_shob; }
+    // Budget
+    if (cfg.budget || d.budget) { var el = document.getElementById('cfg-budget'); if(el) el.value = cfg.budget || d.budget; }
+    // Description
+    if (cfg.description || d.notes) { var el = document.getElementById('cfg-description'); if(el) el.value = cfg.description || d.notes || ''; }
+    // Standing
+    if (cfg.standing) {
+      setTimeout(function(){
+        var btns = document.querySelectorAll('.opt-std');
+        btns.forEach(function(b){ if(b.getAttribute('data-value')===cfg.standing) selectOpt(b,'opt-std'); });
+      }, 100);
+    }
+    // Zone
+    if (cfg.zone) {
+      setTimeout(function(){
+        var btns = document.querySelectorAll('.opt-zone');
+        btns.forEach(function(b){ if(b.getAttribute('data-value')===cfg.zone) selectOpt(b,'opt-zone'); });
+      }, 100);
+    }
+    // Localisation
+    if (cfg.adresse) { var el = document.getElementById('cfg-adresse'); if(el) el.value = cfg.adresse; }
+    if (cfg.lat && cfg.lng) {
+      document.getElementById('cfg-lat').value = cfg.lat;
+      document.getElementById('cfg-lng').value = cfg.lng;
+    }
+    // Missions
+    if (cfg.missions && Array.isArray(cfg.missions)) {
+      setTimeout(function(){
+        renderMissions();
+        cfg.missions.forEach(function(m){
+          var cb = document.querySelector('#cfg-missions-list input[value="' + (m.id || m) + '"]');
+          if(cb) cb.checked = true;
+        });
+      }, 200);
+    }
+    // Client — pré-sélectionner si on a le nom/email
+    if (d.nom || d.email) {
+      setTimeout(function(){
+        var modeExist = document.getElementById('cl-mode-existant');
+        if (modeExist) { modeExist.checked = true; modeExist.dispatchEvent(new Event('change')); }
+        var client = _clients.find(function(c){
+          return (c.email && c.email === d.email) ||
+                 (c.displayNom || c.display_nom || '') === d.nom ||
+                 (c.nom || '') === d.nom;
+        });
+        if (client) {
+          var sel = document.getElementById('cl-select');
+          if (sel) sel.value = client.id;
+        }
+      }, 300);
+    }
+    // Indicateur visuel
+    var eyebrow = document.querySelector('.cfg-step-eyebrow');
+    if (eyebrow) eyebrow.innerHTML = '<span style="color:var(--accent)">▶ Pré-rempli depuis la demande #' + demandeId.substring(0,8) + '</span>';
+  }).catch(function(e) {
+    console.warn('Impossible de charger la demande:', e);
+  });
+}
+
 window.addEventListener('load', function() {
   // Auth
   if (!initAuth()) return;
@@ -1094,8 +1190,15 @@ window.addEventListener('load', function() {
     renderProgress();
     updateFooter();
 
-    // Brouillon
-    restoreDraft();
+    // Pré-remplissage depuis une demande (paramètre URL ?demande=ID)
+    var urlParams = new URLSearchParams(window.location.search);
+    var demandeId = urlParams.get('demande');
+    if (demandeId) {
+      prefillFromDemande(demandeId);
+    } else {
+      // Brouillon (seulement si pas de pré-remplissage)
+      restoreDraft();
+    }
 
     // Focus
     setTimeout(function() {
