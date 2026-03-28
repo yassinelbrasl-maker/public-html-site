@@ -920,7 +920,8 @@ function genNasPath(code, clientNom) {
   var yy = (code || '').split('_')[1] || String(new Date().getFullYear()).slice(-2);
   var year = '20' + yy;
   var suffix = (clientNom || '').trim().replace(/\s+/g, '_');
-  return '\\\\NAS\\Projets\\' + year + '\\' + code + (suffix ? '_' + suffix : '');
+  var folderName = code + (suffix ? '_' + suffix : '');
+  return '\\\\192.168.1.165\\Public\\CAS_PROJETS\\' + year + '\\' + folderName;
 }
 
 // ── Brouillon ──

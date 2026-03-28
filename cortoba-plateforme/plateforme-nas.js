@@ -1445,9 +1445,9 @@ function genNasPath(code, clientObj){
       suffix = suffix.replace(/\s+/g,'_');
     }
   }
-  // Utiliser le chemin UNC réel configuré dans les paramètres NAS
-  var base = (getSetting('cortoba_nas_local', '') || '\\\\NAS\\Projets').replace(/[\\\/]+$/, '');
-  return base+'\\'+year+'\\'+code+(suffix?'_'+suffix:'');
+  var ip = getSetting('cortoba_nas_local', '192.168.1.165');
+  var folderName = code + (suffix ? '_' + suffix : '');
+  return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + year + '\\' + folderName;
 }
 
 function previewPjCode(){
