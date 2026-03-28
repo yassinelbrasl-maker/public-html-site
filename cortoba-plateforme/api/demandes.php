@@ -73,6 +73,14 @@ function createPublic() {
     $db = getDB();
     $id = bin2hex(random_bytes(16));
 
+    // Fusionner les missions dans cfg_data si présentes
+    $cfgRaw = $body['cfg_data'] ?? '{}';
+    $cfgObj = json_decode($cfgRaw, true) ?: [];
+    if (!empty($body['missions']) && is_array($body['missions'])) {
+        $cfgObj['missions'] = $body['missions'];
+        $cfgRaw = json_encode($cfgObj, JSON_UNESCAPED_UNICODE);
+    }
+
     $db->prepare('
         INSERT INTO CA_demandes (id, nom_projet, prenom, nom, tel, whatsapp, email,
             cfg_data, surface_estimee, cout_estime_low, cout_estime_high, statut, cree_at)
@@ -85,7 +93,7 @@ function createPublic() {
         $tel,
         $body['whatsapp']        ?? null,
         $body['email']           ?? null,
-        $body['cfg_data']        ?? '{}',
+        $cfgRaw,
         !empty($body['surface_estimee'])  ? floatval($body['surface_estimee'])  : null,
         !empty($body['cout_estime_low'])  ? floatval($body['cout_estime_low'])  : null,
         !empty($body['cout_estime_high']) ? floatval($body['cout_estime_high']) : null,

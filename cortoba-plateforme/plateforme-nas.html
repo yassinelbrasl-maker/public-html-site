@@ -1210,14 +1210,16 @@
         <div class="card" style="margin-bottom:1.5rem">
           <div class="card-title">Missions architecturales</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
-            Ces missions apparaissent dans l'onglet Missions lors de la création d'un projet.
+            Ces missions apparaissent dans le configurateur public, la création de projet et la création de devis.
           </div>
           <div id="param-missions-wrap">
             <div style="color:var(--text-3);font-size:0.82rem">Chargement…</div>
           </div>
-          <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
-            <input id="param-mission-abbr" class="form-input" placeholder="Abbr. (ex: DIAG)" style="width:110px" />
-            <input id="param-mission-nom" class="form-input" placeholder="Nom complet de la mission" style="flex:1;min-width:200px" />
+          <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+            <select id="param-mission-cat" class="form-select" style="width:180px">
+              <option value="">— Catégorie —</option>
+            </select>
+            <input id="param-mission-nom" class="form-input" placeholder="Nom de la mission" style="flex:1;min-width:200px" />
             <button class="btn btn-primary btn-sm" onclick="addParamMission()">+ Ajouter</button>
           </div>
         </div>
@@ -1667,6 +1669,11 @@
             <option>Suivi de chantier</option>
             <option>Conseil & expertise</option>
           </select>
+        </div>
+        <div class="form-field full"><label class="form-label">Missions incluses</label>
+          <div id="dv-missions-list" style="max-height:200px;overflow-y:auto;padding:0.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg-2)">
+            <!-- Rempli dynamiquement par JS -->
+          </div>
         </div>
         <div class="form-field full"><label class="form-label">Notes</label><textarea id="dv-notes" class="form-textarea" placeholder="Conditions, délais, remarques…"></textarea></div>
       </div>
@@ -2554,8 +2561,8 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="plateforme-nas.js?v=1"></script>
-<script src="ergonomie.js?v=1"></script>
+<script src="plateforme-nas.js?v=3"></script>
+<script src="ergonomie.js?v=3"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {

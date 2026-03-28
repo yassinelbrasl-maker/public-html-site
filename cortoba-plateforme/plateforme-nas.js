@@ -194,7 +194,7 @@ function loadSettings() {
   try {
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (k && (k.indexOf('cortoba_') === 0)) {
+      if (k && (k.indexOf('cortoba_') === 0 || k.indexOf('cfg_') === 0)) {
         try { _settingsCache[k] = JSON.parse(localStorage.getItem(k)); } catch(e) {}
       }
     }
@@ -209,7 +209,7 @@ function loadSettings() {
         // Ne pas écraser un localStorage récent si le serveur retourne vide
         if(v !== null && v !== undefined && v !== '') {
           _settingsCache[k] = v;
-          try { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); } catch(e){}
+          try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){}
         }
       });
       return _settingsCache;
@@ -226,20 +226,23 @@ function getSetting(key, defaut) {
   return getLS(key, defaut);
 }
 
-// Sauvegarder un paramètre — localStorage en priorité, API en bonus
+// Sauvegarder un paramètre — localStorage + API serveur
 function saveSetting(key, value) {
   _settingsCache[key] = value;
-  setLS(key, value); // Toujours sauvegarder en localStorage (fiable)
-  // Tenter persistance serveur sans bloquer
-  apiFetch('api/settings.php', {method:'POST', body:{key:key, value:value}})
-    .catch(function() {}); // Silencieux si api/settings.php absent
+  setLS(key, value);
+  return apiFetch('api/settings.php', {method:'POST', body:{key:key, value:value}})
+    .then(function(r) { return r; })
+    .catch(function(e) {
+      console.error('[saveSetting] Erreur serveur pour "' + key + '":', e);
+      return {error: true, key: key, message: e.message || String(e)};
+    });
 }
 
 function deleteSetting(key) {
   delete _settingsCache[key];
   localStorage.removeItem(key);
-  apiFetch('api/settings.php?key='+encodeURIComponent(key), {method:'DELETE'})
-    .catch(function(){});
+  return apiFetch('api/settings.php?key='+encodeURIComponent(key), {method:'DELETE'})
+    .catch(function(e){ console.error('[deleteSetting] Erreur pour "'+key+'":', e); });
 }
 
 // Helpers selects extensibles
@@ -1078,18 +1081,59 @@ function renderDevisList(){
   var b = document.querySelector('[onclick="showPage(\'devis\')"] .nav-badge');
   if (b) b.textContent = list.filter(function(d){ return d.statut==='En attente'; }).length || '';
 }
+// Remplir la checklist des missions dans le modal devis
+function populateDevisMissions(selected) {
+  var wrap = document.getElementById('dv-missions-list'); if (!wrap) return;
+  var missions = getMissions();
+  var cats = getMissionCategories();
+  selected = selected || [];
+  var html = '';
+  cats.forEach(function(cat) {
+    var catM = missions.filter(function(m){ return m.cat === cat.id; });
+    if (catM.length === 0) return;
+    html += '<div style="margin-bottom:0.6rem">';
+    html += '<div style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.4rem">' + cat.label;
+    html += ' <button type="button" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.6rem;padding:0" onclick="toggleDevisMissionCat(\'' + cat.id + '\')">tout</button></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.2rem">';
+    catM.forEach(function(m) {
+      var isChecked = selected.indexOf(m.id) !== -1 || selected.indexOf(m.nom) !== -1;
+      html += '<label style="display:flex;align-items:center;gap:0.35rem;font-size:0.75rem;color:var(--text-2);cursor:pointer;padding:0.15rem 0">';
+      html += '<input type="checkbox" class="dv-mission-cb" data-mid="' + m.id + '" data-cat="' + m.cat + '" value="' + (m.nom||'').replace(/"/g,'&quot;') + '"' + (isChecked ? ' checked' : '') + ' style="accent-color:var(--accent)">';
+      html += (m.nom||'') + '</label>';
+    });
+    html += '</div></div>';
+  });
+  wrap.innerHTML = html || '<span style="font-size:0.78rem;color:var(--text-3)">Aucune mission configurée</span>';
+}
+
+function toggleDevisMissionCat(catId) {
+  var cbs = document.querySelectorAll('.dv-mission-cb[data-cat="' + catId + '"]');
+  var allChecked = true;
+  cbs.forEach(function(cb){ if (!cb.checked) allChecked = false; });
+  cbs.forEach(function(cb){ cb.checked = !allChecked; });
+}
+
+function getDevisSelectedMissions() {
+  var arr = [];
+  document.querySelectorAll('.dv-mission-cb:checked').forEach(function(cb) {
+    arr.push(cb.value);
+  });
+  return arr;
+}
+
 function saveDevis(){
   var client = (document.getElementById('dv-client').value||'').trim();
   var ref    = (document.getElementById('dv-ref').value||'').trim();
   var objet  = (document.getElementById('dv-objet').value||'').trim();
   var montant = parseFloat(document.getElementById('dv-montant').value)||0;
   var notes  = (document.getElementById('dv-notes').value||'').trim();
+  var missions = getDevisSelectedMissions();
   var err    = document.getElementById('dv-err');
   if (!client||!objet) { err.textContent='Client et objet sont obligatoires.'; err.style.display='block'; return; }
   err.style.display='none';
   var list = getDevis();
   var autoRef = ref || ('DV-'+new Date().getFullYear()+'-'+String(list.length+1).padStart(3,'0'));
-  var body = {numero:autoRef,client:client,objet:objet,montantHt:montant,montantTtc:montant,statut:'En attente',dateDevis:new Date().toISOString().split('T')[0],notes:notes};
+  var body = {numero:autoRef,client:client,objet:objet,montantHt:montant,montantTtc:montant,statut:'En attente',dateDevis:new Date().toISOString().split('T')[0],notes:notes,missions:missions};
   apiFetch('api/data.php?table=devis', {method:'POST', body:body})
     .then(function(){ loadData().then(function(){ renderDevisList(); }); closeModal('modal-devis');
       ['dv-client','dv-ref','dv-objet','dv-montant','dv-notes'].forEach(function(id){ var el=document.getElementById(id);if(el)el.value=''; }); })
@@ -1312,41 +1356,132 @@ function populateClientSelect(){
 }
 
 // A2 — Missions avec liste par défaut
-var DEFAULT_MISSIONS = [
-  {id:'m1', abbr:'EP',   nom:'Étude préliminaire'},
-  {id:'m2', abbr:'APS',  nom:'Avant-projet sommaire'},
-  {id:'m3', abbr:'APD',  nom:'Avant-projet définitif'},
-  {id:'m4', abbr:'PC',   nom:'Permis de construire'},
-  {id:'m5', abbr:'DCE',  nom:'Dossier consultation entreprises'},
-  {id:'m6', abbr:'ACT',  nom:'Assistance passation des marchés'},
-  {id:'m7', abbr:'EXE',  nom:"Études d'exécution"},
-  {id:'m8', abbr:'DET',  nom:'Direction exécution travaux'},
-  {id:'m9', abbr:'OPC',  nom:'Ordonnancement, pilotage, coordination'},
-  {id:'m10',abbr:'AOR',  nom:'Assistance aux opérations de réception'},
-  {id:'m11',abbr:'DIAG', nom:'Diagnostic / Expertise'},
-  {id:'m12',abbr:'CONS', nom:'Conseil & expertise architecturale'},
+var MISSION_CATEGORIES = [
+  {id:'AI',  label:'Assistance immobilière'},
+  {id:'EP',  label:'Études préliminaires'},
+  {id:'CON', label:'Conception architecturale'},
+  {id:'EXE', label:'Études d\'exécution'},
+  {id:'AMO', label:'Assistance à la maîtrise d\'ouvrage'},
+  {id:'MOD', label:'Maîtrise d\'ouvrage déléguée'},
+  {id:'3D',  label:'Visualisation 3D'},
+  {id:'DEC', label:'Décoration & Paysage'},
+  {id:'DET', label:'Suivi de chantier'},
+  {id:'DIAG',label:'Diagnostic & Expertise'}
 ];
+
+var DEFAULT_MISSIONS = [
+  // ── Assistance immobilière ──
+  {id:'m01', cat:'AI',  nom:'Recherche de bien immobilier'},
+  {id:'m02', cat:'AI',  nom:'Assistance à l\'achat immobilier'},
+  {id:'m03', cat:'AI',  nom:'Visite et expertise de terrain'},
+  // ── Études préliminaires ──
+  {id:'m04', cat:'EP',  nom:'Relevé architectural (gros œuvres)'},
+  {id:'m05', cat:'EP',  nom:'Relevé détaillé'},
+  {id:'m06', cat:'EP',  nom:'Livraison de fichier source'},
+  {id:'m07', cat:'EP',  nom:'Élaboration de programme'},
+  {id:'m08', cat:'EP',  nom:'Estimation sommaire (surface & coût)'},
+  // ── Conception architecturale ──
+  {id:'m09', cat:'CON', nom:'Avant-projet sommaire (APS)'},
+  {id:'m10', cat:'CON', nom:'Avant-projet développé (APD)'},
+  {id:'m11', cat:'CON', nom:'Permis de construire'},
+  // ── Études d'exécution ──
+  {id:'m12', cat:'EXE', nom:'Dossier d\'exécution'},
+  {id:'m13', cat:'EXE', nom:'Consultation des ingénieurs'},
+  {id:'m14', cat:'EXE', nom:'Coordination des études'},
+  {id:'m15', cat:'EXE', nom:'Bordereau des prix'},
+  // ── AMO ──
+  {id:'m16', cat:'AMO', nom:'Assistance à la maîtrise d\'ouvrage'},
+  {id:'m17', cat:'AMO', nom:'Assistance à la passation de marchés'},
+  {id:'m18', cat:'AMO', nom:'Consultation fournisseurs & prestataires'},
+  {id:'m19', cat:'AMO', nom:'Étude comparative'},
+  {id:'m20', cat:'AMO', nom:'Assistance à l\'échantillonnage'},
+  {id:'m21', cat:'AMO', nom:'Visite des fournisseurs'},
+  // ── MOD ──
+  {id:'m22', cat:'MOD', nom:'Validation des paiements'},
+  {id:'m23', cat:'MOD', nom:'Paiement des prestataires & fournisseurs'},
+  {id:'m24', cat:'MOD', nom:'Gestion financière'},
+  {id:'m25', cat:'MOD', nom:'Gestion d\'approvisionnement'},
+  {id:'m26', cat:'MOD', nom:'Gestion des ressources humaines'},
+  {id:'m27', cat:'MOD', nom:'Journal de suivi'},
+  // ── 3D ──
+  {id:'m28', cat:'3D',  nom:'3D extérieure'},
+  {id:'m29', cat:'3D',  nom:'3D intérieure'},
+  {id:'m30', cat:'3D',  nom:'Animation 3D'},
+  // ── Décoration & Paysage ──
+  {id:'m31', cat:'DEC', nom:'Décoration d\'intérieur'},
+  {id:'m32', cat:'DEC', nom:'Assistance choix ameublement & décoration'},
+  {id:'m33', cat:'DEC', nom:'Étude paysagère & aménagement extérieur'},
+  {id:'m34', cat:'DEC', nom:'Plan de plantation'},
+  {id:'m35', cat:'DEC', nom:'Plan d\'arrosage'},
+  {id:'m36', cat:'DEC', nom:'Plan d\'éclairage'},
+  {id:'m37', cat:'DEC', nom:'Choix des palettes végétales'},
+  {id:'m38', cat:'DEC', nom:'Rendu 3D paysager'},
+  // ── Suivi de chantier ──
+  {id:'m39', cat:'DET', nom:'Suivi de chantier'},
+  {id:'m40', cat:'DET', nom:'Pilotage'},
+  {id:'m41', cat:'DET', nom:'Assistance à la réception des travaux'},
+  // ── Diagnostic ──
+  {id:'m42', cat:'DIAG',nom:'Diagnostic / Expertise'},
+];
+
 function getMissions(){
   var m = getSetting('cortoba_missions', []);
   return (Array.isArray(m) && m.length) ? m : DEFAULT_MISSIONS;
+}
+function getMissionCategories(){
+  var c = getSetting('cortoba_mission_categories', []);
+  return (Array.isArray(c) && c.length) ? c : MISSION_CATEGORIES;
 }
 
 function populateMissionsList(selected){
   var list = document.getElementById('pj-missions-list'); if(!list) return;
   var missions = getMissions();
+  var cats = getMissionCategories();
   selected = selected || [];
   if (missions.length === 0) {
     list.innerHTML = '<span style="font-size:0.82rem;color:var(--text-3)">Aucune mission configurée. Ajoutez-en dans Paramètres.</span>';
     return;
   }
-  list.innerHTML = missions.map(function(m){
-    var val = (m.abbr||m.id)+'_'+(m.nom||'');
-    var isSelected = selected.indexOf(m.nom)!==-1 || selected.indexOf(val)!==-1;
-    return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.6rem;background:var(--bg-2);border-radius:6px;cursor:pointer;border:1px solid '+(isSelected?'var(--accent)':'transparent')+'">'+
-      '<input type="checkbox" value="'+val+'" '+(isSelected?'checked':'')+' style="accent-color:var(--accent)" onchange="this.closest(\'label\').style.borderColor=this.checked?\'var(--accent)\":\'transparent\'">'+
-      '<span style="font-size:0.8rem"><strong style="color:var(--accent);margin-right:0.3rem">'+(m.abbr||'')+'</strong>'+(m.nom||m.abbr||'')+'</span>'+
-      '</label>';
-  }).join('');
+  var html = '';
+  cats.forEach(function(cat){
+    var catMissions = missions.filter(function(m){ return m.cat === cat.id; });
+    if (catMissions.length === 0) return;
+    html += '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:0.4rem;font-weight:600;display:flex;align-items:center;gap:0.4rem">' + cat.label + ' <button type="button" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.65rem;padding:0" onclick="toggleMissionCat(this,\'' + cat.id + '\')">tout cocher</button></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.35rem">';
+    catMissions.forEach(function(m){
+      var val = m.id + '_' + (m.nom||'');
+      var isSelected = selected.indexOf(m.nom)!==-1 || selected.indexOf(val)!==-1 || selected.indexOf(m.id)!==-1;
+      html += '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-radius:5px;cursor:pointer;border:1px solid '+(isSelected?'var(--accent)':'transparent')+';transition:border-color .15s" onchange="this.style.borderColor=this.querySelector(\'input\').checked?\'var(--accent)\':\'transparent\'">' +
+        '<input type="checkbox" class="pj-mission-cb" data-cat="' + cat.id + '" value="' + val + '" '+(isSelected?'checked':'')+' style="accent-color:var(--accent)">' +
+        '<span style="font-size:0.78rem">' + (m.nom||'') + '</span></label>';
+    });
+    html += '</div></div>';
+  });
+  // Missions sans catégorie
+  var orphans = missions.filter(function(m){ return !m.cat || !cats.find(function(c){ return c.id===m.cat; }); });
+  if (orphans.length > 0) {
+    html += '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.4rem">Autres</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.35rem">';
+    orphans.forEach(function(m){
+      var val = m.id + '_' + (m.nom||'');
+      var isSelected = selected.indexOf(m.nom)!==-1 || selected.indexOf(val)!==-1;
+      html += '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-radius:5px;cursor:pointer;border:1px solid '+(isSelected?'var(--accent)':'transparent')+'">' +
+        '<input type="checkbox" class="pj-mission-cb" value="' + val + '" '+(isSelected?'checked':'')+' style="accent-color:var(--accent)">' +
+        '<span style="font-size:0.78rem">' + (m.nom||'') + '</span></label>';
+    });
+    html += '</div></div>';
+  }
+  list.innerHTML = html;
+}
+
+function toggleMissionCat(btn, catId){
+  var cbs = document.querySelectorAll('.pj-mission-cb[data-cat="'+catId+'"]');
+  var allChecked = Array.from(cbs).every(function(c){ return c.checked; });
+  cbs.forEach(function(c){
+    c.checked = !allChecked;
+    c.closest('label').style.borderColor = c.checked ? 'var(--accent)' : 'transparent';
+  });
+  btn.textContent = allChecked ? 'tout cocher' : 'tout décocher';
 }
 
 function getSelectedMissions(){
@@ -2379,11 +2514,19 @@ function saveAgenceParams(){
     'param-agence-mf':      'cortoba_agence_mf',
     'param-agence-cnoa':    'cortoba_agence_cnoa'
   };
+  var promises = [];
   Object.keys(map).forEach(function(id){
     var el = document.getElementById(id);
-    if (el) saveSetting(map[id], el.value.trim());
+    if (el) promises.push(saveSetting(map[id], el.value.trim()));
   });
-  showToast('Informations agence enregistrées');
+  Promise.all(promises).then(function(results) {
+    var errors = results.filter(function(r){ return r && r.error; });
+    if (errors.length > 0) {
+      showToast('⚠ Sauvegarde locale OK, mais ' + errors.length + ' erreur(s) serveur', 'error');
+    } else {
+      showToast('✓ Informations agence enregistrées');
+    }
+  });
 }
 
 // Charger les infos agence dans les champs
@@ -2407,10 +2550,18 @@ function saveFactureParams(){
   var rib      = (document.getElementById('param-rib')||{value:''}).value.trim();
   var banque   = (document.getElementById('param-banque')||{value:''}).value.trim();
   var mentions = (document.getElementById('param-fa-mentions')||{value:''}).value.trim();
-  saveSetting('cortoba_rib', rib);
-  saveSetting('cortoba_banque', banque);
-  saveSetting('cortoba_fa_mentions', mentions);
-  showToast('Coordonnées bancaires enregistrées');
+  Promise.all([
+    saveSetting('cortoba_rib', rib),
+    saveSetting('cortoba_banque', banque),
+    saveSetting('cortoba_fa_mentions', mentions)
+  ]).then(function(results) {
+    var errors = results.filter(function(r){ return r && r.error; });
+    if (errors.length > 0) {
+      showToast('⚠ Sauvegarde locale OK, mais ' + errors.length + ' erreur(s) serveur', 'error');
+    } else {
+      showToast('✓ Coordonnées bancaires enregistrées');
+    }
+  });
 }
 
 
@@ -2711,40 +2862,79 @@ function resetScanFacture(){
 function renderParametresMissions(){
   var wrap = document.getElementById('param-missions-wrap'); if(!wrap) return;
   var missions = getMissions();
-  wrap.innerHTML = '';
-  if (missions.length === 0) {
-    wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucune mission définie.</div>';
-    return;
-  }
-  var div = document.createElement('div');
-  div.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.8rem';
-  missions.forEach(function(m, idx){
-    var isCustom = idx >= DEFAULT_MISSIONS.length;
-    var span = document.createElement('span');
-    span.style.cssText = 'display:inline-flex;align-items:center;gap:0.3rem;padding:0.25rem 0.6rem;border-radius:20px;font-size:0.75rem;background:var(--bg-3);border:1px solid var(--border);color:'+(isCustom?'var(--accent)':'var(--text-2)');
-    span.innerHTML = '<strong style="color:var(--accent)">'+(m.abbr||'')+'</strong> '+(m.nom||'')+
-      (isCustom?'<button type="button" style="background:none;border:none;cursor:pointer;color:#e07070;font-size:0.85rem;line-height:1;padding:0 0 0 2px" onclick="removeParamMission(\''+m.id+'\')" title="Supprimer">✕</button>':'');
-    div.appendChild(span);
+  var cats = getMissionCategories();
+  var html = '';
+
+  cats.forEach(function(cat){
+    var catMissions = missions.filter(function(m){ return m.cat === cat.id; });
+    html += '<div style="margin-bottom:1.2rem">';
+    html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">';
+    html += '<span style="font-size:0.75rem;font-weight:600;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase">' + cat.label + '</span>';
+    html += '<span style="font-size:0.68rem;color:var(--text-3)">(' + catMissions.length + ')</span>';
+    html += '</div>';
+    if (catMissions.length > 0) {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:0.35rem">';
+      catMissions.forEach(function(m){
+        var isDefault = m.id && m.id.indexOf('mc_') === -1;
+        html += '<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.55rem;border-radius:4px;font-size:0.74rem;background:var(--bg-3);border:1px solid var(--border);color:' + (isDefault ? 'var(--text-2)' : 'var(--accent)') + '">';
+        html += (m.nom||'');
+        html += '<button type="button" style="background:none;border:none;cursor:pointer;color:#e07070;font-size:0.8rem;line-height:1;padding:0 0 0 3px" onclick="removeParamMission(\'' + m.id + '\')" title="Supprimer">✕</button>';
+        html += '</span>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="font-size:0.75rem;color:var(--text-3);font-style:italic">Aucune mission dans cette catégorie</div>';
+    }
+    html += '</div>';
   });
-  wrap.appendChild(div);
+
+  // Orphelins
+  var orphans = missions.filter(function(m){ return !m.cat || !cats.find(function(c){ return c.id===m.cat; }); });
+  if (orphans.length > 0) {
+    html += '<div style="margin-bottom:1rem"><div style="font-size:0.75rem;font-weight:600;color:var(--text-3);margin-bottom:0.5rem">Non catégorisées</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:0.35rem">';
+    orphans.forEach(function(m){
+      html += '<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.55rem;border-radius:4px;font-size:0.74rem;background:var(--bg-3);border:1px solid var(--border);color:var(--text-3)">' + (m.nom||'');
+      html += '<button type="button" style="background:none;border:none;cursor:pointer;color:#e07070;font-size:0.8rem" onclick="removeParamMission(\'' + m.id + '\')">✕</button></span>';
+    });
+    html += '</div></div>';
+  }
+
+  wrap.innerHTML = html;
+
+  // Remplir le select des catégories
+  var catSel = document.getElementById('param-mission-cat');
+  if (catSel && catSel.options.length <= 1) {
+    cats.forEach(function(c) {
+      var opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.label;
+      catSel.appendChild(opt);
+    });
+  }
 }
+
 function addParamMission(){
-  var abbr = (document.getElementById('param-mission-abbr').value||'').trim().toUpperCase();
-  var nom  = (document.getElementById('param-mission-nom').value||'').trim();
-  if (!abbr || !nom) { alert('Saisissez une abréviation et un nom.'); return; }
+  var catSel = document.getElementById('param-mission-cat');
+  var nom = (document.getElementById('param-mission-nom').value||'').trim();
+  var cat = catSel ? catSel.value : '';
+  if (!nom) { alert('Saisissez le nom de la mission.'); return; }
+  if (!cat) { alert('Choisissez une catégorie.'); return; }
   var missions = getMissions();
-  var newM = { id: 'mc_'+Date.now(), abbr: abbr, nom: nom };
+  var newM = { id:'mc_'+Date.now(), cat:cat, nom:nom };
   missions.push(newM);
   saveSetting('cortoba_missions', missions);
-  document.getElementById('param-mission-abbr').value = '';
-  document.getElementById('param-mission-nom').value  = '';
+  document.getElementById('param-mission-nom').value = '';
   renderParametresMissions();
+  showToast('Mission ajoutée');
 }
+
 function removeParamMission(id){
   if (!confirm('Supprimer cette mission ?')) return;
   var missions = getMissions().filter(function(m){ return m.id !== id; });
   saveSetting('cortoba_missions', missions);
   renderParametresMissions();
+  showToast('Mission supprimée');
 }
 
 // ── NAS config (ancien — remplacé par version complète plus bas) ──
@@ -3330,6 +3520,9 @@ function openModal(id){
   }
   if(id==='modal-nas-raccourci'){
     openModal_raccourci_reset();
+  }
+  if(id==='modal-devis'){
+    populateDevisMissions([]);
   }
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -5352,6 +5545,48 @@ function renderCfgDataStructured(cfg, d) {
     s += '</div></div>';
   }
 
+  // ── Section 6 : Missions demandées ──
+  var missions = cfg.missions || [];
+  if (missions.length > 0) {
+    var cats = getMissionCategories();
+    s += '<div class="dem-section"><div class="dem-section-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Missions demandées <span style="font-size:0.68rem;color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0">(' + missions.length + ')</span></div>';
+    // Grouper par catégorie
+    var byCat = {};
+    missions.forEach(function(m) {
+      var catId = m.cat || 'other';
+      if (!byCat[catId]) byCat[catId] = [];
+      byCat[catId].push(m);
+    });
+    // Si les missions n'ont pas de .cat, essayer de retrouver via l'id dans DEFAULT_MISSIONS
+    if (Object.keys(byCat).length === 1 && byCat['other']) {
+      var allM = getMissions();
+      byCat = {};
+      missions.forEach(function(m) {
+        var found = allM.find(function(dm) { return dm.id === m.id; });
+        var catId = found ? found.cat : 'other';
+        if (!byCat[catId]) byCat[catId] = [];
+        byCat[catId].push({ id: m.id, nom: m.nom || (found ? found.nom : m.id) });
+      });
+    }
+    cats.forEach(function(cat) {
+      var catMissions = byCat[cat.id];
+      if (!catMissions || catMissions.length === 0) return;
+      s += '<div style="margin-bottom:0.5rem"><span style="font-size:0.68rem;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:0.08em">' + esc(cat.label) + '</span>';
+      s += '<div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.25rem">';
+      catMissions.forEach(function(m) {
+        s += '<span class="dem-tag">' + esc(m.nom || m.id) + '</span>';
+      });
+      s += '</div></div>';
+    });
+    // Orphelins
+    if (byCat['other'] && byCat['other'].length > 0) {
+      s += '<div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.3rem">';
+      byCat['other'].forEach(function(m) { s += '<span class="dem-tag">' + esc(m.nom || m.id) + '</span>'; });
+      s += '</div>';
+    }
+    s += '</div>';
+  }
+
   return s;
 }
 
@@ -5491,10 +5726,10 @@ function createDevisFromDemande() {
       clientEl.value = client ? (client.displayNom || client.display_nom || d.prenom + ' ' + d.nom) : (d.prenom + ' ' + d.nom);
     }
     // Objet du devis
+    var cfg = {};
+    try { cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {}); } catch(e){}
     var objEl = document.getElementById('dv-objet');
     if (objEl) {
-      var cfg = {};
-      try { cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {}); } catch(e){}
       var parts = ['Projet ' + d.nom_projet];
       if (cfg.cfg_type) parts.push(cfg.cfg_type);
       if (cfg.cfg_operation) parts.push(cfg.cfg_operation);
@@ -5505,10 +5740,9 @@ function createDevisFromDemande() {
     if (montantEl && d.cout_estime_high) {
       montantEl.value = Math.round(parseFloat(d.cout_estime_high) * 0.08); // ~8% honoraires
     }
-    // Marquer la demande comme devis créé après fermeture
-    var _demId = _openDemandeId;
-    var origSave = window._origSaveDevis || null;
-    // On ne modifie pas saveDevis, mais on met à jour le statut après la création
+    // Pré-sélectionner les missions depuis la demande
+    var demMissions = (cfg.missions || []).map(function(m) { return m.id || m.nom; });
+    populateDevisMissions(demMissions);
   }, 200);
 }
 
@@ -5609,11 +5843,19 @@ function saveCfgParams() {
     emprise: parseFloat((document.getElementById('cfg-ratio-emprise') || {}).value) || 40
   };
 
-  saveSetting('cfg_cost_per_m2', costs);
-  saveSetting('cfg_zone_coefficients', zones);
-  saveSetting('cfg_ext_costs', ext);
-  saveSetting('cfg_ratios', ratios);
-  showToast('✓ Paramètres configurateur enregistrés');
+  Promise.all([
+    saveSetting('cfg_cost_per_m2', costs),
+    saveSetting('cfg_zone_coefficients', zones),
+    saveSetting('cfg_ext_costs', ext),
+    saveSetting('cfg_ratios', ratios)
+  ]).then(function(results) {
+    var errors = results.filter(function(r){ return r && r.error; });
+    if (errors.length > 0) {
+      showToast('⚠ Sauvegarde locale OK, mais ' + errors.length + ' erreur(s) serveur', 'error');
+    } else {
+      showToast('✓ Paramètres configurateur enregistrés');
+    }
+  });
 }
 
 function resetCfgParams() {

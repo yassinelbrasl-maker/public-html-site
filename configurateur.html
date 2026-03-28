@@ -1776,8 +1776,17 @@
           <div class="cfg-page" id="cfg-step-client">
             <div class="cfg-page-heading" style="text-align:center">
               <div class="cfg-step-big">📩</div>
-              <h3 class="cfg-page-title">Vos coordonnées</h3>
-              <p class="cfg-page-desc">Pour recevoir votre devis détaillé, laissez-nous vos informations de contact.</p>
+              <h3 class="cfg-page-title">Missions & Coordonnées</h3>
+              <p class="cfg-page-desc">Sélectionnez les missions souhaitées, puis laissez-nous vos coordonnées pour recevoir un devis détaillé.</p>
+            </div>
+
+            <!-- ── Sélection des missions ── -->
+            <div style="max-width:700px;margin:0 auto 2.5rem;padding:1.5rem;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02)">
+              <h4 style="font-size:1rem;font-weight:400;color:var(--text);margin:0 0 0.3rem">Quelles missions vous intéressent ?</h4>
+              <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 1.2rem">Cochez les prestations souhaitées. Notre équipe adaptera le devis en conséquence.</p>
+              <div id="cfg-missions-list" style="display:flex;flex-direction:column;gap:1rem">
+                <!-- Rempli dynamiquement par JS -->
+              </div>
             </div>
 
             <div style="max-width:520px;margin:0 auto">
@@ -2405,6 +2414,72 @@
         extCosts: {vrd:80, amenagement:60, branchements:40, honoraires:8},
         ratios: {shob:1.15, emprise:40}
       };
+
+      /* ── Missions par défaut (synchronisées avec la plateforme) ── */
+      var CFG_MISSION_CATEGORIES = [
+        {id:'AI',  label:'Assistance immobilière'},
+        {id:'EP',  label:'Études préliminaires'},
+        {id:'CON', label:'Conception architecturale'},
+        {id:'EXE', label:'Études d\'exécution'},
+        {id:'AMO', label:'Assistance à la maîtrise d\'ouvrage'},
+        {id:'MOD', label:'Maîtrise d\'ouvrage déléguée'},
+        {id:'3D',  label:'Visualisation 3D'},
+        {id:'DEC', label:'Décoration & Paysage'},
+        {id:'DET', label:'Suivi de chantier'},
+        {id:'DIAG',label:'Diagnostic & Expertise'}
+      ];
+      var CFG_DEFAULT_MISSIONS = [
+        {id:'m01',cat:'AI',nom:'Recherche de bien immobilier'},{id:'m02',cat:'AI',nom:'Assistance à l\'achat immobilier'},{id:'m03',cat:'AI',nom:'Visite et expertise de terrain'},
+        {id:'m04',cat:'EP',nom:'Relevé architectural (gros œuvres)'},{id:'m05',cat:'EP',nom:'Relevé détaillé'},{id:'m06',cat:'EP',nom:'Livraison de fichier source'},{id:'m07',cat:'EP',nom:'Élaboration de programme'},{id:'m08',cat:'EP',nom:'Estimation sommaire (surface & coût)'},
+        {id:'m09',cat:'CON',nom:'Avant-projet sommaire (APS)'},{id:'m10',cat:'CON',nom:'Avant-projet développé (APD)'},{id:'m11',cat:'CON',nom:'Permis de construire'},
+        {id:'m12',cat:'EXE',nom:'Dossier d\'exécution'},{id:'m13',cat:'EXE',nom:'Consultation des ingénieurs'},{id:'m14',cat:'EXE',nom:'Coordination des études'},{id:'m15',cat:'EXE',nom:'Bordereau des prix'},
+        {id:'m16',cat:'AMO',nom:'Assistance à la maîtrise d\'ouvrage'},{id:'m17',cat:'AMO',nom:'Assistance à la passation de marchés'},{id:'m18',cat:'AMO',nom:'Consultation fournisseurs & prestataires'},{id:'m19',cat:'AMO',nom:'Étude comparative'},{id:'m20',cat:'AMO',nom:'Assistance à l\'échantillonnage'},{id:'m21',cat:'AMO',nom:'Visite des fournisseurs'},
+        {id:'m22',cat:'MOD',nom:'Validation des paiements'},{id:'m23',cat:'MOD',nom:'Paiement des prestataires & fournisseurs'},{id:'m24',cat:'MOD',nom:'Gestion financière'},{id:'m25',cat:'MOD',nom:'Gestion d\'approvisionnement'},{id:'m26',cat:'MOD',nom:'Gestion des ressources humaines'},{id:'m27',cat:'MOD',nom:'Journal de suivi'},
+        {id:'m28',cat:'3D',nom:'3D extérieure'},{id:'m29',cat:'3D',nom:'3D intérieure'},{id:'m30',cat:'3D',nom:'Animation 3D'},
+        {id:'m31',cat:'DEC',nom:'Décoration d\'intérieur'},{id:'m32',cat:'DEC',nom:'Assistance choix ameublement & décoration'},{id:'m33',cat:'DEC',nom:'Étude paysagère & aménagement extérieur'},{id:'m34',cat:'DEC',nom:'Plan de plantation'},{id:'m35',cat:'DEC',nom:'Plan d\'arrosage'},{id:'m36',cat:'DEC',nom:'Plan d\'éclairage'},{id:'m37',cat:'DEC',nom:'Choix des palettes végétales'},{id:'m38',cat:'DEC',nom:'Rendu 3D paysager'},
+        {id:'m39',cat:'DET',nom:'Suivi de chantier'},{id:'m40',cat:'DET',nom:'Pilotage'},{id:'m41',cat:'DET',nom:'Assistance à la réception des travaux'},
+        {id:'m42',cat:'DIAG',nom:'Diagnostic / Expertise'}
+      ];
+      var cfgMissions = CFG_DEFAULT_MISSIONS;
+      var cfgMissionCats = CFG_MISSION_CATEGORIES;
+
+      function cfgRenderMissions() {
+        var wrap = document.getElementById('cfg-missions-list'); if (!wrap) return;
+        var html = '';
+        cfgMissionCats.forEach(function(cat) {
+          var catMissions = cfgMissions.filter(function(m){ return m.cat === cat.id; });
+          if (catMissions.length === 0) return;
+          html += '<div>';
+          html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">';
+          html += '<span style="font-size:0.72rem;font-weight:600;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase">' + cat.label + '</span>';
+          html += '<button type="button" onclick="cfgToggleMissionCat(\'' + cat.id + '\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:0.65rem;padding:0">tout cocher</button>';
+          html += '</div>';
+          html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.3rem">';
+          catMissions.forEach(function(m) {
+            html += '<label style="display:flex;align-items:center;gap:0.45rem;padding:0.35rem 0.5rem;border-radius:6px;cursor:pointer;font-size:0.78rem;color:var(--text-muted);transition:background 0.2s;border:1px solid transparent" onmouseover="this.style.background=\'rgba(255,255,255,0.03)\'" onmouseout="this.style.background=\'none\'">';
+            html += '<input type="checkbox" class="cfg-mission-cb" data-mid="' + m.id + '" data-cat="' + m.cat + '" value="' + (m.nom||'').replace(/"/g,'&quot;') + '" style="accent-color:var(--accent)">';
+            html += '<span>' + (m.nom||'') + '</span></label>';
+          });
+          html += '</div></div>';
+        });
+        wrap.innerHTML = html;
+      }
+
+      function cfgToggleMissionCat(catId) {
+        var cbs = document.querySelectorAll('.cfg-mission-cb[data-cat="' + catId + '"]');
+        var allChecked = true;
+        cbs.forEach(function(cb){ if (!cb.checked) allChecked = false; });
+        cbs.forEach(function(cb){ cb.checked = !allChecked; });
+      }
+
+      function cfgGetSelectedMissions() {
+        var selected = [];
+        document.querySelectorAll('.cfg-mission-cb:checked').forEach(function(cb) {
+          selected.push({ id: cb.dataset.mid, nom: cb.value });
+        });
+        return selected;
+      }
+
       (function loadCfgSettings(){
         fetch('/cortoba-plateforme/api/settings.php')
           .then(function(r){ return r.json(); })
@@ -2414,8 +2489,20 @@
             if (d.cfg_zone_coefficients) cfgSettings.zoneCoeff = typeof d.cfg_zone_coefficients === 'string' ? JSON.parse(d.cfg_zone_coefficients) : d.cfg_zone_coefficients;
             if (d.cfg_ext_costs)         cfgSettings.extCosts  = typeof d.cfg_ext_costs === 'string' ? JSON.parse(d.cfg_ext_costs) : d.cfg_ext_costs;
             if (d.cfg_ratios)            cfgSettings.ratios    = typeof d.cfg_ratios === 'string' ? JSON.parse(d.cfg_ratios) : d.cfg_ratios;
+            // Charger missions personnalisées depuis la plateforme
+            if (d.cortoba_missions) {
+              var m = typeof d.cortoba_missions === 'string' ? JSON.parse(d.cortoba_missions) : d.cortoba_missions;
+              if (Array.isArray(m) && m.length) cfgMissions = m;
+            }
+            if (d.cortoba_mission_categories) {
+              var c = typeof d.cortoba_mission_categories === 'string' ? JSON.parse(d.cortoba_mission_categories) : d.cortoba_mission_categories;
+              if (Array.isArray(c) && c.length) cfgMissionCats = c;
+            }
+            cfgRenderMissions();
           })
-          .catch(function(){}); // Silencieux si API indisponible — utilise les valeurs par défaut
+          .catch(function(){
+            cfgRenderMissions(); // Utiliser les valeurs par défaut
+          });
       })();
 
       function cfgCalculate() {
@@ -3075,6 +3162,7 @@
               whatsapp: wa.trim() || tel.trim(),
               email: email.trim(),
               cfg_data: JSON.stringify(cfgState),
+              missions: cfgGetSelectedMissions(),
               surface_estimee: cfgState._lastSurfaceInt || null,
               cout_estime_low: cfgState._lastVillaLow || null,
               cout_estime_high: cfgState._lastVillaHigh || null
