@@ -1020,12 +1020,14 @@ function saveProjet() {
       .then(function(resp) {
         localStorage.removeItem('cortoba_cfg_draft');
         var projet = resp.data || resp || {};
-        // Créer le dossier NAS si la case est cochée
+        // Copier le chemin NAS si la case est cochée
         var nasCheck = document.getElementById('cfg-nas-create');
         if (nasCheck && nasCheck.checked && nasPath) {
-          createNasFolderCfg(nasPath, function(ok, msg){
-            showSuccess(v('cfg-nom'), projet.code || code, (ok ? '📁 ' : '⚠ NAS : ') + msg);
-          });
+          // Copier le chemin dans le presse-papier
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(nasPath).catch(function(){});
+          }
+          showSuccess(v('cfg-nom'), projet.code || code, null, nasPath);
         } else {
           showSuccess(v('cfg-nom'), projet.code || code);
         }
@@ -1075,7 +1077,7 @@ function saveProjet() {
   }
 }
 
-function showSuccess(nom, code, nasMsg) {
+function showSuccess(nom, code, nasMsg, nasPath) {
   // Cacher le wizard
   for (var i = 1; i <= TOTAL; i++) {
     var s = document.getElementById('cfg-s' + i); if (s) s.classList.remove('active');
@@ -1089,24 +1091,24 @@ function showSuccess(nom, code, nasMsg) {
     var pc = document.getElementById('success-code'); if (pc) pc.textContent = code;
     // Message NAS
     var nasEl = document.getElementById('success-nas-msg');
-    if (!nasEl && nasMsg) {
+    if (!nasEl && nasPath) {
       nasEl = document.createElement('div');
       nasEl.id = 'success-nas-msg';
-      var isErr = nasMsg.indexOf('⚠') === 0;
-      nasEl.style.cssText = 'margin-top:1rem;font-size:0.82rem;padding:0.6rem 1rem;border-radius:6px;' +
-        (isErr ? 'background:rgba(224,164,110,.1);color:#e0a46e;border:1px solid rgba(224,164,110,.3)' : 'background:rgba(90,171,110,.1);color:#5aab6e;border:1px solid rgba(90,171,110,.3)');
-      if (isErr) {
-        // Afficher le chemin à créer manuellement + bouton copier
-        var nasPathDisplay = genNasPath(code, '');
-        nasEl.innerHTML = '<div style="margin-bottom:0.4rem">Le dossier NAS n\'a pas pu être créé automatiquement.</div>' +
-          '<div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.5rem">Créez-le manuellement dans l\'explorateur Windows :</div>' +
-          '<div style="display:flex;align-items:center;gap:0.5rem;background:var(--bg-2);padding:0.4rem 0.7rem;border-radius:4px;font-family:var(--mono);font-size:0.72rem;word-break:break-all">' +
-          '<span>' + esc(nasPathDisplay) + '</span>' +
-          '<button onclick="navigator.clipboard.writeText(\'' + nasPathDisplay.replace(/'/g,"\\'") + '\');this.textContent=\'✓\'" style="background:none;border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.5rem;cursor:pointer;color:var(--accent);font-size:0.7rem;white-space:nowrap">Copier</button>' +
-          '</div>';
-      } else {
-        nasEl.textContent = nasMsg;
-      }
+      nasEl.style.cssText = 'margin-top:1rem;font-size:0.82rem;padding:0.8rem 1rem;border-radius:8px;' +
+        'background:rgba(78,205,196,.08);border:1px solid rgba(78,205,196,.25);color:#eee;text-align:left';
+      nasEl.innerHTML =
+        '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">' +
+          '<span style="font-size:1.1rem">📋</span>' +
+          '<span style="color:#4ecdc4;font-weight:600">Chemin NAS copié dans le presse-papier</span>' +
+        '</div>' +
+        '<div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">' +
+          'Ouvrez l\'Explorateur Windows → collez dans la barre d\'adresse (Ctrl+V) → créez le dossier' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:0.5rem;background:rgba(0,0,0,.3);padding:0.5rem 0.7rem;border-radius:6px;font-family:var(--mono);font-size:0.72rem;word-break:break-all">' +
+          '<span style="flex:1;color:#f39c12">' + esc(nasPath) + '</span>' +
+          '<button onclick="navigator.clipboard.writeText(\'' + nasPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\');this.textContent=\'✓ Copié\'" ' +
+          'style="background:var(--accent);color:#111;border:none;border-radius:4px;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.72rem;white-space:nowrap;font-weight:600">Copier</button>' +
+        '</div>';
       success.querySelector('div').appendChild(nasEl);
     }
   }
@@ -1121,58 +1123,6 @@ function goBack() {
 }
 
 // ── Initialisation ──
-// ── Création dossier NAS (WebDAV local + fallback serveur) ──
-function createNasFolderCfg(nasPath, callback) {
-  if (!nasPath) { callback(false, 'Chemin NAS non défini'); return; }
-
-  var absPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '/');
-  if (absPath.charAt(0) !== '/') absPath = '/' + absPath;
-  var folders = absPath.split('/').filter(function(p){ return p; }).join('/');
-  if (!folders) { callback(false, 'Chemin invalide'); return; }
-
-  // Charger la config NAS
-  apiFetch('api/settings.php').then(function(r) {
-    var d = r.data || {};
-    var ip = (d.cortoba_nas_local || '').replace(/\\/g, '/').replace(/^\/+/, '');
-    var m = ip.match(/^(\d+\.\d+\.\d+\.\d+)/); if (m) ip = m[1];
-    var user = d.cortoba_nas_user || '';
-    var pass = d.cortoba_nas_pass || '';
-
-    if (!ip) { callback(false, 'IP NAS non configurée'); return; }
-
-    // Ouvrir la page bridge dans un popup
-    var bridgeUrl = 'nas-bridge.html#ip=' + encodeURIComponent(ip)
-      + '&user=' + encodeURIComponent(user)
-      + '&pass=' + encodeURIComponent(pass)
-      + '&folders=' + encodeURIComponent(folders)
-      + '&nasPath=' + encodeURIComponent(nasPath);
-
-    var popup = window.open(bridgeUrl, '_nas_mkdir', 'width=480,height=420,left=200,top=200,resizable=yes');
-    if (!popup || popup.closed) {
-      apiFetch('api/nas.php?action=mkdir', {method:'POST', body:{path:nasPath}})
-        .then(function(r2){ callback(true, (r2.data && r2.data.message) || 'Dossier créé'); })
-        .catch(function(e){ callback(false, e.message || 'Erreur création dossier'); });
-      return;
-    }
-
-    // Écouter le résultat via postMessage
-    var handled = false;
-    function onMsg(e) {
-      if (handled) return;
-      if (e.data && e.data.type === 'nas-folder-result') {
-        handled = true;
-        window.removeEventListener('message', onMsg);
-        callback(e.data.success, e.data.message || (e.data.success ? 'Dossier créé' : 'Erreur'));
-      }
-    }
-    window.addEventListener('message', onMsg);
-    setTimeout(function() {
-      if (!handled) { handled = true; window.removeEventListener('message', onMsg); callback(false, 'Timeout'); }
-    }, 30000);
-  }).catch(function(e) {
-    callback(false, e.message || 'Erreur chargement config NAS');
-  });
-}
 
 // ── Pré-remplissage depuis une demande ──
 function prefillFromDemande(demandeId) {

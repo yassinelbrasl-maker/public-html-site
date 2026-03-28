@@ -1965,13 +1965,15 @@ function saveProjet(){
 
   apiFetch(url, {method:method, body:body})
     .then(function(){
-      // Créer le dossier NAS si demandé (nouvelle création uniquement)
+      // Copier le chemin NAS dans le presse-papier si demandé
       if (shouldCreateNas && nasPath) {
-        console.log('[NAS] Création dossier:', nasPath);
-        createNasFolder(nasPath, function(ok, msg){
-          if(ok) showToast('📁 Dossier NAS créé avec succès');
-          else showToast('⚠ Erreur NAS : '+(msg||'échec de création'), 'error');
-        });
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(nasPath).then(function(){
+            showToast('📋 Chemin NAS copié — collez dans l\'Explorateur Windows (Ctrl+V)');
+          }).catch(function(){
+            showToast('📁 Chemin NAS : ' + nasPath);
+          });
+        }
       }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
@@ -5473,75 +5475,17 @@ function createNasFolder(nasPath, callback) {
     return;
   }
 
-  // Normaliser le chemin UNC → chemin relatif NAS
-  var absPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '/');
-  if (absPath.charAt(0) !== '/') absPath = '/' + absPath;
-  var folders = absPath.split('/').filter(function(p){ return p; }).join('/');
-  if (!folders) { if (callback) callback(false, 'Chemin invalide'); return; }
-
-  var cfg = getNasConfig();
-  var ip = extractNasIp(cfg.local);
-  var user = cfg.user || '';
-  var pass = cfg.pass || '';
-
-  if (!ip) { if (callback) callback(false, 'IP NAS non configurée'); return; }
-
-  console.log('[NAS] Ouverture bridge pour:', folders);
-
-  // Ouvrir la page bridge dans un popup — elle gère login + createdir
-  var bridgeUrl = 'nas-bridge.html#ip=' + encodeURIComponent(ip)
-    + '&user=' + encodeURIComponent(user)
-    + '&pass=' + encodeURIComponent(pass)
-    + '&folders=' + encodeURIComponent(folders)
-    + '&nasPath=' + encodeURIComponent(nasPath);
-
-  var popup = window.open(bridgeUrl, '_nas_mkdir', 'width=480,height=420,left=200,top=200,resizable=yes');
-  if (!popup || popup.closed) {
-    console.warn('[NAS] Popup bloqué, fallback serveur');
-    _createNasFolderViaServer(nasPath, callback);
-    return;
+  // Copier automatiquement le chemin dans le presse-papier
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(nasPath).then(function() {
+      console.log('[NAS] Chemin copié dans le presse-papier:', nasPath);
+    }).catch(function() {
+      console.warn('[NAS] Impossible de copier le chemin');
+    });
   }
 
-  // Écouter le résultat via postMessage
-  var handled = false;
-  function onMsg(e) {
-    if (handled) return;
-    if (e.data && e.data.type === 'nas-folder-result') {
-      handled = true;
-      window.removeEventListener('message', onMsg);
-      if (e.data.success) {
-        if (typeof showToast === 'function') showToast('📁 Dossier NAS créé');
-        if (callback) callback(true, e.data.message || 'Dossier créé');
-      } else {
-        if (callback) callback(false, e.data.message || 'Erreur NAS');
-      }
-    }
-  }
-  window.addEventListener('message', onMsg);
-
-  // Timeout si pas de réponse après 30s
-  setTimeout(function() {
-    if (!handled) {
-      handled = true;
-      window.removeEventListener('message', onMsg);
-      if (callback) callback(false, 'Timeout — vérifiez le dossier manuellement');
-    }
-  }, 30000);
-}
-
-function _createNasFolderViaServer(nasPath, callback) {
-  apiFetch('api/nas.php?action=mkdir', {
-    method: 'POST',
-    body: { path: nasPath }
-  }).then(function(r) {
-    var msg = (r.data && r.data.message) || 'Dossier créé';
-    if (typeof showToast === 'function') showToast('📁 ' + msg);
-    if (callback) callback(true, msg);
-  }).catch(function(e) {
-    var msg = e.message || 'Erreur création dossier NAS';
-    if (typeof showToast === 'function') showToast('⚠ ' + msg, 'error');
-    if (callback) callback(false, msg);
-  });
+  // Retourner le succès avec le chemin — le dossier sera créé via l'explorateur Windows
+  if (callback) callback('clipboard', nasPath);
 }
 
 function createNasFolderForProjet(projetId) {
