@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<title>Création dossier NAS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',system-ui,sans-serif;background:#111;color:#eee;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:32px;max-width:480px;width:100%;text-align:center}
+h2{font-size:1.1rem;margin-bottom:16px;color:#4ecdc4}
+#status{font-size:0.9rem;color:#aaa;margin:12px 0;min-height:40px;line-height:1.5}
+.step{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:0.85rem;color:#888;text-align:left}
+.step.ok{color:#4ecdc4}
+.step.fail{color:#e74c3c}
+.step.wait{color:#f39c12}
+.step::before{content:'○';font-size:1rem;min-width:18px;text-align:center}
+.step.ok::before{content:'✓';color:#4ecdc4}
+.step.fail::before{content:'✗';color:#e74c3c}
+.step.wait::before{content:'◌';color:#f39c12}
+#path-box{background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:12px;margin:16px 0;font-family:'DM Mono',monospace;font-size:0.78rem;color:#f39c12;word-break:break-all;display:none}
+.btn{padding:8px 20px;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-family:inherit}
+.btn-copy{background:#333;color:#eee;margin-top:12px}
+.btn-copy:hover{background:#444}
+.btn-close{background:#4ecdc4;color:#111;margin-top:8px;font-weight:600}
+.btn-close:hover{background:#3dbdb5}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>📁 Création dossier NAS</h2>
+  <div id="steps"></div>
+  <div id="status">Initialisation...</div>
+  <div id="path-box"></div>
+  <div id="actions" style="display:none">
+    <button class="btn btn-copy" onclick="copyPath()">📋 Copier le chemin</button><br>
+    <button class="btn btn-close" onclick="window.close()">Fermer</button>
+  </div>
+</div>
+
+<script>
+var stepsEl = document.getElementById('steps');
+var statusEl = document.getElementById('status');
+var pathBox = document.getElementById('path-box');
+var actionsEl = document.getElementById('actions');
+
+// Lire les paramètres depuis le hash (pas envoyés au serveur)
+var hash = location.hash.substring(1);
+var params = {};
+hash.split('&').forEach(function(p){ var kv=p.split('='); if(kv[0]) params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||''); });
+
+var ip = params.ip || '';
+var user = params.user || '';
+var pass = params.pass || '';
+var folders = params.folders || '';  // ex: Public/CAS_PROJETS/2026/24_26_XXX
+var nasPath = params.nasPath || '';  // chemin UNC pour affichage
+
+function addStep(text, cls) {
+  var d = document.createElement('div');
+  d.className = 'step ' + (cls||'wait');
+  d.textContent = text;
+  d.id = 'step-' + stepsEl.children.length;
+  stepsEl.appendChild(d);
+  return d;
+}
+
+function updateStep(el, text, cls) {
+  if (el) { el.textContent = text; el.className = 'step ' + cls; }
+}
+
+function showPath() {
+  pathBox.textContent = nasPath || ('\\\\' + ip + '\\' + folders.replace(/\//g, '\\'));
+  pathBox.style.display = 'block';
+  actionsEl.style.display = 'block';
+}
+
+function copyPath() {
+  var t = pathBox.textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(t).then(function(){ statusEl.textContent = '✓ Chemin copié !'; });
+  } else {
+    var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    statusEl.textContent = '✓ Chemin copié !';
+  }
+}
+
+function notifyParent(success, msg) {
+  try {
+    if (window.opener && window.opener.postMessage) {
+      window.opener.postMessage({type:'nas-folder-result', success:success, message:msg}, '*');
+    }
+  } catch(e){}
+}
+
+function start() {
+  if (!ip || !user || !folders) {
+    statusEl.textContent = 'Paramètres manquants';
+    return;
+  }
+
+  var parts = folders.split('/').filter(function(p){return p;});
+  var baseUrl = 'https://' + ip;
+
+  // Étape 1 : Login
+  var s1 = addStep('Connexion au NAS ' + ip + '...', 'wait');
+  statusEl.textContent = 'Connexion en cours...';
+
+  var loginUrl = baseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+               + '&pwd=' + encodeURIComponent(btoa(pass));
+
+  fetch(loginUrl, {mode:'cors', credentials:'include'})
+    .then(function(r){ return r.text(); })
+    .then(function(xml) {
+      // Extraire le SID
+      var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
+              xml.match(/<authSid>(.*?)<\/authSid>/);
+      if (!m || !m[1] || m[1].length < 5) {
+        throw new Error('Authentification échouée');
+      }
+      var sid = m[1];
+      updateStep(s1, 'Connecté au NAS ✓', 'ok');
+
+      // Étape 2 : Créer les dossiers
+      var created = 0;
+      var i = 0;
+
+      function mkNext() {
+        if (i >= parts.length) {
+          statusEl.textContent = created > 0
+            ? '✓ ' + created + ' dossier(s) créé(s) avec succès !'
+            : '✓ Le dossier existe déjà sur le NAS';
+          notifyParent(true, statusEl.textContent);
+          showPath();
+          setTimeout(function(){ try{window.close();}catch(e){} }, 4000);
+          return;
+        }
+        var parentPath = (i === 0) ? '/' : '/' + parts.slice(0, i).join('/');
+        var childName = parts[i];
+        i++;
+        var sN = addStep('Création: ' + childName + '...', 'wait');
+
+        var mkUrl = baseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
+        fetch(mkUrl, {
+          method: 'POST',
+          mode: 'cors',
+          credentials: 'include',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: 'dest_folder=' + encodeURIComponent(parentPath) + '&dest_path=' + encodeURIComponent(childName)
+        })
+          .then(function(r){ return r.text(); })
+          .then(function(t){
+            var ok = false;
+            try {
+              var j = JSON.parse(t);
+              // status 2 = already exists, 1 = created
+              if (j && (j.status === 1 || j.status === 2 || j.success)) ok = true;
+              if (j && j.status === 1) created++;
+            } catch(e){
+              // Non-JSON response - might still be OK
+              if (t.indexOf('error') === -1) ok = true;
+            }
+            updateStep(sN, childName + (ok ? ' ✓' : ' (existe)'), 'ok');
+            mkNext();
+          })
+          .catch(function(e){
+            updateStep(sN, childName + ' — erreur: ' + e.message, 'fail');
+            mkNext(); // Continue with next folder
+          });
+      }
+      mkNext();
+    })
+    .catch(function(e) {
+      updateStep(s1, 'Connexion échouée: ' + e.message, 'fail');
+      statusEl.textContent = 'Impossible de se connecter au NAS automatiquement.';
+
+      // Diagnostic
+      var diag = '';
+      if (e.message.indexOf('Failed to fetch') !== -1 || e.message.indexOf('NetworkError') !== -1) {
+        diag = 'Le navigateur bloque la connexion vers le NAS local.\n';
+        diag += 'Ouvrez d\'abord https://' + ip + ' dans un nouvel onglet et acceptez le certificat.';
+        var s2 = addStep('Ouvrez https://' + ip + ' dans un onglet et acceptez le certificat', 'fail');
+      }
+      statusEl.textContent = diag || ('Erreur: ' + e.message);
+      statusEl.style.color = '#e74c3c';
+
+      // Afficher le chemin pour création manuelle
+      addStep('Créez le dossier manuellement :', 'fail');
+      showPath();
+      notifyParent(false, e.message);
+    });
+}
+
+start();
+</script>
+</body>
+</html>

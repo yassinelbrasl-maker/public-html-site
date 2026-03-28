@@ -5473,11 +5473,11 @@ function createNasFolder(nasPath, callback) {
     return;
   }
 
-  // Normaliser le chemin UNC → chemin absolu NAS
+  // Normaliser le chemin UNC → chemin relatif NAS
   var absPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '/');
   if (absPath.charAt(0) !== '/') absPath = '/' + absPath;
-  var parts = absPath.split('/').filter(function(p){ return p; });
-  if (parts.length === 0) { if (callback) callback(false, 'Chemin invalide'); return; }
+  var folders = absPath.split('/').filter(function(p){ return p; }).join('/');
+  if (!folders) { if (callback) callback(false, 'Chemin invalide'); return; }
 
   var cfg = getNasConfig();
   var ip = extractNasIp(cfg.local);
@@ -5486,60 +5486,47 @@ function createNasFolder(nasPath, callback) {
 
   if (!ip) { if (callback) callback(false, 'IP NAS non configurée'); return; }
 
-  // Stratégie : popup vers le NAS local en HTTPS
-  // Chrome bloque fetch() depuis un site public vers une IP privée (Private Network Access)
-  // MAIS les navigations (window.open, location.href) ne sont PAS bloquées.
-  // On ouvre un popup qui : 1) login sur le NAS → cookie de session  2) navigue vers createdir
-  var baseUrl = 'https://' + ip;
-  var loginUrl = baseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
-               + '&pwd=' + encodeURIComponent(btoa(pass));
+  console.log('[NAS] Ouverture bridge pour:', folders);
 
-  console.log('[NAS] Création dossier via popup QNAP:', absPath);
+  // Ouvrir la page bridge dans un popup — elle gère login + createdir
+  var bridgeUrl = 'nas-bridge.html#ip=' + encodeURIComponent(ip)
+    + '&user=' + encodeURIComponent(user)
+    + '&pass=' + encodeURIComponent(pass)
+    + '&folders=' + encodeURIComponent(folders)
+    + '&nasPath=' + encodeURIComponent(nasPath);
 
-  var popup;
-  try {
-    popup = window.open(loginUrl, '_nas_mkdir', 'width=1,height=1,left=-1000,top=-1000');
-  } catch(e) { /* ignore */ }
-
+  var popup = window.open(bridgeUrl, '_nas_mkdir', 'width=480,height=420,left=200,top=200,resizable=yes');
   if (!popup || popup.closed) {
     console.warn('[NAS] Popup bloqué, fallback serveur');
     _createNasFolderViaServer(nasPath, callback);
     return;
   }
 
-  // Après le login (le NAS a mis un cookie de session), créer chaque niveau de dossier
-  var step = 0;
-  var totalSteps = parts.length;
-  // On commence par les dossiers intermédiaires qui pourraient ne pas exister (ex: 2026)
-  // et on termine par le dossier final du projet
-  // Pour chaque niveau, on navigue le popup vers createdir
-  // Le délai entre chaque navigation laisse le temps au serveur de traiter
-
-  function nextFolder() {
-    if (step >= totalSteps) {
-      // Tout envoyé — fermer le popup
-      try { popup.close(); } catch(e) {}
-      console.log('[NAS] Toutes les requêtes de création envoyées');
-      if (typeof showToast === 'function') showToast('📁 Dossier NAS créé');
-      if (callback) callback(true, 'Dossier créé sur le NAS');
-      return;
+  // Écouter le résultat via postMessage
+  var handled = false;
+  function onMsg(e) {
+    if (handled) return;
+    if (e.data && e.data.type === 'nas-folder-result') {
+      handled = true;
+      window.removeEventListener('message', onMsg);
+      if (e.data.success) {
+        if (typeof showToast === 'function') showToast('📁 Dossier NAS créé');
+        if (callback) callback(true, e.data.message || 'Dossier créé');
+      } else {
+        if (callback) callback(false, e.data.message || 'Erreur NAS');
+      }
     }
-    var parentPath = (step === 0) ? '/' : '/' + parts.slice(0, step).join('/');
-    var childName = parts[step];
-    step++;
-    // Construire l'URL de création avec les paramètres dans le query string (GET)
-    var mkUrl = baseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir'
-              + '&dest_folder=' + encodeURIComponent(parentPath)
-              + '&dest_path=' + encodeURIComponent(childName);
-    console.log('[NAS] Popup → createdir:', parentPath + '/' + childName);
-    try { popup.location.href = mkUrl; } catch(e) {
-      console.warn('[NAS] Impossible de naviguer le popup:', e.message);
-    }
-    setTimeout(nextFolder, 1200);
   }
+  window.addEventListener('message', onMsg);
 
-  // Attendre que le login soit traité (cookie de session posé)
-  setTimeout(nextFolder, 2000);
+  // Timeout si pas de réponse après 30s
+  setTimeout(function() {
+    if (!handled) {
+      handled = true;
+      window.removeEventListener('message', onMsg);
+      if (callback) callback(false, 'Timeout — vérifiez le dossier manuellement');
+    }
+  }, 30000);
 }
 
 function _createNasFolderViaServer(nasPath, callback) {
