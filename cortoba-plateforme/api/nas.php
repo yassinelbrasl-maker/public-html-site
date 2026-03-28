@@ -126,7 +126,16 @@ if ($action === 'status') {
 
     // Construire la liste de baseUrls à essayer
     $tryUrls = array();
-    // 1) myQNAPcloud (HTTPS)
+    $webdavPort = getNasParam('cortoba_nas_webdav_port', '5005');
+    // 1) DDNS/IP publique via port forwarding (ex: port 5005 ext → 8080 int)
+    if ($cloudHost && $webdavPort) {
+        $h = preg_replace('#^https?://#i', '', trim($cloudHost));
+        $h = rtrim($h, '/');
+        if ($h && strpos($h, 'qlink.to') === false) {
+            $tryUrls[] = array('url' => 'http://' . $h . ':' . $webdavPort, 'mode' => 'cloud-fwd');
+        }
+    }
+    // 2) myQNAPcloud relay (HTTPS port 443)
     if ($cloudHost) {
         $h = preg_replace('#^https?://#i', '', trim($cloudHost));
         $h = rtrim($h, '/');
@@ -134,7 +143,7 @@ if ($action === 'status') {
             $tryUrls[] = array('url' => 'https://' . $h, 'mode' => 'cloud');
         }
     }
-    // 2) IP locale
+    // 3) IP locale (fonctionne si le serveur est sur le même réseau)
     if ($ip && $port) {
         $tryUrls[] = array('url' => 'http://' . $ip . ':' . $port, 'mode' => 'local');
     }
@@ -288,20 +297,25 @@ elseif ($action === 'mkdir') {
     $pathParts = explode('/', trim($cleanPath, '/'));
     if (count($pathParts) < 2) jsonError('Chemin trop court: ' . $cleanPath, 400);
 
-    // Construire les URLs de base à essayer (HTTPS myqnapcloud d'abord, puis IP locale)
+    // Construire les URLs de base à essayer
     $baseUrls = array();
-    // 1) myQNAPcloud (HTTPS relay — fonctionne depuis n'importe où)
-    if ($cloudHost) {
-        $h = trim($cloudHost);
-        // Nettoyer : retirer https://, http://, trailing slashes
-        $h = preg_replace('#^https?://#i', '', $h);
+    // 1) DDNS/IP publique via port forwarding (ex: ext 5005 → int 8080)
+    if ($cloudHost && $webdavPort) {
+        $h = preg_replace('#^https?://#i', '', trim($cloudHost));
         $h = rtrim($h, '/');
-        // Ignorer les liens qlink.to (page web, pas API)
+        if ($h && strpos($h, 'qlink.to') === false) {
+            $baseUrls[] = 'http://' . $h . ':' . $webdavPort;
+        }
+    }
+    // 2) myQNAPcloud relay (HTTPS port 443)
+    if ($cloudHost) {
+        $h = preg_replace('#^https?://#i', '', trim($cloudHost));
+        $h = rtrim($h, '/');
         if ($h && strpos($h, 'qlink.to') === false) {
             $baseUrls[] = 'https://' . $h;
         }
     }
-    // 2) IP locale (fonctionne si le serveur est sur le même réseau)
+    // 3) IP locale (fonctionne si le serveur est sur le même réseau)
     if ($ip && $port) {
         $baseUrls[] = 'http://' . $ip . ':' . $port;
     }
@@ -453,6 +467,105 @@ elseif ($action === 'test_webdav') {
             'error' => $err ?: null
         );
     }
+    jsonOk($results);
+}
+
+// ── ACTION : diag (diagnostic complet de connexion NAS) ──
+elseif ($action === 'diag') {
+    $ip         = getNasParam('cortoba_nas_local', '');
+    $port       = getNasParam('cortoba_nas_port', '8080');
+    $webdavPort = getNasParam('cortoba_nas_webdav_port', '5005');
+    $nasUser    = getNasParam('cortoba_nas_user', '');
+    $nasPass    = getNasParam('cortoba_nas_pass', '');
+    $cloudHost  = getNasParam('cortoba_nas_public_ip', '');
+
+    $results = array();
+
+    // Nettoyer le cloudHost
+    $h = '';
+    if ($cloudHost) {
+        $h = preg_replace('#^https?://#i', '', trim($cloudHost));
+        $h = rtrim($h, '/');
+        if (strpos($h, 'qlink.to') !== false) $h = '';
+    }
+
+    // Résolution DNS du cloudHost
+    if ($h) {
+        $dnsIp = gethostbyname($h);
+        $results['dns'] = array('host' => $h, 'resolved_ip' => $dnsIp, 'ok' => ($dnsIp !== $h));
+    }
+
+    // Test 1: DDNS:webdavPort (port forwarding → QTS)
+    if ($h && $webdavPort) {
+        $url = 'http://' . $h . ':' . $webdavPort;
+        $start = microtime(true);
+        $sid = qnapLogin($url, $nasUser, $nasPass);
+        $ms = round((microtime(true) - $start) * 1000);
+        $results['ddns_fwd'] = array(
+            'url' => $url, 'latency' => $ms,
+            'login_ok' => ($sid !== false),
+            'sid_preview' => $sid ? substr($sid, 0, 8) . '...' : null
+        );
+    }
+
+    // Test 2: DDNS:port (direct QTS port, si forwarded)
+    if ($h && $port && $port !== $webdavPort) {
+        $url = 'http://' . $h . ':' . $port;
+        $start = microtime(true);
+        $sid = qnapLogin($url, $nasUser, $nasPass);
+        $ms = round((microtime(true) - $start) * 1000);
+        $results['ddns_direct'] = array(
+            'url' => $url, 'latency' => $ms,
+            'login_ok' => ($sid !== false)
+        );
+    }
+
+    // Test 3: HTTPS relay myqnapcloud
+    if ($h) {
+        $url = 'https://' . $h;
+        $start = microtime(true);
+        $sid = qnapLogin($url, $nasUser, $nasPass);
+        $ms = round((microtime(true) - $start) * 1000);
+        $results['cloud_relay'] = array(
+            'url' => $url, 'latency' => $ms,
+            'login_ok' => ($sid !== false)
+        );
+    }
+
+    // Test 4: IP locale
+    if ($ip && $port) {
+        $url = 'http://' . $ip . ':' . $port;
+        $start = microtime(true);
+        $sid = qnapLogin($url, $nasUser, $nasPass);
+        $ms = round((microtime(true) - $start) * 1000);
+        $results['local'] = array(
+            'url' => $url, 'latency' => $ms,
+            'login_ok' => ($sid !== false)
+        );
+    }
+
+    // Test 5: IP publique résolue directement
+    if ($h) {
+        $dnsIp = gethostbyname($h);
+        if ($dnsIp !== $h && $dnsIp !== $ip && $webdavPort) {
+            $url = 'http://' . $dnsIp . ':' . $webdavPort;
+            $start = microtime(true);
+            $sid = qnapLogin($url, $nasUser, $nasPass);
+            $ms = round((microtime(true) - $start) * 1000);
+            $results['public_ip_fwd'] = array(
+                'url' => $url, 'latency' => $ms,
+                'login_ok' => ($sid !== false)
+            );
+        }
+    }
+
+    $results['settings'] = array(
+        'local_ip' => $ip, 'port' => $port,
+        'webdav_port' => $webdavPort,
+        'cloud_host' => $h,
+        'user' => $nasUser ? '***' : '(vide)'
+    );
+
     jsonOk($results);
 }
 
