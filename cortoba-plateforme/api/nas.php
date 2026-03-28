@@ -319,6 +319,41 @@ elseif ($action === 'ping') {
     jsonOk(array('online' => ($res !== false && $res['code'] > 0), 'latency' => $ms));
 }
 
+// ── ACTION : test_webdav ──
+elseif ($action === 'test_webdav') {
+    $body = getBody();
+    $hosts = isset($body['hosts']) ? $body['hosts'] : array();
+    $port  = isset($body['port'])  ? intval($body['port']) : 5005;
+    $user  = getNasParam('cortoba_nas_user', '');
+    $pass  = getNasParam('cortoba_nas_pass', '');
+    $results = array();
+    foreach ($hosts as $host) {
+        if (!$host) continue;
+        $url = 'http://' . $host . ':' . $port . '/';
+        $start = microtime(true);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PROPFIND');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Depth: 0'));
+        if ($user) curl_setopt($ch, CURLOPT_USERPWD, $user . ':' . $pass);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+        $response = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+        $ms = round((microtime(true) - $start) * 1000);
+        $results[] = array(
+            'host' => $host, 'port' => $port,
+            'reachable' => ($code > 0 && $code < 500),
+            'code' => $code, 'latency' => $ms,
+            'error' => $err ?: null
+        );
+    }
+    jsonOk($results);
+}
+
 else {
     jsonError('Action inconnue', 404);
 }
