@@ -144,19 +144,27 @@ function create(array $user) {
         $db->prepare('UPDATE CA_clients SET projets = projets + 1 WHERE code = ?')->execute([$body['clientCode']]);
     }
 
-    // Créer le dossier sur le NAS via WebDAV (silencieux si indisponible)
+    // Créer le dossier sur le NAS via WebDAV
+    $nasResult = null;
     if ($code) {
-        // Extraire le nom du dossier depuis le nasPath généré par le JS
         $nasPath = $body['nasPath'] ?? '';
         $nasFolderName = '';
         if ($nasPath) {
             $parts = preg_split('/[\\\\\/]/', rtrim($nasPath, '\\/'));
-            $nasFolderName = end($parts); // ex: 03_26_KRA001_Ahmed_Kortoba
+            $nasFolderName = end($parts);
         }
-        createProjectNasFolder($code, $annee, '', $nasFolderName);
+        $nasResult = createProjectNasFolder($code, $annee, '', $nasFolderName);
     }
 
-    getOne($id);
+    // Retourner le projet créé + résultat NAS
+    $stmt = $db->prepare('SELECT * FROM CA_projets WHERE id = ?');
+    $stmt->execute([$id]);
+    $projet = $stmt->fetch(PDO::FETCH_ASSOC);
+    $result = $projet ?: array('id' => $id);
+    if ($nasResult !== null) {
+        $result['nas_debug'] = $nasResult;
+    }
+    jsonOk($result);
 }
 
 function update($id, array $user) {
@@ -250,18 +258,20 @@ function getNasCfg($key, $default = '') {
 
 // ── Créer un dossier via WebDAV MKCOL ──
 function webdavMkcol($url, $user, $pass) {
-    if (!function_exists('curl_init')) return 0;
+    if (!function_exists('curl_init')) return array('code' => 0, 'error' => 'curl not available');
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'MKCOL');
     curl_setopt($ch, CURLOPT_USERPWD, $user . ':' . $pass);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
     curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
     curl_close($ch);
-    return $httpCode; // 201=créé, 405=déjà existant
+    return array('code' => $httpCode, 'error' => $error, 'url' => $url);
 }
 
 // ── Lister les sous-dossiers via WebDAV PROPFIND ──
@@ -320,6 +330,7 @@ function webdavCopy($srcUrl, $destUrl, $user, $pass) {
 
 // ── Créer le dossier projet sur le NAS via WebDAV ──
 function createProjectNasFolder($code, $annee, $clientNom, $nasFolderName = '') {
+    $debug = array('status' => 'started');
     try {
         $local      = getNasCfg('cortoba_nas_local', '');
         $publicIp   = getNasCfg('cortoba_nas_public_ip', '');
@@ -328,12 +339,18 @@ function createProjectNasFolder($code, $annee, $clientNom, $nasFolderName = '') 
         $user       = getNasCfg('cortoba_nas_user', 'admin');
         $pass       = getNasCfg('cortoba_nas_pass', '');
 
+        $debug['config'] = array(
+            'local' => $local, 'publicIp' => $publicIp,
+            'webdavPort' => $webdavPort, 'webdavBase' => $webdavBase,
+            'user' => $user, 'hasPass' => !empty($pass)
+        );
+
         // Extraire le chemin WebDAV depuis le UNC si non configuré
         if (!$webdavBase && $local && preg_match('/^[\\\\\/]{2}[^\\\\\/]+[\\\\\/](.+)$/', $local, $mx)) {
             $webdavBase = str_replace('\\', '/', trim($mx[1], '\\/'));
         }
 
-        // IP publique (port forwarding) en priorité, sinon IP extraite du chemin local
+        // IP publique en priorité, sinon IP locale
         if ($publicIp) {
             $ip = trim($publicIp);
         } elseif ($local) {
@@ -343,12 +360,12 @@ function createProjectNasFolder($code, $annee, $clientNom, $nasFolderName = '') 
                 $ip = trim($local);
             }
         } else {
-            return; // Aucune adresse configurée
+            $debug['status'] = 'no_ip';
+            return $debug;
         }
 
-        if (!$ip || !$webdavPort) return;
+        if (!$ip || !$webdavPort) { $debug['status'] = 'missing_config'; return $debug; }
 
-        // Utiliser le nom de dossier du JS si fourni, sinon construire depuis le client
         if ($nasFolderName) {
             $folderName = $nasFolderName;
         } else {
@@ -362,24 +379,38 @@ function createProjectNasFolder($code, $annee, $clientNom, $nasFolderName = '') 
         $yearUrl    = $base . '/' . $annee . '/';
         $projectUrl = $yearUrl . rawurlencode($folderName) . '/';
 
-        // 1. Créer le dossier année si inexistant (405 = déjà existant → OK)
-        webdavMkcol($yearUrl, $user, $pass);
-        // 2. Créer le dossier projet
-        $mkResult = webdavMkcol($projectUrl, $user, $pass);
+        $debug['ip'] = $ip;
+        $debug['base'] = $base;
+        $debug['yearUrl'] = $yearUrl;
+        $debug['projectUrl'] = $projectUrl;
+        $debug['folderName'] = $folderName;
 
-        // 3. Copier les sous-dossiers depuis le template "00-Dossier Type"
-        if ($mkResult == 201) {
+        // 1. Créer le dossier année
+        $r1 = webdavMkcol($yearUrl, $user, $pass);
+        $debug['year_mkcol'] = $r1;
+
+        // 2. Créer le dossier projet
+        $r2 = webdavMkcol($projectUrl, $user, $pass);
+        $debug['project_mkcol'] = $r2;
+
+        // 3. Copier les sous-dossiers template si le dossier a été créé
+        if ($r2['code'] == 201) {
             $templateUrl = $yearUrl . rawurlencode('00-Dossier Type') . '/';
             $subfolders  = webdavListFolders($templateUrl, $user, $pass);
+            $debug['template_folders'] = $subfolders;
             foreach ($subfolders as $sub) {
                 $src  = $templateUrl . rawurlencode($sub) . '/';
                 $dest = $projectUrl . rawurlencode($sub) . '/';
                 webdavCopy($src, $dest, $user, $pass);
             }
         }
+
+        $debug['status'] = ($r2['code'] == 201 || $r2['code'] == 405) ? 'ok' : 'failed';
     } catch (\Throwable $e) {
-        // Silencieux — la création du projet ne doit pas échouer si le NAS est indisponible
+        $debug['status'] = 'error';
+        $debug['exception'] = $e->getMessage();
     }
+    return $debug;
 }
 
 function saveMissions(string $projetId, array $missions) {
