@@ -5472,21 +5472,119 @@ function createNasFolder(nasPath, callback) {
     if (callback) callback(false, 'Chemin NAS non défini');
     return;
   }
-  // Toujours passer par le serveur PHP qui utilise l'API File Station QNAP
-  // (le navigateur ne peut pas faire de requêtes HTTP vers le NAS local
-  //  depuis une page HTTPS — mixed content bloqué)
+
+  // Normaliser le chemin UNC → chemin absolu NAS
+  // \\192.168.1.165\Public\CAS_PROJETS\2026\XX → /Public/CAS_PROJETS/2026/XX
+  var absPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '/');
+  if (absPath.charAt(0) !== '/') absPath = '/' + absPath;
+  var parts = absPath.split('/').filter(function(p){ return p; });
+
+  // Récupérer les paramètres NAS
+  var cfg = getNasConfig();
+  var ip = extractNasIp(cfg.local);
+  var port = cfg.port || '8080';
+  var user = cfg.user || '';
+  var pass = cfg.pass || '';
+  var cloudHost = (cfg.publicIp || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  if (cloudHost && cloudHost.indexOf('qlink.to') !== -1) cloudHost = '';
+
+  // Construire les URLs à essayer depuis le navigateur (HTTPS uniquement — pas de mixed content)
+  var tryUrls = [];
+  // 1) IP locale via HTTPS (si QNAP a HTTPS activé sur port 443)
+  if (ip) tryUrls.push('https://' + ip);
+  // 2) IP locale via HTTP port QTS (ne fonctionnera pas depuis HTTPS — mixed content — mais on essaie)
+  if (ip && port) tryUrls.push('http://' + ip + ':' + port);
+
+  console.log('[NAS] Tentative de création de dossier:', absPath);
+  console.log('[NAS] URLs à essayer:', tryUrls);
+
+  var urlIdx = 0;
+
+  function tryNextUrl() {
+    if (urlIdx >= tryUrls.length) {
+      // Toutes les tentatives échouées → fallback serveur PHP
+      console.log('[NAS] Toutes les tentatives navigateur échouées, fallback serveur');
+      _createNasFolderViaServer(nasPath, callback);
+      return;
+    }
+    var baseUrl = tryUrls[urlIdx];
+    urlIdx++;
+    console.log('[NAS] Essai:', baseUrl);
+
+    // Login QNAP File Station
+    var loginUrl = baseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+                 + '&pwd=' + encodeURIComponent(btoa(pass));
+
+    fetch(loginUrl, { method: 'GET', mode: 'cors', credentials: 'omit' })
+      .then(function(r) { return r.text(); })
+      .then(function(xml) {
+        // Extraire authSid
+        var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
+                xml.match(/<authSid>(.*?)<\/authSid>/);
+        if (!m || !m[1]) throw new Error('Login QNAP échoué');
+        var sid = m[1];
+        console.log('[NAS] Login OK via', baseUrl);
+
+        // Créer les dossiers récursivement
+        var created = [];
+        var i = 0;
+        function mkNext() {
+          if (i >= parts.length) {
+            var msg = created.length > 0
+              ? created.length + ' dossier(s) créé(s) sur le NAS'
+              : 'Le dossier existe déjà sur le NAS';
+            console.log('[NAS] Succès via navigateur:', msg);
+            if (typeof showToast === 'function') showToast('📁 ' + msg);
+            if (callback) callback(true, msg);
+            return;
+          }
+          var parentPath = (i === 0) ? '/' : '/' + parts.slice(0, i).join('/');
+          var childName = parts[i];
+          i++;
+          var mkUrl = baseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
+          var body = 'dest_folder=' + encodeURIComponent(parentPath) + '&dest_path=' + encodeURIComponent(childName);
+          fetch(mkUrl, {
+            method: 'POST', mode: 'cors', credentials: 'omit',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body
+          })
+            .then(function(r) { return r.json().catch(function() { return {}; }); })
+            .then(function(j) {
+              if (j.status === 1 || j.status === 2 || (j.status >= 0)) {
+                if (j.status === 1) created.push(parentPath + '/' + childName);
+                mkNext();
+              } else {
+                throw new Error('File Station erreur status=' + j.status);
+              }
+            })
+            .catch(function(e) {
+              console.warn('[NAS] Erreur mkdir via', baseUrl, ':', e.message);
+              // Essayer l'URL suivante
+              tryNextUrl();
+            });
+        }
+        mkNext();
+      })
+      .catch(function(e) {
+        console.warn('[NAS] Échec connexion', baseUrl, ':', e.message);
+        tryNextUrl();
+      });
+  }
+  tryNextUrl();
+}
+
+function _createNasFolderViaServer(nasPath, callback) {
   apiFetch('api/nas.php?action=mkdir', {
     method: 'POST',
     body: { path: nasPath }
   }).then(function(r) {
     var msg = (r.data && r.data.message) || 'Dossier créé';
-    var method = (r.data && r.data.method) || '';
-    console.log('[NAS] Dossier créé via', method, ':', nasPath);
+    console.log('[NAS] Dossier créé via serveur:', (r.data && r.data.method) || '?');
     if (typeof showToast === 'function') showToast('📁 ' + msg);
     if (callback) callback(true, msg);
   }).catch(function(e) {
     var msg = e.message || 'Erreur création dossier NAS';
-    console.error('[NAS] Erreur:', msg);
+    console.error('[NAS] Serveur aussi échoué:', msg);
     if (typeof showToast === 'function') showToast('⚠ ' + msg, 'error');
     if (callback) callback(false, msg);
   });
