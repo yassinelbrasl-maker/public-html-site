@@ -1123,64 +1123,16 @@ function goBack() {
 // ── Initialisation ──
 // ── Création dossier NAS (WebDAV local + fallback serveur) ──
 function createNasFolderCfg(nasPath, callback) {
-  var cleanPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '').replace(/^\/+/, '');
-  var parts = cleanPath.split('/').filter(function(p){ return p; });
-  if (parts.length === 0) { callback(false, 'Chemin invalide'); return; }
-
-  // Charger la config NAS
-  apiFetch('api/settings.php').then(function(r){
-    var d = r.data || {};
-    var ip = d.cortoba_nas_local || '';
-    var webdavP = d.cortoba_nas_webdav_port || '5005';
-    var user = d.cortoba_nas_user || '';
-    var pass = d.cortoba_nas_pass || '';
-
-    if (!ip || !webdavP) {
-      // Pas de config → essayer via serveur
-      cfgNasFallback(nasPath, callback);
-      return;
-    }
-
-    var baseUrl = 'http://' + ip + ':' + webdavP;
-    var headers = new Headers();
-    headers.set('Authorization', 'Basic ' + btoa(user + ':' + pass));
-
-    var currentP = '';
-    var created = [];
-    var idx = 0;
-
-    function mkNext() {
-      if (idx >= parts.length) {
-        var msg = created.length > 0
-          ? created.length + ' dossier(s) créé(s) sur le NAS'
-          : 'Le dossier existe déjà sur le NAS';
-        callback(true, msg);
-        return;
-      }
-      currentP += '/' + parts[idx];
-      idx++;
-      fetch(baseUrl + currentP + '/', {method:'MKCOL', headers:headers})
-        .then(function(resp){
-          if (resp.status === 201) created.push(currentP);
-          if (resp.status === 201 || resp.status === 405 || resp.status === 301) mkNext();
-          else throw new Error('WebDAV ' + resp.status);
-        })
-        .catch(function(){
-          cfgNasFallback(nasPath, callback);
-        });
-    }
-    mkNext();
-  }).catch(function(){
-    cfgNasFallback(nasPath, callback);
-  });
-}
-
-function cfgNasFallback(nasPath, callback) {
+  if (!nasPath) { callback(false, 'Chemin NAS non défini'); return; }
+  // Toujours via le serveur PHP (API File Station QNAP via myqnapcloud)
   apiFetch('api/nas.php?action=mkdir', {method:'POST', body:{path:nasPath}})
     .then(function(r){
-      callback(true, (r.data && r.data.message) || 'Dossier créé');
+      var msg = (r.data && r.data.message) || 'Dossier créé';
+      console.log('[NAS] Dossier créé via', (r.data && r.data.method) || '?', ':', nasPath);
+      callback(true, msg);
     })
     .catch(function(e){
+      console.error('[NAS] Erreur:', e.message);
       callback(false, e.message || 'Erreur création dossier');
     });
 }

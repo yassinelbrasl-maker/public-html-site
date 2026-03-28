@@ -70,6 +70,44 @@ function extractIp($val) {
     return $parts[0];
 }
 
+// ── Helper : login QNAP File Station (retourne authSid) ──
+function qnapLogin($baseUrl, $user, $pass) {
+    $loginUrl = $baseUrl . '/cgi-bin/authLogin.cgi?user=' . urlencode($user)
+              . '&pwd=' . urlencode(base64_encode($pass));
+    $res = curlGet($loginUrl, '', '', 8);
+    if (!$res || $res['code'] !== 200) return false;
+    if (preg_match('/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/', $res['body'], $m)) return $m[1];
+    if (preg_match('/<authSid>(.*?)<\/authSid>/', $res['body'], $m)) return $m[1];
+    return false;
+}
+
+// ── Helper : créer un dossier via QNAP File Station API ──
+function qnapCreateFolder($baseUrl, $sid, $destFolder, $folderName) {
+    $url = $baseUrl . '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' . urlencode($sid);
+    $postData = 'dest_folder=' . urlencode($destFolder) . '&dest_path=' . urlencode($folderName);
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/x-www-form-urlencoded'));
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 6);
+    $response = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($code === 0) return array('ok' => false, 'error' => 'Connexion échouée: ' . $err);
+    $json = json_decode($response, true);
+    if ($json && isset($json['status']) && $json['status'] == 1) return array('ok' => true);
+    if ($json && isset($json['status']) && $json['status'] == 2) return array('ok' => true, 'exists' => true);
+    if ($code >= 200 && $code < 300) return array('ok' => true);
+    $errMsg = ($json && isset($json['status'])) ? 'File Station status=' . $json['status'] : 'HTTP ' . $code;
+    return array('ok' => false, 'error' => $errMsg, 'body' => $response);
+}
+
 // ── ACTION : status ──
 if ($action === 'status') {
     $ip       = getNasParam('cortoba_nas_local', '192.168.1.100');
@@ -79,51 +117,57 @@ if ($action === 'status') {
     $model    = getNasParam('cortoba_nas_model', 'QNAP NAS');
     $capacity = (float) getNasParam('cortoba_nas_capacity', 0);
     $used     = (float) getNasParam('cortoba_nas_used', 0);
+    $cloudHost = getNasParam('cortoba_nas_public_ip', '');
 
     $online   = false;
     $latency  = 0;
     $realData = array();
+    $mode     = 'offline';
 
-    // Tentative connexion API QTS locale
-    if ($ip && $port && $user && $pass) {
+    // Construire la liste de baseUrls à essayer
+    $tryUrls = array();
+    // 1) myQNAPcloud (HTTPS)
+    if ($cloudHost) {
+        $h = preg_replace('#^https?://#i', '', trim($cloudHost));
+        $h = rtrim($h, '/');
+        if ($h && strpos($h, 'qlink.to') === false) {
+            $tryUrls[] = array('url' => 'https://' . $h, 'mode' => 'cloud');
+        }
+    }
+    // 2) IP locale
+    if ($ip && $port) {
+        $tryUrls[] = array('url' => 'http://' . $ip . ':' . $port, 'mode' => 'local');
+    }
+
+    foreach ($tryUrls as $t) {
+        $baseUrl = $t['url'];
         $start = microtime(true);
-        // Authentification QTS
-        $loginUrl = 'http://' . $ip . ':' . $port . '/cgi-bin/authLogin.cgi?user=' . urlencode($user) . '&pwd=' . urlencode(base64_encode($pass));
-        $res = curlGet($loginUrl, '', '', 3);
+        $sid = qnapLogin($baseUrl, $user, $pass);
         $latency = round((microtime(true) - $start) * 1000);
 
-        if ($res !== false && $res['code'] === 200) {
+        if ($sid) {
             $online = true;
-            // Parser le XML de réponse QTS pour extraire authSid
-            if (preg_match('/<authSid>(.*?)<\/authSid>/', $res['body'], $m)) {
-                $sid = $m[1];
-                // Récupérer les infos système
-                $sysUrl = 'http://' . $ip . ':' . $port . '/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&sid=' . $sid;
-                $sysRes = curlGet($sysUrl, '', '', 4);
-                if ($sysRes && $sysRes['code'] === 200) {
-                    // Parser les infos de stockage
-                    if (preg_match('/<modelName>(.*?)<\/modelName>/', $sysRes['body'], $mm)) {
-                        $realData['model'] = $mm[1];
-                    }
-                }
-                // Récupérer l'usage disque
-                $diskUrl = 'http://' . $ip . ':' . $port . '/cgi-bin/management/manaRequest.cgi?subfunc=storage_info&sid=' . $sid;
-                $diskRes = curlGet($diskUrl, '', '', 4);
-                if ($diskRes && $diskRes['code'] === 200) {
-                    if (preg_match('/<total_size>(.*?)<\/total_size>/', $diskRes['body'], $tm)) {
-                        $realData['total_bytes'] = (float)$tm[1];
-                    }
-                    if (preg_match('/<used_size>(.*?)<\/used_size>/', $diskRes['body'], $um)) {
-                        $realData['used_bytes'] = (float)$um[1];
-                    }
+            $mode = $t['mode'];
+            // Récupérer les infos système
+            $sysUrl = $baseUrl . '/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&sid=' . $sid;
+            $sysRes = curlGet($sysUrl, '', '', 4);
+            if ($sysRes && $sysRes['code'] === 200) {
+                if (preg_match('/<modelName>(.*?)<\/modelName>/', $sysRes['body'], $mm)) {
+                    $realData['model'] = $mm[1];
                 }
             }
-        } else {
-            // Essai simple ping HTTP sans auth
-            $pingRes = curlGet('http://' . $ip . ':' . $port, '', '', 2);
-            if ($pingRes !== false && $pingRes['code'] > 0) {
-                $online = true;
+            // Récupérer l'usage disque
+            $diskUrl = $baseUrl . '/cgi-bin/management/manaRequest.cgi?subfunc=storage_info&sid=' . $sid;
+            $diskRes = curlGet($diskUrl, '', '', 4);
+            if ($diskRes && $diskRes['code'] === 200) {
+                if (preg_match('/<total_size>(.*?)<\/total_size>/', $diskRes['body'], $tm)) {
+                    $realData['total_bytes'] = (float)$tm[1];
+                }
+                if (preg_match('/<used_size>(.*?)<\/used_size>/', $diskRes['body'], $um)) {
+                    $realData['used_bytes'] = (float)$um[1];
+                }
             }
+            break; // Un hôte accessible trouvé
         }
     }
 
@@ -136,7 +180,7 @@ if ($action === 'status') {
     jsonOk(array(
         'online'   => $online,
         'latency'  => $latency,
-        'mode'     => $online ? 'local' : 'offline',
+        'mode'     => $mode,
         'address'  => $ip . ':' . $port,
         'model'    => !empty($realData['model']) ? $realData['model'] : $model,
         'capacity' => $capacity,
@@ -216,7 +260,7 @@ elseif ($action === 'files') {
     jsonOk($files);
 }
 
-// ── ACTION : mkdir (créer un dossier via WebDAV) ──
+// ── ACTION : mkdir (créer un dossier via QNAP File Station API) ──
 elseif ($action === 'mkdir') {
     $user = requireAuth();
     $body = getBody();
@@ -225,74 +269,131 @@ elseif ($action === 'mkdir') {
 
     $rawIp      = getNasParam('cortoba_nas_local', '');
     $ip         = extractIp($rawIp);
+    $port       = getNasParam('cortoba_nas_port', '8080');
     $webdavPort = getNasParam('cortoba_nas_webdav_port', '5005');
     $nasUser    = getNasParam('cortoba_nas_user', 'admin');
     $nasPass    = getNasParam('cortoba_nas_pass', '');
-    $rawPublic  = getNasParam('cortoba_nas_public_ip', '');
-    $publicIp   = extractIp($rawPublic);
+    $cloudHost  = getNasParam('cortoba_nas_public_ip', '');
 
-    if (!$webdavPort) jsonError('WebDAV non configuré — renseignez le port dans Paramètres → NAS', 400);
-
-    // Essayer d'abord l'IP publique (serveur hébergé), puis l'IP locale
-    $hosts = array();
-    if ($publicIp) $hosts[] = $publicIp;
-    if ($ip)       $hosts[] = $ip;
-    if (empty($hosts)) jsonError('Aucune adresse NAS configurée', 400);
-
-    // Normaliser le chemin : retirer le préfixe UNC Windows et ne garder que le chemin relatif
-    // Ex: \\NAS\Projets\2026\01_26_XXX → Projets/2026/01_26_XXX
+    // Normaliser le chemin UNC → chemin absolu NAS
+    // Ex: \\192.168.1.165\Public\CAS_PROJETS\2026\01_26_XXX → /Public/CAS_PROJETS/2026/01_26_XXX
     $cleanPath = str_replace('\\', '/', $path);
-    $cleanPath = preg_replace('#^//[^/]+/#', '', $cleanPath); // Retirer \\NAS\
-    $cleanPath = ltrim($cleanPath, '/');
+    $cleanPath = preg_replace('#^//[^/]+/#', '/', $cleanPath); // \\IP\Public\... → /Public/...
+    $cleanPath = preg_replace('#^/+#', '/', $cleanPath);       // ensure single leading /
+    if (substr($cleanPath, 0, 1) !== '/') $cleanPath = '/' . $cleanPath;
 
-    // Créer chaque niveau du chemin (mkdir -p équivalent)
-    $parts = explode('/', $cleanPath);
-    $created = array();
-    $currentPath = '';
+    // Séparer en dossier parent + nom du dossier à créer
+    // Ex: /Public/CAS_PROJETS/2026/01_26_XXX
+    //   → On crée d'abord /Public/CAS_PROJETS/2026 puis 01_26_XXX dedans
+    $pathParts = explode('/', trim($cleanPath, '/'));
+    if (count($pathParts) < 2) jsonError('Chemin trop court: ' . $cleanPath, 400);
+
+    // Construire les URLs de base à essayer (HTTPS myqnapcloud d'abord, puis IP locale)
+    $baseUrls = array();
+    // 1) myQNAPcloud (HTTPS relay — fonctionne depuis n'importe où)
+    if ($cloudHost) {
+        $h = trim($cloudHost);
+        // Nettoyer : retirer https://, http://, trailing slashes
+        $h = preg_replace('#^https?://#i', '', $h);
+        $h = rtrim($h, '/');
+        // Ignorer les liens qlink.to (page web, pas API)
+        if ($h && strpos($h, 'qlink.to') === false) {
+            $baseUrls[] = 'https://' . $h;
+        }
+    }
+    // 2) IP locale (fonctionne si le serveur est sur le même réseau)
+    if ($ip && $port) {
+        $baseUrls[] = 'http://' . $ip . ':' . $port;
+    }
+
+    if (empty($baseUrls)) jsonError('Aucune adresse NAS configurée (renseignez cortoba_nas_public_ip)', 400);
+
     $lastError = '';
     $success = false;
+    $created = array();
+    $method = '';
 
-    foreach ($hosts as $host) {
+    // ── Méthode 1 : QNAP File Station API (fonctionne via myqnapcloud relay HTTPS) ──
+    foreach ($baseUrls as $baseUrl) {
+        $sid = qnapLogin($baseUrl, $nasUser, $nasPass);
+        if (!$sid) {
+            $lastError = 'Login QNAP échoué sur ' . $baseUrl;
+            continue;
+        }
+
+        // Créer chaque niveau nécessaire via File Station (mkdir -p)
+        // Ex: /Public/CAS_PROJETS/2026/01_26_Nom
+        //   → createdir(/Public, CAS_PROJETS)         — existera déjà
+        //   → createdir(/Public/CAS_PROJETS, 2026)    — peut ne pas exister
+        //   → createdir(/Public/CAS_PROJETS/2026, 01_26_Nom)  — à créer
         $success = true;
-        $currentPath = '';
-        $created = array();
-
-        foreach ($parts as $part) {
-            if (!$part) continue;
-            $currentPath .= '/' . $part;
-            $url = 'http://' . $host . ':' . $webdavPort . $currentPath . '/';
-
-            if (!function_exists('curl_init')) { jsonError('cURL non disponible', 500); }
-
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'MKCOL');
-            curl_setopt($ch, CURLOPT_USERPWD, $nasUser . ':' . $nasPass);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-            $response = curl_exec($ch);
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $err = curl_error($ch);
-            curl_close($ch);
-
-            // 201 = créé, 405 = existe déjà, 301 = redirigé (existe)
-            if ($code === 201) {
-                $created[] = $currentPath;
-            } elseif ($code === 405 || $code === 301) {
-                // Dossier existe déjà — OK
-            } elseif ($code === 0) {
-                $lastError = 'Connexion impossible à ' . $host . ':' . $webdavPort . ' — ' . $err;
-                $success = false;
-                break;
+        for ($i = 0; $i < count($pathParts); $i++) {
+            $parentPath = ($i === 0) ? '/' : '/' . implode('/', array_slice($pathParts, 0, $i));
+            $childName = $pathParts[$i];
+            $res = qnapCreateFolder($baseUrl, $sid, $parentPath, $childName);
+            if ($res['ok']) {
+                if (empty($res['exists'])) $created[] = $parentPath . '/' . $childName;
             } else {
-                $lastError = 'Erreur WebDAV ' . $code . ' pour ' . $currentPath;
+                $lastError = 'Erreur File Station: ' . ($res['error'] ?: 'inconnu') . ' pour ' . $parentPath . '/' . $childName;
                 $success = false;
                 break;
             }
         }
 
-        if ($success) break; // Réussi avec cet hôte
+        if ($success) {
+            $method = $baseUrl;
+            break;
+        }
+    }
+
+    // ── Méthode 2 (fallback) : WebDAV MKCOL ──
+    if (!$success && $webdavPort) {
+        $webdavHosts = array();
+        if ($ip) $webdavHosts[] = $ip;
+        // Essayer myqnapcloud aussi en WebDAV si possible
+        if ($cloudHost) {
+            $h = preg_replace('#^https?://#i', '', trim($cloudHost));
+            $h = rtrim($h, '/');
+            if ($h && strpos($h, 'qlink.to') === false) $webdavHosts[] = $h;
+        }
+
+        foreach ($webdavHosts as $host) {
+            $success = true;
+            $currentPath = '';
+            $created = array();
+
+            foreach ($pathParts as $part) {
+                if (!$part) continue;
+                $currentPath .= '/' . $part;
+                $url = 'http://' . $host . ':' . $webdavPort . $currentPath . '/';
+
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'MKCOL');
+                curl_setopt($ch, CURLOPT_USERPWD, $nasUser . ':' . $nasPass);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+                $response = curl_exec($ch);
+                $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $err = curl_error($ch);
+                curl_close($ch);
+
+                if ($code === 201) {
+                    $created[] = $currentPath;
+                } elseif ($code === 405 || $code === 301) {
+                    // Dossier existe déjà — OK
+                } else {
+                    $lastError = ($code === 0)
+                        ? 'WebDAV: connexion impossible à ' . $host . ':' . $webdavPort . ' — ' . $err
+                        : 'WebDAV: erreur ' . $code . ' pour ' . $currentPath;
+                    $success = false;
+                    break;
+                }
+            }
+
+            if ($success) { $method = 'webdav://' . $host . ':' . $webdavPort; break; }
+        }
     }
 
     if (!$success) {
@@ -302,6 +403,7 @@ elseif ($action === 'mkdir') {
     jsonOk(array(
         'path'    => $cleanPath,
         'created' => $created,
+        'method'  => $method,
         'message' => count($created) > 0
             ? count($created) . ' dossier(s) créé(s) sur le NAS'
             : 'Le dossier existe déjà sur le NAS'

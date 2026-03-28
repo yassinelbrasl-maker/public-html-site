@@ -5472,76 +5472,21 @@ function createNasFolder(nasPath, callback) {
     if (callback) callback(false, 'Chemin NAS non défini');
     return;
   }
-  // Normaliser le chemin : \\NAS\Projets\2026\xx → Projets/2026/xx
-  var cleanPath = nasPath.replace(/\\/g, '/').replace(/^\/\/[^/]+\//, '').replace(/^\/+/, '');
-  var parts = cleanPath.split('/').filter(function(p){ return p; });
-  if (parts.length === 0) {
-    if (callback) callback(false, 'Chemin invalide');
-    return;
-  }
-
-  // Lire la config NAS (extraire l'IP pure si le champ contient un chemin UNC)
-  var rawIp    = getSetting('cortoba_nas_local', '');
-  var ip       = extractNasIp(rawIp);
-  var webdavP  = getSetting('cortoba_nas_webdav_port', '5005');
-  var user     = getSetting('cortoba_nas_user', '');
-  var pass     = getSetting('cortoba_nas_pass', '');
-
-  if (!ip || !webdavP) {
-    // Fallback : appel serveur PHP
-    _createNasFolderViaServer(nasPath, callback);
-    return;
-  }
-
-  // Créer chaque niveau via WebDAV MKCOL (depuis le navigateur, réseau local)
-  var baseUrl = 'http://' + ip + ':' + webdavP;
-  var headers = new Headers();
-  headers.set('Authorization', 'Basic ' + btoa(user + ':' + pass));
-
-  var currentPath = '';
-  var created = [];
-  var i = 0;
-
-  function mkNext() {
-    if (i >= parts.length) {
-      var msg = created.length > 0
-        ? created.length + ' dossier(s) créé(s) sur le NAS'
-        : 'Le dossier existe déjà sur le NAS';
-      if (typeof showToast === 'function') showToast('📁 ' + msg);
-      if (callback) callback(true, msg);
-      return;
-    }
-    currentPath += '/' + parts[i];
-    i++;
-    fetch(baseUrl + currentPath + '/', {method: 'MKCOL', headers: headers})
-      .then(function(r) {
-        if (r.status === 201) created.push(currentPath);
-        // 405 = existe déjà, 301 = redirect → OK
-        if (r.status === 201 || r.status === 405 || r.status === 301) {
-          mkNext();
-        } else {
-          throw new Error('Erreur WebDAV ' + r.status + ' pour ' + currentPath);
-        }
-      })
-      .catch(function(e) {
-        console.warn('[NAS] WebDAV local échoué, fallback serveur:', e.message);
-        // Fallback : essayer via le serveur PHP (IP publique)
-        _createNasFolderViaServer(nasPath, callback);
-      });
-  }
-  mkNext();
-}
-
-function _createNasFolderViaServer(nasPath, callback) {
+  // Toujours passer par le serveur PHP qui utilise l'API File Station QNAP
+  // (le navigateur ne peut pas faire de requêtes HTTP vers le NAS local
+  //  depuis une page HTTPS — mixed content bloqué)
   apiFetch('api/nas.php?action=mkdir', {
     method: 'POST',
     body: { path: nasPath }
   }).then(function(r) {
     var msg = (r.data && r.data.message) || 'Dossier créé';
+    var method = (r.data && r.data.method) || '';
+    console.log('[NAS] Dossier créé via', method, ':', nasPath);
     if (typeof showToast === 'function') showToast('📁 ' + msg);
     if (callback) callback(true, msg);
   }).catch(function(e) {
     var msg = e.message || 'Erreur création dossier NAS';
+    console.error('[NAS] Erreur:', msg);
     if (typeof showToast === 'function') showToast('⚠ ' + msg, 'error');
     if (callback) callback(false, msg);
   });
