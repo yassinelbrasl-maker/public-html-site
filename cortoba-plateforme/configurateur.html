@@ -1092,13 +1092,22 @@ function showSuccess(nom, code, nasMsg) {
     if (!nasEl && nasMsg) {
       nasEl = document.createElement('div');
       nasEl.id = 'success-nas-msg';
-      nasEl.style.cssText = 'margin-top:1rem;font-size:0.82rem;padding:0.5rem 1rem;border-radius:6px;' +
-        (nasMsg.indexOf('⚠') === 0 ? 'background:rgba(224,164,110,.1);color:#e0a46e;border:1px solid rgba(224,164,110,.3)' : 'background:rgba(90,171,110,.1);color:#5aab6e;border:1px solid rgba(90,171,110,.3)');
-      nasEl.textContent = nasMsg;
+      var isErr = nasMsg.indexOf('⚠') === 0;
+      nasEl.style.cssText = 'margin-top:1rem;font-size:0.82rem;padding:0.6rem 1rem;border-radius:6px;' +
+        (isErr ? 'background:rgba(224,164,110,.1);color:#e0a46e;border:1px solid rgba(224,164,110,.3)' : 'background:rgba(90,171,110,.1);color:#5aab6e;border:1px solid rgba(90,171,110,.3)');
+      if (isErr) {
+        // Afficher le chemin à créer manuellement + bouton copier
+        var nasPathDisplay = genNasPath(code, '');
+        nasEl.innerHTML = '<div style="margin-bottom:0.4rem">Le dossier NAS n\'a pas pu être créé automatiquement.</div>' +
+          '<div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.5rem">Créez-le manuellement dans l\'explorateur Windows :</div>' +
+          '<div style="display:flex;align-items:center;gap:0.5rem;background:var(--bg-2);padding:0.4rem 0.7rem;border-radius:4px;font-family:var(--mono);font-size:0.72rem;word-break:break-all">' +
+          '<span>' + esc(nasPathDisplay) + '</span>' +
+          '<button onclick="navigator.clipboard.writeText(\'' + nasPathDisplay.replace(/'/g,"\\'") + '\');this.textContent=\'✓\'" style="background:none;border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.5rem;cursor:pointer;color:var(--accent);font-size:0.7rem;white-space:nowrap">Copier</button>' +
+          '</div>';
+      } else {
+        nasEl.textContent = nasMsg;
+      }
       success.querySelector('div').appendChild(nasEl);
-    } else if (nasEl && nasMsg) {
-      nasEl.textContent = nasMsg;
-      nasEl.style.display = 'block';
     }
   }
 }
