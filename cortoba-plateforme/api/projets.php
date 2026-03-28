@@ -241,9 +241,10 @@ function getIntervenants(string $projetId) {
     return $stmt->fetchAll();
 }
 
-// ── Lire un paramètre depuis CA_settings (sauvegardé par le frontend) ──
+// ── Lire un paramètre NAS depuis CA_settings puis CA_parametres (fallback) ──
 function getNasCfg($key, $default = '') {
     $db = getDB();
+    // 1) Chercher dans CA_settings
     try {
         $stmt = $db->prepare('SELECT setting_value FROM CA_settings WHERE setting_key = ? LIMIT 1');
         $stmt->execute(array($key));
@@ -251,6 +252,16 @@ function getNasCfg($key, $default = '') {
         if ($row) {
             $decoded = json_decode($row['setting_value'], true);
             return ($decoded !== null) ? $decoded : $row['setting_value'];
+        }
+    } catch (Exception $e) {}
+    // 2) Fallback CA_parametres
+    try {
+        $stmt = $db->prepare('SELECT valeur FROM CA_parametres WHERE cle = ? LIMIT 1');
+        $stmt->execute(array($key));
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $decoded = json_decode($row['valeur'], true);
+            return ($decoded !== null) ? $decoded : $row['valeur'];
         }
     } catch (Exception $e) {}
     return $default;
