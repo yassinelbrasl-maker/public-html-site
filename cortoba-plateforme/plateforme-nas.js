@@ -1671,9 +1671,11 @@ function resetProjetForm(){
   if (_pjMap) { try{ _pjMap.remove(); }catch(e){} }
   _pjMap = null; _pjMarker = null;
 
-  ['pj-nom','pj-adresse','pj-delai','pj-honoraires','pj-budget','pj-surface','pj-description'].forEach(function(id){
+  ['pj-nom','pj-adresse','pj-delai','pj-description','pj-honoraires2','pj-budget2','pj-surface2','pj-shon','pj-shob','pj-terrain','pj-cout-construction','pj-cout-m2'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
+  var stdRst=document.getElementById('pj-standing'); if(stdRst) stdRst.value='';
+  var zoneRst=document.getElementById('pj-zone'); if(zoneRst) zoneRst.value='';
   var anneeEl = document.getElementById('pj-annee');
   if (anneeEl) anneeEl.value = new Date().getFullYear();
 
@@ -1749,9 +1751,9 @@ function openEditProjet(id){
   document.getElementById('pj-annee').value        = p.annee||new Date().getFullYear();
   document.getElementById('pj-adresse').value      = p.adresse||'';
   document.getElementById('pj-delai').value        = p.delai||'';
-  document.getElementById('pj-honoraires').value   = p.honoraires||'';
-  document.getElementById('pj-budget').value       = p.budget||'';
-  document.getElementById('pj-surface').value      = p.surface||'';
+  var honEl=document.getElementById('pj-honoraires2'); if(honEl) honEl.value=p.honoraires||'';
+  var budEl=document.getElementById('pj-budget2'); if(budEl) budEl.value=p.budget||'';
+  var surfEl=document.getElementById('pj-surface2'); if(surfEl) surfEl.value=p.surface||'';
   document.getElementById('pj-description').value  = p.description||'';
   document.getElementById('pj-phase').value        = p.phase||'APS';
   document.getElementById('pj-statut').value       = p.statut||'Actif';
@@ -1861,8 +1863,20 @@ function saveProjet(){
   var clientSel = document.getElementById('pj-client');
   var clientId  = clientSel ? clientSel.value : '';
   var err       = document.getElementById('pj-err');
-  if (!nom)      { err.textContent='Le nom du projet est obligatoire.'; err.style.display='block'; return; }
-  if (!clientId) { err.textContent='Veuillez sélectionner un client.';  err.style.display='block'; return; }
+  if (!nom) {
+    err.textContent='Le nom du projet est obligatoire.'; err.style.display='block';
+    // Naviguer vers l'onglet Identité
+    var identTab = document.querySelector('.pj-tab[onclick*="identite"]');
+    if(identTab) switchPjTab('identite', identTab);
+    document.getElementById('pj-nom').focus();
+    return;
+  }
+  if (!clientId) {
+    err.textContent='Veuillez sélectionner un client.'; err.style.display='block';
+    var identTab2 = document.querySelector('.pj-tab[onclick*="identite"]');
+    if(identTab2) switchPjTab('identite', identTab2);
+    return;
+  }
   err.style.display = 'none';
 
   var client      = getClients().find(function(c){ return c.id===clientId; }) || {};
@@ -1871,9 +1885,9 @@ function saveProjet(){
   var statut      = document.getElementById('pj-statut').value;
   var typeBat     = document.getElementById('pj-type-bat').value;
   var delai       = document.getElementById('pj-delai').value;
-  var honoraires  = parseFloat(document.getElementById('pj-honoraires').value)||0;
-  var budget      = parseFloat(document.getElementById('pj-budget').value)||0;
-  var surface     = parseFloat(document.getElementById('pj-surface').value)||0;
+  var honoraires  = parseFloat((document.getElementById('pj-honoraires2')||{}).value)||0;
+  var budget      = parseFloat((document.getElementById('pj-budget2')||{}).value)||0;
+  var surface     = parseFloat((document.getElementById('pj-surface2')||{}).value)||0;
   var description = (document.getElementById('pj-description').value||'').trim();
   var adresse     = (document.getElementById('pj-adresse').value||'').trim();
   var lat         = parseFloat(document.getElementById('pj-lat').value)||null;
