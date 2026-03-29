@@ -184,13 +184,7 @@
           <label class="form-label">Type de bâtiment</label>
           <select id="cfg-type-bat" class="form-select">
             <option value="">— Sélectionner —</option>
-            <option>Villa / Maison individuelle</option>
-            <option>Immeuble résidentiel</option>
-            <option>Bureau / Coworking</option>
-            <option>Commerce</option>
-            <option>Équipement public</option>
-            <option>Rénovation / Extension</option>
-            <option>Autre</option>
+            <!-- Peuplé dynamiquement depuis cfg_types_batiment -->
           </select>
         </div>
         <div class="form-field">
@@ -501,6 +495,20 @@ var _token = null;
 var _clients = [];
 var _missions = [];
 var _roles = [];
+var _typesBatiment = [];
+
+var CFG_TYPES_BATIMENT_DEFAULT = [
+  { id:'logement', label:'Logement', icon:'🏠', subtypes:[
+      {id:'individuel', label:'Individuel', icon:'🏡'},
+      {id:'collectif',  label:'Collectif',  icon:'🏘️'}
+  ]},
+  { id:'immeuble', label:'Immeuble', icon:'🏢', subtypes:[
+      {id:'residentiel', label:'Résidentiel', icon:'🏠'},
+      {id:'commercial',  label:'Commercial',  icon:'🏪'},
+      {id:'bureautique', label:'Bureautique', icon:'💼'},
+      {id:'mixte',       label:'Mixte',       icon:'🔀'}
+  ]}
+];
 
 function apiFetch(path, opts) {
   opts = opts || {};
@@ -567,15 +575,43 @@ function loadInitialData() {
       var ro = settings['cortoba_roles'];
       if (typeof ro === 'string') { try { ro = JSON.parse(ro); } catch(e) { ro = null; } }
       _roles = Array.isArray(ro) ? ro : [];
+      // Types de bâtiment
+      var tb = settings['cfg_types_batiment'];
+      if (typeof tb === 'string') { try { tb = JSON.parse(tb); } catch(e) { tb = null; } }
+      _typesBatiment = (Array.isArray(tb) && tb.length > 0) ? tb : CFG_TYPES_BATIMENT_DEFAULT;
+      populateCfgTypeBatSelect();
     })
     .catch(function(e) {
       console.warn('Erreur chargement données:', e);
       _missions = DEFAULT_MISSIONS;
+      _typesBatiment = CFG_TYPES_BATIMENT_DEFAULT;
+      populateCfgTypeBatSelect();
     });
 }
 
 function setLoadMsg(msg) {
   var el = document.getElementById('cfg-load-msg'); if (el) el.textContent = msg;
+}
+
+// ── Peuplement dynamique du select Type de bâtiment ──
+function populateCfgTypeBatSelect() {
+  var sel = document.getElementById('cfg-type-bat');
+  if (!sel) return;
+  var currentVal = sel.value;
+  // Garder seulement le premier option (— Sélectionner —)
+  while (sel.options.length > 1) sel.remove(1);
+  _typesBatiment.forEach(function(group) {
+    var og = document.createElement('optgroup');
+    og.label = group.icon + ' ' + group.label;
+    (group.subtypes || []).forEach(function(st) {
+      var opt = document.createElement('option');
+      opt.value = group.label + ' ' + st.label;
+      opt.textContent = st.icon + ' ' + st.label;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+  if (currentVal) sel.value = currentVal;
 }
 
 // ── Données par défaut ──
