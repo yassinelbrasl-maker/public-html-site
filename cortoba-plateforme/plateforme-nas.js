@@ -2135,17 +2135,14 @@ function saveProjet(){
     url    = 'api/projets.php';
   }
 
+  var isCreation = !_editingProjetId;
+
   apiFetch(url, {method:method, body:body})
     .then(function(resp){
-      // Le PHP crée automatiquement le dossier NAS via WebDAV (pas de popup)
-      var d = resp && resp.data || resp || {};
-      if (d.nas_debug) {
-        console.log('[NAS] Résultat création dossier:', d.nas_debug);
-        if (d.nas_debug.status === 'ok') {
-          showToast('✓ Dossier NAS créé');
-        } else if (d.nas_debug.status === 'failed' || d.nas_debug.status === 'error') {
-          console.warn('[NAS] Échec création dossier:', d.nas_debug);
-        }
+      // Créer le dossier NAS côté navigateur (iframe caché vers le NAS local)
+      // Le PHP ne peut pas atteindre le NAS (serveur distant) — c'est le navigateur qui le fait
+      if (isCreation && nasPath && nasPath !== '—') {
+        createNasFolder(nasPath);
       }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
@@ -5663,24 +5660,25 @@ function createNasFolder(nasPath, callback) {
   foldersPath = foldersPath.replace(/^\/\/[^\/]+\//, '');
 
   if (nasUser && nasIp) {
-    // Tenter la création via popup NAS (fonctionne sur le réseau local)
-    _openNasMkdirPopup(nasIp, nasUser, nasPass, foldersPath, nasPath, callback);
+    // Créer le dossier via iframe caché (nas-mkdir.html hébergé sur le NAS)
+    _nasCreateViaIframe(nasIp, nasUser, nasPass, foldersPath, nasPath, callback);
   } else {
     // Fallback : copier dans le presse-papier
     _nasCopyClipboard(nasPath, callback);
   }
 }
 
-// Ouvrir nas-mkdir.html hébergée sur le NAS en popup
-// Le Web Server QNAP est sur port 80 (HTTP) et 8081 (HTTPS), pas sur 443 (QTS admin)
-function _openNasMkdirPopup(nasIp, user, pass, foldersPath, nasPath, callback) {
+// Créer le dossier via un iframe caché pointant vers nas-mkdir.html sur le NAS
+// Pas de popup — l'iframe est invisible et communique via postMessage
+function _nasCreateViaIframe(nasIp, user, pass, foldersPath, nasPath, callback) {
   var hash = 'user=' + encodeURIComponent(user)
            + '&pass=' + encodeURIComponent(pass)
            + '&folders=' + encodeURIComponent(foldersPath)
            + '&nasPath=' + encodeURIComponent(nasPath);
-  // Essayer le Web Server HTTPS (8081), puis HTTP (80)
-  var url = 'https://' + nasIp + ':8081/nas-mkdir.html#' + hash;
-  console.log('[NAS] Ouverture popup:', url.replace(/pass=[^&]+/, 'pass=***'));
+
+  // Essayer HTTP (port 80) d'abord — le Web Server QNAP est sur 80 (HTTP) et 8081 (HTTPS)
+  var url = 'http://' + nasIp + '/nas-mkdir.html#' + hash;
+  console.log('[NAS] Création dossier via iframe:', url.replace(/pass=[^&]+/, 'pass=***'));
 
   // Écouter le postMessage de retour
   var handled = false;
@@ -5690,38 +5688,40 @@ function _openNasMkdirPopup(nasIp, user, pass, foldersPath, nasPath, callback) {
     if (!d || d.type !== 'nas-folder-result') return;
     handled = true;
     window.removeEventListener('message', onMsg);
+    // Supprimer l'iframe
+    var el = document.getElementById('nas-mkdir-iframe');
+    if (el) el.remove();
     if (d.success) {
       console.log('[NAS] Dossier créé avec succès:', d.message);
-      showToast('✅ Dossier NAS créé avec succès');
+      showToast('Dossier NAS créé');
       if (callback) callback(true, d.message);
     } else {
       console.warn('[NAS] Échec création:', d.error);
-      // Fallback clipboard
       _nasCopyClipboard(nasPath, callback);
     }
   }
   window.addEventListener('message', onMsg);
 
-  // Ouvrir la popup
-  var popup = window.open(url, 'nas_mkdir', 'width=500,height=400,scrollbars=yes');
+  // Créer un iframe caché
+  var old = document.getElementById('nas-mkdir-iframe');
+  if (old) old.remove();
+  var iframe = document.createElement('iframe');
+  iframe.id = 'nas-mkdir-iframe';
+  iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden';
+  iframe.src = url;
+  document.body.appendChild(iframe);
 
-  // Timeout : si pas de réponse en 15s, fallback clipboard
+  // Timeout : si pas de réponse en 20s, fallback clipboard
   setTimeout(function() {
     if (!handled) {
       handled = true;
       window.removeEventListener('message', onMsg);
-      console.warn('[NAS] Timeout popup — fallback clipboard');
+      var el = document.getElementById('nas-mkdir-iframe');
+      if (el) el.remove();
+      console.warn('[NAS] Timeout iframe — fallback clipboard');
       _nasCopyClipboard(nasPath, callback);
     }
-  }, 15000);
-
-  // Si la popup est bloquée
-  if (!popup || popup.closed) {
-    handled = true;
-    window.removeEventListener('message', onMsg);
-    console.warn('[NAS] Popup bloquée — fallback clipboard');
-    _nasCopyClipboard(nasPath, callback);
-  }
+  }, 20000);
 }
 
 // Fallback : copier le chemin NAS dans le presse-papier
