@@ -327,7 +327,8 @@ function makeExtensible(selectId) {
 }
 
 function initExtensibleSelects() {
-  ['pj-type-bat','pj-phase','pj-statut','cl-statut','cl-source'].forEach(makeExtensible);
+  ['pj-phase','pj-statut','cl-statut','cl-source'].forEach(makeExtensible);
+  populateTypeBatSelect();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -335,7 +336,6 @@ function initExtensibleSelects() {
 // ══════════════════════════════════════════════════════════
 
 var PARAM_LISTES = [
-  { id:'pj-type-bat',  label:"Type de bâtiment",  defauts:['Villa / Maison individuelle','Immeuble résidentiel','Bureau / Coworking','Commerce','Équipement public','Rénovation / Extension'] },
   { id:'pj-phase',     label:"Phase initiale",     defauts:['Étude préliminaire','APS','APD','PC','DCE','EXE','Livré'] },
   { id:'pj-statut',    label:"Statut projet",      defauts:['Actif','En pause','Prospection','Archivé'] },
   { id:'cl-statut',    label:"Statut client",      defauts:['Actif','Standby','Clôturé'] },
@@ -483,6 +483,7 @@ function cfgTypesAddGroup() {
   types.push({ id: id, label: label, icon: icon, subtypes: [] });
   saveCfgTypesBatiment(types);
   renderCfgTypesParams();
+  populateTypeBatSelect();
 
   document.getElementById('param-cfg-type-icon').value = '';
   document.getElementById('param-cfg-type-id').value = '';
@@ -495,6 +496,7 @@ function cfgTypesRemoveGroup(gi) {
   types.splice(gi, 1);
   saveCfgTypesBatiment(types);
   renderCfgTypesParams();
+  populateTypeBatSelect();
 }
 
 function cfgTypesMoveGroup(gi, dir) {
@@ -506,6 +508,7 @@ function cfgTypesMoveGroup(gi, dir) {
   types[ni] = tmp;
   saveCfgTypesBatiment(types);
   renderCfgTypesParams();
+  populateTypeBatSelect();
 }
 
 function cfgTypesAddSubtype(gi) {
@@ -522,6 +525,7 @@ function cfgTypesAddSubtype(gi) {
   group.subtypes.push({ id: id, label: label, icon: icon });
   saveCfgTypesBatiment(types);
   renderCfgTypesParams();
+  populateTypeBatSelect();
 }
 
 function cfgTypesRemoveSubtype(gi, si) {
@@ -531,6 +535,33 @@ function cfgTypesRemoveSubtype(gi, si) {
   types[gi].subtypes.splice(si, 1);
   saveCfgTypesBatiment(types);
   renderCfgTypesParams();
+  populateTypeBatSelect();
+}
+
+// Peuple le select pj-type-bat avec optgroups depuis cfg_types_batiment
+function populateTypeBatSelect() {
+  var sel = document.getElementById('pj-type-bat');
+  if (!sel) return;
+  var currentVal = sel.value;
+
+  // Garder seulement le premier option (— Sélectionner —)
+  while (sel.options.length > 1) sel.remove(1);
+
+  var types = getCfgTypesBatiment();
+  types.forEach(function(group) {
+    var og = document.createElement('optgroup');
+    og.label = group.icon + ' ' + group.label;
+    (group.subtypes || []).forEach(function(st) {
+      var opt = document.createElement('option');
+      opt.value = group.label + ' ' + st.label;
+      opt.textContent = st.icon + ' ' + st.label;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+
+  // Restaurer la valeur si elle existe encore
+  if (currentVal) sel.value = currentVal;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1925,7 +1956,15 @@ function openEditProjet(id){
   document.getElementById('pj-statut').value       = p.statut||'Actif';
   // A3 — typeBat : gérer snake_case (type_bat) et camelCase (typeBat)
   var typeBatVal = p.typeBat || p.type_bat || '';
-  document.getElementById('pj-type-bat').value = typeBatVal;
+  var typeBatSel = document.getElementById('pj-type-bat');
+  typeBatSel.value = typeBatVal;
+  // Si la valeur n'existe pas dans les options (ancien format), l'ajouter temporairement
+  if (typeBatVal && typeBatSel.value !== typeBatVal) {
+    var tmpOpt = document.createElement('option');
+    tmpOpt.value = typeBatVal; tmpOpt.textContent = typeBatVal;
+    typeBatSel.appendChild(tmpOpt);
+    typeBatSel.value = typeBatVal;
+  }
 
   if (p.lat && p.lng) {
     document.getElementById('pj-lat').value = p.lat;
@@ -5055,8 +5094,10 @@ var NAS_ICONS = {
 
 // ── Lire la config NAS depuis les settings ──
 function getNasConfig() {
+  var rawLocal = getSetting('cortoba_nas_local', '192.168.1.100');
   return {
-    local:       getSetting('cortoba_nas_local', '192.168.1.100'),
+    local:       extractNasIp(rawLocal) || '192.168.1.100',  // IP extraite pour usage réseau
+    localFull:   rawLocal,                                    // Chemin UNC complet pour genNasPath
     port:        getSetting('cortoba_nas_port', '8080'),
     cloud:       getSetting('cortoba_nas_cloud', ''),
     user:        getSetting('cortoba_nas_user', 'admin'),
@@ -5127,7 +5168,7 @@ function saveNasConfig() {
 function loadNasParams() {
   var cfg = getNasConfig();
   var map = {
-    'param-nas-local':       cfg.local,
+    'param-nas-local':       cfg.localFull,
     'param-nas-port':        cfg.port,
     'param-nas-cloud':       cfg.cloud,
     'param-nas-user':        cfg.user,
