@@ -400,6 +400,140 @@ function removeParamOption(selectId, valeur) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  PARAMÈTRES — Types de bâtiment (Configurateur)
+// ══════════════════════════════════════════════════════════
+
+var CFG_TYPES_BATIMENT_DEFAULT = [
+  { id:'logement', label:'Logement', icon:'🏠', subtypes:[
+      {id:'individuel', label:'Individuel', icon:'🏡'},
+      {id:'collectif',  label:'Collectif',  icon:'🏘️'}
+  ]},
+  { id:'immeuble', label:'Immeuble', icon:'🏢', subtypes:[
+      {id:'residentiel', label:'Résidentiel', icon:'🏠'},
+      {id:'commercial',  label:'Commercial',  icon:'🏪'},
+      {id:'bureautique', label:'Bureautique', icon:'💼'},
+      {id:'mixte',       label:'Mixte',       icon:'🔀'}
+  ]}
+];
+
+function getCfgTypesBatiment() {
+  var val = getSetting('cfg_types_batiment', null);
+  return (Array.isArray(val) && val.length > 0) ? val : CFG_TYPES_BATIMENT_DEFAULT;
+}
+
+function saveCfgTypesBatiment(types) {
+  saveSetting('cfg_types_batiment', types);
+}
+
+function renderCfgTypesParams() {
+  var wrap = document.getElementById('param-cfg-types-wrap');
+  if (!wrap) return;
+  var types = getCfgTypesBatiment();
+  wrap.innerHTML = '';
+
+  types.forEach(function(group, gi) {
+    var div = document.createElement('div');
+    div.style.cssText = 'margin-bottom:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:1rem';
+
+    // Group header
+    var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">'
+      + '<span style="font-size:0.9rem;font-weight:600;color:var(--text)">'
+      + '<span style="margin-right:0.4rem">' + group.icon + '</span>' + group.label
+      + ' <span style="font-size:0.65rem;color:var(--text-3);font-weight:400">(' + group.id + ')</span></span>'
+      + '<div style="display:flex;gap:0.3rem">';
+
+    if (gi > 0) header += '<button class="btn btn-sm" onclick="cfgTypesMoveGroup('+gi+',-1)" title="Monter" style="font-size:0.7rem;padding:0.2rem 0.4rem">▲</button>';
+    if (gi < types.length-1) header += '<button class="btn btn-sm" onclick="cfgTypesMoveGroup('+gi+',1)" title="Descendre" style="font-size:0.7rem;padding:0.2rem 0.4rem">▼</button>';
+    header += '<button class="btn btn-sm" onclick="cfgTypesRemoveGroup('+gi+')" title="Supprimer" style="font-size:0.7rem;padding:0.2rem 0.4rem;color:#e07070">✕</button>';
+    header += '</div></div>';
+
+    // Subtypes
+    var subtypeHtml = '<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.6rem">';
+    (group.subtypes || []).forEach(function(st, si) {
+      subtypeHtml += '<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.25rem 0.6rem;border-radius:20px;font-size:0.75rem;background:var(--bg-3);border:1px solid var(--border);color:var(--text-2)">'
+        + '<span>' + st.icon + '</span> ' + st.label
+        + ' <span style="font-size:0.6rem;color:var(--text-3)">(' + st.id + ')</span>'
+        + '<button type="button" style="background:none;border:none;cursor:pointer;color:#e07070;font-size:0.85rem;line-height:1;padding:0 0 0 2px" onclick="cfgTypesRemoveSubtype('+gi+','+si+')" title="Supprimer">✕</button>'
+        + '</span>';
+    });
+    subtypeHtml += '</div>';
+
+    // Add subtype form
+    var addForm = '<div style="display:flex;gap:0.3rem;align-items:center">'
+      + '<input class="form-input" id="cfg-st-icon-'+gi+'" placeholder="Icône" style="width:50px;font-size:0.75rem;padding:0.25rem 0.4rem" />'
+      + '<input class="form-input" id="cfg-st-id-'+gi+'" placeholder="ID" style="width:90px;font-size:0.75rem;padding:0.25rem 0.4rem" />'
+      + '<input class="form-input" id="cfg-st-label-'+gi+'" placeholder="Libellé" style="flex:1;font-size:0.75rem;padding:0.25rem 0.4rem" />'
+      + '<button class="btn btn-sm" onclick="cfgTypesAddSubtype('+gi+')" style="font-size:0.68rem;padding:0.25rem 0.5rem">+ Sous-type</button>'
+      + '</div>';
+
+    div.innerHTML = header + subtypeHtml + addForm;
+    wrap.appendChild(div);
+  });
+}
+
+function cfgTypesAddGroup() {
+  var icon  = (document.getElementById('param-cfg-type-icon').value || '🏗️').trim();
+  var id    = (document.getElementById('param-cfg-type-id').value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  var label = (document.getElementById('param-cfg-type-label').value || '').trim();
+  if (!id || !label) { alert('Veuillez renseigner un ID et un libellé.'); return; }
+
+  var types = getCfgTypesBatiment();
+  if (types.some(function(g){ return g.id === id; })) { alert('Un type avec cet ID existe déjà.'); return; }
+
+  types.push({ id: id, label: label, icon: icon, subtypes: [] });
+  saveCfgTypesBatiment(types);
+  renderCfgTypesParams();
+
+  document.getElementById('param-cfg-type-icon').value = '';
+  document.getElementById('param-cfg-type-id').value = '';
+  document.getElementById('param-cfg-type-label').value = '';
+}
+
+function cfgTypesRemoveGroup(gi) {
+  var types = getCfgTypesBatiment();
+  if (!confirm('Supprimer le type "' + types[gi].label + '" et tous ses sous-types ?')) return;
+  types.splice(gi, 1);
+  saveCfgTypesBatiment(types);
+  renderCfgTypesParams();
+}
+
+function cfgTypesMoveGroup(gi, dir) {
+  var types = getCfgTypesBatiment();
+  var ni = gi + dir;
+  if (ni < 0 || ni >= types.length) return;
+  var tmp = types[gi];
+  types[gi] = types[ni];
+  types[ni] = tmp;
+  saveCfgTypesBatiment(types);
+  renderCfgTypesParams();
+}
+
+function cfgTypesAddSubtype(gi) {
+  var icon  = (document.getElementById('cfg-st-icon-'+gi).value || '🔹').trim();
+  var id    = (document.getElementById('cfg-st-id-'+gi).value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  var label = (document.getElementById('cfg-st-label-'+gi).value || '').trim();
+  if (!id || !label) { alert('Veuillez renseigner un ID et un libellé.'); return; }
+
+  var types = getCfgTypesBatiment();
+  var group = types[gi];
+  if (!group.subtypes) group.subtypes = [];
+  if (group.subtypes.some(function(s){ return s.id === id; })) { alert('Un sous-type avec cet ID existe déjà.'); return; }
+
+  group.subtypes.push({ id: id, label: label, icon: icon });
+  saveCfgTypesBatiment(types);
+  renderCfgTypesParams();
+}
+
+function cfgTypesRemoveSubtype(gi, si) {
+  var types = getCfgTypesBatiment();
+  var st = types[gi].subtypes[si];
+  if (!confirm('Supprimer le sous-type "' + st.label + '" ?')) return;
+  types[gi].subtypes.splice(si, 1);
+  saveCfgTypesBatiment(types);
+  renderCfgTypesParams();
+}
+
+// ══════════════════════════════════════════════════════════
 //  CODE CLIENT GENERATOR
 // ══════════════════════════════════════════════════════════
 function genClientCode(type, prenom, nomOuRaison) {
@@ -1445,9 +1579,10 @@ function genNasPath(code, clientObj){
       suffix = suffix.replace(/\s+/g,'_');
     }
   }
-  var ip = extractNasIp(getSetting('cortoba_nas_local', '192.168.1.165'));
+  // Utiliser le chemin UNC complet configuré dans les paramètres NAS
+  var base = (getSetting('cortoba_nas_local', '') || '\\\\192.168.1.165\\Public\\CAS_PROJETS').replace(/[\\/]+$/, '');
   var folderName = code + (suffix ? '_' + suffix : '');
-  return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + year + '\\' + folderName;
+  return base + '\\' + year + '\\' + folderName;
 }
 
 function previewPjCode(){
@@ -1961,13 +2096,17 @@ function saveProjet(){
     url    = 'api/projets.php';
   }
 
-  var shouldCreateNas = !_editingProjetId && document.getElementById('pj-nas-create') && document.getElementById('pj-nas-create').checked;
-
   apiFetch(url, {method:method, body:body})
-    .then(function(){
-      // Créer le dossier NAS si demandé (popup sur réseau local, sinon clipboard)
-      if (shouldCreateNas && nasPath) {
-        createNasFolder(nasPath);
+    .then(function(resp){
+      // Le PHP crée automatiquement le dossier NAS via WebDAV (pas de popup)
+      var d = resp && resp.data || resp || {};
+      if (d.nas_debug) {
+        console.log('[NAS] Résultat création dossier:', d.nas_debug);
+        if (d.nas_debug.status === 'ok') {
+          showToast('✓ Dossier NAS créé');
+        } else if (d.nas_debug.status === 'failed' || d.nas_debug.status === 'error') {
+          console.warn('[NAS] Échec création dossier:', d.nas_debug);
+        }
       }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
@@ -3616,6 +3755,7 @@ function showPage(id){
     // Attendre que loadSettings soit terminé avant de remplir les champs
     var fillParams = function(){
       renderParametresListes();
+      renderCfgTypesParams();
       renderParametresMissions();
       if (typeof renderParametresRoles === 'function') renderParametresRoles();
       loadAgenceParams();
@@ -4954,8 +5094,9 @@ function saveNasConfig() {
     var el = document.getElementById(fields[key]);
     if (!el) return;
     var val = el.value;
-    // Sanitiser l'IP locale : extraire juste l'IP si l'utilisateur colle un chemin UNC
-    if (key === 'cortoba_nas_local' && val) val = extractNasIp(val);
+    // NE PAS sanitiser cortoba_nas_local — garder le chemin UNC complet
+    // (ex: \\192.168.1.165\Public\CAS_PROJETS) pour que le PHP puisse
+    // extraire l'IP ET le chemin WebDAV automatiquement
     // Ne pas sauvegarder un champ vide s'il y a déjà une valeur enregistrée
     if (!val && _settingsCache[key]) { skipped++; return; }
     if (!val) { skipped++; return; }

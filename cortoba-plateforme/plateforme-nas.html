@@ -1210,6 +1210,23 @@
           </div>
         </div>
 
+        <!-- Types de bâtiment — Configurateur -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Types de bâtiment — Configurateur</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Personnalisez les types de bâtiment et leurs sous-types affichés dans le configurateur de projet.
+          </div>
+          <div id="param-cfg-types-wrap">
+            <div style="color:var(--text-3);font-size:0.82rem">Chargement…</div>
+          </div>
+          <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+            <input id="param-cfg-type-icon" class="form-input" placeholder="Icône (emoji)" style="width:60px" />
+            <input id="param-cfg-type-id" class="form-input" placeholder="ID (ex: logement)" style="width:130px" />
+            <input id="param-cfg-type-label" class="form-input" placeholder="Libellé (ex: Logement)" style="flex:1;min-width:150px" />
+            <button class="btn btn-primary btn-sm" onclick="cfgTypesAddGroup()">+ Ajouter un type</button>
+          </div>
+        </div>
+
         <!-- Missions -->
         <div class="card" style="margin-bottom:1.5rem">
           <div class="card-title">Missions architecturales</div>

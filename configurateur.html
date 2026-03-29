@@ -551,8 +551,9 @@
          ═══════════════════════════════════════════ */
 
       /* ── Type de bâtiment ── */
-      .cfg-type-main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .cfg-type-list { display: flex; flex-direction: column; gap: 0; }
       .cfg-type-group { display: flex; flex-direction: column; gap: 0; }
+      .cfg-type-list .cfg-type-group:not(:first-child) .cfg-type-main-card { border-top: none; }
       .cfg-type-main-card {
         display: flex; align-items: center; gap: 0.8rem;
         padding: 1rem 1.2rem; background: var(--bg-card);
@@ -690,7 +691,6 @@
 
       /* ── Responsive V2 ── */
       @media (max-width: 680px) {
-        .cfg-type-main-grid { grid-template-columns: 1fr; }
         .cfg-style-grid-v2 { grid-template-columns: 1fr; }
         .cfg-scard-photos { height: 70px; }
         .cfg-standing-grid { grid-template-columns: 1fr; }
@@ -1006,49 +1006,8 @@
             <!-- Type de bâtiment -->
             <div class="cfg-field">
               <label class="cfg-label">Type de bâtiment</label>
-              <div class="cfg-type-main-grid">
-                <!-- LOGEMENT -->
-                <div class="cfg-type-group">
-                  <div class="cfg-type-main-card" onclick="cfgToggleSubType(this,'logement')">
-                    <span class="cfg-type-main-icon">🏠</span>
-                    <strong>Logement</strong>
-                    <span class="cfg-type-arrow">▾</span>
-                  </div>
-                  <div class="cfg-type-sub" id="sub-logement" style="display:none">
-                    <div class="cfg-icard-sub" onclick="cfgSelectType('individuel','logement',this)" data-value="individuel"><span>🏡</span>Individuel</div>
-                    <div class="cfg-icard-sub" onclick="cfgSelectType('collectif','logement',this)" data-value="collectif"><span>🏘️</span>Collectif</div>
-                    <div id="forme-individuel-wrap" style="display:none;margin-top:0.7rem;padding-top:0.7rem;border-top:1px solid rgba(200,169,110,0.2)">
-                      <div style="font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent);margin-bottom:0.5rem;padding-left:0.2rem">Forme du logement</div>
-                      <div class="cfg-icard-sub" id="forme-compact" onclick="cfgSelectForme('compact',this)"><span>⬛</span>Compact</div>
-                      <div class="cfg-icard-sub" id="forme-patio"   onclick="cfgSelectForme('patio',this)"><span>🏛️</span>À patio</div>
-                      <div class="cfg-icard-sub" id="forme-L"       onclick="cfgSelectForme('L',this)"><span>🔲</span>Forme L</div>
-                      <div class="cfg-icard-sub" id="forme-U"       onclick="cfgSelectForme('U',this)"><span>🔳</span>Forme U</div>
-                    </div>
-                  </div>
-                </div>
-                <!-- IMMEUBLE -->
-                <div class="cfg-type-group">
-                  <div class="cfg-type-main-card" onclick="cfgToggleSubType(this,'immeuble')">
-                    <span class="cfg-type-main-icon">🏢</span>
-                    <strong>Immeuble</strong>
-                    <span class="cfg-type-arrow">▾</span>
-                  </div>
-                  <div class="cfg-type-sub" id="sub-immeuble" style="display:none">
-                    <div class="cfg-icard-sub" onclick="cfgSelectType('residentiel','immeuble',this)" data-value="residentiel"><span>🏠</span>Résidentiel</div>
-                    <div class="cfg-icard-sub" onclick="cfgSelectType('commercial','immeuble',this)" data-value="commercial"><span>🏪</span>Commercial</div>
-                    <div class="cfg-icard-sub" onclick="cfgSelectType('bureautique','immeuble',this)" data-value="bureautique"><span>💼</span>Bureautique</div>
-                    <div class="cfg-icard-sub" onclick="cfgSelectType('mixte','immeuble',this)" data-value="mixte"><span>🔀</span>Mixte</div>
-                    <div class="cfg-field" id="niveaux-field" style="margin-top:1rem;display:none">
-                      <label class="cfg-label" style="font-size:0.7rem">Nombre de niveaux (hors RDC)</label>
-                      <div class="cfg-terrain-input-group" style="margin-top:0.4rem">
-                        <button class="cfg-cnt-btn" onclick="cfgChangeNum('cfg_niveaux',-1)">−</button>
-                        <span class="cfg-cnt-val" id="cfg_niveaux-val" style="width:60px;text-align:center;font-size:1.2rem;color:var(--text)">2</span>
-                        <button class="cfg-cnt-btn" onclick="cfgChangeNum('cfg_niveaux',1)">+</button>
-                        <span class="cfg-cnt-unit">niveaux</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div class="cfg-type-list" id="cfg-type-list-container">
+                <!-- Rendered dynamically by cfgRenderTypeList() -->
               </div>
               <div id="cfg-type-selected-display" class="cfg-type-badge" style="display:none">
                 <span id="cfg-type-badge-text">—</span>
@@ -1941,6 +1900,7 @@
       }
 
       function initConfigurator() {
+        cfgLoadTypesBatiment();
         cfgFetchExchangeRate();
         cfgBudgetUpdate();
         cfgUpdateProgramme();
@@ -1955,23 +1915,138 @@
         }, 2000);
       }
 
-      // ── TYPE DE BÂTIMENT ──
-      function cfgToggleSubType(el, group) {
-        // Collapse other group
-        const otherGroup = group === 'logement' ? 'immeuble' : 'logement';
-        const otherSub = document.getElementById('sub-' + otherGroup);
-        const otherBtn = otherSub && otherSub.previousElementSibling;
-        if (otherSub) otherSub.style.display = 'none';
-        if (otherBtn) otherBtn.classList.remove('active-main');
+      // ── TYPE DE BÂTIMENT — Configuration dynamique ──
+      const CFG_TYPES_BATIMENT_DEFAULT = [
+        {
+          id: 'logement', label: 'Logement', icon: '🏠',
+          subtypes: [
+            { id: 'individuel', label: 'Individuel', icon: '🏡' },
+            { id: 'collectif',  label: 'Collectif',  icon: '🏘️' }
+          ]
+        },
+        {
+          id: 'immeuble', label: 'Immeuble', icon: '🏢',
+          subtypes: [
+            { id: 'residentiel', label: 'Résidentiel', icon: '🏠' },
+            { id: 'commercial',  label: 'Commercial',  icon: '🏪' },
+            { id: 'bureautique', label: 'Bureautique', icon: '💼' },
+            { id: 'mixte',       label: 'Mixte',       icon: '🔀' }
+          ]
+        }
+      ];
 
-        const sub = document.getElementById('sub-' + group);
+      let cfgTypesBatiment = CFG_TYPES_BATIMENT_DEFAULT;
+
+      async function cfgLoadTypesBatiment() {
+        try {
+          const r = await fetch('/cortoba-plateforme/api/settings.php');
+          if (r.ok) {
+            const data = await r.json();
+            if (data.data && data.data.cfg_types_batiment) {
+              cfgTypesBatiment = data.data.cfg_types_batiment;
+            }
+          }
+        } catch(e) { /* fallback to defaults */ }
+        cfgRenderTypeList();
+      }
+
+      function cfgRenderTypeList() {
+        const container = document.getElementById('cfg-type-list-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        cfgTypesBatiment.forEach(group => {
+          const div = document.createElement('div');
+          div.className = 'cfg-type-group';
+
+          // Main card
+          const mainCard = document.createElement('div');
+          mainCard.className = 'cfg-type-main-card';
+          if (cfgState.cfg_type_group === group.id) mainCard.classList.add('active-main');
+          mainCard.innerHTML = `<span class="cfg-type-main-icon">${group.icon}</span><strong>${group.label}</strong><span class="cfg-type-arrow">▾</span>`;
+          mainCard.onclick = function() { cfgToggleSubType(this, group.id); };
+          div.appendChild(mainCard);
+
+          // Sub panel
+          const subPanel = document.createElement('div');
+          subPanel.className = 'cfg-type-sub';
+          subPanel.id = 'sub-' + group.id;
+          subPanel.style.display = cfgState.cfg_type_group === group.id ? 'block' : 'none';
+
+          (group.subtypes || []).forEach(st => {
+            const sub = document.createElement('div');
+            sub.className = 'cfg-icard-sub';
+            if (cfgState.cfg_type === st.id) sub.classList.add('selected');
+            sub.dataset.value = st.id;
+            sub.innerHTML = `<span>${st.icon}</span>${st.label}`;
+            sub.onclick = function() { cfgSelectType(st.id, group.id, this); };
+            subPanel.appendChild(sub);
+          });
+
+          // Special: forme individuel (hardcoded behavior)
+          if (group.id === 'logement') {
+            const formeWrap = document.createElement('div');
+            formeWrap.id = 'forme-individuel-wrap';
+            formeWrap.style.cssText = 'display:none;margin-top:0.7rem;padding-top:0.7rem;border-top:1px solid rgba(200,169,110,0.2)';
+            formeWrap.innerHTML = '<div style="font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent);margin-bottom:0.5rem;padding-left:0.2rem">Forme du logement</div>'
+              + '<div class="cfg-icard-sub" id="forme-compact" onclick="cfgSelectForme(\'compact\',this)"><span>⬛</span>Compact</div>'
+              + '<div class="cfg-icard-sub" id="forme-patio"   onclick="cfgSelectForme(\'patio\',this)"><span>🏛️</span>À patio</div>'
+              + '<div class="cfg-icard-sub" id="forme-L"       onclick="cfgSelectForme(\'L\',this)"><span>🔲</span>Forme L</div>'
+              + '<div class="cfg-icard-sub" id="forme-U"       onclick="cfgSelectForme(\'U\',this)"><span>🔳</span>Forme U</div>';
+            if (cfgState.cfg_type === 'individuel') formeWrap.style.display = 'block';
+            subPanel.appendChild(formeWrap);
+          }
+
+          // Special: niveaux immeuble (hardcoded behavior)
+          if (group.id === 'immeuble') {
+            const nivField = document.createElement('div');
+            nivField.className = 'cfg-field';
+            nivField.id = 'niveaux-field';
+            nivField.style.cssText = 'margin-top:1rem;display:' + (cfgState.cfg_type && cfgState.cfg_type_group === 'immeuble' ? 'block' : 'none');
+            nivField.innerHTML = '<label class="cfg-label" style="font-size:0.7rem">Nombre de niveaux (hors RDC)</label>'
+              + '<div class="cfg-terrain-input-group" style="margin-top:0.4rem">'
+              + '<button class="cfg-cnt-btn" onclick="cfgChangeNum(\'cfg_niveaux\',-1)">−</button>'
+              + '<span class="cfg-cnt-val" id="cfg_niveaux-val" style="width:60px;text-align:center;font-size:1.2rem;color:var(--text)">' + cfgState.cfg_niveaux + '</span>'
+              + '<button class="cfg-cnt-btn" onclick="cfgChangeNum(\'cfg_niveaux\',1)">+</button>'
+              + '<span class="cfg-cnt-unit">niveaux</span></div>';
+            subPanel.appendChild(nivField);
+          }
+
+          div.appendChild(subPanel);
+          container.appendChild(div);
+        });
+      }
+
+      function cfgBuildTypeLabels() {
+        const labels = {};
+        cfgTypesBatiment.forEach(g => {
+          (g.subtypes || []).forEach(st => {
+            labels[st.id] = g.label + ' ' + st.label;
+          });
+        });
+        return labels;
+      }
+
+      function cfgToggleSubType(el, groupId) {
+        // Collapse all other groups
+        cfgTypesBatiment.forEach(g => {
+          if (g.id !== groupId) {
+            const otherSub = document.getElementById('sub-' + g.id);
+            if (otherSub) otherSub.style.display = 'none';
+            const otherBtn = otherSub && otherSub.previousElementSibling;
+            if (otherBtn) otherBtn.classList.remove('active-main');
+          }
+        });
+
+        const sub = document.getElementById('sub-' + groupId);
         const isOpen = sub.style.display !== 'none';
         sub.style.display = isOpen ? 'none' : 'block';
         el.classList.toggle('active-main', !isOpen);
       }
 
       function cfgSelectType(value, group, el) {
-        document.querySelectorAll('#sub-' + group + ' .cfg-icard-sub').forEach(c => c.classList.remove('selected'));
+        // Deselect all subtypes across all groups
+        document.querySelectorAll('.cfg-type-list .cfg-icard-sub').forEach(c => c.classList.remove('selected'));
         el.classList.add('selected');
         cfgState.cfg_type = value;
         cfgState.cfg_type_group = group;
@@ -1984,11 +2059,18 @@
         const fw = document.getElementById('forme-individuel-wrap');
         if (fw) fw.style.display = value === 'individuel' ? 'block' : 'none';
 
-        // Badge
-        const labels = {individuel:'🏡 Logement Individuel', collectif:'🏘️ Logement Collectif', residentiel:'🏠 Immeuble Résidentiel', commercial:'🏪 Immeuble Commercial', bureautique:'💼 Immeuble Bureautique', mixte:'🔀 Immeuble Mixte'};
+        // Badge — build label dynamically from config
+        let badgeLabel = value;
+        cfgTypesBatiment.forEach(g => {
+          (g.subtypes || []).forEach(st => {
+            if (st.id === value && g.id === group) {
+              badgeLabel = st.icon + ' ' + g.label + ' ' + st.label;
+            }
+          });
+        });
         const badge = document.getElementById('cfg-type-selected-display');
         const badgeText = document.getElementById('cfg-type-badge-text');
-        if (badge && badgeText) { badgeText.textContent = labels[value]||value; badge.style.display='inline-flex'; }
+        if (badge && badgeText) { badgeText.textContent = badgeLabel; badge.style.display='inline-flex'; }
 
         // Auto-estimate cloture when terrain is known
         if (cfgState.cfg_cloture) cfgEstimateCloture();
@@ -2933,7 +3015,7 @@
         if (!recap) return;
         const rows = [];
         const s = cfgState;
-        const typeLabels = {individuel:'Logement individuel',collectif:'Logement collectif',residentiel:'Immeuble résidentiel',commercial:'Immeuble commercial',bureautique:'Immeuble bureautique',mixte:'Immeuble mixte'};
+        const typeLabels = cfgBuildTypeLabels();
         const opLabels = {neuf:'Nouvelle construction',reamenagement:'Réaménagement',extension:'Extension'};
         const slabels = {standard:'Standard',confort:'Confort',premium:'Premium'};
         const stlabels = {contemporain:'Contemporain',traditionnel:'Traditionnel',industriel:'Industriel',bioclimatique:'Bioclimatique'};
@@ -3003,7 +3085,7 @@
       function cfgExportPDF() {
         // Build a printable summary and open print dialog
         const s = cfgState;
-        const typeLabels = {individuel:'Logement individuel',collectif:'Logement collectif',residentiel:'Immeuble résidentiel',commercial:'Immeuble commercial',bureautique:'Immeuble bureautique',mixte:'Immeuble mixte'};
+        const typeLabels = cfgBuildTypeLabels();
         const opLabels = {neuf:'Nouvelle construction',reamenagement:'Réaménagement',extension:'Extension'};
         const slabels = {standard:'Standard',confort:'Confort',premium:'Premium'};
         const stlabels = {contemporain:'Contemporain',traditionnel:'Traditionnel',industriel:'Industriel',bioclimatique:'Bioclimatique'};
