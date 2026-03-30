@@ -327,7 +327,7 @@ function makeExtensible(selectId) {
 }
 
 function initExtensibleSelects() {
-  ['pj-phase','pj-statut','cl-statut','cl-source'].forEach(makeExtensible);
+  ['pj-statut','cl-statut','cl-source'].forEach(makeExtensible);
   populateTypeBatSelect();
 }
 
@@ -336,7 +336,6 @@ function initExtensibleSelects() {
 // ══════════════════════════════════════════════════════════
 
 var PARAM_LISTES = [
-  { id:'pj-phase',     label:"Phase initiale",     defauts:['Étude préliminaire','APS','APD','PC','DCE','EXE','Livré'] },
   { id:'pj-statut',    label:"Statut projet",      defauts:['Actif','En pause','Prospection','Archivé'] },
   { id:'cl-statut',    label:"Statut client",      defauts:['Actif','Standby','Clôturé'] },
   { id:'cl-source',    label:"Source d'acquisition",defauts:['Google','Facebook','Instagram','LinkedIn','Site web','Recommandation client','Recommandation ami/famille','Bouche à oreille','Salon/Exposition','Appel d\'offres'] },
@@ -1880,7 +1879,6 @@ function resetProjetForm(){
   var anneeEl = document.getElementById('pj-annee');
   if (anneeEl) anneeEl.value = new Date().getFullYear();
 
-  var pjPhase  = document.getElementById('pj-phase');   if(pjPhase)  pjPhase.value  = 'APS';
   var pjStatut = document.getElementById('pj-statut');  if(pjStatut) pjStatut.value = 'Actif';
   var pjType   = document.getElementById('pj-type-bat');if(pjType)   pjType.value   = '';
 
@@ -1947,12 +1945,10 @@ function openEditProjet(id){
   document.getElementById('pj-nom').value         = p.nom||'';
   document.getElementById('pj-annee').value        = p.annee||new Date().getFullYear();
   document.getElementById('pj-adresse').value      = p.adresse||'';
-  document.getElementById('pj-delai').value        = p.delai||'';
   var honEl=document.getElementById('pj-honoraires2'); if(honEl) honEl.value=p.honoraires||'';
   var budEl=document.getElementById('pj-budget2'); if(budEl) budEl.value=p.budget||'';
   var surfEl=document.getElementById('pj-surface2'); if(surfEl) surfEl.value=p.surface||'';
   document.getElementById('pj-description').value  = p.description||'';
-  document.getElementById('pj-phase').value        = p.phase||'APS';
   document.getElementById('pj-statut').value       = p.statut||'Actif';
   // A3 — typeBat : gérer snake_case (type_bat) et camelCase (typeBat)
   var typeBatVal = p.typeBat || p.type_bat || '';
@@ -2027,7 +2023,6 @@ function openProjetDetail(id){
     ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'],
     p.budget  ? ['Budget client', fmtMontant(p.budget)] : null,
     p.surface ? ['Surface', p.surface+' m²'] : null,
-    p.delai   ? ['Délai', fmtDate(p.delai)] : null,
     p.adresse ? ['Lieu', p.adresse] : null,
     (p.nasPath||p.nas_path||p.nas) ? ['Chemin NAS','<span style="font-family:var(--mono);font-size:0.72rem;color:var(--text-2)">'+(p.nasPath||p.nas_path||p.nas)+'</span> '+nasBtn] : null
   ].filter(Boolean);
@@ -2086,10 +2081,8 @@ function saveProjet(){
 
   var client      = getClients().find(function(c){ return c.id===clientId; }) || {};
   var annee       = parseInt(document.getElementById('pj-annee').value) || new Date().getFullYear();
-  var phase       = document.getElementById('pj-phase').value;
   var statut      = document.getElementById('pj-statut').value;
   var typeBat     = document.getElementById('pj-type-bat').value;
-  var delai       = document.getElementById('pj-delai').value;
   var honoraires  = parseFloat((document.getElementById('pj-honoraires2')||{}).value)||0;
   var budget      = parseFloat((document.getElementById('pj-budget2')||{}).value)||0;
   var surface     = parseFloat((document.getElementById('pj-surface2')||{}).value)||0;
@@ -2105,10 +2098,10 @@ function saveProjet(){
 
   var body = {
     nom:nom, client:displayNom, clientId:clientId,
-    code:code, annee:annee, phase:phase, statut:statut,
+    code:code, annee:annee, statut:statut,
     typeBat: typeBat||null,            // camelCase envoyé; PHP doit accepter les deux
     type_bat: typeBat||null,           // snake_case aussi pour compatibilité API
-    delai:delai||null, honoraires:honoraires,
+    honoraires:honoraires,
     budget:budget||null, surface:surface||null,
     description:description||null, adresse:adresse||null,
     lat:lat, lng:lng, nasPath:nasPath,
@@ -2156,11 +2149,9 @@ var ALL_PJ_COLUMNS = [
   {key:'code',      label:'Code',       default:true, locked:false,sortable:true, render:function(p){return'<span style="font-family:var(--mono);font-size:0.72rem;color:var(--accent);font-weight:700;letter-spacing:0.08em">'+(p.code||'—')+'</span>';}},
   {key:'nom',       label:'Projet',     default:true, locked:true, sortable:true, render:function(p){return'<span style="font-weight:500">'+(p.nom||'—')+'</span>';}},
   {key:'client',    label:'Client',     default:true, locked:false,sortable:true, render:function(p){return p.client||'—';}},
-  {key:'phase',     label:'Phase',      default:true, locked:false,sortable:true, render:function(p){return'<span class="badge '+phaseBadgeClass(p.phase)+'">'+(p.phase||'—')+'</span>';}},
   {key:'statut',    label:'Statut',     default:true, locked:false,sortable:true, render:function(p){return'<span class="'+badgeClass(p.statut||'')+'">'+(p.statut||'—')+'</span>';}},
   {key:'typeBat',   label:'Type bât.',  default:false,locked:false,sortable:true, render:function(p){return p.typeBat||p.type_bat||'—';}},
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
-  {key:'delai',     label:'Délai',      default:true, locked:false,sortable:true, render:function(p){return p.delai?fmtDate(p.delai):'—';}},
   {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
   {key:'nas',       label:'NAS',        default:true, locked:false,sortable:false,render:function(p){var path=p.nasPath||p.nas_path||p.nas;if(!path)return'—';return'<button class="btn btn-sm" onclick="event.stopPropagation();copyNasPath(\''+encodeURIComponent(path)+'\')" title="'+path+'" style="font-size:0.7rem">'+(p.code||'NAS')+'</button>';}}
 ];
@@ -5627,16 +5618,14 @@ function renderNasPage() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  CRÉATION DOSSIER NAS (WebDAV MKCOL)
+//  CRÉATION DOSSIER NAS (via nas-mkdir.php hébergé sur le NAS)
 // ══════════════════════════════════════════════════════════
 
 // Extraire l'IP pure d'une valeur qui peut contenir un chemin UNC
 function extractNasIp(val) {
   if (!val) return '';
   var s = val.replace(/\\/g, '/').replace(/^\/+/, '');
-  // Si c'est une IP ou hostname (pas de /)
   if (s.indexOf('/') === -1) return s;
-  // Sinon extraire la première partie (IP)
   var m = s.match(/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/);
   if (m) return m[1];
   return s.split('/')[0];
@@ -5648,89 +5637,67 @@ function createNasFolder(nasPath, callback) {
     return;
   }
 
-  // Extraire les composants du chemin NAS : \\IP\Public\CAS_PROJETS\YYYY\FolderName
   var cfg = getNasConfig();
   var nasIp = cfg.local || '192.168.1.165';
-  var nasUser = cfg.user || '';
-  var nasPass = cfg.pass || '';
 
-  // Convertir le chemin UNC en chemin File Station : Public/CAS_PROJETS/2026/XX
+  // Convertir le chemin UNC en chemin relatif : Public/CAS_PROJETS/2026/XX
   var foldersPath = nasPath.replace(/\\\\/g, '/').replace(/\\/g, '/');
-  // Retirer l'IP du début : //192.168.1.165/Public/CAS_PROJETS/... → Public/CAS_PROJETS/...
   foldersPath = foldersPath.replace(/^\/\/[^\/]+\//, '');
 
-  if (nasUser && nasIp) {
-    // Créer le dossier via iframe caché (nas-mkdir.html hébergé sur le NAS)
-    _nasCreateViaIframe(nasIp, nasUser, nasPass, foldersPath, nasPath, callback);
-  } else {
-    // Fallback : copier dans le presse-papier
+  if (!nasIp) {
     _nasCopyClipboard(nasPath, callback);
+    return;
   }
+
+  // Appel direct au PHP hébergé sur le NAS (nas-mkdir.php)
+  // Essayer HTTPS d'abord (port 8081), puis HTTP (port 80) en fallback
+  var httpsUrl = 'https://' + nasIp + ':8081/nas-mkdir.php?folders=' + encodeURIComponent(foldersPath);
+  var httpUrl  = 'http://' + nasIp + '/nas-mkdir.php?folders=' + encodeURIComponent(foldersPath);
+
+  console.log('[NAS] Création dossier:', foldersPath);
+
+  _nasFetchCreate(httpsUrl, nasPath, callback, function() {
+    // HTTPS échoué (cert self-signed non accepté) → essayer HTTP
+    console.log('[NAS] HTTPS échoué, essai HTTP...');
+    _nasFetchCreate(httpUrl, nasPath, callback, function() {
+      // HTTP aussi échoué (mixed content) → fallback clipboard
+      console.warn('[NAS] HTTP aussi échoué — fallback clipboard');
+      _nasCopyClipboard(nasPath, callback);
+    });
+  });
 }
 
-// Créer le dossier via un iframe caché pointant vers nas-mkdir.html sur le NAS
-// Pas de popup — l'iframe est invisible et communique via postMessage
-function _nasCreateViaIframe(nasIp, user, pass, foldersPath, nasPath, callback) {
-  var hash = 'user=' + encodeURIComponent(user)
-           + '&pass=' + encodeURIComponent(pass)
-           + '&folders=' + encodeURIComponent(foldersPath)
-           + '&nasPath=' + encodeURIComponent(nasPath);
-
-  // Essayer HTTP (port 80) d'abord — le Web Server QNAP est sur 80 (HTTP) et 8081 (HTTPS)
-  var url = 'http://' + nasIp + '/nas-mkdir.html#' + hash;
-  console.log('[NAS] Création dossier via iframe:', url.replace(/pass=[^&]+/, 'pass=***'));
-
-  // Écouter le postMessage de retour
-  var handled = false;
-  function onMsg(evt) {
-    if (handled) return;
-    var d = evt.data;
-    if (!d || d.type !== 'nas-folder-result') return;
-    handled = true;
-    window.removeEventListener('message', onMsg);
-    // Supprimer l'iframe
-    var el = document.getElementById('nas-mkdir-iframe');
-    if (el) el.remove();
-    if (d.success) {
-      console.log('[NAS] Dossier créé avec succès:', d.message);
-      showToast('Dossier NAS créé');
-      if (callback) callback(true, d.message);
-    } else {
-      console.warn('[NAS] Échec création:', d.error);
-      _nasCopyClipboard(nasPath, callback);
-    }
-  }
-  window.addEventListener('message', onMsg);
-
-  // Créer un iframe caché
-  var old = document.getElementById('nas-mkdir-iframe');
-  if (old) old.remove();
-  var iframe = document.createElement('iframe');
-  iframe.id = 'nas-mkdir-iframe';
-  iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden';
-  iframe.src = url;
-  document.body.appendChild(iframe);
-
-  // Timeout : si pas de réponse en 20s, fallback clipboard
-  setTimeout(function() {
-    if (!handled) {
-      handled = true;
-      window.removeEventListener('message', onMsg);
-      var el = document.getElementById('nas-mkdir-iframe');
-      if (el) el.remove();
-      console.warn('[NAS] Timeout iframe — fallback clipboard');
-      _nasCopyClipboard(nasPath, callback);
-    }
-  }, 20000);
+function _nasFetchCreate(url, nasPath, callback, onError) {
+  fetch(url, { mode: 'cors', cache: 'no-cache' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.success) {
+        var msg = d.created ? 'Dossier NAS créé' : 'Dossier NAS existe déjà';
+        if (d.template_copied && d.template_copied.length) {
+          msg += ' + ' + d.template_copied.length + ' sous-dossiers copiés';
+        }
+        console.log('[NAS] Succès:', d);
+        showToast(msg);
+        if (callback) callback(true, msg);
+      } else {
+        console.warn('[NAS] Erreur serveur:', d.error);
+        showToast('Erreur NAS : ' + (d.error || 'inconnue'), 'error');
+        if (callback) callback(false, d.error);
+      }
+    })
+    .catch(function(e) {
+      console.warn('[NAS] fetch échoué:', e.message);
+      if (onError) onError();
+    });
 }
 
 // Fallback : copier le chemin NAS dans le presse-papier
 function _nasCopyClipboard(nasPath, callback) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(nasPath).then(function() {
-      showToast('📋 Chemin NAS copié — collez dans l\'Explorateur Windows (Ctrl+V)');
+      showToast('Chemin NAS copié — collez dans l\'Explorateur Windows (Ctrl+V)');
     }).catch(function() {
-      showToast('📁 Chemin NAS : ' + nasPath);
+      showToast('Chemin NAS : ' + nasPath);
     });
   }
   if (callback) callback('clipboard', nasPath);
