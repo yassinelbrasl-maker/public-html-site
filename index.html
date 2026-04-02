@@ -1810,5 +1810,36 @@
     })();
     </script>
 
+  <!-- Dynamic projects loader -->
+  <script>
+  (function(){
+    var grid = document.querySelector('.projects-grid');
+    if (!grid) return;
+    var fallback = grid.innerHTML;
+    fetch('cortoba-plateforme/api/published_projects.php')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data.success || !data.data || data.data.length === 0) return;
+        var html = '';
+        data.data.forEach(function(p){
+          var imgs = Array.isArray(p.gallery_images) ? p.gallery_images : [];
+          var hero = p.hero_image || (imgs[0] || '');
+          var cls = p.grid_class ? ' project-card-' + p.grid_class : '';
+          var loc = (p.location || '') + (p.country ? ', ' + p.country : '');
+          html += '<a href="projet-' + p.slug + '.html" class="project-card-link' + cls + '">' +
+            '<div class="project-card-img" style="background-image:url(\'' + hero + '\')">' +
+              '<div class="project-card-overlay">' +
+                '<span class="project-tag">' + (p.category || '') + '</span>' +
+                '<h3 class="project-card-title">' + (p.title || '') + '</h3>' +
+                '<p class="project-card-loc">' + loc + '</p>' +
+              '</div>' +
+            '</div></a>';
+        });
+        grid.innerHTML = html;
+      })
+      .catch(function(){ /* keep fallback HTML */ });
+  })();
+  </script>
+
   </body>
 </html>
