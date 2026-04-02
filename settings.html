@@ -485,10 +485,10 @@
       errEl.style.display = 'none';
 
       try {
-        const res = await fetch('cortoba-plateforme/api/auth.php', {
+        const res = await fetch('cortoba-plateforme/api/auth.php?action=login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', email, password: pass })
+          body: JSON.stringify({ email, password: pass })
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Erreur');
