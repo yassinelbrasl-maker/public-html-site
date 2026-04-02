@@ -222,8 +222,8 @@ function generateProjectHTML(PDO $pdo, int $id, string $table): void {
     $descParagraphs = array_filter(array_map('trim', explode("\n", $p['description'] ?? '')));
 
     $galleryHtml = '';
-    foreach ($gallery as $img) {
-        $galleryHtml .= '      <img src="' . htmlspecialchars($img) . '" alt="' . htmlspecialchars($p['title']) . '" />' . "\n";
+    foreach ($gallery as $i => $img) {
+        $galleryHtml .= '      <img src="' . htmlspecialchars($img) . '" alt="' . htmlspecialchars($p['title']) . '" onclick="openLightbox(' . $i . ')" />' . "\n";
     }
 
     $descHtml = '';
@@ -274,18 +274,27 @@ function generateProjectHTML(PDO $pdo, int $id, string $table): void {
     .project-description p:first-child { font-size: 1.25rem; color: #222; line-height: 1.7; }
     .project-gallery-section { max-width: 1200px; margin: 0 auto; padding: 0 2.5rem 6rem; }
     .project-gallery-section h2 { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #999; margin-bottom: 1.5rem; text-align: left; }
-    .project-gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .project-gallery-grid img { width: 100%; height: 380px; object-fit: cover; display: block; }
-    .project-gallery-grid img:first-child { grid-column: span 2; height: 520px; }
+    .project-gallery-grid { column-count: 2; column-gap: 6px; }
+    .project-gallery-grid img { width: 100%; display: block; margin-bottom: 6px; cursor: pointer; transition: opacity 0.2s; border-radius: 2px; }
+    .project-gallery-grid img:hover { opacity: 0.85; }
     .project-footer { background: #111; color: #fff; text-align: center; padding: 2rem; font-size: 0.85rem; }
     .project-footer a { color: #0a77a1; text-decoration: none; }
+    /* Lightbox */
+    .lightbox { display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.92); align-items:center; justify-content:center; }
+    .lightbox.open { display:flex; }
+    .lightbox img { max-width:90vw; max-height:88vh; object-fit:contain; border-radius:4px; user-select:none; }
+    .lb-close { position:absolute; top:1.2rem; right:1.5rem; background:none; border:none; color:#fff; font-size:2rem; cursor:pointer; opacity:0.7; transition:opacity 0.2s; z-index:10; }
+    .lb-close:hover { opacity:1; }
+    .lb-arrow { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.1); border:none; color:#fff; font-size:2.2rem; padding:0.6rem 1rem; cursor:pointer; opacity:0.7; transition:opacity 0.2s; border-radius:4px; z-index:10; }
+    .lb-arrow:hover { opacity:1; background:rgba(255,255,255,0.2); }
+    .lb-prev { left:1rem; }
+    .lb-next { right:1rem; }
+    .lb-counter { position:absolute; bottom:1.2rem; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.6); font-size:0.8rem; letter-spacing:0.1em; }
     @media (max-width: 768px) {
       .project-content { grid-template-columns: 1fr; gap: 3rem; padding: 3rem 1.5rem; }
       .project-meta { position: static; }
       .project-hero { height: 60vh; }
-      .project-gallery-grid { grid-template-columns: 1fr; }
-      .project-gallery-grid img:first-child { grid-column: span 1; height: 280px; }
-      .project-gallery-grid img { height: 240px; }
+      .project-gallery-grid { column-count: 1; }
       .project-nav { padding: 1rem 1.2rem; }
     }
   </style>
@@ -331,6 +340,24 @@ function generateProjectHTML(PDO $pdo, int $id, string $table): void {
   <footer class="project-footer">
     <p>&copy; 2026 Cortoba Architecture Studio · <a href="index.html">Retour au site</a></p>
   </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lb" onclick="closeLightbox(event)">
+    <button class="lb-close" onclick="closeLightbox()">&times;</button>
+    <button class="lb-arrow lb-prev" onclick="lbNav(event,-1)">&#8249;</button>
+    <img id="lbImg" src="" alt="" />
+    <button class="lb-arrow lb-next" onclick="lbNav(event,1)">&#8250;</button>
+    <div class="lb-counter" id="lbCounter"></div>
+  </div>
+  <script>
+    var lbImages = Array.from(document.querySelectorAll('.project-gallery-grid img')).map(function(i){ return i.src; });
+    var lbIdx = 0;
+    function openLightbox(i){ lbIdx=i; updateLb(); document.getElementById('lb').classList.add('open'); document.body.style.overflow='hidden'; }
+    function closeLightbox(e){ if(e && e.target && e.target.tagName==='IMG') return; document.getElementById('lb').classList.remove('open'); document.body.style.overflow=''; }
+    function lbNav(e,d){ e.stopPropagation(); lbIdx=(lbIdx+d+lbImages.length)%lbImages.length; updateLb(); }
+    function updateLb(){ document.getElementById('lbImg').src=lbImages[lbIdx]; document.getElementById('lbCounter').textContent=(lbIdx+1)+' / '+lbImages.length; }
+    document.addEventListener('keydown',function(e){ if(!document.getElementById('lb').classList.contains('open')) return; if(e.key==='Escape') closeLightbox(); if(e.key==='ArrowRight') { lbIdx=(lbIdx+1)%lbImages.length; updateLb(); } if(e.key==='ArrowLeft') { lbIdx=(lbIdx-1+lbImages.length)%lbImages.length; updateLb(); } });
+  </script>
 </body>
 </html>
 HTML;
