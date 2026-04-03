@@ -100,8 +100,8 @@
       return;
     }
 
-    // Show max 4
-    var show = others.slice(0, 4);
+    // Show all other projects
+    var show = others;
     container.innerHTML = show.map(function (p) {
       return '<a href="projet-' + esc(p.slug) + '.html" class="other-project-card">' +
         '<img src="' + esc(p.img) + '" alt="' + esc(p.title) + '" />' +

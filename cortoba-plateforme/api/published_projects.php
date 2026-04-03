@@ -56,22 +56,23 @@ if ($method === 'POST') {
     }
 
     $stmt = $pdo->prepare("INSERT INTO $table
-        (slug, title, category, location, country, year, surface, status, services, description, hero_image, gallery_images, grid_class, sort_order, published)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        (slug, title, category, location, country, year, surface, status, services, description, hero_image, hero_position, gallery_images, grid_class, sort_order, published)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $slug,
-        sanitize($d['title'] ?? ''),
-        sanitize($d['category'] ?? 'Résidentiel'),
-        sanitize($d['location'] ?? ''),
-        sanitize($d['country'] ?? 'Tunisie'),
-        sanitize($d['year'] ?? ''),
-        sanitize($d['surface'] ?? ''),
-        sanitize($d['status'] ?? 'Livré'),
-        sanitize($d['services'] ?? ''),
+        trim($d['title'] ?? ''),
+        trim($d['category'] ?? 'Résidentiel'),
+        trim($d['location'] ?? ''),
+        trim($d['country'] ?? 'Tunisie'),
+        trim($d['year'] ?? ''),
+        trim($d['surface'] ?? ''),
+        trim($d['status'] ?? 'Livré'),
+        trim($d['services'] ?? ''),
         $d['description'] ?? '',
         $d['hero_image'] ?? '',
+        (int)($d['hero_position'] ?? 50),
         json_encode($d['gallery_images'] ?? [], JSON_UNESCAPED_UNICODE),
-        sanitize($d['grid_class'] ?? ''),
+        trim($d['grid_class'] ?? ''),
         (int)($d['sort_order'] ?? 0),
         (int)($d['published'] ?? 1)
     ]);
@@ -110,22 +111,23 @@ if ($method === 'PUT') {
     $stmt = $pdo->prepare("UPDATE $table SET
         slug = ?, title = ?, category = ?, location = ?, country = ?,
         year = ?, surface = ?, status = ?, services = ?, description = ?,
-        hero_image = ?, gallery_images = ?, grid_class = ?, sort_order = ?, published = ?
+        hero_image = ?, hero_position = ?, gallery_images = ?, grid_class = ?, sort_order = ?, published = ?
         WHERE id = ?");
     $stmt->execute([
         $newSlug,
-        sanitize($d['title'] ?? ''),
-        sanitize($d['category'] ?? 'Résidentiel'),
-        sanitize($d['location'] ?? ''),
-        sanitize($d['country'] ?? 'Tunisie'),
-        sanitize($d['year'] ?? ''),
-        sanitize($d['surface'] ?? ''),
-        sanitize($d['status'] ?? 'Livré'),
-        sanitize($d['services'] ?? ''),
+        trim($d['title'] ?? ''),
+        trim($d['category'] ?? 'Résidentiel'),
+        trim($d['location'] ?? ''),
+        trim($d['country'] ?? 'Tunisie'),
+        trim($d['year'] ?? ''),
+        trim($d['surface'] ?? ''),
+        trim($d['status'] ?? 'Livré'),
+        trim($d['services'] ?? ''),
         $d['description'] ?? '',
         $d['hero_image'] ?? '',
+        (int)($d['hero_position'] ?? 50),
         json_encode($d['gallery_images'] ?? [], JSON_UNESCAPED_UNICODE),
-        sanitize($d['grid_class'] ?? ''),
+        trim($d['grid_class'] ?? ''),
         (int)($d['sort_order'] ?? 0),
         (int)($d['published'] ?? 1),
         $id
@@ -232,6 +234,7 @@ function generateProjectHTML(PDO $pdo, int $id, string $table): void {
     }
 
     $heroImg = $p['hero_image'] ?: ($gallery[0] ?? '/img/Projets/p1.jpg');
+    $heroPos = (int)($p['hero_position'] ?? 50);
     $loc = htmlspecialchars($p['location']);
     $country = htmlspecialchars($p['country']);
     $title = htmlspecialchars($p['title']);
@@ -261,7 +264,7 @@ function generateProjectHTML(PDO $pdo, int $id, string $table): void {
   </nav>
 
   <div class="project-hero">
-    <img src="{$heroImg}" alt="{$title}" />
+    <img src="{$heroImg}" alt="{$title}" style="object-position:50% {$heroPos}%" />
     <div class="project-hero-overlay">
       <span class="project-hero-caption">{$title} · {$loc} · {$year}</span>
       <span class="project-hero-hint">Cliquez pour explorer les photos</span>

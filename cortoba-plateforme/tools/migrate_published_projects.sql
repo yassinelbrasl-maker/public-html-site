@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `CA_published_projects` (
   `services`        VARCHAR(300) DEFAULT '',
   `description`     TEXT,
   `hero_image`      VARCHAR(300) DEFAULT '',
+  `hero_position`   INT          DEFAULT 50,
   `gallery_images`  TEXT,
   `grid_class`      VARCHAR(20)  DEFAULT '',
   `sort_order`      INT          DEFAULT 0,
