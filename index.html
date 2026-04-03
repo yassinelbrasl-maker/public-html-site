@@ -1144,13 +1144,11 @@
 
     <section id="accueil" class="hero-section">
       <div class="slider-container">
-        <div class="slider-track">
-          <img src="/img/Projets/p3.jpg" class="slider-image" alt="Projet 1">
-          <img src="/img/Projets/p6.jpg" class="slider-image" alt="Projet 2">
-          <img src="/img/Projets/p5.jpg" class="slider-image" alt="Projet 3">
-          <img src="/img/Projets/p4.jpg" class="slider-image" alt="Projet 4">
-          <img src="/img/Projets/p2.jpg" class="slider-image" alt="Projet 5">
-          <img src="/img/Projets/p1.jpg" class="slider-image" alt="Projet 6">
+        <div class="slider-track" id="sliderTrack">
+          <!-- Dynamically loaded from API, fallback below -->
+          <img src="/img/Projets/p3.jpg" class="slider-image" alt="Slide">
+          <img src="/img/Projets/p5.jpg" class="slider-image" alt="Slide">
+          <img src="/img/Projets/p1.jpg" class="slider-image" alt="Slide">
         </div>
       </div>
       <div class="overlay">
@@ -1174,68 +1172,8 @@
         <h2 data-i18n="projects_title">Projets</h2>
         <p class="intro-text" data-i18n="projects_intro">Une sélection de réalisations qui définissent notre approche.</p>
       </div>
-      <div class="projects-grid">
-
-        <a href="projet-villa-djerba.html" class="project-card-link">
-          <div class="project-card-img" style="background-image: url('/img/Projets/p1.jpg')">
-            <div class="project-card-overlay">
-              <span class="project-tag" data-i18n="proj_tag_residential">Résidentiel</span>
-              <h3 class="project-card-title">Villa Djerba</h3>
-              <p class="project-card-loc">Midoun, Djerba</p>
-            </div>
-          </div>
-        </a>
-
-        <a href="projet-maison-sousse.html" class="project-card-link">
-          <div class="project-card-img" style="background-image: url('/img/Projets/p2.jpg')">
-            <div class="project-card-overlay">
-              <span class="project-tag" data-i18n="proj_tag_residential">Résidentiel</span>
-              <h3 class="project-card-title">Maison Contemporaine</h3>
-              <p class="project-card-loc">Sousse, Tunisie</p>
-            </div>
-          </div>
-        </a>
-
-        <a href="projet-appartement-tunis.html" class="project-card-link project-card-wide">
-          <div class="project-card-img" style="background-image: url('/img/Projets/p3.jpg')">
-            <div class="project-card-overlay">
-              <span class="project-tag" data-i18n="proj_tag_interior">Design Intérieur</span>
-              <h3 class="project-card-title">Appartement Tunis</h3>
-              <p class="project-card-loc">Tunis, Tunisie</p>
-            </div>
-          </div>
-        </a>
-
-        <a href="projet-bureau-midoun.html" class="project-card-link project-card-tall">
-          <div class="project-card-img" style="background-image: url('/img/Projets/p4.jpg')">
-            <div class="project-card-overlay">
-              <span class="project-tag" data-i18n="proj_tag_commercial">Commercial</span>
-              <h3 class="project-card-title">Bureaux Midoun</h3>
-              <p class="project-card-loc">Midoun, Djerba</p>
-            </div>
-          </div>
-        </a>
-
-        <a href="projet-villa-nabeul.html" class="project-card-link">
-          <div class="project-card-img" style="background-image: url('/img/Projets/p5.jpg')">
-            <div class="project-card-overlay">
-              <span class="project-tag" data-i18n="proj_tag_residential">Résidentiel</span>
-              <h3 class="project-card-title">Villa Nabeul</h3>
-              <p class="project-card-loc">Nabeul, Tunisie</p>
-            </div>
-          </div>
-        </a>
-
-        <a href="projet-villa-maroc.html" class="project-card-link">
-          <div class="project-card-img" style="background-image: url('/img/Projets/p6.jpg')">
-            <div class="project-card-overlay">
-              <span class="project-tag" data-i18n="proj_tag_international">International</span>
-              <h3 class="project-card-title">Villa Marrakech</h3>
-              <p class="project-card-loc">Marrakech, Maroc</p>
-            </div>
-          </div>
-        </a>
-
+      <div class="projects-grid" id="projectsGrid">
+        <!-- Dynamically loaded from API -->
       </div>
     </section>
 
@@ -1690,7 +1628,6 @@
   (function(){
     var grid = document.querySelector('.projects-grid');
     if (!grid) return;
-    var fallback = grid.innerHTML;
     fetch('cortoba-plateforme/api/published_projects.php')
       .then(function(r){ return r.json(); })
       .then(function(data){
@@ -1712,7 +1649,26 @@
         });
         grid.innerHTML = html;
       })
-      .catch(function(){ /* keep fallback HTML */ });
+      .catch(function(){});
+  })();
+  </script>
+
+  <!-- Dynamic slider loader -->
+  <script>
+  (function(){
+    var track = document.getElementById('sliderTrack');
+    if (!track) return;
+    fetch('cortoba-plateforme/api/slider.php')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data.success || !data.data || data.data.length === 0) return;
+        var html = '';
+        data.data.forEach(function(s){
+          html += '<img src="' + s.image_path + '" class="slider-image" alt="' + (s.alt_text || 'Slide') + '">';
+        });
+        track.innerHTML = html;
+      })
+      .catch(function(){});
   })();
   </script>
 

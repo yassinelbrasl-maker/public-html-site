@@ -273,6 +273,31 @@
     .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── SLIDER CARDS ── */
+    .slider-card {
+      position: relative; width: 220px; height: 150px; border-radius: var(--radius);
+      overflow: hidden; border: 1px solid var(--border); flex-shrink: 0;
+      transition: border-color 0.2s;
+    }
+    .slider-card:hover { border-color: rgba(255,255,255,0.2); }
+    .slider-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .slider-card-actions {
+      position: absolute; top: 0; right: 0; display: flex; gap: 2px;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .slider-card:hover .slider-card-actions { opacity: 1; }
+    .slider-card-btn {
+      width: 30px; height: 30px; border: none; display: flex; align-items: center;
+      justify-content: center; cursor: pointer; font-size: 0.7rem; color: #fff;
+    }
+    .slider-card-btn.del { background: rgba(231,76,60,0.85); }
+    .slider-card-btn.del:hover { background: #e74c3c; }
+    .slider-card-order {
+      position: absolute; bottom: 6px; left: 6px; background: rgba(0,0,0,0.6);
+      color: #fff; font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 3px;
+      font-weight: 700;
+    }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       .sidebar { display: none; }
@@ -312,6 +337,9 @@
         <button class="sidebar-item active" data-section="projects">
           <i class="fa-solid fa-images"></i> Projets publiés
         </button>
+        <button class="sidebar-item" data-section="slider">
+          <i class="fa-solid fa-photo-film"></i> Slider accueil
+        </button>
         <button class="sidebar-item" data-section="general">
           <i class="fa-solid fa-gear"></i> Général
         </button>
@@ -339,6 +367,28 @@
           <h3>Aucun projet publié</h3>
           <p>Ajoutez votre premier projet pour le voir apparaître sur le site.</p>
           <button class="btn btn-primary" onclick="openEditor()"><i class="fa-solid fa-plus"></i> Ajouter un projet</button>
+        </div>
+      </div>
+
+      <!-- ── SECTION: SLIDER ── -->
+      <div class="section" id="sec-slider">
+        <div class="main-header">
+          <h1><i class="fa-solid fa-photo-film" style="color:var(--accent);margin-right:0.6rem"></i> Slider accueil</h1>
+          <div style="display:flex;gap:0.5rem">
+            <div class="img-upload-zone" id="sliderUploadZone" style="padding:0.6rem 1.2rem;border-width:1px;display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;position:relative">
+              <input type="file" accept="image/*" multiple id="sliderFileInput" style="position:absolute;inset:0;opacity:0;cursor:pointer" />
+              <i class="fa-solid fa-plus"></i> Ajouter des photos
+            </div>
+          </div>
+        </div>
+        <div class="upload-progress" id="sliderProgress"><div class="upload-progress-bar" id="sliderProgressBar"></div></div>
+        <div class="upload-progress-text" id="sliderProgressText"></div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem">Ces photos défilent en arrière-plan sur la page d'accueil. Glissez pour réordonner.</p>
+        <div id="sliderList" style="display:flex;flex-wrap:wrap;gap:0.8rem"></div>
+        <div id="sliderEmpty" class="empty-state" style="display:none">
+          <i class="fa-solid fa-photo-film"></i>
+          <h3>Aucune photo dans le slider</h3>
+          <p>Ajoutez des photos pour les voir défiler sur la page d'accueil.</p>
         </div>
       </div>
 
@@ -571,11 +621,7 @@
       } catch { return false; }
     }
 
-    function showApp() {
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('app').classList.add('active');
-      loadProjects();
-    }
+
 
     // ── Projects CRUD ──
     async function loadProjects() {
@@ -1005,7 +1051,120 @@
     document.getElementById('confirmYes').addEventListener('click', deleteProject);
     document.getElementById('confirmNo').addEventListener('click', () => document.getElementById('confirmDialog').classList.remove('open'));
 
+    // ══════════════════════════════════════════
+    //  SLIDER MANAGEMENT
+    // ══════════════════════════════════════════
+    const SLIDER_API = 'cortoba-plateforme/api/slider.php';
+    let sliderImages = [];
+
+    async function loadSlider() {
+      try {
+        const res = await fetch(SLIDER_API, { headers: headers() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        sliderImages = data.data;
+        renderSlider();
+      } catch (e) {
+        // Table may not exist yet, that's ok
+        sliderImages = [];
+        renderSlider();
+      }
+    }
+
+    function renderSlider() {
+      const list = document.getElementById('sliderList');
+      const empty = document.getElementById('sliderEmpty');
+      if (sliderImages.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      list.innerHTML = sliderImages.map((s, i) => `
+        <div class="slider-card" data-id="${s.id}">
+          <img src="${s.image_path}" alt="${esc(s.alt_text || '')}" />
+          <div class="slider-card-actions">
+            <button class="slider-card-btn del" onclick="deleteSliderImage(${s.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <div class="slider-card-order">${i + 1}</div>
+        </div>
+      `).join('');
+    }
+
+    // Upload slider images
+    document.getElementById('sliderFileInput').addEventListener('change', async function() {
+      const files = Array.from(this.files);
+      if (!files.length) return;
+
+      const progBar = document.getElementById('sliderProgressBar');
+      const progWrap = document.getElementById('sliderProgress');
+      const progText = document.getElementById('sliderProgressText');
+
+      for (let f = 0; f < files.length; f++) {
+        progWrap.classList.add('active');
+        progText.classList.add('active');
+        progBar.style.width = '0%';
+        progText.textContent = `Photo ${f + 1}/${files.length} — Upload en cours...`;
+
+        try {
+          const path = await uploadImageWithProgress(files[f], (pct) => {
+            progBar.style.width = pct + '%';
+            progText.textContent = `Photo ${f + 1}/${files.length} — ${pct}%`;
+          });
+
+          // Add to slider DB
+          const res = await fetch(SLIDER_API, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ image_path: path, alt_text: '', sort_order: sliderImages.length + f })
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error);
+
+        } catch (e) {
+          toast('Erreur: ' + e.message, 'error');
+        }
+      }
+
+      progText.textContent = `${files.length} photo${files.length > 1 ? 's' : ''} ajoutée${files.length > 1 ? 's' : ''}`;
+      setTimeout(() => { progWrap.classList.remove('active'); progText.classList.remove('active'); }, 2500);
+      this.value = '';
+      loadSlider();
+      toast(files.length + ' photo(s) ajoutée(s) au slider', 'success');
+    });
+
+    async function deleteSliderImage(id) {
+      try {
+        const res = await fetch(SLIDER_API + '?id=' + id, { method: 'DELETE', headers: headers() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        toast('Photo supprimée du slider', 'success');
+        loadSlider();
+      } catch (e) {
+        toast('Erreur: ' + e.message, 'error');
+      }
+    }
+
+    // Drag & drop on slider upload zone
+    const sliderZone = document.getElementById('sliderUploadZone');
+    sliderZone.addEventListener('dragover', (e) => { e.preventDefault(); sliderZone.classList.add('drag-over'); });
+    sliderZone.addEventListener('dragleave', () => sliderZone.classList.remove('drag-over'));
+    sliderZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      sliderZone.classList.remove('drag-over');
+      const input = document.getElementById('sliderFileInput');
+      input.files = e.dataTransfer.files;
+      input.dispatchEvent(new Event('change'));
+    });
+
     // ── Init ──
+    function showApp() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('app').classList.add('active');
+      loadProjects();
+      loadSlider();
+    }
+
     (async () => {
       if (await checkAuth()) {
         showApp();
