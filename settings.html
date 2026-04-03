@@ -386,17 +386,6 @@
         <div class="upload-progress-text" id="sliderProgressText"></div>
         <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem">Ces photos défilent en arrière-plan sur la page d'accueil.</p>
 
-        <!-- Fit mode selector -->
-        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap">
-          <label style="font-size:0.85rem;color:var(--text-muted)">Format d'image :</label>
-          <div style="display:flex;gap:0.4rem" id="fitModeGroup">
-            <button class="btn btn-ghost fit-mode-btn active" data-mode="cover" title="Adapté (remplit la zone)">Adapté</button>
-            <button class="btn btn-ghost fit-mode-btn" data-mode="contain" title="Contenu (image entière visible)">Contenu</button>
-            <button class="btn btn-ghost fit-mode-btn" data-mode="original" title="Original (taille réelle)">Original</button>
-            <button class="btn btn-ghost fit-mode-btn" data-mode="fill" title="Étiré (remplit sans ratio)">Étiré</button>
-          </div>
-        </div>
-
         <!-- Device preview -->
         <div style="margin-bottom:1.5rem">
           <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:0.6rem">Aperçu :</label>
@@ -1093,13 +1082,6 @@
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
         sliderImages = data.data;
-        // Load fit mode from settings
-        if (data.settings && data.settings.fit_mode) {
-          currentFitMode = data.settings.fit_mode;
-          document.querySelectorAll('.fit-mode-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.mode === currentFitMode);
-          });
-        }
         renderSlider();
       } catch (e) {
         sliderImages = [];
@@ -1117,15 +1099,51 @@
         return;
       }
       empty.style.display = 'none';
-      list.innerHTML = sliderImages.map((s, i) => `
-        <div class="slider-card" data-id="${s.id}">
-          <img src="${s.image_path}" alt="${esc(s.alt_text || '')}" />
-          <div class="slider-card-actions">
-            <button class="slider-card-btn del" onclick="deleteSliderImage(${s.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
-          </div>
-          <div class="slider-card-order">${i + 1}</div>
-        </div>
-      `).join('');
+      const fitOptions = [
+        { mode: 'cover', label: 'Adapté' },
+        { mode: 'contain', label: 'Contenu' },
+        { mode: 'original', label: 'Original' },
+        { mode: 'fill', label: 'Étiré' }
+      ];
+      list.innerHTML = sliderImages.map((s, i) => {
+        const fm = s.fit_mode || 'cover';
+        const fitBtns = fitOptions.map(o =>
+          `<button class="btn btn-ghost fit-img-btn${o.mode === fm ? ' active' : ''}" data-id="${s.id}" data-mode="${o.mode}" style="font-size:0.6rem;padding:0.2rem 0.45rem">${o.label}</button>`
+        ).join('');
+        return `
+          <div class="slider-card" data-id="${s.id}">
+            <img src="${s.image_path}" alt="${esc(s.alt_text || '')}" />
+            <div class="slider-card-actions">
+              <button class="slider-card-btn del" onclick="deleteSliderImage(${s.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <div class="slider-card-order">${i + 1}</div>
+            <div style="display:flex;gap:0.25rem;padding:0.35rem;flex-wrap:wrap;justify-content:center">${fitBtns}</div>
+          </div>`;
+      }).join('');
+
+      // Per-image fit mode click handlers
+      list.querySelectorAll('.fit-img-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const id = parseInt(this.dataset.id);
+          const mode = this.dataset.mode;
+          const card = this.closest('.slider-card');
+          card.querySelectorAll('.fit-img-btn').forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          // Update in memory
+          const img = sliderImages.find(s => s.id == id);
+          if (img) img.fit_mode = mode;
+          renderSliderPreview();
+          // Save to API
+          try {
+            await fetch(SLIDER_API, {
+              method: 'PUT',
+              headers: headers(),
+              body: JSON.stringify({ id, image_path: img.image_path, alt_text: img.alt_text || '', sort_order: img.sort_order || 0, fit_mode: mode })
+            });
+            toast('Format mis à jour', 'success');
+          } catch(e) { toast('Erreur: ' + e.message, 'error'); }
+        });
+      });
       renderSliderPreview();
     }
 
@@ -1198,9 +1216,9 @@
     // ══════════════════════════════════════════
     //  SLIDER PREVIEW & SETTINGS
     // ══════════════════════════════════════════
-    let currentFitMode = 'cover';
     let previewIdx = 0;
     let previewTimer = null;
+    const fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
 
     // Device preview sizing
     document.querySelectorAll('.preview-device-btn').forEach(btn => {
@@ -1215,33 +1233,6 @@
       });
     });
 
-    // Fit mode buttons
-    document.querySelectorAll('.fit-mode-btn').forEach(btn => {
-      btn.addEventListener('click', async function() {
-        document.querySelectorAll('.fit-mode-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        currentFitMode = this.dataset.mode;
-        updatePreviewFit();
-        // Save to API
-        try {
-          await fetch(SLIDER_API, {
-            method: 'PATCH',
-            headers: headers(),
-            body: JSON.stringify({ fit_mode: currentFitMode })
-          });
-          toast('Format d\'image enregistré', 'success');
-        } catch(e) {}
-      });
-    });
-
-    function updatePreviewFit() {
-      const fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
-      const fit = fitMap[currentFitMode] || 'cover';
-      document.querySelectorAll('#sliderPreviewTrack img').forEach(img => {
-        img.style.objectFit = fit;
-      });
-    }
-
     function renderSliderPreview() {
       const track = document.getElementById('sliderPreviewTrack');
       const dots = document.getElementById('sliderPreviewDots');
@@ -1251,11 +1242,10 @@
         if (previewTimer) clearInterval(previewTimer);
         return;
       }
-      const fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
-      const fit = fitMap[currentFitMode] || 'cover';
-      track.innerHTML = sliderImages.map(s =>
-        `<img src="${s.image_path}" alt="${esc(s.alt_text || '')}" style="width:100%;height:100%;object-fit:${fit};flex-shrink:0;filter:brightness(0.55)">`
-      ).join('');
+      track.innerHTML = sliderImages.map(s => {
+        const fit = fitMap[s.fit_mode || 'cover'] || 'cover';
+        return `<img src="${s.image_path}" alt="${esc(s.alt_text || '')}" style="width:100%;height:100%;object-fit:${fit};flex-shrink:0;filter:brightness(0.55)">`;
+      }).join('');
       // Dots
       dots.innerHTML = '';
       previewIdx = 0;

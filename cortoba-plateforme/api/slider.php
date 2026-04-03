@@ -15,9 +15,15 @@ try {
         id          INT AUTO_INCREMENT PRIMARY KEY,
         image_path  VARCHAR(300) NOT NULL,
         alt_text    VARCHAR(200) DEFAULT '',
+        fit_mode    VARCHAR(20)  DEFAULT 'cover',
         sort_order  INT DEFAULT 0,
         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Auto-add fit_mode column if missing (existing installs)
+    try {
+        $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN fit_mode VARCHAR(20) DEFAULT 'cover' AFTER alt_text");
+    } catch (Exception $ignore) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS " . DB_PREFIX . "slider_settings (
         id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -49,10 +55,11 @@ if ($method === 'POST') {
     $path = trim($d['image_path'] ?? '');
     if (!$path) jsonError('Chemin image requis');
 
-    $stmt = $pdo->prepare("INSERT INTO $table (image_path, alt_text, sort_order) VALUES (?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO $table (image_path, alt_text, fit_mode, sort_order) VALUES (?, ?, ?, ?)");
     $stmt->execute([
         $path,
         trim($d['alt_text'] ?? ''),
+        trim($d['fit_mode'] ?? 'cover'),
         (int)($d['sort_order'] ?? 0)
     ]);
     jsonOk(['id' => $pdo->lastInsertId()], 201);
@@ -64,13 +71,15 @@ if ($method === 'PUT') {
     $id = (int)($d['id'] ?? 0);
     if (!$id) jsonError('ID requis');
 
-    $stmt = $pdo->prepare("UPDATE $table SET image_path = ?, alt_text = ?, sort_order = ? WHERE id = ?");
-    $stmt->execute([
-        trim($d['image_path'] ?? ''),
-        trim($d['alt_text'] ?? ''),
-        (int)($d['sort_order'] ?? 0),
-        $id
-    ]);
+    $sets = ["image_path = ?", "alt_text = ?", "sort_order = ?"];
+    $vals = [trim($d['image_path'] ?? ''), trim($d['alt_text'] ?? ''), (int)($d['sort_order'] ?? 0)];
+    if (isset($d['fit_mode'])) {
+        $sets[] = "fit_mode = ?";
+        $vals[] = trim($d['fit_mode']);
+    }
+    $vals[] = $id;
+    $stmt = $pdo->prepare("UPDATE $table SET " . implode(', ', $sets) . " WHERE id = ?");
+    $stmt->execute($vals);
     jsonOk(['id' => $id]);
 }
 

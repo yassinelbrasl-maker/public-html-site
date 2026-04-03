@@ -1704,14 +1704,11 @@
       .then(function(data){
         if (!data.success || !data.data || data.data.length === 0) return;
 
-        // Apply fit mode from settings
-        var fitMode = (data.settings && data.settings.fit_mode) ? data.settings.fit_mode : 'cover';
         var fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
-        var objectFit = fitMap[fitMode] || 'cover';
-
         var html = '';
         data.data.forEach(function(s){
-          html += '<img src="' + s.image_path + '" class="slider-image" style="object-fit:' + objectFit + '" alt="' + (s.alt_text || 'Slide') + '">';
+          var fit = fitMap[s.fit_mode || 'cover'] || 'cover';
+          html += '<img src="' + s.image_path + '" class="slider-image" style="object-fit:' + fit + '" alt="' + (s.alt_text || 'Slide') + '">';
         });
         track.innerHTML = html;
         total = data.data.length;
