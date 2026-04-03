@@ -188,13 +188,6 @@
           </select>
         </div>
         <div class="form-field">
-          <label class="form-label">Phase initiale</label>
-          <select id="cfg-phase" class="form-select">
-            <option>Étude préliminaire</option><option>APS</option><option>APD</option>
-            <option>PC</option><option>DCE</option><option>EXE</option><option>Livré</option>
-          </select>
-        </div>
-        <div class="form-field">
           <label class="form-label">Statut</label>
           <select id="cfg-statut" class="form-select">
             <option>Actif</option><option>En pause</option><option>Prospection</option><option>Archivé</option>
@@ -203,10 +196,6 @@
         <div class="form-field">
           <label class="form-label">Année</label>
           <input id="cfg-annee" class="form-input" type="number" placeholder="2026" />
-        </div>
-        <div class="form-field">
-          <label class="form-label">Délai estimé</label>
-          <input id="cfg-delai" class="form-input" type="date" />
         </div>
         <div class="form-field full">
           <label class="form-label">Description du projet</label>
@@ -964,8 +953,8 @@ function genNasPath(code, clientNom) {
 function saveDraft() {
   try {
     var d = {
-      nom: v('cfg-nom'), typeBat: v('cfg-type-bat'), phase: v('cfg-phase'),
-      statut: v('cfg-statut'), annee: v('cfg-annee'), delai: v('cfg-delai'),
+      nom: v('cfg-nom'), typeBat: v('cfg-type-bat'),
+      statut: v('cfg-statut'), annee: v('cfg-annee'),
       description: v('cfg-description'), shon: v('cfg-shon'), shob: v('cfg-shob'),
       terrain: v('cfg-terrain'), standing: getSel('opt-std'), zone: getSel('opt-zone'),
       coutConst: v('cfg-cout-construction'), coutM2: v('cfg-cout-m2'),
@@ -994,8 +983,8 @@ function applyDraft() {
   try {
     var d = JSON.parse(localStorage.getItem('cortoba_cfg_draft') || '{}'); if (!d.nom) return;
     function sv(id, val) { var el = document.getElementById(id); if (el && val != null) el.value = val; }
-    sv('cfg-nom',d.nom); sv('cfg-type-bat',d.typeBat); sv('cfg-phase',d.phase);
-    sv('cfg-statut',d.statut); sv('cfg-annee',d.annee); sv('cfg-delai',d.delai);
+    sv('cfg-nom',d.nom); sv('cfg-type-bat',d.typeBat);
+    sv('cfg-statut',d.statut); sv('cfg-annee',d.annee);
     sv('cfg-description',d.description); sv('cfg-shon',d.shon); sv('cfg-shob',d.shob);
     sv('cfg-terrain',d.terrain); sv('cfg-cout-construction',d.coutConst);
     sv('cfg-cout-m2',d.coutM2); sv('cfg-honoraires',d.honoraires);
@@ -1031,9 +1020,8 @@ function saveProjet() {
       nom: (v('cfg-nom') || '').trim(),
       client: clientNom, clientId: clientId, clientCode: clientCode,
       code: code, annee: annee,
-      phase: v('cfg-phase'), statut: v('cfg-statut'),
+      statut: v('cfg-statut'),
       typeBat: v('cfg-type-bat') || null, type_bat: v('cfg-type-bat') || null,
-      delai: v('cfg-delai') || null,
       honoraires: parseFloat(v('cfg-honoraires')) || 0,
       budget: parseFloat(v('cfg-budget')) || null,
       surface: parseFloat(v('cfg-shon')) || null,

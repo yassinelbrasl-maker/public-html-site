@@ -431,13 +431,8 @@
         <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:220px">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="projets-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, client, phase…" oninput="pjFilterChanged()" />
+            <input id="projets-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, client, statut…" oninput="pjFilterChanged()" />
           </div>
-          <select id="projets-filter-phase" class="form-select" style="width:auto;min-width:130px" onchange="pjFilterChanged()">
-            <option value="">Toutes les phases</option>
-            <option>Étude préliminaire</option><option>APS</option><option>APD</option>
-            <option>PC</option><option>DCE</option><option>EXE</option><option>Livré</option>
-          </select>
           <select id="projets-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="pjFilterChanged()">
             <option value="">Tous les statuts</option>
             <option>Actif</option><option>En pause</option><option>Archivé</option><option>Prospection</option>
@@ -1743,12 +1738,6 @@
             </select>
           </div>
           <div class="form-field">
-            <label class="form-label">Phase initiale</label>
-            <select id="pj-phase" class="form-select">
-              <option>Étude préliminaire</option><option>APS</option><option>APD</option><option>PC</option><option>DCE</option><option>EXE</option><option>Livré</option>
-            </select>
-          </div>
-          <div class="form-field">
             <label class="form-label">Statut</label>
             <select id="pj-statut" class="form-select">
               <option>Actif</option><option>En pause</option><option>Prospection</option><option>Archivé</option>
@@ -1760,10 +1749,6 @@
               <option value="">— Sélectionner —</option>
               <!-- Peuplé dynamiquement par populateTypeBatSelect() -->
             </select>
-          </div>
-          <div class="form-field">
-            <label class="form-label">Délai estimé</label>
-            <input id="pj-delai" class="form-input" type="date" />
           </div>
           <div class="form-field">
             <label class="form-label">Année</label>

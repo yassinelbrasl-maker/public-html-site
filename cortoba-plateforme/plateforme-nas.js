@@ -1338,23 +1338,20 @@ var _pjPage=1, _pjPerPage=10, _pjAnneeInitDone=false;
 
 function getFilteredSortedProjets(){
   var q       = (document.getElementById('projets-search')||{value:''}).value.trim().toLowerCase();
-  var fPhase  = (document.getElementById('projets-filter-phase')||{value:''}).value;
   var fStatut = (document.getElementById('projets-filter-statut')||{value:''}).value;
   var fAnnee  = (document.getElementById('projets-filter-annee')||{value:''}).value;
   var list    = getProjets();
   if (q) list = list.filter(function(p){
-    var hay = [(p.code||''),(p.nom||''),(p.client||''),(p.phase||''),(p.statut||''),(p.adresse||'')].join(' ').toLowerCase();
+    var hay = [(p.code||''),(p.nom||''),(p.client||''),(p.statut||''),(p.adresse||'')].join(' ').toLowerCase();
     return q.split(/\s+/).every(function(w){ return hay.indexOf(w) !== -1; });
   });
-  if (fPhase)  list = list.filter(function(p){ return p.phase===fPhase; });
   if (fStatut) list = list.filter(function(p){ return p.statut===fStatut; });
   if (fAnnee)  list = list.filter(function(p){ return String(p.annee)===fAnnee; });
   var key=_pjSortKey, dir=_pjSortDir;
   return list.slice().sort(function(a,b){
     var va=a[key]||'', vb=b[key]||'';
     if (key==='honoraires'||key==='budget'||key==='surface') return dir*((a[key]||0)-(b[key]||0));
-    if (key==='delai'||key==='creeAt') return dir*(new Date(va||0)-new Date(vb||0));
-    if (key==='phase') return dir*(PHASES_ORDER.indexOf(va)-PHASES_ORDER.indexOf(vb));
+    if (key==='creeAt') return dir*(new Date(va||0)-new Date(vb||0));
     return dir*(va<vb?-1:va>vb?1:0);
   });
 }
@@ -1376,7 +1373,6 @@ function populateAnneeFilter(){
 }
 function clearPjSearch(){
   var s=document.getElementById('projets-search');if(s)s.value='';
-  var fp=document.getElementById('projets-filter-phase');if(fp)fp.value='';
   var fs=document.getElementById('projets-filter-statut');if(fs)fs.value='';
   var fa=document.getElementById('projets-filter-annee');if(fa)fa.value='';
   _pjPage=1; _pjAnneeInitDone=false;
@@ -1399,7 +1395,6 @@ function renderProjets(){
   var list   = getFilteredSortedProjets();
   var total  = getProjets().length;
   var q      = (document.getElementById('projets-search')||{value:''}).value.trim();
-  var fPhase  = (document.getElementById('projets-filter-phase')||{value:''}).value;
   var fStatut = (document.getElementById('projets-filter-statut')||{value:''}).value;
   var sortIcon = function(key){
     if(_pjSortKey!==key) return '<span style="margin-left:3px;font-size:0.6rem;color:var(--border);vertical-align:middle">⇅</span>';
@@ -1429,7 +1424,7 @@ function renderProjets(){
     ct.textContent = showing;
   }
   if(totalFiltered===0){
-    var hasFilter = q||fPhase||fStatut;
+    var hasFilter = q||fStatut;
     tb.innerHTML = '<tr><td colspan="'+(active.length+2)+'" style="text-align:center;color:var(--text-3);padding:3rem">'+
       (hasFilter?'<div style="font-size:1.5rem;margin-bottom:0.5rem">🔍</div>Aucun résultat.<br><button class="btn btn-sm" style="margin-top:0.6rem" onclick="clearPjSearch()">Effacer les filtres</button>':'<div style="font-size:1.5rem;margin-bottom:0.5rem">🏗️</div>Aucun projet. Créez le premier.')+'</td></tr>';
     renderPjPagination(0, 1);
@@ -1512,7 +1507,7 @@ function refreshGlobalMap(){
       '<div style="font-size:0.7rem;color:#888;margin-bottom:2px">'+(p.code||p.nom)+'</div>'+
       '<div style="font-weight:600;margin-bottom:4px">'+(p.nom||'—')+'</div>'+
       '<div style="font-size:0.78rem;color:#555">'+(p.client||'—')+'</div>'+
-      '<span style="display:inline-block;margin-top:4px;padding:2px 6px;border-radius:6px;font-size:0.7rem;background:rgba(0,0,0,0.1)">'+(p.phase||'—')+'</span>'+
+      '<span style="display:inline-block;margin-top:4px;padding:2px 6px;border-radius:6px;font-size:0.7rem;background:rgba(0,0,0,0.1)">'+(p.statut||'—')+'</span>'+
       (p.adresse?'<div style="font-size:0.72rem;color:#999;margin-top:4px">📍 '+p.adresse+'</div>':'')+
       '<a href="https://maps.google.com/?q='+p.lat+','+p.lng+'" target="_blank" style="font-size:0.72rem;color:#c8a96e;display:block;margin-top:5px">Ouvrir dans Maps →</a>'+
       '</div>';
@@ -1871,7 +1866,7 @@ function resetProjetForm(){
   if (_pjMap) { try{ _pjMap.remove(); }catch(e){} }
   _pjMap = null; _pjMarker = null;
 
-  ['pj-nom','pj-adresse','pj-delai','pj-description','pj-honoraires2','pj-budget2','pj-surface2','pj-shon','pj-shob','pj-terrain','pj-cout-construction','pj-cout-m2'].forEach(function(id){
+  ['pj-nom','pj-adresse','pj-description','pj-honoraires2','pj-budget2','pj-surface2','pj-shon','pj-shob','pj-terrain','pj-cout-construction','pj-cout-m2'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
   var stdRst=document.getElementById('pj-standing'); if(stdRst) stdRst.value='';

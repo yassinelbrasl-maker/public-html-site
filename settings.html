@@ -95,6 +95,7 @@
     .btn-danger:hover { background: #c0392b; }
     .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
     .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+    .btn-ghost.active { border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,0.1); }
     .btn-sm { padding: 0.45rem 0.9rem; font-size: 0.75rem; }
 
     /* ── PROJECT CARDS LIST ── */
@@ -383,7 +384,36 @@
         </div>
         <div class="upload-progress" id="sliderProgress"><div class="upload-progress-bar" id="sliderProgressBar"></div></div>
         <div class="upload-progress-text" id="sliderProgressText"></div>
-        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem">Ces photos défilent en arrière-plan sur la page d'accueil. Glissez pour réordonner.</p>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem">Ces photos défilent en arrière-plan sur la page d'accueil.</p>
+
+        <!-- Fit mode selector -->
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap">
+          <label style="font-size:0.85rem;color:var(--text-muted)">Format d'image :</label>
+          <div style="display:flex;gap:0.4rem" id="fitModeGroup">
+            <button class="btn btn-ghost fit-mode-btn active" data-mode="cover" title="Adapté (remplit la zone)">Adapté</button>
+            <button class="btn btn-ghost fit-mode-btn" data-mode="contain" title="Contenu (image entière visible)">Contenu</button>
+            <button class="btn btn-ghost fit-mode-btn" data-mode="original" title="Original (taille réelle)">Original</button>
+            <button class="btn btn-ghost fit-mode-btn" data-mode="fill" title="Étiré (remplit sans ratio)">Étiré</button>
+          </div>
+        </div>
+
+        <!-- Device preview -->
+        <div style="margin-bottom:1.5rem">
+          <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:0.6rem">Aperçu :</label>
+          <div style="display:flex;gap:0.6rem;margin-bottom:0.8rem" id="previewDeviceGroup">
+            <button class="btn btn-ghost preview-device-btn active" data-device="desktop" title="Desktop"><i class="fa-solid fa-desktop"></i> PC</button>
+            <button class="btn btn-ghost preview-device-btn" data-device="tablet" title="Tablette"><i class="fa-solid fa-tablet-screen-button"></i> Tablette</button>
+            <button class="btn btn-ghost preview-device-btn" data-device="mobile" title="Mobile"><i class="fa-solid fa-mobile-screen-button"></i> Mobile</button>
+          </div>
+          <div id="sliderPreviewFrame" style="background:#1a1a1a;border-radius:8px;overflow:hidden;border:2px solid var(--border);margin:0 auto;position:relative;transition:all 0.3s;width:100%;aspect-ratio:16/7">
+            <div id="sliderPreviewTrack" style="display:flex;width:100%;height:100%;transition:transform 0.8s cubic-bezier(0.25,0.46,0.45,0.94)"></div>
+            <div id="sliderPreviewDots" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px"></div>
+            <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45));display:flex;align-items:center;justify-content:center;pointer-events:none">
+              <span style="color:#fff;font-size:0.9rem;font-family:var(--font-heading);letter-spacing:0.15em;opacity:0.7">CORTOBA ARCHITECTURE STUDIO</span>
+            </div>
+          </div>
+        </div>
+
         <div id="sliderList" style="display:flex;flex-wrap:wrap;gap:0.8rem"></div>
         <div id="sliderEmpty" class="empty-state" style="display:none">
           <i class="fa-solid fa-photo-film"></i>
@@ -1063,9 +1093,15 @@
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
         sliderImages = data.data;
+        // Load fit mode from settings
+        if (data.settings && data.settings.fit_mode) {
+          currentFitMode = data.settings.fit_mode;
+          document.querySelectorAll('.fit-mode-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.mode === currentFitMode);
+          });
+        }
         renderSlider();
       } catch (e) {
-        // Table may not exist yet, that's ok
         sliderImages = [];
         renderSlider();
       }
@@ -1077,6 +1113,7 @@
       if (sliderImages.length === 0) {
         list.innerHTML = '';
         empty.style.display = 'block';
+        renderSliderPreview();
         return;
       }
       empty.style.display = 'none';
@@ -1089,6 +1126,7 @@
           <div class="slider-card-order">${i + 1}</div>
         </div>
       `).join('');
+      renderSliderPreview();
     }
 
     // Upload slider images
@@ -1156,6 +1194,92 @@
       input.files = e.dataTransfer.files;
       input.dispatchEvent(new Event('change'));
     });
+
+    // ══════════════════════════════════════════
+    //  SLIDER PREVIEW & SETTINGS
+    // ══════════════════════════════════════════
+    let currentFitMode = 'cover';
+    let previewIdx = 0;
+    let previewTimer = null;
+
+    // Device preview sizing
+    document.querySelectorAll('.preview-device-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.preview-device-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const frame = document.getElementById('sliderPreviewFrame');
+        const device = this.dataset.device;
+        if (device === 'desktop') { frame.style.width = '100%'; frame.style.aspectRatio = '16/7'; }
+        else if (device === 'tablet') { frame.style.width = '60%'; frame.style.aspectRatio = '4/3'; }
+        else { frame.style.width = '30%'; frame.style.aspectRatio = '9/16'; }
+      });
+    });
+
+    // Fit mode buttons
+    document.querySelectorAll('.fit-mode-btn').forEach(btn => {
+      btn.addEventListener('click', async function() {
+        document.querySelectorAll('.fit-mode-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentFitMode = this.dataset.mode;
+        updatePreviewFit();
+        // Save to API
+        try {
+          await fetch(SLIDER_API, {
+            method: 'PATCH',
+            headers: headers(),
+            body: JSON.stringify({ fit_mode: currentFitMode })
+          });
+          toast('Format d\'image enregistré', 'success');
+        } catch(e) {}
+      });
+    });
+
+    function updatePreviewFit() {
+      const fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
+      const fit = fitMap[currentFitMode] || 'cover';
+      document.querySelectorAll('#sliderPreviewTrack img').forEach(img => {
+        img.style.objectFit = fit;
+      });
+    }
+
+    function renderSliderPreview() {
+      const track = document.getElementById('sliderPreviewTrack');
+      const dots = document.getElementById('sliderPreviewDots');
+      if (sliderImages.length === 0) {
+        track.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:var(--text-muted);font-size:0.8rem">Aucune image</div>';
+        dots.innerHTML = '';
+        if (previewTimer) clearInterval(previewTimer);
+        return;
+      }
+      const fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
+      const fit = fitMap[currentFitMode] || 'cover';
+      track.innerHTML = sliderImages.map(s =>
+        `<img src="${s.image_path}" alt="${esc(s.alt_text || '')}" style="width:100%;height:100%;object-fit:${fit};flex-shrink:0;filter:brightness(0.55)">`
+      ).join('');
+      // Dots
+      dots.innerHTML = '';
+      previewIdx = 0;
+      for (let i = 0; i < sliderImages.length; i++) {
+        const d = document.createElement('span');
+        d.style.cssText = 'width:7px;height:7px;border-radius:50%;background:' + (i === 0 ? 'var(--accent)' : 'rgba(255,255,255,0.4)') + ';cursor:pointer;transition:all 0.3s';
+        d.addEventListener('click', () => { previewGoTo(i); });
+        dots.appendChild(d);
+      }
+      previewGoTo(0);
+      if (previewTimer) clearInterval(previewTimer);
+      if (sliderImages.length > 1) {
+        previewTimer = setInterval(() => previewGoTo((previewIdx + 1) % sliderImages.length), 4000);
+      }
+    }
+
+    function previewGoTo(idx) {
+      previewIdx = idx;
+      document.getElementById('sliderPreviewTrack').style.transform = 'translateX(-' + (idx * 100) + '%)';
+      const dots = document.getElementById('sliderPreviewDots').children;
+      for (let i = 0; i < dots.length; i++) {
+        dots[i].style.background = i === idx ? 'var(--accent)' : 'rgba(255,255,255,0.4)';
+      }
+    }
 
     // ── Init ──
     function showApp() {

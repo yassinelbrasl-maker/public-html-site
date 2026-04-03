@@ -9,7 +9,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $pdo    = getDB();
 $table  = t('slider_images');
 
-// Auto-create table if not exists
+// Auto-create tables if not exists
 try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS " . DB_PREFIX . "slider_images (
         id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -18,12 +18,26 @@ try {
         sort_order  INT DEFAULT 0,
         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS " . DB_PREFIX . "slider_settings (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        setting_key VARCHAR(100) NOT NULL UNIQUE,
+        setting_val VARCHAR(300) NOT NULL DEFAULT ''
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 } catch (Exception $e) {}
 
-// ── GET (public) → list all slider images ──
+$settingsTable = t('slider_settings');
+
+// ── GET (public) → list all slider images + settings ──
 if ($method === 'GET') {
     $rows = $pdo->query("SELECT * FROM $table ORDER BY sort_order ASC, id ASC")->fetchAll();
-    jsonOk($rows);
+    $settingsRows = $pdo->query("SELECT setting_key, setting_val FROM $settingsTable")->fetchAll();
+    $settings = [];
+    foreach ($settingsRows as $sr) {
+        $settings[$sr['setting_key']] = $sr['setting_val'];
+    }
+    echo json_encode(['success' => true, 'data' => $rows, 'settings' => $settings]);
+    exit;
 }
 
 // ── All write operations require admin ──
@@ -92,4 +106,19 @@ if ($method === 'PUT' && !empty($_GET['reorder'])) {
         $pdo->prepare("UPDATE $table SET sort_order = ? WHERE id = ?")->execute([$i, (int)$id]);
     }
     jsonOk(['reordered' => count($order)]);
+}
+
+// ── PATCH → update slider settings ──
+if ($method === 'PATCH') {
+    $d = getBody();
+    $allowed = ['fit_mode'];
+    $updated = [];
+    foreach ($allowed as $key) {
+        if (isset($d[$key])) {
+            $stmt = $pdo->prepare("INSERT INTO $settingsTable (setting_key, setting_val) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_val = VALUES(setting_val)");
+            $stmt->execute([$key, trim($d[$key])]);
+            $updated[$key] = trim($d[$key]);
+        }
+    }
+    jsonOk($updated);
 }
