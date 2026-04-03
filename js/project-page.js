@@ -6,15 +6,8 @@
 (function () {
   'use strict';
 
-  // ── All known projects (hardcoded + dynamic merged) ──
-  var STATIC_PROJECTS = [
-    { slug: 'villa-djerba',       title: 'Villa Djerba',         category: 'Résidentiel',      location: 'Midoun, Djerba',   img: '/img/Projets/p1.jpg' },
-    { slug: 'maison-sousse',      title: 'Maison Contemporaine', category: 'Résidentiel',      location: 'Sousse, Tunisie',  img: '/img/Projets/p2.jpg' },
-    { slug: 'appartement-tunis',  title: 'Appartement Tunis',    category: 'Design Intérieur', location: 'Tunis, Tunisie',   img: '/img/Projets/p3.jpg' },
-    { slug: 'bureau-midoun',      title: 'Bureaux Midoun',       category: 'Commercial',       location: 'Midoun, Djerba',   img: '/img/Projets/p4.jpg' },
-    { slug: 'villa-nabeul',       title: 'Villa Nabeul',         category: 'Résidentiel',      location: 'Nabeul, Tunisie',  img: '/img/Projets/p5.jpg' },
-    { slug: 'villa-maroc',        title: 'Villa Marrakech',      category: 'International',    location: 'Marrakech, Maroc', img: '/img/Projets/p6.jpg' }
-  ];
+  // ── All known projects (dynamic only from API) ──
+  var STATIC_PROJECTS = [];
 
   var currentSlug = document.body.getAttribute('data-project-slug') || '';
   var allProjects = STATIC_PROJECTS.slice();
