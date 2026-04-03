@@ -20,10 +20,11 @@ try {
         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    // Auto-add fit_mode column if missing (existing installs)
-    try {
-        $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN fit_mode VARCHAR(20) DEFAULT 'cover' AFTER alt_text");
-    } catch (Exception $ignore) {}
+    // Auto-add columns if missing (existing installs)
+    try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN fit_mode VARCHAR(20) DEFAULT 'cover' AFTER alt_text"); } catch (Exception $ignore) {}
+    try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN position_x INT DEFAULT 50 AFTER fit_mode"); } catch (Exception $ignore) {}
+    try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN position_y INT DEFAULT 50 AFTER position_x"); } catch (Exception $ignore) {}
+    try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN zoom INT DEFAULT 100 AFTER position_y"); } catch (Exception $ignore) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS " . DB_PREFIX . "slider_settings (
         id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -55,11 +56,14 @@ if ($method === 'POST') {
     $path = trim($d['image_path'] ?? '');
     if (!$path) jsonError('Chemin image requis');
 
-    $stmt = $pdo->prepare("INSERT INTO $table (image_path, alt_text, fit_mode, sort_order) VALUES (?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO $table (image_path, alt_text, fit_mode, position_x, position_y, zoom, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $path,
         trim($d['alt_text'] ?? ''),
         trim($d['fit_mode'] ?? 'cover'),
+        (int)($d['position_x'] ?? 50),
+        (int)($d['position_y'] ?? 50),
+        (int)($d['zoom'] ?? 100),
         (int)($d['sort_order'] ?? 0)
     ]);
     jsonOk(['id' => $pdo->lastInsertId()], 201);
@@ -73,9 +77,11 @@ if ($method === 'PUT') {
 
     $sets = ["image_path = ?", "alt_text = ?", "sort_order = ?"];
     $vals = [trim($d['image_path'] ?? ''), trim($d['alt_text'] ?? ''), (int)($d['sort_order'] ?? 0)];
-    if (isset($d['fit_mode'])) {
-        $sets[] = "fit_mode = ?";
-        $vals[] = trim($d['fit_mode']);
+    foreach (['fit_mode' => 's', 'position_x' => 'i', 'position_y' => 'i', 'zoom' => 'i'] as $col => $type) {
+        if (isset($d[$col])) {
+            $sets[] = "$col = ?";
+            $vals[] = $type === 'i' ? (int)$d[$col] : trim($d[$col]);
+        }
     }
     $vals[] = $id;
     $stmt = $pdo->prepare("UPDATE $table SET " . implode(', ', $sets) . " WHERE id = ?");
