@@ -1037,8 +1037,7 @@
       }
       @media print {
         .navbar, .config-intro-banner, .cfg-header, .cfg-nav, .cfg-cta-block,
-        #cfg-recap-float, #cfg-recap-toggle-btn, .whatsapp-float, .floating-route-button,
-        #chat-launcher, #chat-widget { display: none !important; }
+        #cfg-recap-float, #cfg-recap-toggle-btn, .whatsapp-float, .floating-route-button { display: none !important; }
         #cfg-result { display: block !important; }
         body { background: white !important; color: black !important; }
       }
@@ -1371,54 +1370,6 @@
       <p>&copy; 2026 Cortoba Architecture Studio. <span data-i18n="footer_rights">Tous droits réservés.</span></p>
     </footer>
 
-    <a href="https://www.google.com/maps/dir/?api=1&destination=33.804754,10.9860508" target="_blank" rel="noopener noreferrer" class="floating-route-button">
-      <img src="img/icons8-google-maps-nouveau-480.png" alt="GPS" class="btn-icon" />
-      <span data-i18n="itinerary">Itinéraire</span>
-    </a>
-
-    <a href="https://wa.me/21694119120" target="_blank" rel="noopener noreferrer" class="whatsapp-float">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" />
-    </a>
-
-    
-    <!-- ═══ CHATBOT LAUNCHER ═══ -->
-    <button id="chat-launcher" aria-label="Ouvrir le chat" onclick="toggleChat()">
-      <svg class="icon-chat" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-      <svg class="icon-close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
-
-    <!-- ═══ CHATBOT WIDGET ═══ -->
-    <div id="chat-widget" role="dialog" aria-label="Chat Cortoba Architecture">
-      <div class="chat-header">
-        <div class="chat-header-avatar">CA</div>
-        <div class="chat-header-info">
-          <div class="chat-header-title">Cortoba Architecture Studio</div>
-          <div class="chat-header-sub">Assistant Studio</div>
-        </div>
-        <div class="chat-online-dot"></div>
-      </div>
-      <div id="chat-messages">
-        <div class="chat-divider-label">Aujourd'hui</div>
-        <div class="chat-msg bot">
-          <div class="chat-msg-label">Assistant</div>
-          <div class="chat-msg-bubble">Bienvenue chez Cortoba Architecture Studio. Je suis là pour répondre à vos questions sur nos projets, services et approche. Comment puis-je vous aider ?</div>
-        </div>
-      </div>
-      <div class="chat-input-area">
-        <textarea id="chat-input" placeholder="Posez votre question…" rows="1" aria-label="Votre message"></textarea>
-        <button id="chat-send" aria-label="Envoyer" onclick="sendChatMessage()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </div>
-      <div class="chat-footer-label">Propulsé par Gemini AI · Cortoba Architecture</div>
-    </div>
 
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
       // ─── TRANSLATIONS ───────────────────────────────────────────────
@@ -1677,82 +1628,6 @@
       const savedLang = localStorage.getItem('lang') || 'fr';
       setLang(savedLang);
 
-      // ─── CHATBOT ────────────────────────────────────────────────────
-      let chatOpen = false;
-      let chatLoading = false;
-      let chatHistory = [];
-
-      function toggleChat() {
-        chatOpen = !chatOpen;
-        document.getElementById('chat-widget').classList.toggle('open', chatOpen);
-        document.getElementById('chat-launcher').classList.toggle('open', chatOpen);
-        if (chatOpen) document.getElementById('chat-input').focus();
-      }
-
-      document.getElementById('chat-input').addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-      });
-      document.getElementById('chat-input').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
-      });
-
-      function addChatMsg(role, text) {
-        const el = document.getElementById('chat-messages');
-        const wrap = document.createElement('div');
-        wrap.className = 'chat-msg ' + role;
-        wrap.innerHTML = '<div class="chat-msg-label">' + (role === 'bot' ? 'Assistant' : 'Vous') + '</div>'
-          + '<div class="chat-msg-bubble"></div>';
-        wrap.querySelector('.chat-msg-bubble').textContent = text;
-        el.appendChild(wrap);
-        el.scrollTop = el.scrollHeight;
-      }
-
-      function showTyping() {
-        const el = document.getElementById('chat-messages');
-        const t = document.createElement('div');
-        t.className = 'chat-typing';
-        t.innerHTML = '<span></span><span></span><span></span>';
-        el.appendChild(t);
-        el.scrollTop = el.scrollHeight;
-        return t;
-      }
-
-      async function sendChatMessage() {
-        const input = document.getElementById('chat-input');
-        const sendBtn = document.getElementById('chat-send');
-        const text = input.value.trim();
-        if (!text || chatLoading) return;
-        input.value = '';
-        input.style.height = 'auto';
-        addChatMsg('user', text);
-        chatHistory.push({ role: 'user', content: text });
-        chatLoading = true;
-        sendBtn.disabled = true;
-        const typingEl = showTyping();
-        try {
-          const response = await fetch('/proxy.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: chatHistory })
-          });
-          const data = await response.json();
-          if (data.error) throw new Error(data.error);
-          const reply = (data.content || []).map(b => b.text || '').join('').trim()
-            || "Je n'ai pas pu traiter votre demande. Contactez-nous directement.";
-          typingEl.remove();
-          addChatMsg('bot', reply);
-          chatHistory.push({ role: 'assistant', content: reply });
-        } catch (err) {
-          typingEl.remove();
-          addChatMsg('bot', 'Erreur: ' + err.message);
-          console.error(err);
-        } finally {
-          chatLoading = false;
-          sendBtn.disabled = false;
-          document.getElementById('chat-input').focus();
-        }
-      }
 
     </script>
 
