@@ -839,6 +839,9 @@ h2 {
 
 /* ─── MAP ────────────────────────────────── */
 #map { padding: 0 !important; margin: 0 !important; }
+#map h2 { margin: 2rem 0 0.8rem; }
+#map .intro-text { margin-bottom: 0; }
+#map .map-actions { padding-bottom: 0; }
 
 .map-container { width: 100%; line-height: 0; overflow: hidden; display: block; }
 
