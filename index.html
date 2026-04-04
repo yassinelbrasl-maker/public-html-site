@@ -1566,6 +1566,18 @@
       const savedLang = localStorage.getItem('lang') || 'fr';
       setLang(savedLang);
 
+      // ─── THEME TOGGLE (clair/sombre) ──────────────────────────────
+      function cfgToggleTheme() {
+        document.body.classList.toggle('light-mode');
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) btn.textContent = document.body.classList.contains('light-mode') ? '🌑' : '🌙';
+        localStorage.setItem('cortoba-theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+      }
+      if (localStorage.getItem('cortoba-theme') === 'light') {
+        document.body.classList.add('light-mode');
+        const btn = document.getElementById('theme-toggle-btn');
+        if (btn) btn.textContent = '🌑';
+      }
 
     </script>
 

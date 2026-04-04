@@ -854,6 +854,12 @@ h2 {
   vertical-align: bottom;
 }
 
+/* ─── LIGHT MODE ─────────────────────────── */
+body.light-mode footer { background: #ede9e2; color: #666; border-top-color: rgba(0,0,0,0.1); }
+body.light-mode .whatsapp-float { box-shadow: 0 4px 20px rgba(37,211,102,0.25); }
+body.light-mode .floating-route-button { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+body.light-mode .theme-toggle { border-color: rgba(0,0,0,0.15); }
+
 /* ─── FOOTER ─────────────────────────────── */
 footer {
   background: #080808;
