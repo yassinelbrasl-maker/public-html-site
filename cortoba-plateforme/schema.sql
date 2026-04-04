@@ -348,3 +348,41 @@ CREATE TABLE IF NOT EXISTS `cortoba_modules` (
   `actif`       TINYINT(1)   NOT NULL DEFAULT 1,
   `cree_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : Dépenses récurrentes (templates + notifications)
+-- ════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS `CA_depenses_templates` (
+  `id`                 VARCHAR(32)  NOT NULL PRIMARY KEY,
+  `label`              VARCHAR(300) NOT NULL,
+  `categorie`          VARCHAR(80)  DEFAULT NULL,
+  `fournisseur`        VARCHAR(200) DEFAULT NULL,
+  `code_tva`           VARCHAR(80)  DEFAULT NULL,
+  `frequency`          ENUM('weekly','monthly','quarterly','semiannual','yearly') NOT NULL DEFAULT 'monthly',
+  `amount_type`        ENUM('fixed','estimated') NOT NULL DEFAULT 'fixed',
+  `base_amount_ht`     DECIMAL(14,3) NOT NULL DEFAULT 0,
+  `vat_rate`           DECIMAL(5,2)  NOT NULL DEFAULT 19,
+  `stamp_duty`         DECIMAL(14,3) NOT NULL DEFAULT 0,
+  `base_amount_ttc`    DECIMAL(14,3) NOT NULL DEFAULT 0,
+  `lignes_json`        LONGTEXT     DEFAULT NULL,
+  `next_due_date`      DATE         NOT NULL,
+  `notify_days_before` INT          NOT NULL DEFAULT 5,
+  `end_date`           DATE         DEFAULT NULL,
+  `status`             ENUM('active','paused','cancelled') NOT NULL DEFAULT 'active',
+  `cree_par`           VARCHAR(120) DEFAULT NULL,
+  `cree_at`            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`         DATETIME     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_status`     (`status`),
+  KEY `idx_next_due`   (`next_due_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Lier les dépenses payées à leur template d'origine
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `template_id` VARCHAR(32) DEFAULT NULL;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `fournisseur` VARCHAR(200) DEFAULT NULL;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `reference` VARCHAR(120) DEFAULT NULL;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `code_tva_fournisseur` VARCHAR(80) DEFAULT NULL;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `montant_ht`  DECIMAL(14,3) DEFAULT 0;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `montant_tva` DECIMAL(14,3) DEFAULT 0;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `timbre`      DECIMAL(14,3) DEFAULT 0;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `montant_ttc` DECIMAL(14,3) DEFAULT 0;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `lignes_json` LONGTEXT DEFAULT NULL;

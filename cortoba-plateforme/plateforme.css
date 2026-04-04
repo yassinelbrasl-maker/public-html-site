@@ -774,4 +774,18 @@
     .rendement-metric:nth-child(n+4) { border-top: 1px solid var(--border); }
     .rendement-metric-val { font-size: 1rem; font-weight: 600; color: var(--text); }
     .rendement-metric-label { font-size: 0.62rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.1rem; }
+
+    /* ═══ DEMANDES ADMINISTRATIVES ═══ */
+    .param-tag-list {
+      display: flex; flex-wrap: wrap; gap: 0.35rem;
+      min-height: 1.6rem;
+      padding: 0.3rem; border: 1px dashed var(--border); border-radius: 4px;
+      background: var(--bg-2);
+    }
+    .param-tag-list:empty::before {
+      content: 'Aucun élément — ajoutez-en un ci-dessus';
+      font-size: 0.72rem; color: var(--text-3); font-style: italic; padding: 0.1rem 0.3rem;
+    }
+    #da-docs-checklist label:hover { color: var(--accent); }
+    #da-contenu { font-family: var(--mono); font-size: 0.82rem; }
   </style>
