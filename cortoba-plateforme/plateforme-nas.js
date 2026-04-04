@@ -6326,6 +6326,8 @@ function renderSuiviPage() {
 
   if (_suiviView === 'kanban') {
     renderSuiviKanban(filtered);
+  } else if (_suiviView === 'membres') {
+    renderSuiviMembres(filtered);
   } else {
     renderSuiviTree(filtered);
   }
@@ -6525,20 +6527,119 @@ function renderSuiviKanban(items) {
   kanban.innerHTML = html;
 }
 
-// ── Toggle vue liste/kanban ──
+// ── Vue par membre assigné ──
+function renderSuiviMembres(items) {
+  var wrap = document.getElementById('suivi-membres');
+
+  // Grouper par assignee
+  var membreMap = {};
+  var nonAssigne = [];
+  items.forEach(function(t) {
+    var a = (t.assignee || '').trim();
+    if (!a) { nonAssigne.push(t); return; }
+    if (!membreMap[a]) membreMap[a] = [];
+    membreMap[a].push(t);
+  });
+
+  // Trier les membres par nombre de tâches (desc)
+  var membresKeys = Object.keys(membreMap).sort(function(a, b) {
+    return membreMap[b].length - membreMap[a].length;
+  });
+
+  if (membresKeys.length === 0 && nonAssigne.length === 0) {
+    wrap.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-3)">'
+      + '<div style="font-size:0.9rem;margin-bottom:0.3rem">Aucune tâche assignée</div>'
+      + '<div style="font-size:0.78rem">Assignez des tâches aux membres de l\'équipe pour voir cette vue.</div></div>';
+    return;
+  }
+
+  var html = '';
+  membresKeys.forEach(function(nom) {
+    var taches = membreMap[nom];
+    html += _renderMembreColumn(nom, taches);
+  });
+  // Colonne "Non assigné"
+  if (nonAssigne.length > 0) {
+    html += _renderMembreColumn(null, nonAssigne);
+  }
+
+  wrap.innerHTML = html;
+}
+
+function _renderMembreColumn(nom, taches) {
+  var done = taches.filter(function(t) { return t.statut === 'Terminé'; }).length;
+  var enCours = taches.filter(function(t) { return t.statut === 'En cours'; }).length;
+  var bloque = taches.filter(function(t) { return t.statut === 'Bloqué'; }).length;
+  var total = taches.length;
+  var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  var ini = '?';
+  var displayName = 'Non assigné';
+  if (nom) {
+    displayName = nom;
+    var parts = nom.split(' ');
+    ini = ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || '');
+    ini = ini.toUpperCase() || '?';
+  }
+
+  var html = '<div class="suivi-membre-card">';
+  // Header membre
+  html += '<div class="suivi-membre-header">';
+  html += '<div class="suivi-membre-avatar' + (nom ? '' : ' no-assign') + '">' + ini + '</div>';
+  html += '<div class="suivi-membre-info">';
+  html += '<div class="suivi-membre-nom">' + displayName + '</div>';
+  html += '<div class="suivi-membre-stats">';
+  html += '<span>' + total + ' tâche' + (total > 1 ? 's' : '') + '</span>';
+  if (enCours) html += '<span style="color:var(--blue)">' + enCours + ' en cours</span>';
+  if (bloque)  html += '<span style="color:var(--red)">' + bloque + ' bloqué' + (bloque > 1 ? 's' : '') + '</span>';
+  html += '<span style="color:var(--green)">' + done + '/' + total + ' terminé' + (done > 1 ? 's' : '') + '</span>';
+  html += '</div>';
+  html += '</div>';
+  html += suiviProgressBar(pct);
+  html += '</div>';
+
+  // Liste des tâches
+  html += '<div class="suivi-membre-tasks">';
+  // Trier : Bloqué > En cours > A faire > Terminé
+  var ordre = {'Bloqué': 0, 'En cours': 1, 'A faire': 2, 'Terminé': 3};
+  taches.sort(function(a, b) { return (ordre[a.statut] || 9) - (ordre[b.statut] || 9); });
+
+  taches.forEach(function(t) {
+    var niveauLabel = t.niveau === 0 ? '🎯' : t.niveau === 1 ? '◆' : '•';
+    html += '<div class="suivi-membre-task-row" onclick="editTache(\'' + t.id + '\')">';
+    html += '<span class="suivi-membre-task-niveau">' + niveauLabel + '</span>';
+    html += '<div class="suivi-membre-task-body">';
+    html += '<div class="suivi-membre-task-titre">' + (t.titre || '') + '</div>';
+    if (t.projetNom) html += '<div class="suivi-membre-task-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
+    html += '</div>';
+    html += '<div class="suivi-membre-task-meta">';
+    html += suiviStatutBadge(t.statut);
+    html += suiviPrioriteBadge(t.priorite);
+    if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
+    html += '</div>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+// ── Toggle vue liste / kanban / membres ──
+var _suiviViews = ['list', 'kanban', 'membres'];
 function suiviToggleView() {
   var btn = document.getElementById('suivi-toggle-view');
-  if (_suiviView === 'list') {
-    _suiviView = 'kanban';
-    document.getElementById('suivi-list-view').style.display = 'none';
-    document.getElementById('suivi-kanban-view').style.display = '';
-    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Vue Liste';
-  } else {
-    _suiviView = 'list';
-    document.getElementById('suivi-list-view').style.display = '';
-    document.getElementById('suivi-kanban-view').style.display = 'none';
-    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Vue Kanban';
-  }
+  var idx = _suiviViews.indexOf(_suiviView);
+  _suiviView = _suiviViews[(idx + 1) % _suiviViews.length];
+
+  document.getElementById('suivi-list-view').style.display    = _suiviView === 'list'    ? '' : 'none';
+  document.getElementById('suivi-kanban-view').style.display   = _suiviView === 'kanban'  ? '' : 'none';
+  document.getElementById('suivi-membres-view').style.display  = _suiviView === 'membres' ? '' : 'none';
+
+  var icons = {
+    list:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Vue Kanban',
+    kanban:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Vue Membres',
+    membres: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Vue Liste'
+  };
+  btn.innerHTML = icons[_suiviView] || icons.list;
   renderSuiviPage();
 }
 
