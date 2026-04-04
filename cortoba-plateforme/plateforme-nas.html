@@ -119,6 +119,10 @@
           Suivi
           <span class="nav-badge" id="suivi-badge" style="display:none">0</span>
         </button>
+        <button class="nav-item" onclick="showPage('journal')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Journal
+        </button>
         <button class="nav-item" onclick="showPage('facturation')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           Facturation
@@ -1280,6 +1284,89 @@
           <div class="modal-footer">
             <button class="btn" onclick="closeModal('modal-tache')">Annuler</button>
             <button class="btn btn-primary" onclick="saveTache()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ JOURNAL QUOTIDIEN ══ -->
+      <div class="page" id="page-journal">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Suivi quotidien</div>
+            <h1 class="page-title">Journal du jour</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="journalPrevDay()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <input type="date" id="journal-date" class="form-input" style="width:auto" onchange="renderJournalPage()" />
+            <button class="btn" onclick="journalNextDay()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <button class="btn" onclick="journalToday()">Aujourd'hui</button>
+          </div>
+        </div>
+
+        <!-- Sélection membre -->
+        <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap">
+          <label class="form-label" style="margin:0;font-size:0.78rem;color:var(--text-3)">Membre :</label>
+          <select id="journal-membre" class="form-select" style="width:auto;min-width:200px" onchange="renderJournalPage()">
+            <option value="">— Tous les membres —</option>
+          </select>
+          <span id="journal-summary" style="font-size:0.78rem;color:var(--text-3);margin-left:auto"></span>
+        </div>
+
+        <!-- KPIs du jour -->
+        <div class="journal-kpis" id="journal-kpis"></div>
+
+        <!-- Liste des tâches du jour -->
+        <div id="journal-tasks"></div>
+
+        <!-- Historique des entrées du jour -->
+        <div id="journal-entries" style="margin-top:1.5rem"></div>
+      </div>
+
+      <!-- Modal Journal — Remplir le travail effectué -->
+      <div class="modal-overlay" id="modal-journal">
+        <div class="modal" style="max-width:520px">
+          <div class="modal-header">
+            <h2 class="modal-title">Saisir l'avancement</h2>
+            <button class="modal-close" onclick="closeModal('modal-journal')">&times;</button>
+          </div>
+          <div class="modal-body" style="display:flex;flex-direction:column;gap:1rem">
+            <input type="hidden" id="jrn-tache-id" />
+            <input type="hidden" id="jrn-projet-id" />
+            <input type="hidden" id="jrn-entry-id" />
+            <div class="form-field">
+              <label class="form-label">Tâche</label>
+              <div id="jrn-tache-label" style="font-size:0.88rem;font-weight:500;color:var(--text);padding:0.4rem 0"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Travail effectué *</label>
+              <textarea id="jrn-commentaire" class="form-input" rows="3" placeholder="Décrivez ce que vous avez fait aujourd'hui sur cette tâche…"></textarea>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label class="form-label">Progression avant</label>
+                <div id="jrn-prog-avant" style="font-size:0.88rem;font-weight:500;color:var(--text-3);padding:0.4rem 0">0%</div>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Progression après *</label>
+                <div style="display:flex;align-items:center;gap:0.5rem">
+                  <input id="jrn-prog-apres" type="range" min="0" max="100" step="5" value="0" style="flex:1" oninput="document.getElementById('jrn-prog-val').textContent=this.value+'%'" />
+                  <span id="jrn-prog-val" style="font-size:0.88rem;font-weight:600;min-width:3rem;text-align:right;color:var(--accent)">0%</span>
+                </div>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Heures passées</label>
+              <input id="jrn-heures" class="form-input" type="number" step="0.5" min="0" max="24" placeholder="Ex: 2.5" style="width:120px" />
+            </div>
+            <div id="jrn-err" class="form-error" style="display:none;color:var(--red);font-size:0.78rem"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modal-journal')">Annuler</button>
+            <button class="btn btn-primary" onclick="saveJournalEntry()">Enregistrer</button>
           </div>
         </div>
       </div>

@@ -3627,7 +3627,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -3752,7 +3752,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   var _allowed = getAllowedModules();
@@ -3771,6 +3771,7 @@ function showPage(id){
   if(id==='demandes')   setTimeout(renderDemandes,80);
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
   if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }).catch(function(e){ console.error('[suivi] init error', e); }); },80);
+  if(id==='journal')    setTimeout(function(){ var dEl=document.getElementById('journal-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().split('T')[0]; renderJournalPage(); },80);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
@@ -4576,12 +4577,12 @@ var MODULES_PLATEFORME = [
 
 // Modules par défaut selon rôle (pré-coché automatiquement à la sélection)
 var MODULES_PAR_ROLE = {
-  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
-  'Architecte collaborateur':['dashboard','devis','projets','suivi','nas','clients'],
-  'Décorateur':              ['dashboard','projets','suivi','nas','clients'],
+  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
+  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','nas','clients'],
+  'Décorateur':              ['dashboard','projets','suivi','journal','nas','clients'],
   'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite'],
-  'Ingénieur paysagiste':    ['dashboard','projets','suivi','nas','clients'],
-  'Stagiaire':               ['dashboard','projets','suivi'],
+  'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','nas','clients'],
+  'Stagiaire':               ['dashboard','projets','suivi','journal'],
 };
 
 // Rôles par défaut
@@ -6858,5 +6859,306 @@ function deleteTache(id) {
       loadTaches().then(function(){ renderSuiviPage(); });
     })
     .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  JOURNAL QUOTIDIEN — Suivi journalier par membre
+// ═══════════════════════════════════════════════════════════
+
+var _journalCache = [];
+
+function getJournalDate() {
+  var el = document.getElementById('journal-date');
+  if (!el || !el.value) return new Date().toISOString().split('T')[0];
+  return el.value;
+}
+
+function journalToday() {
+  document.getElementById('journal-date').value = new Date().toISOString().split('T')[0];
+  renderJournalPage();
+}
+function journalPrevDay() {
+  var d = new Date(getJournalDate());
+  d.setDate(d.getDate() - 1);
+  document.getElementById('journal-date').value = d.toISOString().split('T')[0];
+  renderJournalPage();
+}
+function journalNextDay() {
+  var d = new Date(getJournalDate());
+  d.setDate(d.getDate() + 1);
+  document.getElementById('journal-date').value = d.toISOString().split('T')[0];
+  renderJournalPage();
+}
+
+function renderJournalPage() {
+  var dateJour = getJournalDate();
+  var membreFilter = document.getElementById('journal-membre').value;
+
+  // Populate membre select (une seule fois)
+  var selMembre = document.getElementById('journal-membre');
+  if (selMembre.options.length <= 1) {
+    getMembres().forEach(function(m) {
+      var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
+      if (!fullName) return;
+      var opt = document.createElement('option');
+      opt.value = fullName;
+      opt.textContent = fullName + (m.role ? ' (' + m.role + ')' : '');
+      selMembre.appendChild(opt);
+    });
+  }
+
+  // Charger les tâches et le journal du jour en parallèle
+  Promise.all([
+    loadTaches(),
+    apiFetch('api/journal.php?date=' + dateJour).catch(function() { return { data: [] }; })
+  ]).then(function(results) {
+    var taches = results[0] || [];
+    _journalCache = results[1].data || [];
+
+    // Filtrer les tâches assignées au membre sélectionné
+    var mesTaches = taches;
+    if (membreFilter) {
+      mesTaches = taches.filter(function(t) { return t.assignee === membreFilter; });
+    }
+
+    // Exclure les missions (niveau 0) — ne garder que tâches et sous-tâches
+    var tachesActives = mesTaches.filter(function(t) {
+      return t.niveau >= 1 && t.statut !== 'Terminé';
+    });
+
+    // Entrées du journal pour ce jour et ce membre
+    var entries = _journalCache;
+    if (membreFilter) {
+      entries = entries.filter(function(e) { return e.membre === membreFilter; });
+    }
+
+    // KPIs
+    _renderJournalKPIs(tachesActives, entries, membreFilter);
+
+    // Tâches programmées
+    _renderJournalTasks(tachesActives, entries, dateJour);
+
+    // Historique des entrées
+    _renderJournalEntries(entries);
+
+    // Résumé
+    var summary = document.getElementById('journal-summary');
+    var jourLabel = fmtDate(dateJour);
+    summary.textContent = jourLabel + (membreFilter ? ' — ' + membreFilter : ' — Tous les membres');
+  });
+}
+
+function _renderJournalKPIs(taches, entries, membre) {
+  var wrap = document.getElementById('journal-kpis');
+  var totalTaches = taches.length;
+  var remplies = 0;
+  var tacheIds = taches.map(function(t) { return t.id; });
+  entries.forEach(function(e) {
+    if (tacheIds.indexOf(e.tache_id) !== -1) remplies++;
+  });
+  var heuresTotal = 0;
+  entries.forEach(function(e) { heuresTotal += parseFloat(e.heures || 0); });
+  var avgProg = 0;
+  if (entries.length > 0) {
+    var sumProg = 0;
+    entries.forEach(function(e) { sumProg += parseInt(e.progression_apres || 0); });
+    avgProg = Math.round(sumProg / entries.length);
+  }
+
+  wrap.innerHTML = ''
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + totalTaches + '</div><div class="journal-kpi-label">Tâches programmées</div></div>'
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + entries.length + '</div><div class="journal-kpi-label">Entrées saisies</div></div>'
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + heuresTotal.toFixed(1) + 'h</div><div class="journal-kpi-label">Heures travaillées</div></div>'
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + avgProg + '%</div><div class="journal-kpi-label">Avancement moyen</div></div>';
+}
+
+function _renderJournalTasks(taches, entries, dateJour) {
+  var wrap = document.getElementById('journal-tasks');
+  if (taches.length === 0) {
+    wrap.innerHTML = '<div class="card" style="text-align:center;padding:2rem;color:var(--text-3)">'
+      + '<div style="font-size:0.88rem;margin-bottom:0.3rem">Aucune tâche programmée</div>'
+      + '<div style="font-size:0.78rem">Sélectionnez un membre ou assignez des tâches dans le module Suivi.</div></div>';
+    return;
+  }
+
+  // Map des entrées déjà saisies par tache_id
+  var entryMap = {};
+  entries.forEach(function(e) { entryMap[e.tache_id] = e; });
+
+  // Grouper par projet
+  var projetMap = {};
+  taches.forEach(function(t) {
+    var pid = t.projet_id;
+    if (!projetMap[pid]) projetMap[pid] = { nom: t.projetNom || '—', code: t.projetCode || '', items: [] };
+    projetMap[pid].items.push(t);
+  });
+
+  var html = '';
+  Object.keys(projetMap).forEach(function(pid) {
+    var proj = projetMap[pid];
+    html += '<div class="card" style="margin-bottom:0.8rem">';
+    html += '<div class="card-title" style="font-size:0.78rem">';
+    if (proj.code) html += '<span style="color:var(--accent);font-family:var(--mono)">' + proj.code + '</span> — ';
+    html += proj.nom + '</div>';
+
+    proj.items.forEach(function(t) {
+      var entry = entryMap[t.id];
+      var filled = !!entry;
+      html += '<div class="journal-task-row' + (filled ? ' filled' : '') + '">';
+      html += '<div class="journal-task-left">';
+      html += '<span class="journal-task-niveau">' + (t.niveau === 1 ? '◆' : '•') + '</span>';
+      html += '<div>';
+      html += '<div class="journal-task-titre">' + (t.titre || '') + '</div>';
+      html += '<div class="journal-task-meta">';
+      html += suiviStatutBadge(t.statut);
+      html += '<span style="font-size:0.7rem;color:var(--text-3)">Progression : ' + (t.progression || 0) + '%</span>';
+      if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div class="journal-task-right">';
+      if (filled) {
+        html += '<div class="journal-filled-info">';
+        html += '<span class="journal-filled-prog">' + entry.progression_avant + '% → <strong>' + entry.progression_apres + '%</strong></span>';
+        if (entry.heures) html += '<span class="journal-filled-h">' + entry.heures + 'h</span>';
+        html += '<button class="btn btn-sm" onclick="openJournalModal(\'' + t.id + '\',\'' + pid + '\',\'' + entry.id + '\')">Modifier</button>';
+        html += '</div>';
+        if (entry.commentaire) html += '<div class="journal-filled-comment">' + escHtml(entry.commentaire) + '</div>';
+      } else {
+        html += '<button class="btn btn-primary btn-sm" onclick="openJournalModal(\'' + t.id + '\',\'' + pid + '\')">Saisir l\'avancement</button>';
+      }
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+
+  wrap.innerHTML = html;
+}
+
+function _renderJournalEntries(entries) {
+  var wrap = document.getElementById('journal-entries');
+  if (entries.length === 0) { wrap.innerHTML = ''; return; }
+
+  var html = '<div class="card"><div class="card-title">Historique du jour</div>';
+  html += '<div class="table-wrap"><table><thead><tr>';
+  html += '<th>Membre</th><th>Tâche</th><th>Projet</th><th>Avant</th><th>Après</th><th>Heures</th><th>Commentaire</th>';
+  html += '</tr></thead><tbody>';
+
+  entries.forEach(function(e) {
+    html += '<tr>';
+    html += '<td><span class="suivi-assignee">' + (e.membre || '—') + '</span></td>';
+    html += '<td>' + (e.tache_titre || '—') + '</td>';
+    html += '<td style="font-size:0.78rem;color:var(--text-3)">' + (e.projet_code ? e.projet_code + ' — ' : '') + (e.projet_nom || '') + '</td>';
+    html += '<td style="text-align:center">' + (e.progression_avant || 0) + '%</td>';
+    html += '<td style="text-align:center;font-weight:600;color:var(--accent)">' + (e.progression_apres || 0) + '%</td>';
+    html += '<td style="text-align:center">' + (e.heures ? e.heures + 'h' : '—') + '</td>';
+    html += '<td style="font-size:0.78rem;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escHtml(e.commentaire || '') + '">' + escHtml(e.commentaire || '—') + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  wrap.innerHTML = html;
+}
+
+// ── Helpers HTML ──
+function escHtml(s) {
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Modal journal ──
+function openJournalModal(tacheId, projetId, entryId) {
+  var t = _suiviCache.find(function(x) { return x.id === tacheId; });
+  if (!t) { showToast('Tâche introuvable', 'error'); return; }
+
+  document.getElementById('jrn-tache-id').value = tacheId;
+  document.getElementById('jrn-projet-id').value = projetId;
+  document.getElementById('jrn-entry-id').value = entryId || '';
+
+  // Label tâche
+  var label = (t.projetCode ? t.projetCode + ' — ' : '') + (t.titre || '');
+  document.getElementById('jrn-tache-label').textContent = label;
+
+  // Progression actuelle
+  var currentProg = t.progression || 0;
+  document.getElementById('jrn-prog-avant').textContent = currentProg + '%';
+
+  var errEl = document.getElementById('jrn-err');
+  if (errEl) errEl.style.display = 'none';
+
+  // Si modification d'une entrée existante
+  if (entryId) {
+    var entry = _journalCache.find(function(e) { return e.id === entryId; });
+    if (entry) {
+      document.getElementById('jrn-commentaire').value = entry.commentaire || '';
+      document.getElementById('jrn-prog-apres').value = entry.progression_apres || 0;
+      document.getElementById('jrn-prog-val').textContent = (entry.progression_apres || 0) + '%';
+      document.getElementById('jrn-heures').value = entry.heures || '';
+      document.getElementById('jrn-prog-avant').textContent = (entry.progression_avant || 0) + '%';
+    }
+  } else {
+    document.getElementById('jrn-commentaire').value = '';
+    document.getElementById('jrn-prog-apres').value = currentProg;
+    document.getElementById('jrn-prog-val').textContent = currentProg + '%';
+    document.getElementById('jrn-heures').value = '';
+  }
+
+  openModal('modal-journal');
+}
+
+function saveJournalEntry() {
+  var tacheId  = document.getElementById('jrn-tache-id').value;
+  var projetId = document.getElementById('jrn-projet-id').value;
+  var entryId  = document.getElementById('jrn-entry-id').value;
+  var commentaire = document.getElementById('jrn-commentaire').value.trim();
+  var progApres   = parseInt(document.getElementById('jrn-prog-apres').value) || 0;
+  var heures      = document.getElementById('jrn-heures').value;
+  var errEl       = document.getElementById('jrn-err');
+
+  if (!commentaire) {
+    errEl.textContent = 'Décrivez le travail effectué.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Membre = utilisateur connecté ou sélection
+  var membreFilter = document.getElementById('journal-membre').value;
+  var membre = membreFilter;
+  if (!membre) {
+    // Utiliser le nom de l'utilisateur connecté
+    var userSpan = document.getElementById('user-display');
+    if (userSpan) membre = (userSpan.textContent || '').trim();
+  }
+  if (!membre) { errEl.textContent = 'Sélectionnez un membre.'; errEl.style.display = 'block'; return; }
+
+  var t = _suiviCache.find(function(x) { return x.id === tacheId; });
+  var progAvant = t ? (t.progression || 0) : 0;
+
+  var body = {
+    tache_id:          tacheId,
+    projet_id:         projetId,
+    membre:            membre,
+    date_jour:         getJournalDate(),
+    commentaire:       commentaire,
+    progression_avant: progAvant,
+    progression_apres: progApres,
+    heures:            heures || null
+  };
+
+  var isEdit = !!entryId;
+  var url    = isEdit ? 'api/journal.php?id=' + entryId : 'api/journal.php';
+  var method = isEdit ? 'PUT' : 'POST';
+
+  apiFetch(url, { method: method, body: body })
+    .then(function() {
+      closeModal('modal-journal');
+      showToast(isEdit ? '✓ Entrée modifiée' : '✓ Avancement enregistré');
+      renderJournalPage();
+    })
+    .catch(function(e) {
+      errEl.textContent = e.message || 'Erreur';
+      errEl.style.display = 'block';
+    });
 }
 

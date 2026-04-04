@@ -231,6 +231,26 @@ CREATE TABLE IF NOT EXISTS `CA_taches` (
   KEY `statut` (`statut`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Journal quotidien — suivi journalier par membre
+CREATE TABLE IF NOT EXISTS `CA_journal` (
+  `id` varchar(32) NOT NULL,
+  `tache_id` varchar(32) NOT NULL,
+  `projet_id` varchar(32) NOT NULL,
+  `membre` varchar(120) NOT NULL,
+  `date_jour` date NOT NULL,
+  `commentaire` text,
+  `progression_avant` int NOT NULL DEFAULT 0,
+  `progression_apres` int NOT NULL DEFAULT 0,
+  `heures` decimal(4,1) DEFAULT NULL,
+  `cree_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `tache_id` (`tache_id`),
+  KEY `projet_id` (`projet_id`),
+  KEY `membre_date` (`membre`, `date_jour`),
+  KEY `date_jour` (`date_jour`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ════════════════════════════════════════════════════════════
