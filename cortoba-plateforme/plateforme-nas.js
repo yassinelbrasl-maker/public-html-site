@@ -6420,7 +6420,7 @@ function renderSuiviTree(items) {
       html += '<div class="suivi-mission-right">';
       html += suiviStatutBadge(m.statut);
       html += suiviProgressBar(m.progression);
-      if (m.dateEcheance) html += '<span class="suivi-date" title="Échéance">' + fD(m.dateEcheance) + '</span>';
+      if (m.dateEcheance) html += '<span class="suivi-date" title="Échéance">' + fmtDate(m.dateEcheance) + '</span>';
       if (m.assignee) html += '<span class="suivi-assignee" title="' + m.assignee + '">' + m.assignee.split(' ')[0] + '</span>';
       html += '<div class="suivi-actions">';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(1, \'' + m.id + '\', \'' + pid + '\')" title="Ajouter tâche">+ Tâche</button>';
@@ -6451,7 +6451,7 @@ function renderSuiviTree(items) {
         html += '<div class="suivi-tache-right">';
         html += suiviStatutBadge(tache.statut);
         html += suiviProgressBar(tache.progression);
-        if (tache.dateEcheance) html += '<span class="suivi-date">' + fD(tache.dateEcheance) + '</span>';
+        if (tache.dateEcheance) html += '<span class="suivi-date">' + fmtDate(tache.dateEcheance) + '</span>';
         if (tache.assignee) html += '<span class="suivi-assignee">' + tache.assignee.split(' ')[0] + '</span>';
         html += '<div class="suivi-actions">';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(2, \'' + tache.id + '\', \'' + pid + '\')" title="Ajouter sous-tâche">+</button>';
@@ -6516,7 +6516,7 @@ function renderSuiviKanban(items) {
       if (t.projetNom) html += '<div class="suivi-kanban-card-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
       html += '<div class="suivi-kanban-card-bottom">';
       if (t.assignee) html += '<span class="suivi-assignee">' + t.assignee + '</span>';
-      if (t.dateEcheance) html += '<span class="suivi-date">' + fD(t.dateEcheance) + '</span>';
+      if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
       html += '</div>';
       html += '</div>';
     });
