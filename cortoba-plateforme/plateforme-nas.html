@@ -1217,9 +1217,15 @@
               <label class="form-label">Projet *</label>
               <select id="tache-projet" class="form-select"></select>
             </div>
-            <div class="form-field">
+            <div class="form-field" id="tache-titre-field-select">
+              <label class="form-label">Mission *</label>
+              <select id="tache-titre-select" class="form-select">
+                <option value="">— Choisir une mission —</option>
+              </select>
+            </div>
+            <div class="form-field" id="tache-titre-field-input" style="display:none">
               <label class="form-label">Titre *</label>
-              <input id="tache-titre" class="form-input" placeholder="Ex: Études préliminaires" />
+              <input id="tache-titre" class="form-input" placeholder="Ex: Vérification des plans" />
             </div>
             <div class="form-field">
               <label class="form-label">Description</label>

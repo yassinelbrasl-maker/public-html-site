@@ -6548,13 +6548,15 @@ function openSuiviModal(niveau, parentId, projetId) {
   document.getElementById('tache-desc').value = '';
   document.getElementById('tache-statut').value = 'A faire';
   document.getElementById('tache-priorite').value = 'Normale';
-  document.getElementById('tache-assignee').value = '';
   document.getElementById('tache-progression').value = 0;
   document.getElementById('tache-prog-val').textContent = '0%';
   document.getElementById('tache-date-debut').value = '';
   document.getElementById('tache-date-echeance').value = '';
   var errEl = document.getElementById('tache-err');
   if (errEl) errEl.style.display = 'none';
+
+  // Afficher select mission (niveau 0) ou input titre (niveau 1/2)
+  _toggleTitreField(niveau, '');
 
   // Populate projet select
   var sel = document.getElementById('tache-projet');
@@ -6574,6 +6576,56 @@ function openSuiviModal(niveau, parentId, projetId) {
   _populateAssigneeSelect('');
 
   openModal('modal-tache');
+}
+
+// ── Basculer entre select mission (niveau 0) et input titre (niveau 1/2) ──
+function _toggleTitreField(niveau, selectedValue) {
+  var fieldSelect = document.getElementById('tache-titre-field-select');
+  var fieldInput  = document.getElementById('tache-titre-field-input');
+  if (niveau === 0) {
+    // Mission → afficher le select avec la liste des missions configurées
+    fieldSelect.style.display = '';
+    fieldInput.style.display = 'none';
+    _populateMissionsSelect(selectedValue);
+  } else {
+    // Tâche / sous-tâche → afficher l'input texte libre
+    fieldSelect.style.display = 'none';
+    fieldInput.style.display = '';
+    document.getElementById('tache-titre').value = selectedValue || '';
+  }
+}
+
+// ── Remplir le select missions groupé par catégorie ──
+function _populateMissionsSelect(selectedValue) {
+  var sel = document.getElementById('tache-titre-select');
+  sel.innerHTML = '<option value="">— Choisir une mission —</option>';
+  var missions = getMissions();
+  var cats = getMissionCategories();
+
+  cats.forEach(function(cat) {
+    var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
+    if (catMissions.length === 0) return;
+    var optgroup = document.createElement('optgroup');
+    optgroup.label = cat.label;
+    catMissions.forEach(function(m) {
+      var opt = document.createElement('option');
+      opt.value = m.nom;
+      opt.textContent = m.nom;
+      optgroup.appendChild(opt);
+    });
+    sel.appendChild(optgroup);
+  });
+
+  // Missions orphelines (sans catégorie)
+  var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
+  orphans.forEach(function(m) {
+    var opt = document.createElement('option');
+    opt.value = m.nom;
+    opt.textContent = m.nom;
+    sel.appendChild(opt);
+  });
+
+  if (selectedValue) sel.value = selectedValue;
 }
 
 // ── Remplir le select assigné avec les membres de l'équipe ──
@@ -6602,7 +6654,8 @@ function editTache(id) {
   document.getElementById('tache-id').value = t.id;
   document.getElementById('tache-parent-id').value = t.parent_id || '';
   document.getElementById('tache-niveau').value = t.niveau;
-  document.getElementById('tache-titre').value = t.titre || '';
+  // Afficher select mission ou input titre selon le niveau
+  _toggleTitreField(t.niveau, t.titre || '');
   document.getElementById('tache-desc').value = t.description || '';
   document.getElementById('tache-statut').value = t.statut || 'A faire';
   document.getElementById('tache-priorite').value = t.priorite || 'Normale';
@@ -6633,11 +6686,14 @@ function editTache(id) {
 // ── Sauvegarder tâche (create / update) ──
 function saveTache() {
   var id       = document.getElementById('tache-id').value;
-  var titre    = document.getElementById('tache-titre').value.trim();
+  var niveau   = parseInt(document.getElementById('tache-niveau').value) || 0;
+  var titre    = niveau === 0
+    ? document.getElementById('tache-titre-select').value.trim()
+    : document.getElementById('tache-titre').value.trim();
   var projetId = document.getElementById('tache-projet').value;
   var errEl    = document.getElementById('tache-err');
 
-  if (!titre) { errEl.textContent = 'Le titre est requis.'; errEl.style.display = 'block'; return; }
+  if (!titre) { errEl.textContent = niveau === 0 ? 'Veuillez choisir une mission.' : 'Le titre est requis.'; errEl.style.display = 'block'; return; }
   if (!projetId) { errEl.textContent = 'Veuillez choisir un projet.'; errEl.style.display = 'block'; return; }
 
   var body = {
