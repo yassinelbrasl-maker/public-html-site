@@ -3770,7 +3770,7 @@ function showPage(id){
   if (_secLabel) _secLabel.textContent=pageLabels[id]||'';
   if(id==='demandes')   setTimeout(renderDemandes,80);
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
-  if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }); },80);
+  if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }).catch(function(e){ console.error('[suivi] init error', e); }); },80);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
@@ -6260,35 +6260,40 @@ function loadTaches(projetId) {
   if (projetId) url += '?projet_id=' + encodeURIComponent(projetId);
   return apiFetch(url).then(function(r) {
     _suiviCache = (r.data || []).map(function(t) {
-      if (t.projet_id && !t.projetId) t.projetId = t.projet_id;
-      if (t.parent_id && !t.parentId) t.parentId = t.parent_id;
-      if (t.projet_nom && !t.projetNom) t.projetNom = t.projet_nom;
-      if (t.projet_code && !t.projetCode) t.projetCode = t.projet_code;
-      if (t.date_debut && !t.dateDebut) t.dateDebut = t.date_debut;
-      if (t.date_echeance && !t.dateEcheance) t.dateEcheance = t.date_echeance;
-      if (t.cree_par && !t.creePar) t.creePar = t.cree_par;
-      if (t.cree_at && !t.creeAt) t.creeAt = t.cree_at;
-      t.niveau = parseInt(t.niveau) || 0;
-      t.progression = parseInt(t.progression) || 0;
-      t.ordre = parseInt(t.ordre) || 0;
+      if (t.projet_id !== undefined)   t.projetId    = t.projet_id;
+      if (t.parent_id !== undefined)   t.parentId    = t.parent_id;
+      if (t.projet_nom !== undefined)  t.projetNom   = t.projet_nom;
+      if (t.projet_code !== undefined) t.projetCode  = t.projet_code;
+      if (t.date_debut !== undefined)  t.dateDebut   = t.date_debut;
+      if (t.date_echeance !== undefined) t.dateEcheance = t.date_echeance;
+      if (t.cree_par !== undefined)    t.creePar     = t.cree_par;
+      if (t.cree_at !== undefined)     t.creeAt      = t.cree_at;
+      t.niveau      = parseInt(t.niveau, 10);
+      if (isNaN(t.niveau)) t.niveau = 0;
+      t.progression = parseInt(t.progression, 10) || 0;
+      t.ordre       = parseInt(t.ordre, 10) || 0;
       return t;
     });
+    console.info('[loadTaches] ' + _suiviCache.length + ' tâches chargées');
+    return _suiviCache;
+  }).catch(function(e) {
+    console.error('[loadTaches] Erreur:', e);
+    showToast('Erreur chargement tâches : ' + (e.message||e), 'error');
     return _suiviCache;
   });
 }
 
 function renderSuiviPage() {
-  var filterProjet  = document.getElementById('suivi-filter-projet').value;
-  var filterStatut  = document.getElementById('suivi-filter-statut').value;
+  console.info('[renderSuiviPage] _suiviCache:', _suiviCache.length, 'éléments');
+  var filterProjet   = document.getElementById('suivi-filter-projet').value;
+  var filterStatut   = document.getElementById('suivi-filter-statut').value;
   var filterPriorite = document.getElementById('suivi-filter-priorite').value;
   var search = (document.getElementById('suivi-search').value || '').toLowerCase().trim();
 
-  // Populate project select
+  // Populate project select (une seule fois)
   var selProjet = document.getElementById('suivi-filter-projet');
-  var projets = getProjets().filter(function(p){ return p.statut === 'Actif' || p.statut === 'En pause'; });
-  var allProjets = getProjets();
   if (selProjet.options.length <= 1) {
-    allProjets.forEach(function(p) {
+    getProjets().forEach(function(p) {
       var opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
@@ -6299,7 +6304,7 @@ function renderSuiviPage() {
 
   // Filter tasks
   var filtered = _suiviCache.filter(function(t) {
-    if (filterProjet && t.projet_id !== filterProjet) return false;
+    if (filterProjet && (t.projet_id || t.projetId) !== filterProjet) return false;
     if (filterStatut && t.statut !== filterStatut) return false;
     if (filterPriorite && t.priorite !== filterPriorite) return false;
     if (search) {
@@ -6308,6 +6313,7 @@ function renderSuiviPage() {
     }
     return true;
   });
+  console.info('[renderSuiviPage] filtered:', filtered.length, 'après filtres, projet=' + filterProjet + ', statut=' + filterStatut);
 
   // Count
   var countEl = document.getElementById('suivi-count');
