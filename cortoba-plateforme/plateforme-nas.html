@@ -165,6 +165,10 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Clients
         </button>
+        <button class="nav-item" onclick="showPage('demandes-admin')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Demandes admin
+        </button>
       </div>
 
       <div class="sidebar-section">
@@ -1403,6 +1407,35 @@
         <div id="rendement-historique" style="margin-top:1.5rem"></div>
       </div>
 
+      <!-- ══ DEMANDES ADMINISTRATIVES ══ -->
+      <div class="page" id="page-demandes-admin">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Courriers officiels</div>
+            <h1 class="page-title">Demandes administratives</h1>
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+            <select id="da-filter-admin" class="form-input" style="width:auto;min-width:140px" onchange="renderDemandesAdminPage()">
+              <option value="">Toutes administrations</option>
+            </select>
+            <select id="da-filter-statut" class="form-input" style="width:auto;min-width:120px" onchange="renderDemandesAdminPage()">
+              <option value="">Tous statuts</option>
+              <option value="Brouillon">Brouillon</option>
+              <option value="Envoyée">Envoyée</option>
+              <option value="Répondue">Répondue</option>
+              <option value="Classée">Classée</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="openDemandeAdminModal()">+ Nouvelle demande</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div id="da-kpis" class="journal-kpis" style="margin-bottom:1rem"></div>
+
+        <!-- Liste des demandes -->
+        <div id="da-list"></div>
+      </div>
+
       <!-- ══ PARAMÈTRES ══ -->
       <div class="page" id="page-parametres">
         <div class="page-header">
@@ -1751,6 +1784,72 @@
             <button class="btn btn-primary btn-sm" onclick="saveCfgParams()">Enregistrer</button>
           </div>
         </div>
+
+        <!-- ── Demandes administratives ── -->
+        <div class="card" style="margin-top:1.5rem">
+          <div class="card-title">Demandes administratives</div>
+
+          <!-- Types de demandes -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Types de demandes</div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+              <input id="param-da-type-input" class="form-input" placeholder="Ex: Demande d'avis, Demande de devis..." style="flex:1" />
+              <button class="btn btn-sm btn-primary" onclick="addParamDAItem('types_demandes_admin','param-da-type-input','param-da-type-list')">Ajouter</button>
+            </div>
+            <div id="param-da-type-list" class="param-tag-list"></div>
+          </div>
+
+          <!-- Administrations -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Administrations</div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+              <input id="param-da-admin-input" class="form-input" placeholder="Ex: STEG, SONEDE, ONAS, Municipalité..." style="flex:1" />
+              <button class="btn btn-sm btn-primary" onclick="addParamDAItem('administrations_list','param-da-admin-input','param-da-admin-list')">Ajouter</button>
+            </div>
+            <div id="param-da-admin-list" class="param-tag-list"></div>
+          </div>
+
+          <!-- Gouvernorats -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Gouvernorats</div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+              <input id="param-da-gouv-input" class="form-input" placeholder="Ex: Médenine, Tunis, Sfax..." style="flex:1" />
+              <button class="btn btn-sm btn-primary" onclick="addParamDAItem('gouvernorats_list','param-da-gouv-input','param-da-gouv-list')">Ajouter</button>
+            </div>
+            <div id="param-da-gouv-list" class="param-tag-list"></div>
+          </div>
+
+          <!-- Délégations -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Délégations</div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+              <input id="param-da-deleg-input" class="form-input" placeholder="Ex: Midoun, Houmt Souk, Ben Gardane..." style="flex:1" />
+              <button class="btn btn-sm btn-primary" onclick="addParamDAItem('delegations_list','param-da-deleg-input','param-da-deleg-list')">Ajouter</button>
+            </div>
+            <div id="param-da-deleg-list" class="param-tag-list"></div>
+          </div>
+
+          <!-- Municipalités -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Municipalités</div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+              <input id="param-da-muni-input" class="form-input" placeholder="Ex: Municipalité de Midoun, Municipalité de Houmt Souk..." style="flex:1" />
+              <button class="btn btn-sm btn-primary" onclick="addParamDAItem('municipalites_list','param-da-muni-input','param-da-muni-list')">Ajouter</button>
+            </div>
+            <div id="param-da-muni-list" class="param-tag-list"></div>
+          </div>
+
+          <!-- Documents à joindre -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Documents à joindre (checklist)</div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+              <input id="param-da-doc-input" class="form-input" placeholder="Ex: Copie CIN, Plan de situation, Titre foncier..." style="flex:1" />
+              <button class="btn btn-sm btn-primary" onclick="addParamDAItem('documents_admin_list','param-da-doc-input','param-da-doc-list')">Ajouter</button>
+            </div>
+            <div id="param-da-doc-list" class="param-tag-list"></div>
+          </div>
+        </div>
+
       </div>
 
     </main>
@@ -2590,7 +2689,7 @@
      MODAL MEMBRE — Nouveau / Modifier
 ══════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-membre">
-  <div class="modal-box" style="max-width:640px;width:95%">
+  <div class="modal-box" style="max-width:780px;width:96%">
     <div class="modal-header">
       <div>
         <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Équipe</div>
@@ -2598,70 +2697,224 @@
       </div>
       <button class="modal-close" onclick="closeModal('modal-membre')">✕</button>
     </div>
+
+    <!-- Onglets -->
+    <div id="mb-tabs" style="display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 1.2rem;background:var(--bg-2)">
+      <button type="button" class="mb-tab active" data-tab="profil"  onclick="mbShowTab('profil')">Profil</button>
+      <button type="button" class="mb-tab"        data-tab="contacts" onclick="mbShowTab('contacts')">Contacts</button>
+      <button type="button" class="mb-tab mb-tab-sensitive" data-tab="remu" onclick="mbShowTab('remu')">Rémunération</button>
+      <button type="button" class="mb-tab mb-tab-sensitive" data-tab="augm" onclick="mbShowTab('augm')">Augmentation</button>
+      <button type="button" class="mb-tab"        data-tab="acces"   onclick="mbShowTab('acces')">Accès</button>
+    </div>
+
     <div class="modal-body" style="max-height:72vh;overflow-y:auto;padding-right:0.4rem">
 
-      <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Informations personnelles</div>
-      <div class="form-grid">
-        <div class="form-field">
-          <label class="form-label">Prénom <span style="color:#e07070">*</span></label>
-          <input id="mb-prenom" class="form-input" placeholder="Prénom" />
-        </div>
-        <div class="form-field">
-          <label class="form-label">Nom <span style="color:#e07070">*</span></label>
-          <input id="mb-nom" class="form-input" placeholder="Nom de famille" />
-        </div>
-        <div class="form-field">
-          <label class="form-label">Rôle <span style="color:#e07070">*</span></label>
-          <select id="mb-role" class="form-select">
-            <option value="">— Sélectionner un rôle —</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label class="form-label">Statut</label>
-          <select id="mb-statut" class="form-select">
-            <option value="Actif">Actif</option>
-            <option value="Sur chantier">Sur chantier</option>
-            <option value="En congé">En congé</option>
-            <option value="Inactif">Inactif</option>
-          </select>
-        </div>
-        <div class="form-field"><label class="form-label">Téléphone</label><input id="mb-tel" class="form-input" placeholder="+216 XX XXX XXX" /></div>
-        <div class="form-field"><label class="form-label">Spécialité / Notes</label><input id="mb-spec" class="form-input" placeholder="Ex: HQE, BIM, Paysage…" /></div>
-      </div>
-
-      <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
-      <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Compte d'accès à la plateforme</div>
-      <div class="form-grid">
-        <div class="form-field full">
-          <label class="form-label">Email (identifiant de connexion) <span style="color:#e07070">*</span></label>
-          <input id="mb-email" class="form-input" type="email" placeholder="prenom.nom@cortobaarchitecture.com" />
-        </div>
-        <div class="form-field">
-          <label class="form-label">Mot de passe initial</label>
-          <div style="position:relative;display:flex;align-items:center">
-            <input id="mb-pass" class="form-input" type="password" placeholder="Min. 6 caractères" style="padding-right:2.8rem;width:100%"/>
-            <button type="button" onclick="togglePwd('mb-pass',this)"
-              style="position:absolute;right:0.7rem;background:none;border:none;cursor:pointer;color:var(--text-3);padding:0.2rem;display:flex;align-items:center"
-              onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-3)'">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <!-- ─── TAB PROFIL ─── -->
+      <div class="mb-panel" data-panel="profil">
+        <!-- Photo de profil -->
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;margin-bottom:1.2rem">
+          <div style="position:relative;width:92px;height:92px;flex-shrink:0">
+            <div id="mb-avatar-preview" style="width:92px;height:92px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:600;color:var(--text-2);overflow:hidden">?</div>
+            <button type="button" onclick="document.getElementById('mb-photo-input').click()" title="Changer la photo"
+              style="position:absolute;bottom:0;right:0;width:28px;height:28px;border-radius:50%;background:var(--accent);border:2px solid var(--bg-1);color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </button>
+            <input type="file" id="mb-photo-input" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="handleMbPhotoFile(this)" />
+          </div>
+          <div style="flex:1">
+            <div style="font-size:0.78rem;color:var(--text-2);margin-bottom:0.3rem">Photo de profil</div>
+            <div style="font-size:0.7rem;color:var(--text-3);line-height:1.5">
+              Glissez ou cliquez pour uploader.<br>
+              L'image sera automatiquement recadrée en carré puis affichée dans l'application.
+            </div>
+            <button type="button" id="mb-photo-remove" class="btn btn-sm" style="display:none;margin-top:0.5rem;font-size:0.7rem;color:#e07b72" onclick="clearMbPhoto()">Retirer la photo</button>
           </div>
         </div>
-        <div class="form-field">
-          <label class="form-label">Confirmer le mot de passe</label>
-          <input id="mb-pass2" class="form-input" type="password" placeholder="Répéter le mot de passe" />
+
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Informations personnelles</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Prénom <span style="color:#e07070">*</span></label>
+            <input id="mb-prenom" class="form-input" placeholder="Prénom" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Nom <span style="color:#e07070">*</span></label>
+            <input id="mb-nom" class="form-input" placeholder="Nom de famille" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Rôle <span style="color:#e07070">*</span></label>
+            <select id="mb-role" class="form-select">
+              <option value="">— Sélectionner un rôle —</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Statut</label>
+            <select id="mb-statut" class="form-select">
+              <option value="Actif">Actif</option>
+              <option value="Sur chantier">Sur chantier</option>
+              <option value="En congé">En congé</option>
+              <option value="Inactif">Inactif</option>
+            </select>
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Spécialité / Notes</label>
+            <input id="mb-spec" class="form-input" placeholder="Ex: HQE, BIM, Paysage…" />
+          </div>
+        </div>
+
+        <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Compte de connexion</div>
+        <div class="form-grid">
+          <div class="form-field full">
+            <label class="form-label">Email identifiant <span style="color:#e07070">*</span></label>
+            <input id="mb-email" class="form-input" type="email" placeholder="prenom.nom@cortobaarchitecture.com" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Mot de passe initial</label>
+            <div style="position:relative;display:flex;align-items:center">
+              <input id="mb-pass" class="form-input" type="password" placeholder="Min. 6 caractères" style="padding-right:2.8rem;width:100%"/>
+              <button type="button" onclick="togglePwd('mb-pass',this)"
+                style="position:absolute;right:0.7rem;background:none;border:none;cursor:pointer;color:var(--text-3);padding:0.2rem;display:flex;align-items:center">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Confirmer le mot de passe</label>
+            <input id="mb-pass2" class="form-input" type="password" placeholder="Répéter le mot de passe" />
+          </div>
         </div>
       </div>
 
-      <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
-        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3)">Accès aux modules</div>
-        <div style="display:flex;gap:0.5rem">
-          <button class="btn btn-sm" onclick="setAllModules(true)" style="font-size:0.7rem">Tout cocher</button>
-          <button class="btn btn-sm" onclick="setAllModules(false)" style="font-size:0.7rem">Tout décocher</button>
+      <!-- ─── TAB CONTACTS ─── -->
+      <div class="mb-panel" data-panel="contacts" style="display:none">
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Téléphones</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label" style="display:flex;align-items:center;gap:0.5rem">
+              Pro
+              <input type="radio" name="mb-tel-principal" value="pro" checked style="accent-color:var(--accent)" />
+              <span style="font-size:0.66rem;color:var(--text-3)">principal</span>
+            </label>
+            <input id="mb-tel-pro" class="form-input" placeholder="+216 XX XXX XXX" />
+          </div>
+          <div class="form-field">
+            <label class="form-label" style="display:flex;align-items:center;gap:0.5rem">
+              Perso
+              <input type="radio" name="mb-tel-principal" value="perso" style="accent-color:var(--accent)" />
+              <span style="font-size:0.66rem;color:var(--text-3)">principal</span>
+            </label>
+            <input id="mb-tel-perso" class="form-input" placeholder="+216 XX XXX XXX" />
+          </div>
+        </div>
+
+        <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Emails de contact</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label" style="display:flex;align-items:center;gap:0.5rem">
+              Pro
+              <input type="radio" name="mb-email-principal" value="pro" checked style="accent-color:var(--accent)" />
+              <span style="font-size:0.66rem;color:var(--text-3)">principal</span>
+            </label>
+            <input id="mb-email-pro" class="form-input" type="email" placeholder="nom@cortobaarchitecture.com" />
+          </div>
+          <div class="form-field">
+            <label class="form-label" style="display:flex;align-items:center;gap:0.5rem">
+              Perso
+              <input type="radio" name="mb-email-principal" value="perso" style="accent-color:var(--accent)" />
+              <span style="font-size:0.66rem;color:var(--text-3)">principal</span>
+            </label>
+            <input id="mb-email-perso" class="form-input" type="email" placeholder="nom@gmail.com" />
+          </div>
+        </div>
+        <div style="margin-top:1rem;padding:0.7rem 0.9rem;background:rgba(255,193,7,0.06);border-left:2px solid rgba(255,193,7,0.4);border-radius:4px;font-size:0.72rem;color:var(--text-3);line-height:1.5">
+          <strong style="color:var(--text-2)">Confidentialité :</strong> les contacts « Perso » ne sont visibles que par l'Admin et le rôle « Architecte gérant ». Les autres membres ne voient que les contacts « Pro » dans l'annuaire.
         </div>
       </div>
-      <div id="mb-modules-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem"></div>
+
+      <!-- ─── TAB RÉMUNÉRATION (privilégié) ─── -->
+      <div class="mb-panel" data-panel="remu" style="display:none">
+        <div style="padding:0.7rem 0.9rem;background:rgba(224,112,112,0.06);border-left:2px solid rgba(224,112,112,0.5);border-radius:4px;font-size:0.72rem;color:var(--text-3);line-height:1.5;margin-bottom:1rem">
+          <strong style="color:#e07b72">Section sensible :</strong> réservée à l'Admin / Architecte gérant. Les données salariales ne sont pas envoyées aux autres rôles.
+        </div>
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Saisie mensuelle (TND)</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Salaire net / donné</label>
+            <input id="mb-salaire" class="form-input" type="number" step="0.01" min="0" value="0" oninput="recomputeCoutEmployeur()" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Charges sociales & patronales</label>
+            <input id="mb-charges" class="form-input" type="number" step="0.01" min="0" value="0" oninput="recomputeCoutEmployeur()" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Subventions État (SIVP, Karama…)</label>
+            <input id="mb-subv" class="form-input" type="number" step="0.01" min="0" value="0" oninput="recomputeCoutEmployeur()" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Avantages en nature</label>
+            <input id="mb-avant" class="form-input" type="number" step="0.01" min="0" value="0" oninput="recomputeCoutEmployeur()" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Heures travaillées / mois</label>
+            <input id="mb-heures" class="form-input" type="number" step="0.5" min="1" value="160" oninput="recomputeCoutEmployeur()" />
+          </div>
+        </div>
+
+        <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Calculs automatiques</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem">
+          <div style="padding:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+            <div style="font-size:0.65rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Coût total employeur / mois</div>
+            <div id="mb-cout-total" style="font-size:1.4rem;color:var(--accent);font-weight:500">0,00 TND</div>
+            <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.25rem">(Salaire + Charges) − Subventions + Avantages</div>
+          </div>
+          <div style="padding:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+            <div style="font-size:0.65rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Coût horaire interne</div>
+            <div id="mb-cout-horaire" style="font-size:1.4rem;color:var(--green);font-weight:500">0,00 TND/h</div>
+            <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.25rem">Utilisé par le module Rendement pour la marge nette projets</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TAB AUGMENTATION (privilégié) ─── -->
+      <div class="mb-panel" data-panel="augm" style="display:none">
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Paramètres de projection</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Date d'embauche</label>
+            <input id="mb-date-embauche" class="form-input" type="date" oninput="recomputeProjectionAugm()" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Dernière augmentation</label>
+            <input id="mb-date-augm" class="form-input" type="date" oninput="recomputeProjectionAugm()" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Taux d'augmentation possible (%)</label>
+            <input id="mb-taux-augm" class="form-input" type="number" step="0.5" min="0" max="100" value="5" oninput="recomputeProjectionAugm()" />
+          </div>
+        </div>
+
+        <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Projection</div>
+        <div id="mb-projection-widget" style="padding:1.2rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+          <!-- Rempli par recomputeProjectionAugm() -->
+        </div>
+      </div>
+
+      <!-- ─── TAB ACCÈS ─── -->
+      <div class="mb-panel" data-panel="acces" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
+          <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3)">Accès aux modules de la plateforme</div>
+          <div style="display:flex;gap:0.5rem">
+            <button class="btn btn-sm" onclick="setAllModules(true)"  style="font-size:0.7rem">Tout cocher</button>
+            <button class="btn btn-sm" onclick="setAllModules(false)" style="font-size:0.7rem">Tout décocher</button>
+          </div>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-3);margin-bottom:0.6rem">La liste est générée dynamiquement depuis le registre <code>cortoba_modules</code>. Chaque nouvelle section déployée apparaît ici automatiquement.</div>
+        <div id="mb-modules-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem"></div>
+      </div>
 
       <div id="mb-error" style="display:none;margin-top:1rem;padding:0.7rem 1rem;background:rgba(224,112,112,0.08);border:1px solid rgba(224,112,112,0.3);border-radius:6px;font-size:0.8rem;color:#e07b72"></div>
     </div>
@@ -2683,7 +2936,7 @@
       <div id="modal-delete-membre-msg" style="font-size:0.88rem;color:var(--text-2)"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-delete-      <button class="btn" onclick="closeModal('modal-delete-membre')">Annuler</button>
+      <button class="btn" onclick="closeModal('modal-delete-membre')">Annuler</button>
       <button class="btn" style="background:rgba(224,112,112,0.12);border-color:rgba(224,112,112,0.35);color:#e07b72" onclick="confirmDeleteMembre()">Supprimer</button>
     </div>
   </div>
@@ -2832,6 +3085,136 @@
         <span id="dem-detail-traite" style="margin-left:auto"></span>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Demande administrative ── -->
+<div class="modal-overlay" id="modal-demande-admin">
+  <div class="modal-box" style="max-width:900px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-da-title">Nouvelle demande administrative</div>
+      <button class="modal-close" onclick="closeModal('modal-demande-admin')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+      <input type="hidden" id="da-edit-id" />
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-field">
+          <label class="form-label">Langue</label>
+          <select id="da-langue" class="form-input" onchange="toggleDALangue()">
+            <option value="fr">Fran&ccedil;ais</option>
+            <option value="ar">العربية (Arabe)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Date</label>
+          <input id="da-date" class="form-input" type="date" />
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-field">
+          <label class="form-label">Type de demande</label>
+          <select id="da-type" class="form-input">
+            <option value="">-- Choisir --</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Projet (optionnel)</label>
+          <select id="da-projet" class="form-input">
+            <option value="">-- Aucun --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-field">
+          <label class="form-label">Administration</label>
+          <select id="da-administration" class="form-input">
+            <option value="">-- Choisir --</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Gouvernorat</label>
+          <select id="da-gouvernorat" class="form-input">
+            <option value="">-- Aucun --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-field">
+          <label class="form-label">D&eacute;l&eacute;gation</label>
+          <select id="da-delegation" class="form-input">
+            <option value="">-- Aucune --</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Municipalit&eacute;</label>
+          <select id="da-municipalite" class="form-input">
+            <option value="">-- Aucune --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-field">
+          <label class="form-label">Exp&eacute;diteur</label>
+          <input id="da-expediteur" class="form-input" placeholder="Nom / Raison sociale de l'agence" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Destinataire</label>
+          <input id="da-destinataire" class="form-input" placeholder="M. le Directeur / السيد المدير" />
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">R&eacute;f&eacute;rence</label>
+        <input id="da-reference" class="form-input" placeholder="N&deg; de r&eacute;f&eacute;rence (optionnel)" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Objet</label>
+        <input id="da-objet" class="form-input" placeholder="Objet de la demande" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Contenu de la lettre</label>
+        <textarea id="da-contenu" class="form-input" rows="8" placeholder="Corps de la demande..."></textarea>
+      </div>
+
+      <!-- Documents à joindre -->
+      <div class="form-field">
+        <label class="form-label">Documents &agrave; joindre</label>
+        <div id="da-docs-checklist" style="display:flex;flex-wrap:wrap;gap:0.5rem 1rem;margin-top:0.3rem"></div>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-field">
+          <label class="form-label">Statut</label>
+          <select id="da-statut" class="form-input">
+            <option value="Brouillon">Brouillon</option>
+            <option value="Envoy&eacute;e">Envoy&eacute;e</option>
+            <option value="R&eacute;pondue">R&eacute;pondue</option>
+            <option value="Class&eacute;e">Class&eacute;e</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Remarques</label>
+          <input id="da-remarques" class="form-input" placeholder="Notes internes" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;gap:0.4rem">
+        <button class="btn btn-sm" onclick="generateDALetter()">G&eacute;n&eacute;rer lettre</button>
+        <button class="btn btn-sm" onclick="printDALetter()">Imprimer</button>
+      </div>
+      <div style="display:flex;gap:0.4rem">
+        <button class="btn btn-sm" onclick="closeModal('modal-demande-admin')">Annuler</button>
+        <button class="btn btn-primary btn-sm" onclick="saveDemandeAdmin()">Enregistrer</button>
+      </div>
     </div>
   </div>
 </div>

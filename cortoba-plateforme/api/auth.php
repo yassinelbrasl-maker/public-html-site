@@ -112,8 +112,14 @@ function handleMe() {
 
     // Vérifier si c'est un membre de l'équipe (a un champ isMember dans le JWT)
     if (!empty($user['isMember'])) {
-        $stmt = $db->prepare('SELECT id, prenom, nom, email, role, modules FROM cortoba_users WHERE id = ? LIMIT 1');
-        $stmt->execute(array($user['id']));
+        try {
+            $stmt = $db->prepare('SELECT id, prenom, nom, email, role, modules, profile_picture_url FROM cortoba_users WHERE id = ? LIMIT 1');
+            $stmt->execute(array($user['id']));
+        } catch (Exception $e) {
+            // Colonne profile_picture_url absente — fallback sans elle
+            $stmt = $db->prepare('SELECT id, prenom, nom, email, role, modules FROM cortoba_users WHERE id = ? LIMIT 1');
+            $stmt->execute(array($user['id']));
+        }
         $member = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$member) jsonError('Compte introuvable', 404);
         $member['modules'] = json_decode(isset($member['modules']) ? $member['modules'] : '[]', true);

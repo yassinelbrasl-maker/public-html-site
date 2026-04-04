@@ -1,6 +1,7 @@
 <?php
 // ═══════════════════════════════════════════════════════════════
 //  api/users.php — Gestion des membres de l'équipe Cortoba
+//  v2 : photo de profil, double contact, rémunération, projection
 //  Compatible PHP 5.6+
 // ═══════════════════════════════════════════════════════════════
 
@@ -23,13 +24,98 @@ function ensureUsersTable() {
         `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Colonnes additionnelles v2 (idempotent — IF NOT EXISTS supporté MySQL 8+/MariaDB 10.0.2+)
+    $extraCols = array(
+        "profile_picture_url VARCHAR(400) DEFAULT NULL",
+        "tel_pro             VARCHAR(50)  DEFAULT ''",
+        "tel_perso           VARCHAR(50)  DEFAULT ''",
+        "tel_principal       VARCHAR(10)  NOT NULL DEFAULT 'pro'",
+        "email_pro           VARCHAR(191) DEFAULT ''",
+        "email_perso         VARCHAR(191) DEFAULT ''",
+        "email_principal     VARCHAR(10)  NOT NULL DEFAULT 'pro'",
+        "salaire_net         DECIMAL(12,2) DEFAULT 0",
+        "charges_sociales    DECIMAL(12,2) DEFAULT 0",
+        "subventions         DECIMAL(12,2) DEFAULT 0",
+        "avantages_nature    DECIMAL(12,2) DEFAULT 0",
+        "heures_mois         DECIMAL(6,2)  DEFAULT 160",
+        "date_embauche       DATE         DEFAULT NULL",
+        "date_derniere_augm  DATE         DEFAULT NULL",
+        "taux_augm_pct       DECIMAL(5,2) DEFAULT 5",
+    );
+    foreach ($extraCols as $colDef) {
+        try { $db->exec("ALTER TABLE cortoba_users ADD COLUMN IF NOT EXISTS $colDef"); }
+        catch (Exception $e) { /* silencieux — déjà présente ou MySQL ancien */ }
+    }
+}
+
+// Rôles avec accès aux données sensibles (salaire, charges, contact perso)
+function canViewSensitiveData($user) {
+    if (!$user) return false;
+    if (($user['role'] ?? '') === 'admin') return true;
+    if (!empty($user['isMember']) && ($user['role'] ?? '') === 'Architecte gérant') return true;
+    return false;
+}
+
+// Filtre un enregistrement membre selon les droits
+function filterMemberRow($row, $viewer) {
+    $sensitive = canViewSensitiveData($viewer);
+
+    // Décoder modules
+    $decoded = json_decode(isset($row['modules']) ? $row['modules'] : '[]', true);
+    $row['modules'] = is_array($decoded) ? $decoded : array();
+
+    // Toujours visibles
+    $public = array(
+        'id', 'prenom', 'nom', 'email', 'role', 'statut', 'spec', 'modules',
+        'profile_picture_url', 'tel', 'created_at',
+    );
+
+    // Contact pro visible par tous ; contact perso masqué pour non-privilégiés
+    $public[] = 'tel_pro';
+    $public[] = 'email_pro';
+    $public[] = 'tel_principal';
+    $public[] = 'email_principal';
+
+    if ($sensitive) {
+        $public = array_merge($public, array(
+            'tel_perso', 'email_perso',
+            'salaire_net', 'charges_sociales', 'subventions', 'avantages_nature',
+            'heures_mois', 'date_embauche', 'date_derniere_augm', 'taux_augm_pct',
+        ));
+    }
+
+    $out = array();
+    foreach ($public as $k) {
+        if (array_key_exists($k, $row)) $out[$k] = $row[$k];
+    }
+
+    // Calculs dérivés (si privilégié)
+    if ($sensitive) {
+        $salaire  = (float)($row['salaire_net'] ?? 0);
+        $charges  = (float)($row['charges_sociales'] ?? 0);
+        $subv     = (float)($row['subventions'] ?? 0);
+        $avant    = (float)($row['avantages_nature'] ?? 0);
+        $heures   = max(1, (float)($row['heures_mois'] ?? 160));
+        $coutTot  = ($salaire + $charges) - $subv + $avant;
+        $out['cout_total_mensuel'] = round($coutTot, 2);
+        $out['cout_horaire']       = round($coutTot / $heures, 2);
+    }
+
+    return $out;
+}
+
+// Tenter de lire la session (sans forcer) pour décider du filtrage sur GET
+function optionalAuth() {
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (strpos($authHeader, 'Bearer ') !== 0) return null;
+    $token = substr($authHeader, 7);
+    return jwtDecode($token);
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'OPTIONS') { http_response_code(204); exit; }
 
-// GET est public (pour charger la liste côté admin)
-// POST/PUT/DELETE nécessitent auth
 if ($method !== 'GET') {
     requireAuth();
 }
@@ -37,69 +123,94 @@ if ($method !== 'GET') {
 try {
     ensureUsersTable();
     $db = getDB();
+    $viewer = optionalAuth();
 
     if ($method === 'GET') {
-        $stmt = $db->query("SELECT id, prenom, nom, email, role, statut, tel, spec, modules, created_at
-                            FROM cortoba_users WHERE is_admin = 0 ORDER BY created_at ASC");
+        $stmt = $db->query("SELECT * FROM cortoba_users WHERE is_admin = 0 ORDER BY created_at ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as &$r) {
-            $decoded = json_decode(isset($r['modules']) ? $r['modules'] : '[]', true);
-            $r['modules'] = is_array($decoded) ? $decoded : array();
+        $out = array();
+        foreach ($rows as $r) $out[] = filterMemberRow($r, $viewer);
+        jsonOk($out);
+
+    } elseif ($method === 'POST' || $method === 'PUT') {
+        $body   = getBody();
+        $isEdit = ($method === 'PUT');
+
+        // Champs de base
+        $id      = isset($body['id']) ? $body['id'] : ($isEdit ? '' : bin2hex(random_bytes(8)));
+        if ($isEdit && !$id) jsonError('ID requis', 400);
+
+        $prenom  = trim($body['prenom']   ?? '');
+        $nom     = trim($body['nom']      ?? '');
+        $email   = strtolower(trim($body['email'] ?? ''));
+        $role    = trim($body['role']     ?? '');
+        $statut  = trim($body['statut']   ?? 'Actif');
+        $tel     = trim($body['tel']      ?? '');
+        $spec    = trim($body['spec']     ?? '');
+        $pass    = $body['password']       ?? '';
+        $modules = json_encode($body['modules'] ?? array());
+
+        // Nouveaux champs
+        $photo      = isset($body['profile_picture_url']) ? trim($body['profile_picture_url']) : null;
+        $telPro     = trim($body['tel_pro']         ?? '');
+        $telPerso   = trim($body['tel_perso']       ?? '');
+        $telPrinc   = in_array($body['tel_principal'] ?? 'pro', array('pro','perso')) ? $body['tel_principal'] : 'pro';
+        $emailPro   = trim($body['email_pro']       ?? '');
+        $emailPerso = trim($body['email_perso']     ?? '');
+        $emailPrinc = in_array($body['email_principal'] ?? 'pro', array('pro','perso')) ? $body['email_principal'] : 'pro';
+
+        // Rémunération — acceptée uniquement si viewer privilégié
+        $canEditSalary = canViewSensitiveData($viewer);
+        $salaire  = $canEditSalary ? (float)($body['salaire_net']      ?? 0) : null;
+        $charges  = $canEditSalary ? (float)($body['charges_sociales'] ?? 0) : null;
+        $subv     = $canEditSalary ? (float)($body['subventions']      ?? 0) : null;
+        $avant    = $canEditSalary ? (float)($body['avantages_nature'] ?? 0) : null;
+        $heures   = $canEditSalary ? (float)($body['heures_mois']      ?? 160) : null;
+        $dateEmb  = $canEditSalary ? ($body['date_embauche']      ?? null) : null;
+        $dateAug  = $canEditSalary ? ($body['date_derniere_augm'] ?? null) : null;
+        $tauxAug  = $canEditSalary ? (float)($body['taux_augm_pct']    ?? 5) : null;
+        if ($dateEmb === '') $dateEmb = null;
+        if ($dateAug === '') $dateAug = null;
+
+        if (!$prenom || !$nom || !$email) jsonError('Champs requis manquants', 400);
+        if (!$isEdit && !$pass)             jsonError('Mot de passe requis', 400);
+
+        // Construire la requête
+        $cols = array(
+            'prenom' => $prenom, 'nom' => $nom, 'email' => $email, 'role' => $role,
+            'statut' => $statut, 'tel' => $tel, 'spec' => $spec, 'modules' => $modules,
+            'profile_picture_url' => $photo,
+            'tel_pro' => $telPro, 'tel_perso' => $telPerso, 'tel_principal' => $telPrinc,
+            'email_pro' => $emailPro, 'email_perso' => $emailPerso, 'email_principal' => $emailPrinc,
+        );
+        if ($canEditSalary) {
+            $cols['salaire_net']        = $salaire;
+            $cols['charges_sociales']   = $charges;
+            $cols['subventions']        = $subv;
+            $cols['avantages_nature']   = $avant;
+            $cols['heures_mois']        = $heures;
+            $cols['date_embauche']      = $dateEmb;
+            $cols['date_derniere_augm'] = $dateAug;
+            $cols['taux_augm_pct']      = $tauxAug;
         }
-        jsonOk($rows);
 
-    } elseif ($method === 'POST') {
-        $body    = getBody();
-        $id      = isset($body['id'])       ? $body['id']       : bin2hex(random_bytes(8));
-        $prenom  = trim(isset($body['prenom'])   ? $body['prenom']   : '');
-        $nom     = trim(isset($body['nom'])      ? $body['nom']      : '');
-        $email   = strtolower(trim(isset($body['email'])    ? $body['email']    : ''));
-        $role    = trim(isset($body['role'])     ? $body['role']     : '');
-        $statut  = trim(isset($body['statut'])   ? $body['statut']   : 'Actif');
-        $tel     = trim(isset($body['tel'])      ? $body['tel']      : '');
-        $spec    = trim(isset($body['spec'])     ? $body['spec']     : '');
-        $pass    = isset($body['password'])      ? $body['password'] : '';
-        $modules = json_encode(isset($body['modules']) ? $body['modules'] : array());
-
-        if (!$prenom || !$nom || !$email || !$pass) jsonError('Champs requis manquants', 400);
-
-        $hash = password_hash($pass, PASSWORD_DEFAULT);
-
-        $stmt = $db->prepare("INSERT INTO cortoba_users
-                                (id, prenom, nom, email, role, statut, tel, spec, modules, pass_hash, is_admin)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-                              ON DUPLICATE KEY UPDATE
-                                prenom=VALUES(prenom), nom=VALUES(nom), role=VALUES(role),
-                                statut=VALUES(statut), tel=VALUES(tel), spec=VALUES(spec),
-                                modules=VALUES(modules),
-                                pass_hash=IF(? != '', VALUES(pass_hash), pass_hash)");
-        $stmt->execute(array($id, $prenom, $nom, $email, $role, $statut, $tel, $spec, $modules, $hash, $pass));
-        jsonOk(array('id' => $id, 'email' => $email));
-
-    } elseif ($method === 'PUT') {
-        $body    = getBody();
-        $id      = isset($body['id'])       ? $body['id']       : '';
-        $prenom  = trim(isset($body['prenom'])   ? $body['prenom']   : '');
-        $nom     = trim(isset($body['nom'])      ? $body['nom']      : '');
-        $email   = strtolower(trim(isset($body['email'])    ? $body['email']    : ''));
-        $role    = trim(isset($body['role'])     ? $body['role']     : '');
-        $statut  = trim(isset($body['statut'])   ? $body['statut']   : 'Actif');
-        $tel     = trim(isset($body['tel'])      ? $body['tel']      : '');
-        $spec    = trim(isset($body['spec'])     ? $body['spec']     : '');
-        $pass    = isset($body['password'])      ? $body['password'] : '';
-        $modules = json_encode(isset($body['modules']) ? $body['modules'] : array());
-
-        if (!$id) jsonError('ID requis', 400);
-
-        if ($pass) {
-            $hash = password_hash($pass, PASSWORD_DEFAULT);
-            $stmt = $db->prepare("UPDATE cortoba_users SET prenom=?, nom=?, email=?, role=?, statut=?, tel=?, spec=?, modules=?, pass_hash=? WHERE id=?");
-            $stmt->execute(array($prenom, $nom, $email, $role, $statut, $tel, $spec, $modules, $hash, $id));
+        if ($isEdit) {
+            $set = array(); $vals = array();
+            foreach ($cols as $c => $v) { $set[] = "`$c`=?"; $vals[] = $v; }
+            if ($pass) { $set[] = "pass_hash=?"; $vals[] = password_hash($pass, PASSWORD_DEFAULT); }
+            $vals[] = $id;
+            $sql = "UPDATE cortoba_users SET " . implode(',', $set) . " WHERE id=?";
+            $db->prepare($sql)->execute($vals);
         } else {
-            $stmt = $db->prepare("UPDATE cortoba_users SET prenom=?, nom=?, email=?, role=?, statut=?, tel=?, spec=?, modules=? WHERE id=?");
-            $stmt->execute(array($prenom, $nom, $email, $role, $statut, $tel, $spec, $modules, $id));
+            $cols['id']        = $id;
+            $cols['pass_hash'] = password_hash($pass, PASSWORD_DEFAULT);
+            $cols['is_admin']  = 0;
+            $keys = array_keys($cols);
+            $ph   = array_fill(0, count($keys), '?');
+            $sql  = "INSERT INTO cortoba_users (`" . implode('`,`', $keys) . "`) VALUES (" . implode(',', $ph) . ")";
+            $db->prepare($sql)->execute(array_values($cols));
         }
-        jsonOk(array('updated' => true));
+        jsonOk(array('id' => $id, 'email' => $email));
 
     } elseif ($method === 'DELETE') {
         $id = isset($_GET['id']) ? $_GET['id'] : '';

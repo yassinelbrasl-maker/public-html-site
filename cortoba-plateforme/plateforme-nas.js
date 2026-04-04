@@ -3627,7 +3627,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -3716,13 +3716,13 @@ function doLogin(){
         isAdmin: isAdmin,
         modules: modules
       }));
-      var nameEl = document.getElementById('user-display');
-      if (nameEl) nameEl.innerHTML = '<div class="header-user-dot"></div><span>'+(d.user.name||'')+'</span>';
+      updateHeaderUserDisplay(d.user);
       var ls = document.getElementById('login-screen');
       var ap = document.getElementById('app');
       if (ls) ls.style.display = 'none';
       if (ap) ap.style.display = 'block';
       applyModuleAccess();
+      loadModulesFromAPI(); // peupler la liste des modules dès la connexion
       loadData().then(function(){ renderAll(); showPage('dashboard'); });
     })
     .catch(function(e){
@@ -3752,7 +3752,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   var _allowed = getAllowedModules();
@@ -3773,6 +3773,7 @@ function showPage(id){
   if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }).catch(function(e){ console.error('[suivi] init error', e); }); },80);
   if(id==='journal')    setTimeout(function(){ var dEl=document.getElementById('journal-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().split('T')[0]; renderJournalPage(); },80);
   if(id==='rendement')  setTimeout(renderRendementPage,80);
+  if(id==='demandes-admin') setTimeout(renderDemandesAdminPage,80);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
@@ -3783,6 +3784,7 @@ function showPage(id){
       renderCfgTypesParams();
       renderParametresMissions();
       if (typeof renderParametresTachesTypes === 'function') renderParametresTachesTypes();
+      if (typeof renderParametresDA === 'function') renderParametresDA();
       if (typeof renderParametresRoles === 'function') renderParametresRoles();
       loadAgenceParams();
       loadNasParams();
@@ -3914,11 +3916,11 @@ document.addEventListener('DOMContentLoaded',function(){
     apiFetch('api/auth.php?action=me')
       .then(function(r){
         var u = r.data || r;
-        var nameEl = document.getElementById('user-display');
-        if (nameEl) nameEl.innerHTML = '<div class="header-user-dot"></div><span>'+(u.name||'Utilisateur')+'</span>';
+        updateHeaderUserDisplay(u);
         if (loginScreen) loginScreen.style.display = 'none';
         if (appEl)       appEl.style.display       = 'block';
         applyModuleAccess();
+        loadModulesFromAPI();
         loadData().then(function(){ renderAll(); showPage('dashboard'); });
       })
       .catch(function(){
@@ -4561,12 +4563,16 @@ function renderFiscalitePage() {
 //  À ajouter dans plateforme.js (ou dans un <script> après le JS principal)
 // ═══════════════════════════════════════════════════════════════════════
 
-// ── Modules disponibles dans la plateforme ──
+// ── Modules disponibles dans la plateforme (cache / fallback) ──
+// La liste réelle est chargée dynamiquement depuis api/modules.php
 var MODULES_PLATEFORME = [
   { id: 'dashboard',   label: 'Tableau de bord' },
-  { id: 'demandes',   label: 'Demandes' },
+  { id: 'demandes',    label: 'Demandes' },
   { id: 'devis',       label: 'Offres & Devis' },
   { id: 'projets',     label: 'Projets' },
+  { id: 'suivi',       label: 'Suivi' },
+  { id: 'journal',     label: 'Journal quotidien' },
+  { id: 'rendement',   label: 'Rendement' },
   { id: 'facturation', label: 'Facturation' },
   { id: 'bilans',      label: 'Bilans' },
   { id: 'depenses',    label: 'Dépenses' },
@@ -4577,13 +4583,60 @@ var MODULES_PLATEFORME = [
   { id: 'parametres',  label: 'Paramètres' },
 ];
 
+// Charge la liste dynamique depuis l'API (avec fallback cache local)
+function loadModulesFromAPI() {
+  return apiFetch('api/modules.php')
+    .then(function(r) {
+      var arr = r.data || [];
+      if (Array.isArray(arr) && arr.length > 0) {
+        MODULES_PLATEFORME = arr.map(function(m){
+          return { id: m.id, label: m.label, route_url: m.route_url, categorie: m.categorie };
+        });
+        saveSetting('cortoba_modules_cache', MODULES_PLATEFORME);
+      }
+      return MODULES_PLATEFORME;
+    })
+    .catch(function() {
+      var cached = getSetting('cortoba_modules_cache', null);
+      if (Array.isArray(cached) && cached.length > 0) MODULES_PLATEFORME = cached;
+      return MODULES_PLATEFORME;
+    });
+}
+
+// Met à jour la zone utilisateur du header (avec avatar miniature)
+function updateHeaderUserDisplay(user) {
+  var el = document.getElementById('user-display');
+  if (!el || !user) return;
+  var name  = user.name || '';
+  var photo = user.profile_picture_url || null;
+  // Chercher aussi dans la liste des membres si on a un id
+  if (!photo && user.id) {
+    var arr = getSetting('cortoba_membres', []);
+    var found = (arr || []).find(function(m){ return m.id === user.id; });
+    if (found && found.profile_picture_url) photo = found.profile_picture_url;
+  }
+  var avatar = photo
+    ? '<div class="member-avatar sm"><img src="'+photo.replace(/"/g,'&quot;')+'" alt=""></div>'
+    : '<div class="header-user-dot"></div>';
+  el.innerHTML = avatar + '<span>' + (name).replace(/</g,'&lt;') + '</span>';
+}
+
+// Helper : l'utilisateur courant peut-il voir les données sensibles (salaire, perso) ?
+function canViewSensitiveMember() {
+  var s = getSession();
+  if (!s) return false;
+  if (s.isAdmin) return true;
+  if (s.role === 'Architecte gérant') return true;
+  return false;
+}
+
 // Modules par défaut selon rôle (pré-coché automatiquement à la sélection)
 var MODULES_PAR_ROLE = {
-  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
-  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','rendement','nas','clients'],
+  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','parametres'],
+  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','rendement','nas','clients','demandes-admin'],
   'Décorateur':              ['dashboard','projets','suivi','journal','nas','clients'],
   'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite'],
-  'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','nas','clients'],
+  'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','nas','clients','demandes-admin'],
   'Stagiaire':               ['dashboard','projets','suivi','journal'],
 };
 
@@ -4676,11 +4729,12 @@ function renderMembreCard(m) {
     + '</div>'
     // Avatar + infos
     + '<div style="display:flex;align-items:flex-start;gap:0.9rem;margin-bottom:1rem;padding-right:4rem">'
-    + '<div style="width:44px;height:44px;background:var(--bg-3);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:600;color:var(--text-2);flex-shrink:0">' + ini + '</div>'
+    + renderAvatarHtml(m, 'member-avatar')
     + '<div>'
     + '<div style="font-weight:500;color:var(--text);font-size:0.9rem">' + escHtml(m.prenom + ' ' + m.nom) + '</div>'
     + '<div style="font-size:0.72rem;color:var(--text-3);margin-top:2px">' + escHtml(m.role || '—') + (m.spec ? ' · ' + escHtml(m.spec) : '') + '</div>'
-    + '<div style="font-size:0.7rem;color:var(--text-3);margin-top:2px">' + escHtml(m.email || '') + '</div>'
+    + '<div style="font-size:0.7rem;color:var(--text-3);margin-top:2px">' + escHtml(pickEmailDisplay(m)) + '</div>'
+    + (pickTelDisplay(m) ? '<div style="font-size:0.7rem;color:var(--text-3);margin-top:2px">' + escHtml(pickTelDisplay(m)) + '</div>' : '')
     + '</div></div>'
     // Statut + modules
     + '<div style="display:flex;align-items:center;justify-content:space-between">'
@@ -4742,51 +4796,276 @@ function renderEquipeAccesTable() {
 }
 
 // ── Modal membre : ouvrir / éditer ──
-var _editingMembreId = null;
+var _editingMembreId    = null;
+var _mbCurrentPhoto     = null;   // URL actuelle de la photo
+var _mbPendingPhotoData = null;   // dataUrl en attente d'upload
+
+// Helpers d'affichage (respectent la confidentialité)
+function pickEmailDisplay(m) {
+  if (canViewSensitiveMember() && m.email_principal === 'perso' && m.email_perso) return m.email_perso;
+  return m.email_pro || m.email || '';
+}
+function pickTelDisplay(m) {
+  if (canViewSensitiveMember() && m.tel_principal === 'perso' && m.tel_perso) return m.tel_perso;
+  return m.tel_pro || m.tel || '';
+}
+function renderAvatarHtml(m, extraClass) {
+  var ini = initiales(m.prenom, m.nom);
+  var cls = 'member-avatar' + (extraClass ? ' ' + extraClass : '');
+  if (m.profile_picture_url) {
+    return '<div class="'+cls+'"><img src="'+escHtml(m.profile_picture_url)+'" alt="'+escHtml(m.prenom||'')+'"></div>';
+  }
+  return '<div class="'+cls+'">' + ini + '</div>';
+}
+
+// Bascule entre onglets
+function mbShowTab(name) {
+  var tabs   = document.querySelectorAll('#mb-tabs .mb-tab');
+  var panels = document.querySelectorAll('#modal-membre .mb-panel');
+  tabs.forEach(function(t){ t.classList.toggle('active', t.getAttribute('data-tab') === name); });
+  panels.forEach(function(p){ p.style.display = p.getAttribute('data-panel') === name ? '' : 'none'; });
+}
+
+// Cacher les onglets sensibles pour les rôles non privilégiés
+function applyMbTabsVisibility() {
+  var canSee = canViewSensitiveMember();
+  document.querySelectorAll('#mb-tabs .mb-tab-sensitive').forEach(function(t){
+    t.classList.toggle('hidden', !canSee);
+  });
+}
 
 function openModal_membre_reset() {
-  _editingMembreId = null;
+  _editingMembreId    = null;
+  _mbCurrentPhoto     = null;
+  _mbPendingPhotoData = null;
   document.getElementById('modal-membre-title').textContent = 'Nouveau membre';
-  ['mb-prenom','mb-nom','mb-email','mb-tel','mb-spec','mb-pass','mb-pass2'].forEach(function(id){
-    var el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  var statEl = document.getElementById('mb-statut');
-  if (statEl) statEl.value = 'Actif';
-  var roleEl = document.getElementById('mb-role');
-  if (roleEl) roleEl.value = '';
+
+  var ids = ['mb-prenom','mb-nom','mb-email','mb-spec','mb-pass','mb-pass2',
+             'mb-tel-pro','mb-tel-perso','mb-email-pro','mb-email-perso',
+             'mb-salaire','mb-charges','mb-subv','mb-avant',
+             'mb-date-embauche','mb-date-augm'];
+  ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+
+  var heuresEl = document.getElementById('mb-heures');       if (heuresEl) heuresEl.value = '160';
+  var tauxEl   = document.getElementById('mb-taux-augm');    if (tauxEl)   tauxEl.value   = '5';
+  var statEl   = document.getElementById('mb-statut');       if (statEl)   statEl.value   = 'Actif';
+  var roleEl   = document.getElementById('mb-role');         if (roleEl)   roleEl.value   = '';
+
+  // Reset radios principal
+  var r1 = document.querySelector('input[name="mb-tel-principal"][value="pro"]');     if (r1) r1.checked = true;
+  var r2 = document.querySelector('input[name="mb-email-principal"][value="pro"]');   if (r2) r2.checked = true;
+
   document.getElementById('mb-error').style.display = 'none';
 
+  setMbPhotoPreview(null, 'Nouveau');
   renderRoleSelectModal();
   renderModulesCheckboxes([]);
+  recomputeCoutEmployeur();
+  recomputeProjectionAugm();
+  applyMbTabsVisibility();
+  mbShowTab('profil');
 }
 
 function editMembre(id) {
   var m = getMembres().find(function(x){ return x.id === id; });
   if (!m) return;
-  _editingMembreId = id;
+  _editingMembreId    = id;
+  _mbCurrentPhoto     = m.profile_picture_url || null;
+  _mbPendingPhotoData = null;
+
   document.getElementById('modal-membre-title').textContent = 'Modifier le membre';
-  document.getElementById('mb-prenom').value = m.prenom || '';
-  document.getElementById('mb-nom').value    = m.nom    || '';
-  document.getElementById('mb-email').value  = m.email  || '';
-  document.getElementById('mb-tel').value    = m.tel    || '';
-  document.getElementById('mb-spec').value   = m.spec   || '';
-  document.getElementById('mb-pass').value   = '';
-  document.getElementById('mb-pass2').value  = '';
+
+  function setVal(id, v) { var el = document.getElementById(id); if (el) el.value = v || ''; }
+  setVal('mb-prenom', m.prenom);
+  setVal('mb-nom',    m.nom);
+  setVal('mb-email',  m.email);
+  setVal('mb-spec',   m.spec);
+  setVal('mb-pass',   '');
+  setVal('mb-pass2',  '');
+  // Contacts
+  setVal('mb-tel-pro',     m.tel_pro     || m.tel || '');
+  setVal('mb-tel-perso',   m.tel_perso   || '');
+  setVal('mb-email-pro',   m.email_pro   || m.email || '');
+  setVal('mb-email-perso', m.email_perso || '');
+  // Rémunération
+  setVal('mb-salaire', m.salaire_net);
+  setVal('mb-charges', m.charges_sociales);
+  setVal('mb-subv',    m.subventions);
+  setVal('mb-avant',   m.avantages_nature);
+  setVal('mb-heures',  m.heures_mois || 160);
+  // Projection
+  setVal('mb-date-embauche', m.date_embauche);
+  setVal('mb-date-augm',     m.date_derniere_augm);
+  setVal('mb-taux-augm',     m.taux_augm_pct || 5);
+
   var statEl = document.getElementById('mb-statut');
   if (statEl) statEl.value = m.statut || 'Actif';
 
+  // Radios principal
+  var telPrinc   = m.tel_principal   || 'pro';
+  var emailPrinc = m.email_principal || 'pro';
+  var r1 = document.querySelector('input[name="mb-tel-principal"][value="'+telPrinc+'"]');     if (r1) r1.checked = true;
+  var r2 = document.querySelector('input[name="mb-email-principal"][value="'+emailPrinc+'"]'); if (r2) r2.checked = true;
+
   document.getElementById('mb-error').style.display = 'none';
 
+  setMbPhotoPreview(m.profile_picture_url, m.prenom + ' ' + m.nom);
   renderRoleSelectModal();
   setTimeout(function(){
     var roleEl = document.getElementById('mb-role');
     if (roleEl && m.role) roleEl.value = m.role;
     renderModulesCheckboxes(m.modules || []);
   }, 50);
+  recomputeCoutEmployeur();
+  recomputeProjectionAugm();
+  applyMbTabsVisibility();
+  mbShowTab('profil');
 
   // Ouvrir le modal directement sans reset (openModal appellerait openModal_membre_reset)
   document.getElementById('modal-membre').classList.add('open');
+}
+
+// ── Photo de profil : upload + crop carré via canvas ──
+function setMbPhotoPreview(url, label) {
+  var prev = document.getElementById('mb-avatar-preview');
+  var rem  = document.getElementById('mb-photo-remove');
+  if (!prev) return;
+  if (url) {
+    prev.innerHTML = '<img src="'+escHtml(url)+'" style="width:100%;height:100%;object-fit:cover">';
+    if (rem) rem.style.display = '';
+  } else {
+    var ini = (String(label||'?').trim()[0] || '?').toUpperCase();
+    prev.textContent = ini;
+    if (rem) rem.style.display = 'none';
+  }
+}
+
+function clearMbPhoto() {
+  _mbCurrentPhoto     = null;
+  _mbPendingPhotoData = null;
+  var p = document.getElementById('mb-prenom');
+  setMbPhotoPreview(null, p ? p.value : '');
+}
+
+function handleMbPhotoFile(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  if (!/^image\/(jpeg|jpg|png|webp)$/.test(f.type)) {
+    alert('Format non supporté. Utilisez JPG, PNG ou WebP.');
+    input.value = '';
+    return;
+  }
+  if (f.size > 5 * 1024 * 1024) {
+    alert('Image trop volumineuse (max 5 Mo).');
+    input.value = '';
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      // Crop carré centré + redimensionnement à 400×400
+      var size   = Math.min(img.width, img.height);
+      var sx     = (img.width - size) / 2;
+      var sy     = (img.height - size) / 2;
+      var canvas = document.createElement('canvas');
+      canvas.width = 400; canvas.height = 400;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 400, 400);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      _mbPendingPhotoData = dataUrl;
+      setMbPhotoPreview(dataUrl, '');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
+  input.value = '';
+}
+
+// ── Rémunération : recalculs temps réel ──
+function recomputeCoutEmployeur() {
+  function v(id) { var e = document.getElementById(id); return parseFloat(e ? e.value : 0) || 0; }
+  var salaire = v('mb-salaire');
+  var charges = v('mb-charges');
+  var subv    = v('mb-subv');
+  var avant   = v('mb-avant');
+  var heures  = Math.max(1, v('mb-heures') || 160);
+  var coutTot = (salaire + charges) - subv + avant;
+  var coutH   = coutTot / heures;
+  var ct = document.getElementById('mb-cout-total');
+  var ch = document.getElementById('mb-cout-horaire');
+  if (ct) ct.textContent = fmtTnd(coutTot);
+  if (ch) ch.textContent = fmtTnd(coutH) + '/h';
+  // Re-calcul projection (dépend du salaire)
+  recomputeProjectionAugm();
+}
+
+function fmtTnd(n) {
+  if (!isFinite(n)) n = 0;
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' TND';
+}
+
+// ── Projection d'augmentation ──
+function recomputeProjectionAugm() {
+  var wrap = document.getElementById('mb-projection-widget');
+  if (!wrap) return;
+  function v(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+  var salaire = parseFloat(v('mb-salaire')) || 0;
+  var taux    = parseFloat(v('mb-taux-augm')) || 0;
+  var dateEmb = v('mb-date-embauche');
+  var dateAug = v('mb-date-augm');
+
+  var refDateStr = dateAug || dateEmb;
+  if (!refDateStr) {
+    wrap.innerHTML = '<div style="font-size:0.78rem;color:var(--text-3)">Renseignez une date d\'embauche ou de dernière augmentation pour activer la projection.</div>';
+    return;
+  }
+  var refDate = new Date(refDateStr);
+  if (isNaN(refDate)) { wrap.innerHTML = '<div style="font-size:0.78rem;color:#e07b72">Date invalide.</div>'; return; }
+
+  // Prochaine projection = référence + 12 mois
+  var nextDate = new Date(refDate);
+  nextDate.setFullYear(nextDate.getFullYear() + 1);
+  var today    = new Date();
+  var total    = nextDate - refDate;
+  var elapsed  = today - refDate;
+  var pct      = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+  var newSal   = salaire * (1 + taux / 100);
+
+  // Estimation rendement du membre (si la fonction existe)
+  var efficacite = null, beneficeMois = null;
+  try {
+    if (typeof computeMembreRendementStats === 'function' && _editingMembreId) {
+      var stats = computeMembreRendementStats(_editingMembreId);
+      if (stats) { efficacite = stats.efficacite; beneficeMois = stats.beneficeMensuel; }
+    }
+  } catch(e) { /* silencieux */ }
+
+  var seuilEff = 70;   // %
+  var seuilBen = 0;    // TND
+  var conditionOk = (efficacite == null || efficacite >= seuilEff) && (beneficeMois == null || beneficeMois >= seuilBen);
+  var badge = efficacite == null
+    ? '<span style="color:var(--text-3);font-size:0.7rem">Données rendement non disponibles — projection basée uniquement sur la date</span>'
+    : (conditionOk
+        ? '<span style="color:var(--green);font-size:0.75rem">✓ Conditions remplies (efficacité '+Math.round(efficacite)+'%)</span>'
+        : '<span style="color:#e07b72;font-size:0.75rem">⚠ Conditions non remplies (efficacité '+Math.round(efficacite)+'% < '+seuilEff+'%)</span>');
+
+  var dateFmt = nextDate.toLocaleDateString('fr-FR', { year:'numeric', month:'long', day:'numeric' });
+
+  wrap.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.4rem">'
+    +  '<div style="font-size:0.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em">Prochaine augmentation projetée</div>'
+    +  '<div style="font-size:0.7rem;color:var(--text-3)">'+pct+'% du cycle</div>'
+    + '</div>'
+    + '<div style="font-size:1.2rem;color:var(--text);font-weight:500">'+dateFmt+'</div>'
+    + '<div class="augm-timeline"><div class="augm-timeline-fill" style="width:'+pct+'%"></div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-top:1rem">'
+    +   '<div><div style="font-size:0.65rem;color:var(--text-3);text-transform:uppercase">Salaire actuel</div>'
+    +     '<div style="font-size:1rem;color:var(--text-2)">'+fmtTnd(salaire)+'</div></div>'
+    +   '<div><div style="font-size:0.65rem;color:var(--text-3);text-transform:uppercase">Projeté (+'+taux+'%)</div>'
+    +     '<div style="font-size:1rem;color:var(--accent)">'+fmtTnd(newSal)+'</div></div>'
+    + '</div>'
+    + '<div style="margin-top:0.8rem">'+badge+'</div>';
 }
 
 function deleteMembre(id) {
@@ -4833,19 +5112,27 @@ function renderRoleSelectModal() {
   };
 }
 
-// ── Checkboxes modules ──
+// ── Checkboxes modules (générées dynamiquement depuis api/modules.php) ──
 function renderModulesCheckboxes(preChecked) {
   var wrap = document.getElementById('mb-modules-wrap');
   if (!wrap) return;
   preChecked = preChecked || [];
-  wrap.innerHTML = MODULES_PLATEFORME.map(function(mod) {
-    var checked = preChecked.indexOf(mod.id) !== -1;
-    return '<label style="display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;background:var(--bg-2)" '
-      + 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
-      + '<input type="checkbox" name="mb-mod" value="'+mod.id+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">'
-      + '<span style="font-size:0.8rem;color:var(--text-2)">'+mod.label+'</span>'
-      + '</label>';
-  }).join('');
+
+  function doRender() {
+    wrap.innerHTML = MODULES_PLATEFORME.map(function(mod) {
+      var checked = preChecked.indexOf(mod.id) !== -1;
+      return '<label style="display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;background:var(--bg-2)" '
+        + 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+        + '<input type="checkbox" name="mb-mod" value="'+mod.id+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">'
+        + '<span style="font-size:0.8rem;color:var(--text-2)">'+escHtml(mod.label)+'</span>'
+        + '</label>';
+    }).join('');
+  }
+
+  // Rafraîchir depuis l'API à chaque ouverture (pour détecter nouveaux modules déployés)
+  loadModulesFromAPI().then(doRender).catch(doRender);
+  // Rendu immédiat avec ce qu'on a déjà en mémoire
+  doRender();
 }
 
 function setAllModules(state) {
@@ -4859,53 +5146,55 @@ function updateMembreInitiales() {
 
 // ── Sauvegarder membre ──
 function saveMembre() {
-  var prenom = (document.getElementById('mb-prenom').value||'').trim();
-  var nom    = (document.getElementById('mb-nom').value||'').trim();
-  var email  = (document.getElementById('mb-email').value||'').trim().toLowerCase();
-  var role   = (document.getElementById('mb-role').value||'').trim();
-  var statut = (document.getElementById('mb-statut').value||'Actif');
-  var tel    = (document.getElementById('mb-tel').value||'').trim();
-  var spec   = (document.getElementById('mb-spec').value||'').trim();
-  var pass   = document.getElementById('mb-pass').value||'';
-  var pass2  = document.getElementById('mb-pass2').value||'';
-  var errEl  = document.getElementById('mb-error');
+  function val(id) { var e = document.getElementById(id); return (e ? e.value : '') || ''; }
+  function num(id) { return parseFloat(val(id)) || 0; }
 
-  function showErr(msg) {
-    errEl.textContent = msg;
-    errEl.style.display = 'block';
-  }
+  var prenom = val('mb-prenom').trim();
+  var nom    = val('mb-nom').trim();
+  var email  = val('mb-email').trim().toLowerCase();
+  var role   = val('mb-role').trim();
+  var statut = val('mb-statut') || 'Actif';
+  var spec   = val('mb-spec').trim();
+  var pass   = val('mb-pass');
+  var pass2  = val('mb-pass2');
 
+  // Contacts Pro/Perso
+  var telPro     = val('mb-tel-pro').trim();
+  var telPerso   = val('mb-tel-perso').trim();
+  var emailPro   = val('mb-email-pro').trim();
+  var emailPerso = val('mb-email-perso').trim();
+  var telPrincEl   = document.querySelector('input[name="mb-tel-principal"]:checked');
+  var emailPrincEl = document.querySelector('input[name="mb-email-principal"]:checked');
+  var telPrincipal   = telPrincEl   ? telPrincEl.value   : 'pro';
+  var emailPrincipal = emailPrincEl ? emailPrincEl.value : 'pro';
+
+  var errEl = document.getElementById('mb-error');
+  function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
   errEl.style.display = 'none';
 
   // Validation
   if (!prenom || !nom) { showErr('Le prénom et le nom sont requis.'); return; }
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('Email invalide.'); return; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('Email identifiant invalide.'); return; }
   if (!role) { showErr('Veuillez sélectionner un rôle.'); return; }
 
   var membres = getMembres();
-
-  // Vérification email unique
-  var duplicate = membres.find(function(m){
-    return m.email === email && m.id !== _editingMembreId;
-  });
+  var duplicate = membres.find(function(m){ return m.email === email && m.id !== _editingMembreId; });
   if (duplicate) { showErr('Cet email est déjà utilisé par un autre membre.'); return; }
 
-  // Vérification mot de passe si nouveau
   if (!_editingMembreId || pass) {
-    if (!_editingMembreId && !pass) { showErr('Un mot de passe initial est requis pour un nouveau membre.'); return; }
-    if (pass && pass.length < 6)   { showErr('Le mot de passe doit contenir au moins 6 caractères.'); return; }
-    if (pass && pass !== pass2)    { showErr('Les mots de passe ne correspondent pas.'); return; }
+    if (!_editingMembreId && !pass) { showErr('Un mot de passe initial est requis.'); return; }
+    if (pass && pass.length < 6)    { showErr('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+    if (pass && pass !== pass2)     { showErr('Les mots de passe ne correspondent pas.'); return; }
   }
 
   // Modules cochés
   var modules = [];
-  document.querySelectorAll('input[name="mb-mod"]:checked').forEach(function(c){
-    modules.push(c.value);
-  });
+  document.querySelectorAll('input[name="mb-mod"]:checked').forEach(function(c){ modules.push(c.value); });
 
   var membreId = _editingMembreId || uid();
   var isEdit   = !!_editingMembreId;
 
+  // Payload de base
   var payload = {
     id:       membreId,
     prenom:   prenom,
@@ -4913,33 +5202,56 @@ function saveMembre() {
     email:    email,
     role:     role,
     statut:   statut,
-    tel:      tel,
+    // Legacy: on conserve tel = tel principal pour rétro-compat
+    tel:      telPrincipal === 'perso' ? telPerso : telPro,
     spec:     spec,
     modules:  modules,
-    password: pass
+    password: pass,
+    // Contacts doublés
+    tel_pro:         telPro,
+    tel_perso:       telPerso,
+    tel_principal:   telPrincipal,
+    email_pro:       emailPro || email,
+    email_perso:     emailPerso,
+    email_principal: emailPrincipal,
+    profile_picture_url: _mbCurrentPhoto || null
   };
+
+  // Rémunération — uniquement si l'utilisateur peut voir/éditer le sensible
+  if (canViewSensitiveMember()) {
+    payload.salaire_net        = num('mb-salaire');
+    payload.charges_sociales   = num('mb-charges');
+    payload.subventions        = num('mb-subv');
+    payload.avantages_nature   = num('mb-avant');
+    payload.heures_mois        = num('mb-heures') || 160;
+    payload.date_embauche      = val('mb-date-embauche') || null;
+    payload.date_derniere_augm = val('mb-date-augm') || null;
+    payload.taux_augm_pct      = num('mb-taux-augm') || 5;
+  }
 
   var saveBtn = document.querySelector('#modal-membre .btn-primary');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Enregistrement…'; }
 
-  var apiMethod = isEdit ? 'PUT' : 'POST';
+  // Étape 1 : upload photo si nouvelle dataUrl en attente
+  var photoPromise = _mbPendingPhotoData
+    ? apiFetch('api/upload_user_photo.php', { method:'POST', body:{ dataUrl: _mbPendingPhotoData } })
+        .then(function(r){
+          var path = (r && r.data && r.data.path) || (r && r.path);
+          if (path) { payload.profile_picture_url = path; _mbCurrentPhoto = path; }
+        })
+        .catch(function(){ /* Upload échoué — on continue sans bloquer */ })
+    : Promise.resolve();
 
-  apiFetch('api/users.php', { method: apiMethod, body: payload })
+  // Étape 2 : POST/PUT api/users.php
+  photoPromise
+    .then(function(){
+      return apiFetch('api/users.php', { method: isEdit ? 'PUT' : 'POST', body: payload });
+    })
     .then(function() {
-      var membres = getMembres();
-      if (isEdit) {
-        var idx = membres.findIndex(function(m){ return m.id === membreId; });
-        if (idx !== -1) {
-          membres[idx].prenom=prenom; membres[idx].nom=nom; membres[idx].email=email;
-          membres[idx].role=role; membres[idx].statut=statut; membres[idx].tel=tel;
-          membres[idx].spec=spec; membres[idx].modules=modules;
-        }
-      } else {
-        membres.push({ id:membreId, prenom:prenom, nom:nom, email:email,
-          role:role, statut:statut, tel:tel, spec:spec, modules:modules,
-          createdAt: new Date().toISOString() });
-      }
-      saveMembresData(membres);
+      // Rafraîchir depuis l'API pour récupérer les champs filtrés à jour
+      return loadMembresFromAPI();
+    })
+    .then(function() {
       closeModal('modal-membre');
       renderEquipePage();
       showToast(isEdit ? 'Membre mis à jour ✓' : 'Compte créé — connexion possible immédiatement ✓');
@@ -4948,26 +5260,29 @@ function saveMembre() {
       var msg = (e && e.message) || '';
       var isNetErr = !msg || msg.indexOf('404') !== -1 || msg.indexOf('Failed') !== -1;
       if (isNetErr) {
-        // Fallback localStorage si api/users.php non encore déployé
+        // Fallback localStorage si api non disponible
         var membres = getMembres();
+        var entry = Object.assign({}, payload, { createdAt: new Date().toISOString() });
+        delete entry.password;
         if (isEdit) {
           var idx = membres.findIndex(function(m){ return m.id === membreId; });
-          if (idx !== -1) { membres[idx].prenom=prenom; membres[idx].nom=nom; membres[idx].email=email; membres[idx].role=role; membres[idx].statut=statut; membres[idx].tel=tel; membres[idx].spec=spec; membres[idx].modules=modules; }
+          if (idx !== -1) membres[idx] = Object.assign({}, membres[idx], entry);
         } else {
-          membres.push({ id:membreId, prenom:prenom, nom:nom, email:email, role:role, statut:statut, tel:tel, spec:spec, modules:modules, createdAt:new Date().toISOString() });
+          membres.push(entry);
         }
         saveMembresData(membres);
         closeModal('modal-membre');
         renderEquipePage();
-        showToast('⚠️ Sauvegardé localement — déployez api/users.php pour activer la connexion', '#e07b72');
+        showToast('⚠️ Sauvegardé localement — déployez les API pour activer la synchro serveur', '#e07b72');
       } else {
-        var errEl = document.getElementById('mb-error');
-        if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
       }
     })
     .finally(function(){
       if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Enregistrer'; }
-      _editingMembreId = null;
+      _editingMembreId    = null;
+      _mbPendingPhotoData = null;
     });
 }
 
@@ -7495,5 +7810,445 @@ function _renderRendementHistorique(taches, entries, periode) {
 
   html += '</tbody></table></div></div>';
   wrap.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DEMANDES ADMINISTRATIVES
+// ═══════════════════════════════════════════════════════════
+
+var _daCache = [];
+
+function loadDemandesAdmin() {
+  return apiFetch('api/demandes_admin.php')
+    .then(function(r) { _daCache = r.data || []; return _daCache; })
+    .catch(function(e) { console.error('[DA] load error', e); showToast('Erreur chargement demandes admin', 'error'); return []; });
+}
+
+var DA_DEFAULT_TYPES = ['Demande d\'avis','Demande de devis','Demande de raccordement','Demande d\'autorisation','Demande de permis','Demande de certificat','Demande de régularisation','Lettre de relance'];
+var DA_DEFAULT_ADMINS = ['STEG','SONEDE','ONAS','Municipalité','Protection civile','Gouvernorat','Ministère de l\'Équipement','CRDA','Tribunal immobilier','Conservation foncière'];
+var DA_DEFAULT_GOUVS = ['Tunis','Ariana','Ben Arous','Manouba','Nabeul','Zaghouan','Bizerte','Béja','Jendouba','Le Kef','Siliana','Sousse','Monastir','Mahdia','Sfax','Kairouan','Kasserine','Sidi Bouzid','Gabès','Médenine','Tataouine','Gafsa','Tozeur','Kébili'];
+var DA_DEFAULT_DOCS = ['Copie CIN','Plan de situation','Plan d\'architecture','Titre foncier','Permis de bâtir','Attestation d\'assurance','Quittance de paiement','Procuration légalisée','Photos du site','Rapport technique'];
+
+function getDAList(key, defaults) {
+  var val = getSetting(key, null);
+  if (val && Array.isArray(val)) return val;
+  return defaults || [];
+}
+function getDATypes()  { return getDAList('types_demandes_admin', DA_DEFAULT_TYPES); }
+function getDAAdmins() { return getDAList('administrations_list', DA_DEFAULT_ADMINS); }
+function getDAGouvs()  { return getDAList('gouvernorats_list', DA_DEFAULT_GOUVS); }
+function getDADelegs() { return getDAList('delegations_list', []); }
+function getDAMunis()  { return getDAList('municipalites_list', []); }
+function getDADocs()   { return getDAList('documents_admin_list', DA_DEFAULT_DOCS); }
+
+function addParamDAItem(settingKey, inputId, listId) {
+  var inp = document.getElementById(inputId);
+  var val = (inp.value || '').trim();
+  if (!val) { alert('Saisissez une valeur.'); return; }
+  var defaults = settingKey === 'types_demandes_admin' ? DA_DEFAULT_TYPES
+               : settingKey === 'administrations_list' ? DA_DEFAULT_ADMINS
+               : settingKey === 'gouvernorats_list' ? DA_DEFAULT_GOUVS
+               : settingKey === 'documents_admin_list' ? DA_DEFAULT_DOCS : [];
+  var list = getDAList(settingKey, defaults);
+  if (list.indexOf(val) !== -1) { alert('Cette valeur existe déjà.'); return; }
+  list.push(val);
+  saveSetting(settingKey, list);
+  inp.value = '';
+  _renderDAParamList(settingKey, listId, list);
+  showToast('Ajouté');
+}
+
+function removeParamDAItem(settingKey, listId, val) {
+  var defaults = settingKey === 'types_demandes_admin' ? DA_DEFAULT_TYPES
+               : settingKey === 'administrations_list' ? DA_DEFAULT_ADMINS
+               : settingKey === 'gouvernorats_list' ? DA_DEFAULT_GOUVS
+               : settingKey === 'documents_admin_list' ? DA_DEFAULT_DOCS : [];
+  var list = getDAList(settingKey, defaults).filter(function(v) { return v !== val; });
+  saveSetting(settingKey, list);
+  _renderDAParamList(settingKey, listId, list);
+  showToast('Supprimé');
+}
+
+function _renderDAParamList(settingKey, listId, list) {
+  var wrap = document.getElementById(listId);
+  if (!wrap) return;
+  var html = '';
+  list.forEach(function(v) {
+    var safeVal = String(v).replace(/'/g, "\\'");
+    html += '<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.55rem;border-radius:4px;font-size:0.74rem;background:var(--bg-3);border:1px solid var(--border);color:var(--accent)">';
+    html += escHtml(v);
+    html += '<button type="button" style="background:none;border:none;cursor:pointer;color:#e07070;font-size:0.8rem;line-height:1;padding:0 0 0 3px" onclick="removeParamDAItem(\'' + settingKey + '\',\'' + listId + '\',\'' + safeVal + '\')" title="Supprimer">\u2715</button>';
+    html += '</span>';
+  });
+  wrap.innerHTML = html;
+}
+
+function renderParametresDA() {
+  _renderDAParamList('types_demandes_admin', 'param-da-type-list', getDATypes());
+  _renderDAParamList('administrations_list', 'param-da-admin-list', getDAAdmins());
+  _renderDAParamList('gouvernorats_list', 'param-da-gouv-list', getDAGouvs());
+  _renderDAParamList('delegations_list', 'param-da-deleg-list', getDADelegs());
+  _renderDAParamList('municipalites_list', 'param-da-muni-list', getDAMunis());
+  _renderDAParamList('documents_admin_list', 'param-da-doc-list', getDADocs());
+}
+
+function renderDemandesAdminPage() {
+  loadDemandesAdmin().then(function(data) {
+    _renderDAKPIs(data);
+    _renderDAList(data);
+    _populateDAFilterAdmin();
+  });
+}
+
+function _populateDAFilterAdmin() {
+  var sel = document.getElementById('da-filter-admin');
+  if (!sel || sel.options.length > 1) return;
+  getDAAdmins().forEach(function(a) {
+    var o = document.createElement('option');
+    o.value = a; o.textContent = a;
+    sel.appendChild(o);
+  });
+}
+
+function _renderDAKPIs(data) {
+  var wrap = document.getElementById('da-kpis');
+  if (!wrap) return;
+  var total = data.length;
+  var brouillons = data.filter(function(d) { return d.statut === 'Brouillon'; }).length;
+  var envoyees = data.filter(function(d) { return d.statut === 'Envoyée'; }).length;
+  var repondues = data.filter(function(d) { return d.statut === 'Répondue'; }).length;
+  wrap.innerHTML =
+    '<div class="journal-kpi"><div class="journal-kpi-val">' + total + '</div><div class="journal-kpi-label">Total</div></div>' +
+    '<div class="journal-kpi"><div class="journal-kpi-val" style="color:var(--text-2)">' + brouillons + '</div><div class="journal-kpi-label">Brouillons</div></div>' +
+    '<div class="journal-kpi"><div class="journal-kpi-val" style="color:var(--blue)">' + envoyees + '</div><div class="journal-kpi-label">Envoyées</div></div>' +
+    '<div class="journal-kpi"><div class="journal-kpi-val" style="color:var(--green)">' + repondues + '</div><div class="journal-kpi-label">Répondues</div></div>';
+}
+
+function _renderDAList(data) {
+  var wrap = document.getElementById('da-list');
+  if (!wrap) return;
+
+  var fAdmin = document.getElementById('da-filter-admin');
+  var fStatut = document.getElementById('da-filter-statut');
+  var filterAdmin = fAdmin ? fAdmin.value : '';
+  var filterStatut = fStatut ? fStatut.value : '';
+
+  var filtered = data.filter(function(d) {
+    if (filterAdmin && d.administration !== filterAdmin) return false;
+    if (filterStatut && d.statut !== filterStatut) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<div class="card" style="text-align:center;color:var(--text-3);padding:2rem">Aucune demande administrative.<br><button class="btn btn-primary btn-sm" style="margin-top:0.8rem" onclick="openDemandeAdminModal()">Créer une demande</button></div>';
+    return;
+  }
+
+  var html = '<div class="card"><div class="table-wrap"><table><thead><tr>';
+  html += '<th>Date</th><th>Type</th><th>Administration</th><th>Objet</th><th>Projet</th><th>Langue</th><th>Statut</th><th style="width:80px"></th>';
+  html += '</tr></thead><tbody>';
+
+  filtered.forEach(function(d) {
+    var statutColor = d.statut === 'Envoyée' ? 'var(--blue)' : d.statut === 'Répondue' ? 'var(--green)' : d.statut === 'Classée' ? 'var(--text-3)' : 'var(--text-2)';
+    var langLabel = d.langue === 'ar' ? 'AR' : 'FR';
+    html += '<tr style="cursor:pointer" onclick="editDemandeAdmin(\'' + d.id + '\')">';
+    html += '<td style="font-family:var(--mono);font-size:0.8rem;white-space:nowrap">' + fmtDate(d.date_demande) + '</td>';
+    html += '<td>' + escHtml(d.type_demande || '') + '</td>';
+    html += '<td>' + escHtml(d.administration || '') + '</td>';
+    html += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(d.objet || '') + '</td>';
+    html += '<td style="font-size:0.78rem;color:var(--text-2)">' + escHtml(d.projet_nom || d.projet_code || '—') + '</td>';
+    html += '<td style="text-align:center"><span class="badge" style="font-size:0.68rem">' + langLabel + '</span></td>';
+    html += '<td><span class="badge" style="color:' + statutColor + '">' + escHtml(d.statut) + '</span></td>';
+    html += '<td style="text-align:right">';
+    html += '<button class="btn btn-sm" style="padding:0.2rem 0.4rem;font-size:0.72rem" onclick="event.stopPropagation();deleteDemandeAdmin(\'' + d.id + '\')">Suppr.</button>';
+    html += '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div></div>';
+  wrap.innerHTML = html;
+}
+
+function openDemandeAdminModal(data) {
+  document.getElementById('da-edit-id').value = data ? data.id : '';
+  document.getElementById('modal-da-title').textContent = data ? 'Modifier la demande' : 'Nouvelle demande administrative';
+  document.getElementById('da-date').value = data ? (data.date_demande || '') : new Date().toISOString().split('T')[0];
+  document.getElementById('da-langue').value = data ? (data.langue || 'fr') : 'fr';
+  document.getElementById('da-objet').value = data ? (data.objet || '') : '';
+  document.getElementById('da-contenu').value = data ? (data.contenu || '') : '';
+  document.getElementById('da-expediteur').value = data ? (data.expediteur || '') : getSetting('cortoba_agence_raison', 'Cortoba Architecture Studio');
+  document.getElementById('da-destinataire').value = data ? (data.destinataire || '') : '';
+  document.getElementById('da-reference').value = data ? (data.reference || '') : '';
+  document.getElementById('da-statut').value = data ? (data.statut || 'Brouillon') : 'Brouillon';
+  document.getElementById('da-remarques').value = data ? (data.remarques || '') : '';
+
+  _populateDASelect('da-type', getDATypes(), data ? data.type_demande : '');
+  _populateDASelect('da-administration', getDAAdmins(), data ? data.administration : '');
+  _populateDASelect('da-gouvernorat', getDAGouvs(), data ? data.gouvernorat : '', true);
+  _populateDASelect('da-delegation', getDADelegs(), data ? data.delegation : '', true);
+  _populateDASelect('da-municipalite', getDAMunis(), data ? data.municipalite : '', true);
+
+  var pSel = document.getElementById('da-projet');
+  pSel.innerHTML = '<option value="">-- Aucun --</option>';
+  (getProjets() || []).forEach(function(p) {
+    var o = document.createElement('option');
+    o.value = p.id; o.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
+    if (data && data.projet_id === p.id) o.selected = true;
+    pSel.appendChild(o);
+  });
+
+  _renderDADocsChecklist(data);
+  toggleDALangue();
+  openModal('modal-demande-admin');
+}
+
+function _populateDASelect(selectId, items, selected, allowEmpty) {
+  var sel = document.getElementById(selectId);
+  sel.innerHTML = allowEmpty ? '<option value="">-- Aucun(e) --</option>' : '<option value="">-- Choisir --</option>';
+  items.forEach(function(v) {
+    var o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    if (v === selected) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function _renderDADocsChecklist(data) {
+  var wrap = document.getElementById('da-docs-checklist');
+  if (!wrap) return;
+  var docs = getDADocs();
+  var checked = [];
+  if (data && data.documents_joints) {
+    try { checked = typeof data.documents_joints === 'string' ? JSON.parse(data.documents_joints) : data.documents_joints; }
+    catch(e) { checked = []; }
+  }
+  if (!Array.isArray(checked)) checked = [];
+  var html = '';
+  docs.forEach(function(doc) {
+    var isChecked = checked.indexOf(doc) !== -1 ? 'checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;cursor:pointer;padding:0.25rem 0">';
+    html += '<input type="checkbox" class="da-doc-check" value="' + escHtml(doc) + '" ' + isChecked + ' />';
+    html += escHtml(doc);
+    html += '</label>';
+  });
+  wrap.innerHTML = html;
+}
+
+function toggleDALangue() {
+  var lang = document.getElementById('da-langue').value;
+  var contenu = document.getElementById('da-contenu');
+  var objet = document.getElementById('da-objet');
+  if (lang === 'ar') {
+    contenu.style.direction = 'rtl';
+    contenu.style.textAlign = 'right';
+    contenu.style.fontFamily = "'Noto Sans Arabic', 'Amiri', 'Traditional Arabic', serif";
+    objet.style.direction = 'rtl';
+    objet.style.textAlign = 'right';
+  } else {
+    contenu.style.direction = 'ltr';
+    contenu.style.textAlign = 'left';
+    contenu.style.fontFamily = '';
+    objet.style.direction = 'ltr';
+    objet.style.textAlign = 'left';
+  }
+}
+
+function editDemandeAdmin(id) {
+  var d = _daCache.find(function(x) { return x.id === id; });
+  if (!d) return;
+  openDemandeAdminModal(d);
+}
+
+function saveDemandeAdmin() {
+  var id = document.getElementById('da-edit-id').value;
+  var body = {
+    type_demande:   document.getElementById('da-type').value,
+    langue:         document.getElementById('da-langue').value,
+    administration: document.getElementById('da-administration').value,
+    gouvernorat:    document.getElementById('da-gouvernorat').value || null,
+    delegation:     document.getElementById('da-delegation').value || null,
+    municipalite:   document.getElementById('da-municipalite').value || null,
+    projet_id:      document.getElementById('da-projet').value || null,
+    objet:          document.getElementById('da-objet').value,
+    contenu:        document.getElementById('da-contenu').value,
+    expediteur:     document.getElementById('da-expediteur').value,
+    destinataire:   document.getElementById('da-destinataire').value,
+    reference:      document.getElementById('da-reference').value,
+    date_demande:   document.getElementById('da-date').value,
+    statut:         document.getElementById('da-statut').value,
+    remarques:      document.getElementById('da-remarques').value,
+    documents_joints: []
+  };
+
+  document.querySelectorAll('.da-doc-check:checked').forEach(function(cb) {
+    body.documents_joints.push(cb.value);
+  });
+
+  if (!body.type_demande)   { alert('Choisissez un type de demande.'); return; }
+  if (!body.administration) { alert('Choisissez une administration.'); return; }
+  if (!body.objet)          { alert('Saisissez l\'objet de la demande.'); return; }
+
+  var url = id ? 'api/demandes_admin.php?id=' + id : 'api/demandes_admin.php';
+  var method = id ? 'PUT' : 'POST';
+
+  apiFetch(url, { method: method, body: body })
+    .then(function() {
+      closeModal('modal-demande-admin');
+      showToast(id ? 'Demande mise à jour' : 'Demande créée');
+      renderDemandesAdminPage();
+    })
+    .catch(function(e) { alert('Erreur : ' + (e.message || e)); });
+}
+
+function deleteDemandeAdmin(id) {
+  if (!confirm('Supprimer cette demande ?')) return;
+  apiFetch('api/demandes_admin.php?id=' + id, { method: 'DELETE' })
+    .then(function() {
+      showToast('Demande supprimée');
+      renderDemandesAdminPage();
+    })
+    .catch(function(e) { alert('Erreur : ' + (e.message || e)); });
+}
+
+function generateDALetter() {
+  var lang  = document.getElementById('da-langue').value;
+  var type  = document.getElementById('da-type').value;
+  var admin = document.getElementById('da-administration').value;
+  var gouv  = document.getElementById('da-gouvernorat').value;
+  var deleg = document.getElementById('da-delegation').value;
+  var muni  = document.getElementById('da-municipalite').value;
+  var objet = document.getElementById('da-objet').value;
+  var exped = document.getElementById('da-expediteur').value;
+  var dest  = document.getElementById('da-destinataire').value;
+  var ref   = document.getElementById('da-reference').value;
+  var date  = document.getElementById('da-date').value;
+  var projet = document.getElementById('da-projet');
+  var projetText = projet.selectedIndex > 0 ? projet.options[projet.selectedIndex].text : '';
+
+  var docs = [];
+  document.querySelectorAll('.da-doc-check:checked').forEach(function(cb) { docs.push(cb.value); });
+
+  var contenuEl = document.getElementById('da-contenu');
+
+  if (lang === 'ar') {
+    contenuEl.value = _generateLetterAR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projetText, docs);
+  } else {
+    contenuEl.value = _generateLetterFR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projetText, docs);
+  }
+  toggleDALangue();
+}
+
+function _generateLetterFR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projet, docs) {
+  var lieu = muni || deleg || gouv || '';
+  var dateStr = '';
+  try { dateStr = date ? new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; } catch(e) { dateStr = date || ''; }
+  var letter = '';
+
+  letter += (lieu ? lieu + ', le ' : 'Le ') + dateStr + '\n\n';
+  letter += exped + '\n';
+  if (ref) letter += 'Réf : ' + ref + '\n';
+  letter += '\n';
+  letter += 'À ' + (dest || 'Monsieur le Directeur') + '\n';
+  letter += admin + (gouv ? ' — ' + gouv : '') + '\n';
+  if (deleg) letter += 'Délégation de ' + deleg + '\n';
+  if (muni)  letter += muni + '\n';
+  letter += '\n';
+  letter += 'Objet : ' + objet + '\n';
+  if (projet) letter += 'Projet : ' + projet + '\n';
+  letter += '\n';
+  letter += (dest ? dest : 'Monsieur') + ',\n\n';
+  letter += 'J\'ai l\'honneur de vous adresser la présente ' + (type || 'demande').toLowerCase() + ' ';
+  letter += 'relative à ' + (objet || '...').toLowerCase() + '.\n\n';
+  if (projet) letter += 'Cette demande concerne le projet : ' + projet + '.\n\n';
+  letter += 'Je vous prie de bien vouloir donner suite à ma demande dans les meilleurs délais et vous remercie par avance pour votre diligence.\n\n';
+  letter += 'Dans l\'attente de votre réponse, veuillez agréer, ' + (dest || 'Monsieur') + ', l\'expression de mes salutations distinguées.\n\n';
+  letter += exped + '\n';
+
+  if (docs.length > 0) {
+    letter += '\n──────────────────────────\n';
+    letter += 'Pièces jointes :\n';
+    docs.forEach(function(d, i) { letter += (i + 1) + '. ' + d + '\n'; });
+  }
+
+  return letter;
+}
+
+function _generateLetterAR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projet, docs) {
+  var dateStr = '';
+  try { dateStr = date ? new Date(date + 'T00:00:00').toLocaleDateString('ar-TN', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; } catch(e) { dateStr = date || ''; }
+  var lieu = muni || deleg || gouv || '';
+
+  var typeMap = {
+    'Demande d\'avis': 'مطلب رأي',
+    'Demande de devis': 'مطلب تقدير',
+    'Demande de raccordement': 'مطلب ربط',
+    'Demande d\'autorisation': 'مطلب ترخيص',
+    'Demande de permis': 'مطلب رخصة',
+    'Demande de certificat': 'مطلب شهادة',
+    'Demande de régularisation': 'مطلب تسوية',
+    'Lettre de relance': 'رسالة تذكير'
+  };
+  var typeAR = typeMap[type] || type || 'مطلب';
+
+  var adminMap = {
+    'STEG': 'الشركة التونسية للكهرباء والغاز',
+    'SONEDE': 'الشركة الوطنية لاستغلال وتوزيع المياه',
+    'ONAS': 'الديوان الوطني للتطهير',
+    'Municipalité': 'البلدية',
+    'Protection civile': 'الحماية المدنية',
+    'Gouvernorat': 'الولاية',
+    'Ministère de l\'Équipement': 'وزارة التجهيز والإسكان',
+    'CRDA': 'المندوبية الجهوية للتنمية الفلاحية',
+    'Tribunal immobilier': 'المحكمة العقارية',
+    'Conservation foncière': 'إدارة الملكية العقارية'
+  };
+  var adminAR = adminMap[admin] || admin;
+
+  var letter = '';
+  letter += (lieu ? lieu + '، في ' : 'في ') + dateStr + '\n\n';
+  letter += 'من: ' + exped + '\n';
+  if (ref) letter += 'المرجع: ' + ref + '\n';
+  letter += '\n';
+  letter += 'إلى ' + (dest || 'السيد المدير') + '\n';
+  letter += adminAR + (gouv ? ' — ' + gouv : '') + '\n';
+  if (deleg) letter += 'معتمدية ' + deleg + '\n';
+  if (muni)  letter += muni + '\n';
+  letter += '\n';
+  letter += 'الموضوع: ' + objet + '\n';
+  if (projet) letter += 'المشروع: ' + projet + '\n';
+  letter += '\n';
+  letter += (dest || 'سيدي') + '،\n\n';
+  letter += 'يشرّفني أن أتقدّم إليكم بهذا ' + typeAR + ' ';
+  letter += 'المتعلّق بـ ' + (objet || '...') + '.\n\n';
+  if (projet) letter += 'يتعلّق هذا المطلب بالمشروع: ' + projet + '.\n\n';
+  letter += 'أرجو من سيادتكم التكرّم بالنظر في مطلبي والاستجابة له في أقرب الآجال، ولكم منّي جزيل الشكر والتقدير.\n\n';
+  letter += 'وتقبّلوا، ' + (dest || 'سيدي') + '، فائق عبارات الاحترام والتقدير.\n\n';
+  letter += exped + '\n';
+
+  if (docs.length > 0) {
+    letter += '\n──────────────────────────\n';
+    letter += 'الوثائق المرفقة:\n';
+    docs.forEach(function(d, i) { letter += (i + 1) + '. ' + d + '\n'; });
+  }
+
+  return letter;
+}
+
+function printDALetter() {
+  var contenu = document.getElementById('da-contenu').value;
+  if (!contenu) { alert('Générez d\'abord la lettre.'); return; }
+
+  var lang = document.getElementById('da-langue').value;
+  var dir = lang === 'ar' ? 'rtl' : 'ltr';
+  var fontFamily = lang === 'ar' ? "'Amiri', 'Traditional Arabic', serif" : "'Segoe UI', sans-serif";
+  var textAlign = lang === 'ar' ? 'right' : 'left';
+
+  var win = window.open('', '_blank');
+  win.document.write('<!DOCTYPE html><html dir="' + dir + '"><head><meta charset="utf-8"><title>Demande administrative</title>');
+  win.document.write('<link href="https://fonts.googleapis.com/css2?family=Amiri&display=swap" rel="stylesheet">');
+  win.document.write('<style>body{font-family:' + fontFamily + ';font-size:14px;line-height:1.8;padding:40px 60px;max-width:800px;margin:0 auto;direction:' + dir + ';text-align:' + textAlign + ';}pre{white-space:pre-wrap;font-family:inherit;font-size:inherit;line-height:inherit;}@media print{body{padding:20px;}}</style>');
+  win.document.write('</head><body><pre>' + escHtml(contenu) + '</pre></body></html>');
+  win.document.close();
+  setTimeout(function() { win.print(); }, 500);
 }
 

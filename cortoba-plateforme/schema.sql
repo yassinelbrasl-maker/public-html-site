@@ -251,6 +251,35 @@ CREATE TABLE IF NOT EXISTS `CA_journal` (
   KEY `date_jour` (`date_jour`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Demandes administratives (courriers vers administrations)
+CREATE TABLE IF NOT EXISTS `CA_demandes_admin` (
+  `id` varchar(32) NOT NULL,
+  `projet_id` varchar(32) DEFAULT NULL,
+  `type_demande` varchar(120) NOT NULL COMMENT 'demande d''avis, demande de devis, etc.',
+  `langue` enum('fr','ar') NOT NULL DEFAULT 'fr',
+  `administration` varchar(200) NOT NULL,
+  `gouvernorat` varchar(120) DEFAULT NULL,
+  `delegation` varchar(120) DEFAULT NULL,
+  `municipalite` varchar(200) DEFAULT NULL,
+  `objet` varchar(400) NOT NULL,
+  `contenu` longtext COMMENT 'corps de la lettre générée',
+  `documents_joints` longtext COMMENT 'JSON: liste des documents cochés',
+  `expediteur` varchar(200) DEFAULT NULL,
+  `destinataire` varchar(400) DEFAULT NULL,
+  `reference` varchar(120) DEFAULT NULL,
+  `date_demande` date NOT NULL,
+  `statut` varchar(40) NOT NULL DEFAULT 'Brouillon',
+  `remarques` text,
+  `cree_par` varchar(120) DEFAULT NULL,
+  `cree_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `projet_id` (`projet_id`),
+  KEY `statut` (`statut`),
+  KEY `administration` (`administration`),
+  KEY `date_demande` (`date_demande`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ════════════════════════════════════════════════════════════
@@ -280,3 +309,42 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `devis_id` varchar(32) DEFAULT NULL;
 -- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `traite_par` varchar(120) DEFAULT NULL;
 -- ALTER TABLE `CA_demandes` ADD COLUMN IF NOT EXISTS `traite_at` datetime DEFAULT NULL;
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : Module Équipe v2
+--   - Photo de profil
+--   - Double contact (Pro / Perso) + principal
+--   - Rémunération & Coût Employeur (réservé gérant)
+--   - Projection d'augmentation
+-- Exécuter dans phpMyAdmin
+-- ════════════════════════════════════════════════════════════
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `profile_picture_url` VARCHAR(400) DEFAULT NULL;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `tel_pro`             VARCHAR(50)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `tel_perso`           VARCHAR(50)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `tel_principal`       ENUM('pro','perso') NOT NULL DEFAULT 'pro';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `email_pro`           VARCHAR(191) DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `email_perso`         VARCHAR(191) DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `email_principal`     ENUM('pro','perso') NOT NULL DEFAULT 'pro';
+-- Rémunération (sensible — uniquement retourné aux gérants)
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `salaire_net`         DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `charges_sociales`    DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `subventions`         DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `avantages_nature`    DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `heures_mois`         DECIMAL(6,2)  DEFAULT 160;
+-- Projection d'augmentation
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `date_embauche`       DATE         DEFAULT NULL;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `date_derniere_augm`  DATE         DEFAULT NULL;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `taux_augm_pct`       DECIMAL(5,2) DEFAULT 5;
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : Registre dynamique des modules de la plateforme
+-- ════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS `cortoba_modules` (
+  `id`          VARCHAR(40)  NOT NULL PRIMARY KEY,
+  `label`       VARCHAR(120) NOT NULL,
+  `route_url`   VARCHAR(200) DEFAULT NULL,
+  `categorie`   VARCHAR(60)  DEFAULT 'principal',
+  `ordre`       INT          NOT NULL DEFAULT 100,
+  `actif`       TINYINT(1)   NOT NULL DEFAULT 1,
+  `cree_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
