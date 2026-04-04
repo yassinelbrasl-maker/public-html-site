@@ -44,7 +44,7 @@ function getAll() {
 
     $sql  = 'SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
              FROM CA_taches t
-             LEFT JOIN CA_projets p ON p.id = t.projet_id
+             LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = t.projet_id COLLATE utf8mb4_unicode_ci
              WHERE ' . implode(' AND ', $where) . '
              ORDER BY t.ordre ASC, t.cree_at ASC';
     $stmt = $db->prepare($sql);
@@ -56,7 +56,7 @@ function getOne(string $id) {
     $db   = getDB();
     $stmt = $db->prepare('SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
                           FROM CA_taches t
-                          LEFT JOIN CA_projets p ON p.id = t.projet_id
+                          LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = t.projet_id COLLATE utf8mb4_unicode_ci
                           WHERE t.id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
@@ -108,7 +108,7 @@ function create(array $user) {
 
     // Retourner la tâche créée
     $stmt = $db->prepare('SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
-                          FROM CA_taches t LEFT JOIN CA_projets p ON p.id = t.projet_id
+                          FROM CA_taches t LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = t.projet_id COLLATE utf8mb4_unicode_ci
                           WHERE t.id = ?');
     $stmt->execute([$id]);
     jsonOk($stmt->fetch());
