@@ -744,4 +744,34 @@
       font-size: 0.75rem; color: var(--text-2); font-style: italic;
       margin-top: 0.3rem; max-width: 300px; line-height: 1.4;
     }
+
+    /* ═══ RENDEMENT ═══ */
+
+    .rendement-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.8rem;
+    }
+    @media (max-width: 550px) { .rendement-grid { grid-template-columns: 1fr; } }
+
+    .rendement-card {
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .rendement-card-header {
+      display: flex; align-items: center; gap: 0.7rem;
+      padding: 0.9rem 1rem; border-bottom: 1px solid var(--border);
+    }
+    .rendement-score {
+      font-size: 1.4rem; font-weight: 700; flex-shrink: 0;
+    }
+    .rendement-metrics {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .rendement-metric {
+      text-align: center; padding: 0.6rem 0.4rem;
+      border-right: 1px solid var(--border);
+    }
+    .rendement-metric:nth-child(3n) { border-right: none; }
+    .rendement-metric:nth-child(n+4) { border-top: 1px solid var(--border); }
+    .rendement-metric-val { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .rendement-metric-label { font-size: 0.62rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.1rem; }
   </style>

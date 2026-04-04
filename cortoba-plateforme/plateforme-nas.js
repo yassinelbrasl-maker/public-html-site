@@ -3627,7 +3627,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -3752,7 +3752,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   var _allowed = getAllowedModules();
@@ -3772,6 +3772,7 @@ function showPage(id){
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
   if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }).catch(function(e){ console.error('[suivi] init error', e); }); },80);
   if(id==='journal')    setTimeout(function(){ var dEl=document.getElementById('journal-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().split('T')[0]; renderJournalPage(); },80);
+  if(id==='rendement')  setTimeout(renderRendementPage,80);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
@@ -3781,6 +3782,7 @@ function showPage(id){
       renderParametresListes();
       renderCfgTypesParams();
       renderParametresMissions();
+      if (typeof renderParametresTachesTypes === 'function') renderParametresTachesTypes();
       if (typeof renderParametresRoles === 'function') renderParametresRoles();
       loadAgenceParams();
       loadNasParams();
@@ -4577,8 +4579,8 @@ var MODULES_PLATEFORME = [
 
 // Modules par défaut selon rôle (pré-coché automatiquement à la sélection)
 var MODULES_PAR_ROLE = {
-  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
-  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','nas','clients'],
+  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
+  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','rendement','nas','clients'],
   'Décorateur':              ['dashboard','projets','suivi','journal','nas','clients'],
   'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite'],
   'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','nas','clients'],
@@ -6795,13 +6797,16 @@ function editTache(id) {
 function saveTache() {
   var id       = document.getElementById('tache-id').value;
   var niveau   = parseInt(document.getElementById('tache-niveau').value) || 0;
-  var titre    = niveau === 0
+  // Titre : select si mission (0) ou tâche-type (1 avec liste), sinon input libre
+  var selectVisible = document.getElementById('tache-titre-field-select').style.display !== 'none';
+  var titre = selectVisible
     ? document.getElementById('tache-titre-select').value.trim()
     : document.getElementById('tache-titre').value.trim();
   var projetId = document.getElementById('tache-projet').value;
   var errEl    = document.getElementById('tache-err');
 
-  if (!titre) { errEl.textContent = niveau === 0 ? 'Veuillez choisir une mission.' : 'Le titre est requis.'; errEl.style.display = 'block'; return; }
+  var errMsg = niveau === 0 ? 'Veuillez choisir une mission.' : niveau === 1 ? 'Veuillez choisir ou saisir une tâche.' : 'Le titre est requis.';
+  if (!titre) { errEl.textContent = errMsg; errEl.style.display = 'block'; return; }
   if (!projetId) { errEl.textContent = 'Veuillez choisir un projet.'; errEl.style.display = 'block'; return; }
 
   var body = {
@@ -7160,5 +7165,335 @@ function saveJournalEntry() {
       errEl.textContent = e.message || 'Erreur';
       errEl.style.display = 'block';
     });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TÂCHES-TYPES — Liste configurable classée par mission
+// ═══════════════════════════════════════════════════════════
+
+function getTachesTypes() {
+  var t = getSetting('cortoba_taches_types', []);
+  return Array.isArray(t) ? t : [];
+}
+
+function renderParametresTachesTypes() {
+  var wrap = document.getElementById('param-taches-types-wrap'); if (!wrap) return;
+  var tachesTypes = getTachesTypes();
+  var missions = getMissions();
+  var cats = getMissionCategories();
+  var html = '';
+
+  // Grouper par mission
+  missions.forEach(function(m) {
+    var cat = cats.find(function(c) { return c.id === m.cat; });
+    var catLabel = cat ? cat.label : '';
+    var mTaches = tachesTypes.filter(function(t) { return t.mission_id === m.id; });
+    if (mTaches.length === 0) return;
+
+    html += '<div style="margin-bottom:1rem">';
+    html += '<div style="font-size:0.72rem;font-weight:600;color:var(--accent);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.4rem">';
+    html += (catLabel ? catLabel + ' › ' : '') + m.nom + '</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
+    mTaches.forEach(function(t) {
+      html += '<span style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.74rem;background:var(--bg-3);border:1px solid var(--border);color:var(--text-2)">';
+      html += (t.nom || '');
+      html += '<button type="button" style="background:none;border:none;cursor:pointer;color:#e07070;font-size:0.8rem;line-height:1;padding:0 0 0 3px" onclick="removeParamTacheType(\'' + t.id + '\')" title="Supprimer">✕</button>';
+      html += '</span>';
+    });
+    html += '</div></div>';
+  });
+
+  // Orphelines
+  var orphans = tachesTypes.filter(function(t) { return !t.mission_id || !missions.find(function(m) { return m.id === t.mission_id; }); });
+  if (orphans.length > 0) {
+    html += '<div style="margin-bottom:1rem"><div style="font-size:0.72rem;font-weight:600;color:var(--text-3);margin-bottom:0.4rem">Non classées</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
+    orphans.forEach(function(t) {
+      html += '<span style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.74rem;background:var(--bg-3);border:1px solid var(--border);color:var(--text-3)">' + (t.nom || '');
+      html += '<button type="button" style="background:none;border:none;cursor:pointer;color:#e07070;font-size:0.8rem" onclick="removeParamTacheType(\'' + t.id + '\')">✕</button></span>';
+    });
+    html += '</div></div>';
+  }
+
+  if (!html) html = '<div style="font-size:0.78rem;color:var(--text-3);font-style:italic">Aucune tâche-type configurée. Ajoutez-en ci-dessous.</div>';
+  wrap.innerHTML = html;
+
+  // Remplir le select des missions parentes
+  var selM = document.getElementById('param-tache-mission');
+  if (selM && selM.options.length <= 1) {
+    cats.forEach(function(cat) {
+      var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
+      if (catMissions.length === 0) return;
+      var optgroup = document.createElement('optgroup');
+      optgroup.label = cat.label;
+      catMissions.forEach(function(m) {
+        var opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.nom;
+        optgroup.appendChild(opt);
+      });
+      selM.appendChild(optgroup);
+    });
+  }
+}
+
+function addParamTacheType() {
+  var missionId = document.getElementById('param-tache-mission').value;
+  var nom = (document.getElementById('param-tache-nom').value || '').trim();
+  if (!nom) { alert('Saisissez le nom de la tâche.'); return; }
+  if (!missionId) { alert('Choisissez la mission parente.'); return; }
+  var list = getTachesTypes();
+  list.push({ id: 'tt_' + Date.now(), mission_id: missionId, nom: nom });
+  saveSetting('cortoba_taches_types', list);
+  document.getElementById('param-tache-nom').value = '';
+  renderParametresTachesTypes();
+  showToast('Tâche-type ajoutée');
+}
+
+function removeParamTacheType(id) {
+  if (!confirm('Supprimer cette tâche-type ?')) return;
+  var list = getTachesTypes().filter(function(t) { return t.id !== id; });
+  saveSetting('cortoba_taches_types', list);
+  renderParametresTachesTypes();
+  showToast('Tâche-type supprimée');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODAL SUIVI — Tâches depuis la liste configurable
+// ═══════════════════════════════════════════════════════════
+
+// Surcharger _toggleTitreField pour niveau 1 (tâches) : select depuis tâches-types
+var _origToggleTitreField = _toggleTitreField;
+_toggleTitreField = function(niveau, selectedValue) {
+  var fieldSelect = document.getElementById('tache-titre-field-select');
+  var fieldInput  = document.getElementById('tache-titre-field-input');
+
+  if (niveau === 0) {
+    // Mission → select missions
+    fieldSelect.style.display = '';
+    fieldInput.style.display = 'none';
+    var labelEl = fieldSelect.querySelector('.form-label');
+    if (labelEl) labelEl.textContent = 'Mission *';
+    _populateMissionsSelect(selectedValue);
+  } else if (niveau === 1) {
+    // Tâche → select tâches-types OU input libre
+    var tachesTypes = getTachesTypes();
+    if (tachesTypes.length > 0) {
+      fieldSelect.style.display = '';
+      fieldInput.style.display = 'none';
+      var labelEl = fieldSelect.querySelector('.form-label');
+      if (labelEl) labelEl.textContent = 'Tâche *';
+      _populateTachesTypesSelect(selectedValue);
+    } else {
+      fieldSelect.style.display = 'none';
+      fieldInput.style.display = '';
+      document.getElementById('tache-titre').value = selectedValue || '';
+    }
+  } else {
+    // Sous-tâche → input libre
+    fieldSelect.style.display = 'none';
+    fieldInput.style.display = '';
+    document.getElementById('tache-titre').value = selectedValue || '';
+  }
+};
+
+function _populateTachesTypesSelect(selectedValue) {
+  var sel = document.getElementById('tache-titre-select');
+  sel.innerHTML = '<option value="">— Choisir une tâche —</option>';
+  var tachesTypes = getTachesTypes();
+  var missions = getMissions();
+  var cats = getMissionCategories();
+
+  // Grouper par mission
+  missions.forEach(function(m) {
+    var mTaches = tachesTypes.filter(function(t) { return t.mission_id === m.id; });
+    if (mTaches.length === 0) return;
+    var cat = cats.find(function(c) { return c.id === m.cat; });
+    var optgroup = document.createElement('optgroup');
+    optgroup.label = (cat ? cat.label + ' › ' : '') + m.nom;
+    mTaches.forEach(function(t) {
+      var opt = document.createElement('option');
+      opt.value = t.nom;
+      opt.textContent = t.nom;
+      optgroup.appendChild(opt);
+    });
+    sel.appendChild(optgroup);
+  });
+
+  if (selectedValue) sel.value = selectedValue;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDEMENT — Synthèse et historique des performances
+// ═══════════════════════════════════════════════════════════
+
+function renderRendementPage() {
+  var periodeVal = document.getElementById('rendement-periode').value;
+  var dateTo   = new Date();
+  var dateFrom = new Date();
+  if (periodeVal === 'all') {
+    dateFrom = new Date('2020-01-01');
+  } else {
+    dateFrom.setDate(dateFrom.getDate() - parseInt(periodeVal));
+  }
+  var df = dateFrom.toISOString().split('T')[0];
+  var dt = dateTo.toISOString().split('T')[0];
+
+  Promise.all([
+    loadTaches(),
+    apiFetch('api/journal.php?date_from=' + df + '&date_to=' + dt).catch(function() { return { data: [] }; })
+  ]).then(function(results) {
+    var taches = results[0] || [];
+    var journalEntries = results[1].data || [];
+
+    _renderRendementKPIs(taches, journalEntries);
+    _renderRendementMembres(taches, journalEntries);
+    _renderRendementHistorique(taches, journalEntries, periodeVal);
+  });
+}
+
+function _renderRendementKPIs(taches, entries) {
+  var wrap = document.getElementById('rendement-kpis');
+  var totalTaches = taches.filter(function(t) { return t.niveau >= 1; }).length;
+  var terminees = taches.filter(function(t) { return t.niveau >= 1 && t.statut === 'Terminé'; }).length;
+  var totalHeures = 0;
+  entries.forEach(function(e) { totalHeures += parseFloat(e.heures || 0); });
+  var membresActifs = {};
+  entries.forEach(function(e) { if (e.membre) membresActifs[e.membre] = true; });
+  var nbMembres = Object.keys(membresActifs).length;
+  var tauxCompletion = totalTaches > 0 ? Math.round((terminees / totalTaches) * 100) : 0;
+
+  wrap.innerHTML = ''
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + totalTaches + '</div><div class="journal-kpi-label">Tâches totales</div></div>'
+    + '<div class="journal-kpi"><div class="journal-kpi-val" style="color:var(--green)">' + terminees + '</div><div class="journal-kpi-label">Terminées</div></div>'
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + tauxCompletion + '%</div><div class="journal-kpi-label">Taux de complétion</div></div>'
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + totalHeures.toFixed(1) + 'h</div><div class="journal-kpi-label">Heures travaillées</div></div>'
+    + '<div class="journal-kpi"><div class="journal-kpi-val">' + nbMembres + '</div><div class="journal-kpi-label">Membres actifs</div></div>';
+}
+
+function _renderRendementMembres(taches, entries) {
+  var wrap = document.getElementById('rendement-membres');
+  var membres = getMembres();
+
+  // Collecter les stats par membre
+  var stats = {};
+  membres.forEach(function(m) {
+    var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
+    if (!fullName) return;
+    stats[fullName] = { nom: fullName, role: m.role || '', assignees: 0, terminees: 0, enCours: 0, bloquees: 0, heures: 0, entries: 0, progSum: 0 };
+  });
+
+  // Stats depuis les tâches
+  taches.forEach(function(t) {
+    if (t.niveau < 1) return;
+    var a = (t.assignee || '').trim();
+    if (!a || !stats[a]) return;
+    stats[a].assignees++;
+    if (t.statut === 'Terminé') stats[a].terminees++;
+    if (t.statut === 'En cours') stats[a].enCours++;
+    if (t.statut === 'Bloqué') stats[a].bloquees++;
+  });
+
+  // Stats depuis le journal
+  entries.forEach(function(e) {
+    var m = (e.membre || '').trim();
+    if (!m) return;
+    if (!stats[m]) stats[m] = { nom: m, role: '', assignees: 0, terminees: 0, enCours: 0, bloquees: 0, heures: 0, entries: 0, progSum: 0 };
+    stats[m].heures += parseFloat(e.heures || 0);
+    stats[m].entries++;
+    stats[m].progSum += parseInt(e.progression_apres || 0) - parseInt(e.progression_avant || 0);
+  });
+
+  // Trier par tâches terminées (desc)
+  var sorted = Object.values(stats).sort(function(a, b) { return b.terminees - a.terminees; });
+
+  if (sorted.length === 0) {
+    wrap.innerHTML = '<div class="card" style="text-align:center;padding:2rem;color:var(--text-3)">Aucune donnée de performance disponible.</div>';
+    return;
+  }
+
+  var html = '<div class="rendement-grid">';
+  sorted.forEach(function(s) {
+    var tauxCompl = s.assignees > 0 ? Math.round((s.terminees / s.assignees) * 100) : 0;
+    var productivite = s.heures > 0 ? (s.terminees / s.heures * 8).toFixed(1) : '—';
+    var ini = ((s.nom.split(' ')[0] || '')[0] || '') + ((s.nom.split(' ')[1] || '')[0] || '');
+    ini = ini.toUpperCase() || '?';
+
+    // Couleur selon performance
+    var perfColor = tauxCompl >= 80 ? 'var(--green)' : tauxCompl >= 50 ? 'var(--accent)' : tauxCompl > 0 ? 'var(--orange)' : 'var(--text-3)';
+
+    html += '<div class="rendement-card">';
+    // Header
+    html += '<div class="rendement-card-header">';
+    html += '<div class="suivi-membre-avatar">' + ini + '</div>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div class="suivi-membre-nom">' + s.nom + '</div>';
+    if (s.role) html += '<div style="font-size:0.7rem;color:var(--text-3)">' + s.role + '</div>';
+    html += '</div>';
+    html += '<div class="rendement-score" style="color:' + perfColor + '">' + tauxCompl + '%</div>';
+    html += '</div>';
+
+    // Metrics
+    html += '<div class="rendement-metrics">';
+    html += '<div class="rendement-metric"><div class="rendement-metric-val">' + s.assignees + '</div><div class="rendement-metric-label">Assignées</div></div>';
+    html += '<div class="rendement-metric"><div class="rendement-metric-val" style="color:var(--green)">' + s.terminees + '</div><div class="rendement-metric-label">Terminées</div></div>';
+    html += '<div class="rendement-metric"><div class="rendement-metric-val" style="color:var(--blue)">' + s.enCours + '</div><div class="rendement-metric-label">En cours</div></div>';
+    html += '<div class="rendement-metric"><div class="rendement-metric-val" style="color:var(--red)">' + s.bloquees + '</div><div class="rendement-metric-label">Bloquées</div></div>';
+    html += '<div class="rendement-metric"><div class="rendement-metric-val">' + s.heures.toFixed(1) + 'h</div><div class="rendement-metric-label">Heures</div></div>';
+    html += '<div class="rendement-metric"><div class="rendement-metric-val">' + s.entries + '</div><div class="rendement-metric-label">Entrées journal</div></div>';
+    html += '</div>';
+
+    // Barre de progression
+    html += '<div style="padding:0.6rem 1rem;border-top:1px solid var(--border)">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-3);margin-bottom:0.3rem"><span>Taux de complétion</span><span style="color:' + perfColor + ';font-weight:600">' + tauxCompl + '%</span></div>';
+    html += '<div style="width:100%;height:6px;background:var(--bg-3);border-radius:3px;overflow:hidden"><div style="width:' + tauxCompl + '%;height:100%;background:' + perfColor + ';border-radius:3px;transition:width 0.4s"></div></div>';
+    html += '</div>';
+
+    html += '</div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function _renderRendementHistorique(taches, entries, periode) {
+  var wrap = document.getElementById('rendement-historique');
+  if (entries.length === 0) {
+    wrap.innerHTML = '';
+    return;
+  }
+
+  // Grouper par date
+  var dateMap = {};
+  entries.forEach(function(e) {
+    var d = e.date_jour;
+    if (!dateMap[d]) dateMap[d] = { date: d, membres: {}, heures: 0, entries: 0, progSum: 0 };
+    dateMap[d].heures += parseFloat(e.heures || 0);
+    dateMap[d].entries++;
+    dateMap[d].progSum += parseInt(e.progression_apres || 0) - parseInt(e.progression_avant || 0);
+    dateMap[d].membres[e.membre] = true;
+  });
+
+  var dates = Object.keys(dateMap).sort().reverse();
+
+  var html = '<div class="card">';
+  html += '<div class="card-title">Historique par journée</div>';
+  html += '<div class="table-wrap"><table><thead><tr>';
+  html += '<th>Date</th><th>Membres actifs</th><th>Entrées</th><th>Heures</th><th>Avancement cumulé</th>';
+  html += '</tr></thead><tbody>';
+
+  dates.forEach(function(d) {
+    var row = dateMap[d];
+    var nbMembres = Object.keys(row.membres).length;
+    html += '<tr>';
+    html += '<td style="font-family:var(--mono);font-size:0.8rem">' + fmtDate(d) + '</td>';
+    html += '<td style="text-align:center">' + nbMembres + '</td>';
+    html += '<td style="text-align:center">' + row.entries + '</td>';
+    html += '<td style="text-align:center">' + row.heures.toFixed(1) + 'h</td>';
+    html += '<td style="text-align:center;color:var(--green);font-weight:500">+' + row.progSum + ' pts</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div></div>';
+  wrap.innerHTML = html;
 }
 
