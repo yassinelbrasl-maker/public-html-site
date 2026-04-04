@@ -3752,7 +3752,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   var _allowed = getAllowedModules();
@@ -3770,6 +3770,7 @@ function showPage(id){
   if (_secLabel) _secLabel.textContent=pageLabels[id]||'';
   if(id==='demandes')   setTimeout(renderDemandes,80);
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
+  if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }); },80);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
@@ -6245,5 +6246,433 @@ function resetCfgParams() {
   saveSetting('cfg_ratios', CFG_DEFAULTS.cfg_ratios);
   loadCfgParams();
   showToast('Paramètres réinitialisés');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SUIVI DES MISSIONS — Module complet
+// ═══════════════════════════════════════════════════════════
+
+var _suiviCache = [];
+var _suiviView = 'list'; // 'list' ou 'kanban'
+
+function loadTaches(projetId) {
+  var url = 'api/taches.php';
+  if (projetId) url += '?projet_id=' + encodeURIComponent(projetId);
+  return apiFetch(url).then(function(r) {
+    _suiviCache = (r.data || []).map(function(t) {
+      if (t.projet_id && !t.projetId) t.projetId = t.projet_id;
+      if (t.parent_id && !t.parentId) t.parentId = t.parent_id;
+      if (t.projet_nom && !t.projetNom) t.projetNom = t.projet_nom;
+      if (t.projet_code && !t.projetCode) t.projetCode = t.projet_code;
+      if (t.date_debut && !t.dateDebut) t.dateDebut = t.date_debut;
+      if (t.date_echeance && !t.dateEcheance) t.dateEcheance = t.date_echeance;
+      if (t.cree_par && !t.creePar) t.creePar = t.cree_par;
+      if (t.cree_at && !t.creeAt) t.creeAt = t.cree_at;
+      t.niveau = parseInt(t.niveau) || 0;
+      t.progression = parseInt(t.progression) || 0;
+      t.ordre = parseInt(t.ordre) || 0;
+      return t;
+    });
+    return _suiviCache;
+  });
+}
+
+function renderSuiviPage() {
+  var filterProjet  = document.getElementById('suivi-filter-projet').value;
+  var filterStatut  = document.getElementById('suivi-filter-statut').value;
+  var filterPriorite = document.getElementById('suivi-filter-priorite').value;
+  var search = (document.getElementById('suivi-search').value || '').toLowerCase().trim();
+
+  // Populate project select
+  var selProjet = document.getElementById('suivi-filter-projet');
+  var projets = getProjets().filter(function(p){ return p.statut === 'Actif' || p.statut === 'En pause'; });
+  var allProjets = getProjets();
+  if (selProjet.options.length <= 1) {
+    allProjets.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
+      selProjet.appendChild(opt);
+    });
+    if (filterProjet) selProjet.value = filterProjet;
+  }
+
+  // Filter tasks
+  var filtered = _suiviCache.filter(function(t) {
+    if (filterProjet && t.projet_id !== filterProjet) return false;
+    if (filterStatut && t.statut !== filterStatut) return false;
+    if (filterPriorite && t.priorite !== filterPriorite) return false;
+    if (search) {
+      var hay = ((t.titre||'') + ' ' + (t.description||'') + ' ' + (t.assignee||'') + ' ' + (t.projetNom||'')).toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+
+  // Count
+  var countEl = document.getElementById('suivi-count');
+  var missions = filtered.filter(function(t){ return t.niveau === 0; });
+  var taches = filtered.filter(function(t){ return t.niveau === 1; });
+  var sousTaches = filtered.filter(function(t){ return t.niveau === 2; });
+  countEl.textContent = missions.length + ' mission' + (missions.length > 1 ? 's' : '') +
+    ' · ' + taches.length + ' tâche' + (taches.length > 1 ? 's' : '') +
+    ' · ' + sousTaches.length + ' sous-tâche' + (sousTaches.length > 1 ? 's' : '');
+
+  if (_suiviView === 'kanban') {
+    renderSuiviKanban(filtered);
+  } else {
+    renderSuiviTree(filtered);
+  }
+}
+
+// ── Statut badge helper ──
+function suiviStatutBadge(statut) {
+  var cls = 'badge-gray';
+  if (statut === 'En cours') cls = 'badge-blue';
+  if (statut === 'Terminé') cls = 'badge-green';
+  if (statut === 'Bloqué')  cls = 'badge-red';
+  if (statut === 'A faire') cls = 'badge-orange';
+  return '<span class="badge ' + cls + '">' + statut + '</span>';
+}
+
+function suiviPrioriteBadge(p) {
+  if (p === 'Urgente') return '<span class="suivi-prio suivi-prio-urgente">Urgente</span>';
+  if (p === 'Haute')   return '<span class="suivi-prio suivi-prio-haute">Haute</span>';
+  if (p === 'Basse')   return '<span class="suivi-prio suivi-prio-basse">Basse</span>';
+  return '';
+}
+
+function suiviProgressBar(val) {
+  var color = val >= 100 ? 'var(--green)' : val >= 50 ? 'var(--accent)' : 'var(--blue)';
+  return '<div class="suivi-progress-wrap">' +
+    '<div class="suivi-progress-bar" style="width:' + val + '%;background:' + color + '"></div>' +
+    '</div>' +
+    '<span class="suivi-progress-text">' + val + '%</span>';
+}
+
+// ── Vue arborescente (liste) ──
+function renderSuiviTree(items) {
+  var tree = document.getElementById('suivi-tree');
+  var empty = document.getElementById('suivi-empty');
+
+  // Build hierarchy: group by projet, then missions → taches → sous-taches
+  var projetMap = {};
+  items.forEach(function(t) {
+    var pid = t.projet_id;
+    if (!projetMap[pid]) projetMap[pid] = { nom: t.projetNom || 'Projet inconnu', code: t.projetCode || '', items: [] };
+    projetMap[pid].items.push(t);
+  });
+
+  if (Object.keys(projetMap).length === 0) {
+    tree.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  var html = '';
+  Object.keys(projetMap).forEach(function(pid) {
+    var proj = projetMap[pid];
+    var projItems = proj.items;
+
+    // Stats for project
+    var totalTasks = projItems.length;
+    var done = projItems.filter(function(t){ return t.statut === 'Terminé'; }).length;
+    var projProg = totalTasks > 0 ? Math.round((done / totalTasks) * 100) : 0;
+
+    html += '<div class="suivi-projet-group">';
+    html += '<div class="suivi-projet-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">';
+    html += '<div class="suivi-projet-left">';
+    html += '<svg class="suivi-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+    html += '<span class="suivi-projet-code">' + (proj.code || '') + '</span>';
+    html += '<span class="suivi-projet-nom">' + proj.nom + '</span>';
+    html += '</div>';
+    html += '<div class="suivi-projet-right">';
+    html += '<span class="suivi-projet-stats">' + done + '/' + totalTasks + '</span>';
+    html += suiviProgressBar(projProg);
+    html += '<button class="btn btn-sm" onclick="event.stopPropagation();openSuiviModal(0, null, \'' + pid + '\')" title="Ajouter une mission">+ Mission</button>';
+    html += '</div>';
+    html += '</div>';
+
+    // Missions (niveau 0)
+    var missionsList = projItems.filter(function(t){ return t.niveau === 0; });
+    missionsList.sort(function(a,b){ return a.ordre - b.ordre; });
+
+    html += '<div class="suivi-projet-body">';
+    missionsList.forEach(function(m) {
+      var children = projItems.filter(function(t){ return t.parent_id === m.id && t.niveau === 1; });
+      children.sort(function(a,b){ return a.ordre - b.ordre; });
+
+      html += '<div class="suivi-mission-card">';
+      html += '<div class="suivi-mission-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">';
+      html += '<div class="suivi-mission-left">';
+      html += '<svg class="suivi-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+      html += '<span class="suivi-mission-icon">🎯</span>';
+      html += '<span class="suivi-mission-titre">' + (m.titre||'') + '</span>';
+      html += suiviPrioriteBadge(m.priorite);
+      html += '</div>';
+      html += '<div class="suivi-mission-right">';
+      html += suiviStatutBadge(m.statut);
+      html += suiviProgressBar(m.progression);
+      if (m.dateEcheance) html += '<span class="suivi-date" title="Échéance">' + fD(m.dateEcheance) + '</span>';
+      if (m.assignee) html += '<span class="suivi-assignee" title="' + m.assignee + '">' + m.assignee.split(' ')[0] + '</span>';
+      html += '<div class="suivi-actions">';
+      html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(1, \'' + m.id + '\', \'' + pid + '\')" title="Ajouter tâche">+ Tâche</button>';
+      html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + m.id + '\')" title="Modifier">✎</button>';
+      html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + m.id + '\')" title="Supprimer">✕</button>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      // Tâches (niveau 1)
+      html += '<div class="suivi-children">';
+      children.forEach(function(tache) {
+        var subChildren = projItems.filter(function(t){ return t.parent_id === tache.id && t.niveau === 2; });
+        subChildren.sort(function(a,b){ return a.ordre - b.ordre; });
+
+        html += '<div class="suivi-tache-card">';
+        html += '<div class="suivi-tache-row">';
+        html += '<div class="suivi-tache-left">';
+        if (subChildren.length > 0) {
+          html += '<svg class="suivi-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" onclick="this.closest(\'.suivi-tache-card\').classList.toggle(\'collapsed\');event.stopPropagation()" style="cursor:pointer"><polyline points="6 9 12 15 18 9"/></svg>';
+        } else {
+          html += '<span style="width:11px;display:inline-block"></span>';
+        }
+        html += '<input type="checkbox" class="suivi-cb" ' + (tache.statut === 'Terminé' ? 'checked' : '') + ' onchange="toggleTacheStatut(\'' + tache.id + '\', this.checked)" onclick="event.stopPropagation()" />';
+        html += '<span class="suivi-tache-titre' + (tache.statut === 'Terminé' ? ' done' : '') + '">' + (tache.titre||'') + '</span>';
+        html += suiviPrioriteBadge(tache.priorite);
+        html += '</div>';
+        html += '<div class="suivi-tache-right">';
+        html += suiviStatutBadge(tache.statut);
+        html += suiviProgressBar(tache.progression);
+        if (tache.dateEcheance) html += '<span class="suivi-date">' + fD(tache.dateEcheance) + '</span>';
+        if (tache.assignee) html += '<span class="suivi-assignee">' + tache.assignee.split(' ')[0] + '</span>';
+        html += '<div class="suivi-actions">';
+        html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(2, \'' + tache.id + '\', \'' + pid + '\')" title="Ajouter sous-tâche">+</button>';
+        html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + tache.id + '\')" title="Modifier">✎</button>';
+        html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + tache.id + '\')" title="Supprimer">✕</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        // Sous-tâches (niveau 2)
+        if (subChildren.length > 0) {
+          html += '<div class="suivi-sub-children">';
+          subChildren.forEach(function(st) {
+            html += '<div class="suivi-subtache-row">';
+            html += '<input type="checkbox" class="suivi-cb" ' + (st.statut === 'Terminé' ? 'checked' : '') + ' onchange="toggleTacheStatut(\'' + st.id + '\', this.checked)" />';
+            html += '<span class="suivi-tache-titre' + (st.statut === 'Terminé' ? ' done' : '') + '">' + (st.titre||'') + '</span>';
+            html += suiviPrioriteBadge(st.priorite);
+            html += '<div style="margin-left:auto;display:flex;align-items:center;gap:0.4rem">';
+            html += suiviStatutBadge(st.statut);
+            if (st.assignee) html += '<span class="suivi-assignee">' + st.assignee.split(' ')[0] + '</span>';
+            html += '<button class="suivi-action-btn" onclick="editTache(\'' + st.id + '\')" title="Modifier">✎</button>';
+            html += '<button class="suivi-action-btn suivi-del" onclick="deleteTache(\'' + st.id + '\')" title="Supprimer">✕</button>';
+            html += '</div>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>'; // .suivi-children
+      html += '</div>'; // .suivi-mission-card
+    });
+    html += '</div>'; // .suivi-projet-body
+    html += '</div>'; // .suivi-projet-group
+  });
+
+  tree.innerHTML = html;
+}
+
+// ── Vue Kanban ──
+function renderSuiviKanban(items) {
+  var kanban = document.getElementById('suivi-kanban');
+  var statuts = ['A faire', 'En cours', 'Bloqué', 'Terminé'];
+  var colors = { 'A faire': 'var(--yellow)', 'En cours': 'var(--blue)', 'Bloqué': 'var(--red)', 'Terminé': 'var(--green)' };
+
+  var html = '';
+  statuts.forEach(function(st) {
+    var col = items.filter(function(t){ return t.statut === st; });
+    html += '<div class="suivi-kanban-col">';
+    html += '<div class="suivi-kanban-col-header" style="border-top-color:' + colors[st] + '">';
+    html += '<span>' + st + '</span><span class="suivi-kanban-count">' + col.length + '</span>';
+    html += '</div>';
+    html += '<div class="suivi-kanban-col-body">';
+    col.forEach(function(t) {
+      var niveauLabel = t.niveau === 0 ? 'Mission' : t.niveau === 1 ? 'Tâche' : 'Sous-tâche';
+      html += '<div class="suivi-kanban-card" onclick="editTache(\'' + t.id + '\')">';
+      html += '<div class="suivi-kanban-card-top">';
+      html += '<span class="suivi-kanban-niveau">' + niveauLabel + '</span>';
+      html += suiviPrioriteBadge(t.priorite);
+      html += '</div>';
+      html += '<div class="suivi-kanban-card-titre">' + (t.titre||'') + '</div>';
+      if (t.projetNom) html += '<div class="suivi-kanban-card-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
+      html += '<div class="suivi-kanban-card-bottom">';
+      if (t.assignee) html += '<span class="suivi-assignee">' + t.assignee + '</span>';
+      if (t.dateEcheance) html += '<span class="suivi-date">' + fD(t.dateEcheance) + '</span>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  kanban.innerHTML = html;
+}
+
+// ── Toggle vue liste/kanban ──
+function suiviToggleView() {
+  var btn = document.getElementById('suivi-toggle-view');
+  if (_suiviView === 'list') {
+    _suiviView = 'kanban';
+    document.getElementById('suivi-list-view').style.display = 'none';
+    document.getElementById('suivi-kanban-view').style.display = '';
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Vue Liste';
+  } else {
+    _suiviView = 'list';
+    document.getElementById('suivi-list-view').style.display = '';
+    document.getElementById('suivi-kanban-view').style.display = 'none';
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Vue Kanban';
+  }
+  renderSuiviPage();
+}
+
+// ── Modal ouverture ──
+function openSuiviModal(niveau, parentId, projetId) {
+  niveau = niveau || 0;
+  var labels = ['Nouvelle mission', 'Nouvelle tâche', 'Nouvelle sous-tâche'];
+  document.getElementById('tache-modal-title').textContent = labels[niveau] || labels[0];
+  document.getElementById('tache-id').value = '';
+  document.getElementById('tache-parent-id').value = parentId || '';
+  document.getElementById('tache-niveau').value = niveau;
+  document.getElementById('tache-titre').value = '';
+  document.getElementById('tache-desc').value = '';
+  document.getElementById('tache-statut').value = 'A faire';
+  document.getElementById('tache-priorite').value = 'Normale';
+  document.getElementById('tache-assignee').value = '';
+  document.getElementById('tache-progression').value = 0;
+  document.getElementById('tache-prog-val').textContent = '0%';
+  document.getElementById('tache-date-debut').value = '';
+  document.getElementById('tache-date-echeance').value = '';
+  var errEl = document.getElementById('tache-err');
+  if (errEl) errEl.style.display = 'none';
+
+  // Populate projet select
+  var sel = document.getElementById('tache-projet');
+  sel.innerHTML = '<option value="">— Choisir un projet —</option>';
+  getProjets().forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
+    sel.appendChild(opt);
+  });
+  if (projetId) sel.value = projetId;
+
+  // Disable projet select if adding child to a specific project
+  sel.disabled = !!projetId && niveau > 0;
+
+  openModal('modal-tache');
+}
+
+// ── Modifier une tâche existante ──
+function editTache(id) {
+  var t = _suiviCache.find(function(x){ return x.id === id; });
+  if (!t) return;
+
+  var labels = ['Modifier la mission', 'Modifier la tâche', 'Modifier la sous-tâche'];
+  document.getElementById('tache-modal-title').textContent = labels[t.niveau] || labels[0];
+  document.getElementById('tache-id').value = t.id;
+  document.getElementById('tache-parent-id').value = t.parent_id || '';
+  document.getElementById('tache-niveau').value = t.niveau;
+  document.getElementById('tache-titre').value = t.titre || '';
+  document.getElementById('tache-desc').value = t.description || '';
+  document.getElementById('tache-statut').value = t.statut || 'A faire';
+  document.getElementById('tache-priorite').value = t.priorite || 'Normale';
+  document.getElementById('tache-assignee').value = t.assignee || '';
+  document.getElementById('tache-progression').value = t.progression || 0;
+  document.getElementById('tache-prog-val').textContent = (t.progression||0) + '%';
+  document.getElementById('tache-date-debut').value = t.dateDebut || t.date_debut || '';
+  document.getElementById('tache-date-echeance').value = t.dateEcheance || t.date_echeance || '';
+  var errEl = document.getElementById('tache-err');
+  if (errEl) errEl.style.display = 'none';
+
+  var sel = document.getElementById('tache-projet');
+  sel.innerHTML = '<option value="">— Choisir un projet —</option>';
+  getProjets().forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
+    sel.appendChild(opt);
+  });
+  sel.value = t.projet_id;
+  sel.disabled = true;
+
+  openModal('modal-tache');
+}
+
+// ── Sauvegarder tâche (create / update) ──
+function saveTache() {
+  var id       = document.getElementById('tache-id').value;
+  var titre    = document.getElementById('tache-titre').value.trim();
+  var projetId = document.getElementById('tache-projet').value;
+  var errEl    = document.getElementById('tache-err');
+
+  if (!titre) { errEl.textContent = 'Le titre est requis.'; errEl.style.display = 'block'; return; }
+  if (!projetId) { errEl.textContent = 'Veuillez choisir un projet.'; errEl.style.display = 'block'; return; }
+
+  var body = {
+    projet_id:     projetId,
+    parent_id:     document.getElementById('tache-parent-id').value || null,
+    niveau:        parseInt(document.getElementById('tache-niveau').value) || 0,
+    titre:         titre,
+    description:   document.getElementById('tache-desc').value.trim(),
+    statut:        document.getElementById('tache-statut').value,
+    priorite:      document.getElementById('tache-priorite').value,
+    assignee:      document.getElementById('tache-assignee').value.trim(),
+    progression:   parseInt(document.getElementById('tache-progression').value) || 0,
+    date_debut:    document.getElementById('tache-date-debut').value || null,
+    date_echeance: document.getElementById('tache-date-echeance').value || null
+  };
+
+  var isEdit = !!id;
+  var url    = isEdit ? 'api/taches.php?id=' + id : 'api/taches.php';
+  var method = isEdit ? 'PUT' : 'POST';
+
+  apiFetch(url, { method: method, body: body })
+    .then(function() {
+      closeModal('modal-tache');
+      showToast(isEdit ? '✓ Tâche modifiée' : '✓ Tâche créée');
+      loadTaches().then(function(){ renderSuiviPage(); });
+    })
+    .catch(function(e) {
+      errEl.textContent = e.message || 'Erreur lors de l\'enregistrement';
+      errEl.style.display = 'block';
+    });
+}
+
+// ── Toggle statut rapide (checkbox) ──
+function toggleTacheStatut(id, checked) {
+  var newStatut = checked ? 'Terminé' : 'A faire';
+  var newProg   = checked ? 100 : 0;
+  apiFetch('api/taches.php?id=' + id, {
+    method: 'PUT',
+    body: { statut: newStatut, progression: newProg }
+  }).then(function() {
+    loadTaches().then(function(){ renderSuiviPage(); });
+  });
+}
+
+// ── Supprimer tâche ──
+function deleteTache(id) {
+  var t = _suiviCache.find(function(x){ return x.id === id; });
+  var labels = ['cette mission', 'cette tâche', 'cette sous-tâche'];
+  var label = t ? labels[t.niveau] : 'cet élément';
+  if (!confirm('Supprimer ' + label + ' et tous ses enfants ?')) return;
+
+  apiFetch('api/taches.php?id=' + id, { method: 'DELETE' })
+    .then(function() {
+      showToast('✓ Supprimé');
+      loadTaches().then(function(){ renderSuiviPage(); });
+    })
+    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
 }
 

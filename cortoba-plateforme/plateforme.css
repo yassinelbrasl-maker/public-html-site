@@ -502,4 +502,162 @@
     }
     .nas-status-item { display: flex; align-items: center; gap: 0.5rem; color: var(--text-2); }
     .nas-status-item strong { color: var(--text); }
+
+    /* ═══ SUIVI DES MISSIONS ═══ */
+
+    /* Projet group */
+    .suivi-projet-group {
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px;
+      overflow: hidden; margin-bottom: 0.5rem;
+    }
+    .suivi-projet-group.collapsed .suivi-projet-body { display: none; }
+    .suivi-projet-group.collapsed .suivi-chevron { transform: rotate(-90deg); }
+
+    .suivi-projet-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.8rem 1rem; cursor: pointer; gap: 0.8rem;
+      border-bottom: 1px solid var(--border); transition: background 0.15s;
+    }
+    .suivi-projet-header:hover { background: var(--bg-2); }
+    .suivi-projet-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+    .suivi-projet-right { display: flex; align-items: center; gap: 0.7rem; flex-shrink: 0; }
+    .suivi-projet-code {
+      font-family: var(--mono); font-size: 0.72rem; color: var(--accent);
+      background: var(--accent-bg); padding: 0.15rem 0.5rem; border-radius: 4px;
+      letter-spacing: 0.05em; white-space: nowrap;
+    }
+    .suivi-projet-nom { font-weight: 500; font-size: 0.88rem; color: var(--text); }
+    .suivi-projet-stats { font-size: 0.72rem; color: var(--text-3); white-space: nowrap; }
+
+    .suivi-chevron { transition: transform 0.2s; flex-shrink: 0; }
+
+    .suivi-projet-body { padding: 0.5rem; }
+
+    /* Mission card */
+    .suivi-mission-card {
+      background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px;
+      margin-bottom: 0.4rem; overflow: hidden;
+    }
+    .suivi-mission-card.collapsed .suivi-children { display: none; }
+    .suivi-mission-card.collapsed > .suivi-mission-header .suivi-chevron { transform: rotate(-90deg); }
+
+    .suivi-mission-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.65rem 0.8rem; cursor: pointer; gap: 0.6rem;
+      transition: background 0.15s;
+    }
+    .suivi-mission-header:hover { background: var(--bg-3); }
+    .suivi-mission-left { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+    .suivi-mission-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .suivi-mission-icon { font-size: 0.9rem; }
+    .suivi-mission-titre { font-weight: 500; font-size: 0.84rem; color: var(--text); }
+
+    /* Tâche rows */
+    .suivi-children { padding: 0 0.5rem 0.5rem 1.8rem; }
+
+    .suivi-tache-card { margin-bottom: 0.25rem; }
+    .suivi-tache-card.collapsed .suivi-sub-children { display: none; }
+    .suivi-tache-card.collapsed .suivi-chevron { transform: rotate(-90deg); }
+
+    .suivi-tache-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.45rem 0.6rem; border-radius: 4px; gap: 0.5rem;
+      transition: background 0.15s;
+    }
+    .suivi-tache-row:hover { background: var(--bg-3); }
+    .suivi-tache-left { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+    .suivi-tache-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+
+    .suivi-tache-titre { font-size: 0.82rem; color: var(--text-2); }
+    .suivi-tache-titre.done { text-decoration: line-through; color: var(--text-3); }
+
+    /* Sous-tâches */
+    .suivi-sub-children { padding-left: 1.8rem; }
+    .suivi-subtache-row {
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.78rem;
+      transition: background 0.15s;
+    }
+    .suivi-subtache-row:hover { background: var(--bg-3); }
+
+    /* Checkbox */
+    .suivi-cb {
+      width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0;
+    }
+
+    /* Progress bar */
+    .suivi-progress-wrap {
+      width: 50px; height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden; flex-shrink: 0;
+    }
+    .suivi-progress-bar { height: 100%; border-radius: 2px; transition: width 0.3s; }
+    .suivi-progress-text { font-size: 0.68rem; color: var(--text-3); min-width: 2rem; text-align: right; }
+
+    /* Date & assignee tags */
+    .suivi-date {
+      font-size: 0.7rem; color: var(--text-3); font-family: var(--mono);
+      white-space: nowrap;
+    }
+    .suivi-assignee {
+      font-size: 0.7rem; color: var(--accent); background: var(--accent-bg);
+      padding: 0.1rem 0.4rem; border-radius: 3px; white-space: nowrap;
+    }
+
+    /* Priority badges */
+    .suivi-prio {
+      font-size: 0.62rem; padding: 0.1rem 0.35rem; border-radius: 3px;
+      text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+    }
+    .suivi-prio-urgente { background: var(--red-bg); color: var(--red); }
+    .suivi-prio-haute   { background: var(--orange-bg); color: var(--orange); }
+    .suivi-prio-basse   { background: rgba(255,255,255,0.04); color: var(--text-3); }
+
+    /* Action buttons */
+    .suivi-actions { display: flex; gap: 0.2rem; opacity: 0; transition: opacity 0.15s; }
+    .suivi-mission-header:hover .suivi-actions,
+    .suivi-tache-row:hover .suivi-actions { opacity: 1; }
+    .suivi-action-btn {
+      background: none; border: 1px solid var(--border); color: var(--text-3);
+      font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px;
+      cursor: pointer; transition: all 0.15s; line-height: 1;
+    }
+    .suivi-action-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+    .suivi-action-btn.suivi-del:hover { color: var(--red); border-color: var(--red); background: var(--red-bg); }
+
+    /* Kanban */
+    .suivi-kanban {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem;
+      min-height: 300px;
+    }
+    @media (max-width: 900px) { .suivi-kanban { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 550px) { .suivi-kanban { grid-template-columns: 1fr; } }
+
+    .suivi-kanban-col {
+      background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px;
+      display: flex; flex-direction: column; min-height: 200px;
+    }
+    .suivi-kanban-col-header {
+      padding: 0.7rem 0.8rem; border-top: 3px solid var(--text-3);
+      border-bottom: 1px solid var(--border); border-radius: 8px 8px 0 0;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.78rem; font-weight: 600; color: var(--text);
+    }
+    .suivi-kanban-count {
+      font-size: 0.68rem; background: var(--bg-3); color: var(--text-3);
+      padding: 0.1rem 0.45rem; border-radius: 10px;
+    }
+    .suivi-kanban-col-body { padding: 0.5rem; flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .suivi-kanban-card {
+      background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.65rem 0.75rem; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .suivi-kanban-card:hover { border-color: var(--accent); background: var(--bg-3); }
+    .suivi-kanban-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+    .suivi-kanban-niveau {
+      font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-3); font-weight: 600;
+    }
+    .suivi-kanban-card-titre { font-size: 0.82rem; font-weight: 500; color: var(--text); margin-bottom: 0.25rem; }
+    .suivi-kanban-card-projet { font-size: 0.7rem; color: var(--text-3); margin-bottom: 0.35rem; }
+    .suivi-kanban-card-bottom { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
   </style>

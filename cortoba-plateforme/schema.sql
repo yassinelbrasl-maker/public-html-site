@@ -207,6 +207,30 @@ CREATE TABLE IF NOT EXISTS `CA_demandes` (
   KEY `idx_statut` (`statut`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Tâches / Suivi de missions (hiérarchie : mission → tâche → sous-tâche)
+CREATE TABLE IF NOT EXISTS `CA_taches` (
+  `id` varchar(32) NOT NULL,
+  `projet_id` varchar(32) NOT NULL,
+  `parent_id` varchar(32) DEFAULT NULL,
+  `niveau` tinyint NOT NULL DEFAULT 0 COMMENT '0=mission, 1=tâche, 2=sous-tâche',
+  `titre` varchar(200) NOT NULL,
+  `description` text,
+  `statut` varchar(40) NOT NULL DEFAULT 'A faire',
+  `priorite` varchar(20) NOT NULL DEFAULT 'Normale',
+  `assignee` varchar(120) DEFAULT NULL,
+  `date_debut` date DEFAULT NULL,
+  `date_echeance` date DEFAULT NULL,
+  `progression` int NOT NULL DEFAULT 0,
+  `ordre` int NOT NULL DEFAULT 0,
+  `cree_par` varchar(120) DEFAULT NULL,
+  `cree_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `projet_id` (`projet_id`),
+  KEY `parent_id` (`parent_id`),
+  KEY `statut` (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ════════════════════════════════════════════════════════════
