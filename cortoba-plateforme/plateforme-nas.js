@@ -3627,7 +3627,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -4576,12 +4576,12 @@ var MODULES_PLATEFORME = [
 
 // Modules par défaut selon rôle (pré-coché automatiquement à la sélection)
 var MODULES_PAR_ROLE = {
-  'Architecte gérant':       ['dashboard','demandes','devis','projets','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
-  'Architecte collaborateur':['dashboard','devis','projets','nas','clients'],
-  'Décorateur':              ['dashboard','projets','nas','clients'],
+  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','facturation','bilans','depenses','fiscalite','nas','equipe','clients','parametres'],
+  'Architecte collaborateur':['dashboard','devis','projets','suivi','nas','clients'],
+  'Décorateur':              ['dashboard','projets','suivi','nas','clients'],
   'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite'],
-  'Ingénieur paysagiste':    ['dashboard','projets','nas','clients'],
-  'Stagiaire':               ['dashboard','projets'],
+  'Ingénieur paysagiste':    ['dashboard','projets','suivi','nas','clients'],
+  'Stagiaire':               ['dashboard','projets','suivi'],
 };
 
 // Rôles par défaut
@@ -6570,7 +6570,26 @@ function openSuiviModal(niveau, parentId, projetId) {
   // Disable projet select if adding child to a specific project
   sel.disabled = !!projetId && niveau > 0;
 
+  // Populate assignee select with team members
+  _populateAssigneeSelect('');
+
   openModal('modal-tache');
+}
+
+// ── Remplir le select assigné avec les membres de l'équipe ──
+function _populateAssigneeSelect(selectedValue) {
+  var selA = document.getElementById('tache-assignee');
+  selA.innerHTML = '<option value="">— Non assigné —</option>';
+  var membres = getMembres();
+  membres.forEach(function(m) {
+    var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
+    if (!fullName) return;
+    var opt = document.createElement('option');
+    opt.value = fullName;
+    opt.textContent = fullName + (m.role ? ' (' + m.role + ')' : '');
+    selA.appendChild(opt);
+  });
+  if (selectedValue) selA.value = selectedValue;
 }
 
 // ── Modifier une tâche existante ──
@@ -6587,7 +6606,6 @@ function editTache(id) {
   document.getElementById('tache-desc').value = t.description || '';
   document.getElementById('tache-statut').value = t.statut || 'A faire';
   document.getElementById('tache-priorite').value = t.priorite || 'Normale';
-  document.getElementById('tache-assignee').value = t.assignee || '';
   document.getElementById('tache-progression').value = t.progression || 0;
   document.getElementById('tache-prog-val').textContent = (t.progression||0) + '%';
   document.getElementById('tache-date-debut').value = t.dateDebut || t.date_debut || '';
@@ -6605,6 +6623,9 @@ function editTache(id) {
   });
   sel.value = t.projet_id;
   sel.disabled = true;
+
+  // Populate assignee select with team members
+  _populateAssigneeSelect(t.assignee || '');
 
   openModal('modal-tache');
 }
