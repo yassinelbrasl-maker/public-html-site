@@ -5137,6 +5137,7 @@ function openModal_membre_reset() {
   // Reset radios principal
   var r1 = document.querySelector('input[name="mb-tel-principal"][value="pro"]');     if (r1) r1.checked = true;
   var r2 = document.querySelector('input[name="mb-email-principal"][value="pro"]');   if (r2) r2.checked = true;
+  var showWebEl = document.getElementById('mb-show-website'); if (showWebEl) showWebEl.checked = false;
 
   document.getElementById('mb-error').style.display = 'none';
 
@@ -5203,6 +5204,7 @@ function editMembre(id) {
   var emailPrinc = m.email_principal || 'pro';
   var r1 = document.querySelector('input[name="mb-tel-principal"][value="'+telPrinc+'"]');     if (r1) r1.checked = true;
   var r2 = document.querySelector('input[name="mb-email-principal"][value="'+emailPrinc+'"]'); if (r2) r2.checked = true;
+  var showWebEl = document.getElementById('mb-show-website'); if (showWebEl) showWebEl.checked = !!(+m.show_on_website);
 
   document.getElementById('mb-error').style.display = 'none';
 
@@ -5511,7 +5513,8 @@ function saveMembre() {
     email_pro:       emailPro || email,
     email_perso:     emailPerso,
     email_principal: emailPrincipal,
-    profile_picture_url: _mbCurrentPhoto || null
+    profile_picture_url: _mbCurrentPhoto || null,
+    show_on_website: (document.getElementById('mb-show-website') || {}).checked ? 1 : 0
   };
 
   // Rémunération — uniquement si l'utilisateur peut voir/éditer le sensible

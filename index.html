@@ -1234,34 +1234,39 @@
 
     <section id="team">
       <h2 data-i18n="team_title">Notre Équipe</h2>
-      <div class="team-grid">
-        <div class="team-member">
-          <img src="/img/cortoba.png" alt="Amal Cortoba">
-          <h3>Amal Cortoba</h3>
-          <p data-i18n="role_senior_arch">Architecte Senior</p>
-        </div>
-        <div class="team-member">
-          <img src="/img/mestiri.png" alt="Yassine Mestiri">
-          <h3>Yassine Mestiri</h3>
-          <p data-i18n="role_senior_arch">Architecte Senior</p>
-        </div>
-        <div class="team-member">
-          <img src="/img/engadi.png" alt="Oumeyma Engadi">
-          <h3>Oumeyma Engadi</h3>
-          <p data-i18n="role_collab_arch">Architecte collaboratrice</p>
-        </div>
-        <div class="team-member">
-          <img src="/img/bouali.png" alt="Amal Bouali">
-          <h3>Amal Bouali</h3>
-          <p data-i18n="role_landscape">Ingénieur paysagiste</p>
-        </div>
-        <div class="team-member">
-          <img src="/img/charrada.png" alt="Sara Charrada">
-          <h3>Sara Charrada</h3>
-          <p data-i18n="role_designer">Designer d'intérieur</p>
-        </div>
+      <div class="team-grid" id="team-grid">
+        <!-- Chargé dynamiquement depuis la plateforme (membres cochés « Afficher sur le site web »). -->
       </div>
     </section>
+    <script>
+      (function loadCortobaTeam() {
+        var grid = document.getElementById('team-grid');
+        if (!grid) return;
+        var esc = function (s) {
+          return String(s || '').replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+          });
+        };
+        fetch('/cortoba-plateforme/api/users.php?public=1', { credentials: 'omit' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (res) {
+            var list = res && (res.data || res);
+            if (!list || !list.length) return;
+            grid.innerHTML = list.map(function (m) {
+              var full  = esc((m.prenom || '') + ' ' + (m.nom || '')).trim();
+              var role  = esc(m.role || m.spec || '');
+              var photo = m.profile_picture_url
+                ? '<img src="' + esc(m.profile_picture_url) + '" alt="' + full + '" loading="lazy">'
+                : '<div class="team-initials">' + esc(((m.prenom || '?')[0] + (m.nom || '')[0] || '?').toUpperCase()) + '</div>';
+              return '<div class="team-member">' + photo +
+                '<h3>' + full + '</h3>' +
+                (role ? '<p>' + role + '</p>' : '') +
+              '</div>';
+            }).join('');
+          })
+          .catch(function () { /* silencieux — la section reste vide si l'API est injoignable */ });
+      })();
+    </script>
 
     <section id="contact">
       <h2 data-i18n="contact_title">Contact</h2>

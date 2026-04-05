@@ -56,6 +56,7 @@ function ensureUsersTable() {
         "rib                 VARCHAR(40)  DEFAULT ''",
         "mode_paiement       VARCHAR(30)  DEFAULT 'Virement'",
         "salaire_base        DECIMAL(12,3) DEFAULT 0",
+        "show_on_website     TINYINT(1)   NOT NULL DEFAULT 0",
     );
     foreach ($extraCols as $colDef) {
         try { $db->exec("ALTER TABLE cortoba_users ADD COLUMN IF NOT EXISTS $colDef"); }
@@ -82,7 +83,7 @@ function filterMemberRow($row, $viewer) {
     // Toujours visibles
     $public = array(
         'id', 'prenom', 'nom', 'email', 'role', 'statut', 'spec', 'modules',
-        'profile_picture_url', 'tel', 'created_at',
+        'profile_picture_url', 'tel', 'created_at', 'show_on_website',
     );
 
     // Contact pro visible par tous ; contact perso masqué pour non-privilégiés
@@ -144,6 +145,16 @@ try {
     $viewer = optionalAuth();
 
     if ($method === 'GET') {
+        // Mode public : listing minimal pour le site vitrine (sans email ni données sensibles)
+        if (!empty($_GET['public'])) {
+            $stmt = $db->query("SELECT id, prenom, nom, role, spec, profile_picture_url
+                                FROM cortoba_users
+                                WHERE is_admin = 0 AND show_on_website = 1
+                                ORDER BY created_at ASC");
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            jsonOk($rows);
+            return;
+        }
         $stmt = $db->query("SELECT * FROM cortoba_users WHERE is_admin = 0 ORDER BY created_at ASC");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $out = array();
@@ -176,6 +187,7 @@ try {
         $emailPro   = trim($body['email_pro']       ?? '');
         $emailPerso = trim($body['email_perso']     ?? '');
         $emailPrinc = in_array($body['email_principal'] ?? 'pro', array('pro','perso')) ? $body['email_principal'] : 'pro';
+        $showWeb    = !empty($body['show_on_website']) ? 1 : 0;
 
         // Rémunération — acceptée uniquement si viewer privilégié
         $canEditSalary = canViewSensitiveData($viewer);
@@ -215,6 +227,7 @@ try {
             'profile_picture_url' => $photo,
             'tel_pro' => $telPro, 'tel_perso' => $telPerso, 'tel_principal' => $telPrinc,
             'email_pro' => $emailPro, 'email_perso' => $emailPerso, 'email_principal' => $emailPrinc,
+            'show_on_website' => $showWeb,
         );
         if ($canEditSalary) {
             $cols['salaire_net']        = $salaire;
