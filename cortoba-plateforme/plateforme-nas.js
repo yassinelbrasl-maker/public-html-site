@@ -8437,15 +8437,8 @@ function openDemandeAdminModal(data) {
     });
   }
 
-  var pSel = document.getElementById('da-projet');
-  pSel.innerHTML = '<option value="">-- Aucun --</option>';
-  (getProjets() || []).forEach(function(p) {
-    var o = document.createElement('option');
-    o.value = p.id; o.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
-    o.setAttribute('data-client-id', p.client_id || '');
-    if (data && data.projet_id === p.id) o.selected = true;
-    pSel.appendChild(o);
-  });
+  // Projets : filtrés par client si client_id présent
+  _daPopulateProjets(data ? data.projet_id : '', data ? data.client_id : '');
 
   // Historique objets → datalist
   var dl = document.getElementById('da-objet-list');
@@ -8471,25 +8464,39 @@ function openDemandeAdminModal(data) {
   openModal('modal-demande-admin');
 }
 
+// Remplit le select des projets — si clientId fourni, seuls les projets de ce client sont listés
+function _daPopulateProjets(selectedProjetId, clientId) {
+  var pSel = document.getElementById('da-projet');
+  if (!pSel) return;
+  pSel.innerHTML = '<option value="">-- Aucun --</option>';
+  var all = getProjets() || [];
+  var filtered = clientId ? all.filter(function(p) { return p.client_id === clientId; }) : all;
+  filtered.forEach(function(p) {
+    var o = document.createElement('option');
+    o.value = p.id;
+    o.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
+    o.setAttribute('data-client-id', p.client_id || '');
+    if (selectedProjetId && p.id === selectedProjetId) o.selected = true;
+    pSel.appendChild(o);
+  });
+}
+
 function _daOnClientChange() {
   var cSel = document.getElementById('da-client');
   var pSel = document.getElementById('da-projet');
   if (!cSel || !pSel) return;
   var cid = cSel.value;
-  // Filtrer visuellement les projets : on ne touche que la sélection courante si elle n'appartient pas au client
-  if (!cid) return;
-  var current = pSel.options[pSel.selectedIndex];
-  if (current && current.getAttribute('data-client-id') && current.getAttribute('data-client-id') !== cid) {
-    pSel.value = '';
+  // Si la sélection courante n'appartient pas au nouveau client, on la conserve uniquement si cid vide
+  var currentProjet = pSel.value;
+  if (cid) {
+    var current = pSel.options[pSel.selectedIndex];
+    if (!current || current.getAttribute('data-client-id') !== cid) currentProjet = '';
   }
-  // Pré-sélectionner un projet du client si aucun sélectionné
-  if (!pSel.value) {
-    for (var i = 0; i < pSel.options.length; i++) {
-      if (pSel.options[i].getAttribute('data-client-id') === cid) {
-        pSel.selectedIndex = i;
-        break;
-      }
-    }
+  _daPopulateProjets(currentProjet, cid || null);
+
+  // Si un seul projet pour ce client et aucun sélectionné → auto-sélection
+  if (cid && !pSel.value && pSel.options.length === 2) {
+    pSel.selectedIndex = 1;
   }
 }
 
