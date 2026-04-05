@@ -1,7 +1,10 @@
 <?php
 // ============================================================
-//  CORTOBA ATELIER — API Tâches / Suivi de missions
+//  CORTOBA ATELIER — API Tâches / Suivi de missions (v3)
 //  Hiérarchie : Mission (niveau 0) → Tâche (1) → Sous-tâche (2)
+//  v3 : location_type/zone, heures_estimees/reelles, order_index,
+//       progression_planifiee, cascade ascendante strictement
+//       pilotée par progression_manuelle.
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
@@ -9,6 +12,23 @@ require_once __DIR__ . '/../config/middleware.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
 $user   = requireAuth();
+
+// Colonnes additionnelles gérées côté API (idempotent)
+try {
+    $db0 = getDB();
+    $addCols = [
+        "location_type VARCHAR(20) DEFAULT 'Bureau'",
+        "location_zone VARCHAR(120) DEFAULT ''",
+        "heures_estimees DECIMAL(6,2) DEFAULT 0",
+        "heures_reelles DECIMAL(6,2) DEFAULT 0",
+        "progression_planifiee INT DEFAULT 0",
+        "progression_manuelle TINYINT(1) DEFAULT 0",
+    ];
+    foreach ($addCols as $cdef) {
+        try { $db0->exec("ALTER TABLE CA_taches ADD COLUMN IF NOT EXISTS $cdef"); }
+        catch (\Throwable $e) { /* déjà présent */ }
+    }
+} catch (\Throwable $e) { /* silencieux */ }
 
 try {
     if ($method === 'GET')        $id ? getOne($id) : getAll();
@@ -25,22 +45,12 @@ function getAll() {
     $where  = ['1=1'];
     $params = [];
 
-    if (!empty($_GET['projet_id'])) {
-        $where[]  = 't.projet_id = ?';
-        $params[] = $_GET['projet_id'];
-    }
-    if (isset($_GET['niveau']) && $_GET['niveau'] !== '') {
-        $where[]  = 't.niveau = ?';
-        $params[] = intval($_GET['niveau']);
-    }
-    if (!empty($_GET['parent_id'])) {
-        $where[]  = 't.parent_id = ?';
-        $params[] = $_GET['parent_id'];
-    }
-    if (!empty($_GET['statut'])) {
-        $where[]  = 't.statut = ?';
-        $params[] = $_GET['statut'];
-    }
+    if (!empty($_GET['projet_id']))             { $where[] = 't.projet_id = ?';     $params[] = $_GET['projet_id']; }
+    if (isset($_GET['niveau']) && $_GET['niveau'] !== '') { $where[] = 't.niveau = ?'; $params[] = intval($_GET['niveau']); }
+    if (!empty($_GET['parent_id']))             { $where[] = 't.parent_id = ?';     $params[] = $_GET['parent_id']; }
+    if (!empty($_GET['statut']))                { $where[] = 't.statut = ?';        $params[] = $_GET['statut']; }
+    if (!empty($_GET['assignee']))              { $where[] = 't.assignee = ?';      $params[] = $_GET['assignee']; }
+    if (!empty($_GET['location_type']))         { $where[] = 't.location_type = ?'; $params[] = $_GET['location_type']; }
 
     $sql  = 'SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
              FROM CA_taches t
@@ -74,21 +84,28 @@ function create(array $user) {
     $db = getDB();
     $id = bin2hex(random_bytes(16));
 
-    // Calculer l'ordre max pour ce parent
     $parentId = $body['parent_id'] ?? null;
-    $stmtOrd  = $db->prepare('SELECT COALESCE(MAX(ordre),0)+1 AS next_ord FROM CA_taches WHERE projet_id = ? AND ' . ($parentId ? 'parent_id = ?' : 'parent_id IS NULL'));
-    $ordParams = [$projetId];
-    if ($parentId) $ordParams[] = $parentId;
-    $stmtOrd->execute($ordParams);
-    $ordre = $stmtOrd->fetch()['next_ord'];
+    // order_index explicite (drag&drop) sinon MAX+1 sur le même parent
+    $ordre = null;
+    if (isset($body['order_index']) && $body['order_index'] !== '') $ordre = intval($body['order_index']);
+    if ($ordre === null && isset($body['ordre']) && $body['ordre'] !== '') $ordre = intval($body['ordre']);
+    if ($ordre === null) {
+        $stmtOrd  = $db->prepare('SELECT COALESCE(MAX(ordre),0)+1 AS next_ord FROM CA_taches WHERE projet_id = ? AND ' . ($parentId ? 'parent_id = ?' : 'parent_id IS NULL'));
+        $ordParams = [$projetId];
+        if ($parentId) $ordParams[] = $parentId;
+        $stmtOrd->execute($ordParams);
+        $ordre = intval($stmtOrd->fetch()['next_ord']);
+    }
 
     $niveau = intval($body['niveau'] ?? 0);
     if ($niveau < 0 || $niveau > 2) $niveau = 0;
 
     $db->prepare('
         INSERT INTO CA_taches (id, projet_id, parent_id, niveau, titre, description,
-            statut, priorite, assignee, date_debut, date_echeance, progression, ordre, cree_par)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            statut, priorite, assignee, date_debut, date_echeance, progression, ordre,
+            location_type, location_zone, heures_estimees, heures_reelles,
+            progression_planifiee, progression_manuelle, cree_par)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $projetId,
@@ -103,10 +120,18 @@ function create(array $user) {
         $body['date_echeance'] ?: null,
         intval($body['progression'] ?? 0),
         $ordre,
+        $body['location_type']     ?? 'Bureau',
+        $body['location_zone']     ?? '',
+        floatval($body['heures_estimees'] ?? 0),
+        floatval($body['heures_reelles']  ?? 0),
+        intval($body['progression_planifiee'] ?? 0),
+        intval(!empty($body['progression_manuelle']) ? 1 : 0),
         $user['name'],
     ]);
 
-    // Retourner la tâche créée
+    // Cascade ascendante : recalculer le parent si enfant
+    recalcParentProgression($db, $id);
+
     $stmt = $db->prepare('SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
                           FROM CA_taches t LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = t.projet_id COLLATE utf8mb4_unicode_ci
                           WHERE t.id = ?');
@@ -126,24 +151,35 @@ function update($id, array $user) {
     $fields = [];
     $params = [];
 
-    $allowed = ['titre','description','statut','priorite','assignee','date_debut','date_echeance','progression','ordre','parent_id'];
+    $allowed = ['titre','description','statut','priorite','assignee','date_debut','date_echeance',
+                'progression','ordre','parent_id','location_type','location_zone',
+                'heures_estimees','heures_reelles','progression_planifiee','progression_manuelle'];
+
+    // Alias order_index → ordre
+    if (array_key_exists('order_index', $body) && !array_key_exists('ordre', $body)) {
+        $body['ordre'] = $body['order_index'];
+    }
+
     foreach ($allowed as $f) {
         if (array_key_exists($f, $body)) {
             $fields[] = "$f = ?";
             $val = $body[$f];
             if (($f === 'date_debut' || $f === 'date_echeance' || $f === 'parent_id') && !$val) $val = null;
-            if ($f === 'progression') $val = intval($val);
-            if ($f === 'ordre') $val = intval($val);
+            if (in_array($f, ['progression','ordre','progression_planifiee'], true)) $val = intval($val);
+            if ($f === 'progression_manuelle') $val = !empty($val) ? 1 : 0;
+            if (in_array($f, ['heures_estimees','heures_reelles'], true)) $val = floatval($val);
             $params[] = $val;
         }
     }
 
+    // Si l'utilisateur a poussé progression manuellement ET pas spécifié progression_manuelle,
+    // on NE FORCE PAS le flag. Le front passe progression_manuelle=1 lorsqu'il le veut.
     if (empty($fields)) jsonError('Aucun champ à mettre à jour');
 
     $params[] = $id;
     $db->prepare('UPDATE CA_taches SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
 
-    // Recalculer la progression du parent si c'est un enfant
+    // Cascade ascendante après update
     recalcParentProgression($db, $id);
 
     getOne($id);
@@ -153,18 +189,15 @@ function remove($id, array $user) {
     if (!$id) jsonError('ID requis');
     $db = getDB();
 
-    // Récupérer l'info avant suppression
     $stmt = $db->prepare('SELECT parent_id FROM CA_taches WHERE id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) jsonError('Tâche introuvable', 404);
     $parentId = $row['parent_id'];
 
-    // Supprimer tous les enfants récursivement
     deleteChildren($db, $id);
     $db->prepare('DELETE FROM CA_taches WHERE id = ?')->execute([$id]);
 
-    // Recalculer progression du parent
     if ($parentId) {
         recalcParentProgressionById($db, $parentId);
     }
@@ -182,6 +215,13 @@ function deleteChildren($db, $parentId) {
     }
 }
 
+// ────────────────────────────────────────────────────────────────
+//  Cascade ascendante — règle : si tous les enfants sont terminés,
+//  parent passe à 100% + statut "Terminé" AUTOMATIQUEMENT ; sinon
+//  moyenne des progressions enfants. Mais on respecte le flag
+//  progression_manuelle du parent : s'il est à 1, on ne touche
+//  ni à sa progression ni à son statut.
+// ────────────────────────────────────────────────────────────────
 function recalcParentProgression($db, $childId) {
     $stmt = $db->prepare('SELECT parent_id FROM CA_taches WHERE id = ?');
     $stmt->execute([$childId]);
@@ -191,9 +231,33 @@ function recalcParentProgression($db, $childId) {
 }
 
 function recalcParentProgressionById($db, $parentId) {
-    $stmt = $db->prepare('SELECT AVG(progression) AS avg_prog FROM CA_taches WHERE parent_id = ?');
-    $stmt->execute([$parentId]);
+    // Ne rien faire si le parent est en override manuel
+    $stmtP = $db->prepare('SELECT progression_manuelle, parent_id FROM CA_taches WHERE id = ?');
+    $stmtP->execute([$parentId]);
+    $parent = $stmtP->fetch();
+    if (!$parent) return;
+    if (!empty($parent['progression_manuelle'])) {
+        // Remonter encore plus haut au cas où
+        if (!empty($parent['parent_id'])) recalcParentProgressionById($db, $parent['parent_id']);
+        return;
+    }
+
+    $stmt = $db->prepare('SELECT COUNT(*) AS n, SUM(CASE WHEN statut=? THEN 1 ELSE 0 END) AS done, AVG(progression) AS avg_prog FROM CA_taches WHERE parent_id = ?');
+    $stmt->execute(['Terminé', $parentId]);
     $row = $stmt->fetch();
-    $avg = $row ? intval(round($row['avg_prog'])) : 0;
-    $db->prepare('UPDATE CA_taches SET progression = ? WHERE id = ?')->execute([$avg, $parentId]);
+    $n    = intval($row['n']);
+    $done = intval($row['done']);
+    $avg  = $row ? intval(round($row['avg_prog'])) : 0;
+
+    if ($n > 0 && $done === $n) {
+        // Tous enfants terminés → parent 100% + statut Terminé
+        $db->prepare('UPDATE CA_taches SET progression = 100, statut = ? WHERE id = ?')
+           ->execute(['Terminé', $parentId]);
+    } else {
+        $db->prepare('UPDATE CA_taches SET progression = ? WHERE id = ?')
+           ->execute([$avg, $parentId]);
+    }
+
+    // Remonter la chaîne
+    if (!empty($parent['parent_id'])) recalcParentProgressionById($db, $parent['parent_id']);
 }

@@ -8,9 +8,27 @@ require_once __DIR__ . '/../config/middleware.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
+$action = $_GET['action'] ?? null;
 $user   = requireAuth();
 
+// Migrations idempotentes
 try {
+    $db0 = getDB();
+    $extra = [
+        "justificatif_url    VARCHAR(500) DEFAULT NULL",
+        "date_depot          DATE         DEFAULT NULL",
+        "documents_manquants LONGTEXT     DEFAULT NULL",
+        "reponse_type        VARCHAR(20)  DEFAULT NULL",
+        "parent_demande_id   VARCHAR(32)  DEFAULT NULL",
+    ];
+    foreach ($extra as $cdef) {
+        try { $db0->exec("ALTER TABLE CA_demandes_admin ADD COLUMN IF NOT EXISTS $cdef"); }
+        catch (\Throwable $e) {}
+    }
+} catch (\Throwable $e) {}
+
+try {
+    if ($method === 'POST' && $action === 'clone') { cloneDemande($id, $user); exit; }
     if ($method === 'GET')        getAll();
     elseif ($method === 'POST')   create($user);
     elseif ($method === 'PUT')    update($id, $user);
@@ -18,6 +36,33 @@ try {
     else jsonError('Méthode non supportée', 405);
 } catch (\Throwable $e) {
     jsonError('Erreur serveur : ' . $e->getMessage(), 500);
+}
+
+// Clone une demande rejetée pour redépôt (lien parent conservé)
+function cloneDemande($id, $user) {
+    if (!$id) jsonError('ID requis');
+    $db = getDB();
+    $stmt = $db->prepare('SELECT * FROM CA_demandes_admin WHERE id = ?');
+    $stmt->execute([$id]);
+    $src = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$src) jsonError('Demande introuvable', 404);
+
+    $newId = bin2hex(random_bytes(16));
+    $db->prepare('INSERT INTO CA_demandes_admin
+        (id, projet_id, client_id, type_demande, langue, administration, gouvernorat,
+         delegation, municipalite, objet, contenu, documents_joints, expediteur,
+         destinataire, reference, date_demande, statut, remarques, cree_par, parent_demande_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+       ->execute([
+        $newId, $src['projet_id'], $src['client_id'], $src['type_demande'], $src['langue'],
+        $src['administration'], $src['gouvernorat'], $src['delegation'], $src['municipalite'],
+        '[À rectifier] ' . $src['objet'], $src['contenu'], $src['documents_joints'],
+        $src['expediteur'], $src['destinataire'], null, date('Y-m-d'), 'Brouillon',
+        'Clone de la demande ' . ($src['reference'] ?: $id) . ' suite à rejet.',
+        $user['name'] ?? $user['email'] ?? null,
+        $id,
+    ]);
+    jsonOk(['id' => $newId, 'parent' => $id]);
 }
 
 function getAll() {
@@ -120,13 +165,15 @@ function update($id, array $user) {
     $params = [];
     $allowed = ['projet_id','client_id','type_demande','langue','administration','gouvernorat',
                 'delegation','municipalite','objet','contenu','documents_joints',
-                'expediteur','destinataire','reference','date_demande','statut','remarques'];
+                'expediteur','destinataire','reference','date_demande','statut','remarques',
+                'justificatif_url','date_depot','documents_manquants','reponse_type'];
 
     foreach ($allowed as $f) {
         if (array_key_exists($f, $body)) {
             $fields[] = "$f = ?";
             $val = $body[$f];
-            if ($f === 'documents_joints' && is_array($val)) $val = json_encode($val);
+            if (($f === 'documents_joints' || $f === 'documents_manquants') && is_array($val)) $val = json_encode($val);
+            if ($f === 'date_depot' && !$val) $val = null;
             $params[] = $val;
         }
     }

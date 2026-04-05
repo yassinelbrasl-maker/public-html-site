@@ -3286,6 +3286,13 @@
             <label class="form-label">Spécialité / Notes</label>
             <input id="mb-spec" class="form-input" placeholder="Ex: HQE, BIM, Paysage…" />
           </div>
+          <div class="form-field">
+            <label class="form-label">Couleur d'identification</label>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <input id="mb-color" type="color" value="#c8a96e" style="width:44px;height:34px;border:1px solid var(--border);border-radius:4px;padding:2px;cursor:pointer" />
+              <span style="font-size:0.72rem;color:var(--text-3)">Affichée sur les avatars/badges (Suivi, Gantt, Charge).</span>
+            </div>
+          </div>
           <div class="form-field full">
             <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;padding:0.7rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
               <input id="mb-show-website" type="checkbox" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer" />
@@ -3814,6 +3821,11 @@
           <label class="form-label">Statut</label>
           <select id="da-statut" class="form-input">
             <option value="Brouillon">Brouillon</option>
+            <option value="Pr&ecirc;t &agrave; d&eacute;poser">Pr&ecirc;t &agrave; d&eacute;poser</option>
+            <option value="D&eacute;pos&eacute;">D&eacute;pos&eacute;</option>
+            <option value="En attente de documents">En attente de documents</option>
+            <option value="R&eacute;ponse re&ccedil;ue (positive)">R&eacute;ponse re&ccedil;ue (positive)</option>
+            <option value="R&eacute;ponse re&ccedil;ue (n&eacute;gative)">R&eacute;ponse re&ccedil;ue (n&eacute;gative)</option>
             <option value="Envoy&eacute;e">Envoy&eacute;e</option>
             <option value="R&eacute;pondue">R&eacute;pondue</option>
             <option value="Class&eacute;e">Class&eacute;e</option>

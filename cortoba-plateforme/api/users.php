@@ -57,6 +57,7 @@ function ensureUsersTable() {
         "mode_paiement       VARCHAR(30)  DEFAULT 'Virement'",
         "salaire_base        DECIMAL(12,3) DEFAULT 0",
         "show_on_website     TINYINT(1)   NOT NULL DEFAULT 0",
+        "color               VARCHAR(9)   DEFAULT '#c8a96e'",
     );
     foreach ($extraCols as $colDef) {
         try { $db->exec("ALTER TABLE cortoba_users ADD COLUMN IF NOT EXISTS $colDef"); }
@@ -83,7 +84,7 @@ function filterMemberRow($row, $viewer) {
     // Toujours visibles
     $public = array(
         'id', 'prenom', 'nom', 'email', 'role', 'statut', 'spec', 'modules',
-        'profile_picture_url', 'tel', 'created_at', 'show_on_website',
+        'profile_picture_url', 'tel', 'created_at', 'show_on_website', 'color',
     );
 
     // Contact pro visible par tous ; contact perso masqué pour non-privilégiés
@@ -188,6 +189,8 @@ try {
         $emailPerso = trim($body['email_perso']     ?? '');
         $emailPrinc = in_array($body['email_principal'] ?? 'pro', array('pro','perso')) ? $body['email_principal'] : 'pro';
         $showWeb    = !empty($body['show_on_website']) ? 1 : 0;
+        $color      = isset($body['color']) ? trim($body['color']) : '#c8a96e';
+        if (!preg_match('/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/', $color)) $color = '#c8a96e';
 
         // Rémunération — acceptée uniquement si viewer privilégié
         $canEditSalary = canViewSensitiveData($viewer);
@@ -228,6 +231,7 @@ try {
             'tel_pro' => $telPro, 'tel_perso' => $telPerso, 'tel_principal' => $telPrinc,
             'email_pro' => $emailPro, 'email_perso' => $emailPerso, 'email_principal' => $emailPrinc,
             'show_on_website' => $showWeb,
+            'color' => $color,
         );
         if ($canEditSalary) {
             $cols['salaire_net']        = $salaire;

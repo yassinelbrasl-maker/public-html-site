@@ -414,3 +414,56 @@ ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `salaire_base`        DECIM
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `employe_id`    VARCHAR(32) DEFAULT NULL;
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `paie_mois`     VARCHAR(7)  DEFAULT NULL;
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `paie_snapshot` LONGTEXT    DEFAULT NULL;
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : Suivi v3 — Localisation, heures estimées, progression planifiée
+--   + couleur membre + Timesheets + dépendances Gantt + workflow demandes
+-- ════════════════════════════════════════════════════════════
+-- Tâches : localisation (bureau/chantier/admin) + estimation + planifié
+ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `location_type`        VARCHAR(20)   DEFAULT 'Bureau' COMMENT 'Bureau|Chantier|Administration';
+ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `location_zone`        VARCHAR(120)  DEFAULT '';
+ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `heures_estimees`      DECIMAL(6,2)  DEFAULT 0;
+ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `heures_reelles`       DECIMAL(6,2)  DEFAULT 0;
+ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `progression_planifiee` INT          DEFAULT 0 COMMENT '% planifié vs réel';
+ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `progression_manuelle` TINYINT(1)    DEFAULT 0 COMMENT '1 = progression forcée manuellement, ignorer cascade';
+
+-- Couleur d'identification membre (badges kanban, avatars)
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `color` VARCHAR(9) DEFAULT '#c8a96e';
+
+-- Workflow demandes administratives — statuts avancés + pièces jointes
+ALTER TABLE `CA_demandes_admin` ADD COLUMN IF NOT EXISTS `justificatif_url`   VARCHAR(500) DEFAULT NULL;
+ALTER TABLE `CA_demandes_admin` ADD COLUMN IF NOT EXISTS `date_depot`         DATE         DEFAULT NULL;
+ALTER TABLE `CA_demandes_admin` ADD COLUMN IF NOT EXISTS `documents_manquants` LONGTEXT    DEFAULT NULL COMMENT 'JSON: checklist pièces à fournir';
+ALTER TABLE `CA_demandes_admin` ADD COLUMN IF NOT EXISTS `reponse_type`       VARCHAR(20)  DEFAULT NULL COMMENT 'positive|negative';
+ALTER TABLE `CA_demandes_admin` ADD COLUMN IF NOT EXISTS `parent_demande_id`  VARCHAR(32)  DEFAULT NULL COMMENT 'FK sur demande initiale si redépôt';
+
+-- Timesheet — saisie du temps par collaborateur / tâche
+CREATE TABLE IF NOT EXISTS `CA_timesheets` (
+  `id`          VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `user_id`     VARCHAR(32)   NOT NULL,
+  `user_name`   VARCHAR(120)  DEFAULT NULL,
+  `projet_id`   VARCHAR(32)   DEFAULT NULL,
+  `tache_id`    VARCHAR(32)   DEFAULT NULL,
+  `date_jour`   DATE          NOT NULL,
+  `hours_spent` DECIMAL(5,2)  NOT NULL DEFAULT 0,
+  `is_billable` TINYINT(1)    NOT NULL DEFAULT 1,
+  `commentaire` VARCHAR(400)  DEFAULT NULL,
+  `cree_at`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`  DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_user_date` (`user_id`,`date_jour`),
+  KEY `idx_projet`    (`projet_id`),
+  KEY `idx_tache`     (`tache_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Dépendances entre tâches (Gantt)
+CREATE TABLE IF NOT EXISTS `CA_task_dependencies` (
+  `id`         VARCHAR(32)  NOT NULL PRIMARY KEY,
+  `task_id`    VARCHAR(32)  NOT NULL COMMENT 'tâche qui doit attendre',
+  `depends_on` VARCHAR(32)  NOT NULL COMMENT 'tâche à finir avant',
+  `type`       VARCHAR(20)  NOT NULL DEFAULT 'FS' COMMENT 'FS=Finish→Start, SS, FF',
+  `lag_days`   INT          NOT NULL DEFAULT 0,
+  `cree_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uq_dep` (`task_id`,`depends_on`),
+  KEY `idx_task`    (`task_id`),
+  KEY `idx_depends` (`depends_on`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

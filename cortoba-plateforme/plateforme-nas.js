@@ -3999,7 +3999,12 @@ function doLogin(){
       if (ap) ap.style.display = 'block';
       applyModuleAccess();
       loadModulesFromAPI(); // peupler la liste des modules dès la connexion
-      loadData().then(function(){ renderAll(); showPage('dashboard'); refreshNotifBadge(); });
+      loadData().then(function(){
+        renderAll();
+        showPage('dashboard');
+        refreshNotifBadge();
+        setTimeout(function(){ try { if (typeof checkDeadlinesPopup === 'function') checkDeadlinesPopup(); } catch(e) {} }, 1200);
+      });
     })
     .catch(function(e){
       var msg = e.message || '';
@@ -4890,6 +4895,7 @@ function loadModulesFromAPI() {
 
 // Met à jour la zone utilisateur du header (avec avatar miniature)
 function updateHeaderUserDisplay(user) {
+  if (user) window._currentUser = user;
   var el = document.getElementById('user-display');
   if (!el || !user) return;
   var name  = user.name || '';
@@ -5146,6 +5152,7 @@ function openModal_membre_reset() {
   var r1 = document.querySelector('input[name="mb-tel-principal"][value="pro"]');     if (r1) r1.checked = true;
   var r2 = document.querySelector('input[name="mb-email-principal"][value="pro"]');   if (r2) r2.checked = true;
   var showWebEl = document.getElementById('mb-show-website'); if (showWebEl) showWebEl.checked = false;
+  var colorEl = document.getElementById('mb-color'); if (colorEl) colorEl.value = '#c8a96e';
 
   document.getElementById('mb-error').style.display = 'none';
 
@@ -5213,6 +5220,7 @@ function editMembre(id) {
   var r1 = document.querySelector('input[name="mb-tel-principal"][value="'+telPrinc+'"]');     if (r1) r1.checked = true;
   var r2 = document.querySelector('input[name="mb-email-principal"][value="'+emailPrinc+'"]'); if (r2) r2.checked = true;
   var showWebEl = document.getElementById('mb-show-website'); if (showWebEl) showWebEl.checked = !!(+m.show_on_website);
+  var colorEl = document.getElementById('mb-color'); if (colorEl) colorEl.value = (m.color && /^#[0-9A-Fa-f]{6}/.test(m.color)) ? m.color.substring(0,7) : '#c8a96e';
 
   document.getElementById('mb-error').style.display = 'none';
 
@@ -5522,7 +5530,8 @@ function saveMembre() {
     email_perso:     emailPerso,
     email_principal: emailPrincipal,
     profile_picture_url: _mbCurrentPhoto || null,
-    show_on_website: (document.getElementById('mb-show-website') || {}).checked ? 1 : 0
+    show_on_website: (document.getElementById('mb-show-website') || {}).checked ? 1 : 0,
+    color: ((document.getElementById('mb-color') || {}).value) || '#c8a96e'
   };
 
   // Rémunération — uniquement si l'utilisateur peut voir/éditer le sensible
@@ -6928,6 +6937,7 @@ function renderSuiviPage() {
   var filterProjet   = document.getElementById('suivi-filter-projet').value;
   var filterStatut   = document.getElementById('suivi-filter-statut').value;
   var filterPriorite = document.getElementById('suivi-filter-priorite').value;
+  var filterLocation = (document.getElementById('suivi-filter-location')||{}).value || '';
   var search = (document.getElementById('suivi-search').value || '').toLowerCase().trim();
 
   // Populate project select (une seule fois)
@@ -6947,6 +6957,7 @@ function renderSuiviPage() {
     if (filterProjet && (t.projet_id || t.projetId) !== filterProjet) return false;
     if (filterStatut && t.statut !== filterStatut) return false;
     if (filterPriorite && t.priorite !== filterPriorite) return false;
+    if (filterLocation && (t.location_type||'Bureau') !== filterLocation) return false;
     if (search) {
       var hay = ((t.titre||'') + ' ' + (t.description||'') + ' ' + (t.assignee||'') + ' ' + (t.projetNom||'')).toLowerCase();
       if (hay.indexOf(search) === -1) return false;
@@ -6998,16 +7009,46 @@ function suiviProgressBar(val) {
     '<span class="suivi-progress-text">' + val + '%</span>';
 }
 
+// ── Extraire l'année depuis le code projet "XX_YY_CODE" → 20YY ──
+function _extractProjetYear(code, fallback) {
+  if (code) {
+    var m = String(code).match(/^\d{1,3}_(\d{2})_/);
+    if (m) {
+      var yy = parseInt(m[1], 10);
+      return yy < 50 ? (2000 + yy) : (1900 + yy);
+    }
+  }
+  if (fallback) {
+    var d = new Date(fallback);
+    if (!isNaN(d)) return d.getFullYear();
+  }
+  return (new Date()).getFullYear();
+}
+
+// Pastille de couleur membre
+function _memberDot(name) {
+  if (!name) return '';
+  var c = (typeof getMemberColor === 'function') ? getMemberColor(name) : '#c8a96e';
+  return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+c+';margin-right:0.3rem;vertical-align:middle"></span>';
+}
+
 // ── Vue arborescente (liste) ──
 function renderSuiviTree(items) {
   var tree = document.getElementById('suivi-tree');
   var empty = document.getElementById('suivi-empty');
 
-  // Build hierarchy: group by projet, then missions → taches → sous-taches
+  // Build hierarchy: group by year → projet → missions → taches → sous-taches
   var projetMap = {};
   items.forEach(function(t) {
     var pid = t.projet_id;
-    if (!projetMap[pid]) projetMap[pid] = { nom: t.projetNom || 'Projet inconnu', code: t.projetCode || '', items: [] };
+    if (!projetMap[pid]) {
+      projetMap[pid] = {
+        nom: t.projetNom || 'Projet inconnu',
+        code: t.projetCode || '',
+        year: _extractProjetYear(t.projetCode, t.creeAt || t.cree_at),
+        items: []
+      };
+    }
     projetMap[pid].items.push(t);
   });
 
@@ -7018,8 +7059,19 @@ function renderSuiviTree(items) {
   }
   empty.style.display = 'none';
 
+  // Grouper par année décroissante
+  var yearGroups = {};
+  Object.keys(projetMap).forEach(function(pid){
+    var y = projetMap[pid].year;
+    if (!yearGroups[y]) yearGroups[y] = [];
+    yearGroups[y].push(pid);
+  });
+  var yearsSorted = Object.keys(yearGroups).map(Number).sort(function(a,b){ return b - a; });
+
   var html = '';
-  Object.keys(projetMap).forEach(function(pid) {
+  yearsSorted.forEach(function(year){
+    html += '<div class="suivi-year-header" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);font-weight:600;padding:0.5rem 0.3rem;margin-top:0.8rem;border-bottom:1px solid var(--border)">▸ Année ' + year + ' <span style="color:var(--text-3);font-weight:400">(' + yearGroups[year].length + ' projet' + (yearGroups[year].length>1?'s':'') + ')</span></div>';
+    yearGroups[year].forEach(function(pid){
     var proj = projetMap[pid];
     var projItems = proj.items;
 
@@ -7063,7 +7115,7 @@ function renderSuiviTree(items) {
       html += suiviStatutBadge(m.statut);
       html += suiviProgressBar(m.progression);
       if (m.dateEcheance) html += '<span class="suivi-date" title="Échéance">' + fmtDate(m.dateEcheance) + '</span>';
-      if (m.assignee) html += '<span class="suivi-assignee" title="' + m.assignee + '">' + m.assignee.split(' ')[0] + '</span>';
+      if (m.assignee) html += '<span class="suivi-assignee" title="' + m.assignee + '">' + _memberDot(m.assignee) + m.assignee.split(' ')[0] + '</span>';
       html += '<div class="suivi-actions">';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(1, \'' + m.id + '\', \'' + pid + '\')" title="Ajouter tâche">+ Tâche</button>';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + m.id + '\')" title="Modifier">✎</button>';
@@ -7094,7 +7146,7 @@ function renderSuiviTree(items) {
         html += suiviStatutBadge(tache.statut);
         html += suiviProgressBar(tache.progression);
         if (tache.dateEcheance) html += '<span class="suivi-date">' + fmtDate(tache.dateEcheance) + '</span>';
-        if (tache.assignee) html += '<span class="suivi-assignee">' + tache.assignee.split(' ')[0] + '</span>';
+        if (tache.assignee) html += '<span class="suivi-assignee">' + _memberDot(tache.assignee) + tache.assignee.split(' ')[0] + '</span>';
         html += '<div class="suivi-actions">';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(2, \'' + tache.id + '\', \'' + pid + '\')" title="Ajouter sous-tâche">+</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + tache.id + '\')" title="Modifier">✎</button>';
@@ -7113,7 +7165,8 @@ function renderSuiviTree(items) {
             html += suiviPrioriteBadge(st.priorite);
             html += '<div style="margin-left:auto;display:flex;align-items:center;gap:0.4rem">';
             html += suiviStatutBadge(st.statut);
-            if (st.assignee) html += '<span class="suivi-assignee">' + st.assignee.split(' ')[0] + '</span>';
+            html += suiviProgressBar(st.progression || 0);
+            if (st.assignee) html += '<span class="suivi-assignee">' + _memberDot(st.assignee) + st.assignee.split(' ')[0] + '</span>';
             html += '<button class="suivi-action-btn" onclick="editTache(\'' + st.id + '\')" title="Modifier">✎</button>';
             html += '<button class="suivi-action-btn suivi-del" onclick="deleteTache(\'' + st.id + '\')" title="Supprimer">✕</button>';
             html += '</div>';
@@ -7128,42 +7181,78 @@ function renderSuiviTree(items) {
     });
     html += '</div>'; // .suivi-projet-body
     html += '</div>'; // .suivi-projet-group
-  });
+    }); // year projects
+  }); // years
 
   tree.innerHTML = html;
 }
 
-// ── Vue Kanban ──
+// ── Vue Kanban (swimlanes par Mission) ──
 function renderSuiviKanban(items) {
   var kanban = document.getElementById('suivi-kanban');
   var statuts = ['A faire', 'En cours', 'Bloqué', 'Terminé'];
   var colors = { 'A faire': 'var(--yellow)', 'En cours': 'var(--blue)', 'Bloqué': 'var(--red)', 'Terminé': 'var(--green)' };
 
+  // Regrouper par mission parente (swimlane). Les missions elles-mêmes + les tâches orphelines → lane "Sans mission"
+  var missions = items.filter(function(t){ return t.niveau === 0; });
+  var byMission = {};
+  missions.forEach(function(m){ byMission[m.id] = { mission: m, items: [] }; });
+  var orphelins = { mission: null, items: [] };
+  items.forEach(function(t){
+    if (t.niveau === 0) return; // missions rendues en tête de swimlane
+    var parentMission = null;
+    if (t.niveau === 1 && t.parent_id && byMission[t.parent_id]) parentMission = t.parent_id;
+    else if (t.niveau === 2) {
+      var pTache = items.find(function(x){ return x.id === t.parent_id; });
+      if (pTache && pTache.parent_id && byMission[pTache.parent_id]) parentMission = pTache.parent_id;
+    }
+    if (parentMission) byMission[parentMission].items.push(t);
+    else orphelins.items.push(t);
+  });
+
   var html = '';
-  statuts.forEach(function(st) {
-    var col = items.filter(function(t){ return t.statut === st; });
-    html += '<div class="suivi-kanban-col">';
-    html += '<div class="suivi-kanban-col-header" style="border-top-color:' + colors[st] + '">';
-    html += '<span>' + st + '</span><span class="suivi-kanban-count">' + col.length + '</span>';
+  var renderLane = function(lane, laneTitle, laneBadge) {
+    html += '<div class="suivi-kanban-swimlane" style="margin-bottom:1.2rem">';
+    html += '<div class="suivi-kanban-swimlane-header" style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-left:3px solid var(--accent);margin-bottom:0.5rem;border-radius:4px">';
+    html += '<span style="font-size:0.85rem;font-weight:500">🎯 ' + laneTitle + '</span>';
+    if (laneBadge) html += laneBadge;
     html += '</div>';
-    html += '<div class="suivi-kanban-col-body">';
-    col.forEach(function(t) {
-      var niveauLabel = t.niveau === 0 ? 'Mission' : t.niveau === 1 ? 'Tâche' : 'Sous-tâche';
-      html += '<div class="suivi-kanban-card" onclick="editTache(\'' + t.id + '\')">';
-      html += '<div class="suivi-kanban-card-top">';
-      html += '<span class="suivi-kanban-niveau">' + niveauLabel + '</span>';
-      html += suiviPrioriteBadge(t.priorite);
+    html += '<div class="suivi-kanban-cols" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem">';
+    statuts.forEach(function(st){
+      var col = lane.items.filter(function(t){ return t.statut === st; });
+      html += '<div class="suivi-kanban-col">';
+      html += '<div class="suivi-kanban-col-header" style="border-top-color:' + colors[st] + '">';
+      html += '<span>' + st + '</span><span class="suivi-kanban-count">' + col.length + '</span>';
       html += '</div>';
-      html += '<div class="suivi-kanban-card-titre">' + (t.titre||'') + '</div>';
-      if (t.projetNom) html += '<div class="suivi-kanban-card-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
-      html += '<div class="suivi-kanban-card-bottom">';
-      if (t.assignee) html += '<span class="suivi-assignee">' + t.assignee + '</span>';
-      if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
-      html += '</div>';
-      html += '</div>';
+      html += '<div class="suivi-kanban-col-body">';
+      col.forEach(function(t) {
+        var niveauLabel = t.niveau === 1 ? 'Tâche' : 'Sous-tâche';
+        html += '<div class="suivi-kanban-card" onclick="editTache(\'' + t.id + '\')">';
+        html += '<div class="suivi-kanban-card-top">';
+        html += '<span class="suivi-kanban-niveau">' + niveauLabel + '</span>';
+        html += suiviPrioriteBadge(t.priorite);
+        html += '</div>';
+        html += '<div class="suivi-kanban-card-titre">' + (t.titre||'') + '</div>';
+        if (t.projetNom) html += '<div class="suivi-kanban-card-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
+        html += '<div class="suivi-kanban-card-bottom">';
+        if (t.assignee) html += '<span class="suivi-assignee">' + _memberDot(t.assignee) + t.assignee + '</span>';
+        if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
     });
     html += '</div></div>';
+  };
+
+  Object.keys(byMission).forEach(function(mid){
+    var lane = byMission[mid];
+    var m = lane.mission;
+    var badge = suiviStatutBadge(m.statut) + ' ' + suiviProgressBar(m.progression||0);
+    renderLane(lane, (m.projetCode?m.projetCode+' · ':'') + (m.titre||''), badge);
   });
+  if (orphelins.items.length) renderLane(orphelins, 'Sans mission parente', '');
+
   kanban.innerHTML = html;
 }
 
@@ -7975,7 +8064,11 @@ _toggleTitreField = function(niveau, selectedValue) {
 
 function _populateTachesTypesSelect(selectedValue) {
   var sel = document.getElementById('tache-titre-select');
-  sel.innerHTML = '<option value="">— Choisir une tâche —</option>';
+  sel.innerHTML = '<option value="">— Choisir une tâche —</option><option value="__add__">➕ Ajouter une nouvelle tâche…</option>';
+  // Bind handler for the "+" pseudo-option
+  sel.onchange = function(){
+    if (sel.value === '__add__') { sel.value = ''; openAddTacheTypeInline(); }
+  };
   var tachesTypes = getTachesTypes();
   var missions = getMissions();
   var cats = getMissionCategories();
@@ -9766,4 +9859,464 @@ function renderFichePaieHtml(m, fp) {
     };
   }
 })();
+
+// ═══════════════════════════════════════════════════════════════
+//  SUIVI v3 — Handlers select mission/tâche-type + inline add
+// ═══════════════════════════════════════════════════════════════
+
+function onTacheTitreSelectChange(sel) {
+  // Pour niveau 0 : détecter mission "grisée" (non affectée au projet) → proposer ajout
+  var niveau = parseInt((document.getElementById('tache-niveau')||{}).value || '0', 10);
+  if (niveau !== 0 || !sel || !sel.value) return;
+  var projetId = (document.getElementById('tache-projet')||{}).value;
+  if (!projetId) return;
+  var projet = getProjets().find(function(p){ return p.id === projetId; });
+  if (!projet) return;
+  var affectees = [];
+  try { affectees = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); } catch(e) { affectees = []; }
+  if (affectees.indexOf(sel.value) === -1) {
+    if (confirm('La mission "'+sel.value+'" n\'est pas affectée au projet '+(projet.code||projet.nom)+'. L\'ajouter à la fiche projet ?')) {
+      affectees.push(sel.value);
+      projet.missions = affectees;
+      apiFetch('api/projets.php?id='+projet.id, { method:'PUT', body:{ missions: affectees } })
+        .then(function(){ showToast('✓ Mission ajoutée au projet'); })
+        .catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+    } else {
+      sel.value = '';
+    }
+  }
+}
+
+function onTacheTitreTypeChange(sel) {
+  // Option "+ nouvelle" → ouvrir modale ; sinon recopier dans tache-titre
+  if (!sel) return;
+  if (sel.value === '__add__') {
+    sel.value = '';
+    openAddTacheTypeInline();
+    return;
+  }
+  var inp = document.getElementById('tache-titre');
+  if (inp && sel.value) inp.value = sel.value;
+}
+
+function openAddTacheTypeInline() {
+  var selM = document.getElementById('add-tt-mission');
+  if (selM) {
+    selM.innerHTML = '';
+    var missions = getMissions();
+    missions.forEach(function(m){
+      var o = document.createElement('option');
+      o.value = m.id; o.textContent = m.nom;
+      selM.appendChild(o);
+    });
+    // Pré-sélectionner la mission du parent si niveau 1
+    var parentId = (document.getElementById('tache-parent-id')||{}).value;
+    if (parentId && typeof _suiviCache !== 'undefined') {
+      var parent = _suiviCache.find(function(x){ return x.id === parentId; });
+      if (parent) {
+        var mMatch = missions.find(function(m){ return m.nom === parent.titre; });
+        if (mMatch) selM.value = mMatch.id;
+      }
+    }
+  }
+  var nomEl = document.getElementById('add-tt-nom'); if (nomEl) nomEl.value = '';
+  openModal('modal-add-tachetype');
+}
+
+function confirmAddTacheTypeInline() {
+  var missionId = (document.getElementById('add-tt-mission')||{}).value;
+  var nom = ((document.getElementById('add-tt-nom')||{}).value || '').trim();
+  if (!missionId) { showToast('Mission requise', 'error'); return; }
+  if (!nom) { showToast('Nom requis', 'error'); return; }
+  var list = getTachesTypes();
+  var newId = 'tt_' + Date.now();
+  list.push({ id: newId, mission_id: missionId, nom: nom });
+  saveSetting('cortoba_taches_types', list);
+  closeModal('modal-add-tachetype');
+  showToast('✓ Tâche-type ajoutée');
+  // Re-peupler le select courant et pré-sélectionner
+  try { _populateTachesTypesSelect(nom); } catch(e) {}
+  var inp = document.getElementById('tache-titre'); if (inp) inp.value = nom;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DÉPLACEMENTS — Feuille de route (Chantier + Administration)
+// ═══════════════════════════════════════════════════════════════
+
+function openDeplacementsView() {
+  var me = (window._currentUser || {});
+  var myName = ((me.prenom||'') + ' ' + (me.nom||'')).trim() || me.name || me.email || '';
+  loadTaches().then(function(list){
+    var rows = (list||[]).filter(function(t){
+      var loc = t.location_type || 'Bureau';
+      if (loc !== 'Chantier' && loc !== 'Administration') return false;
+      if (t.statut === 'Terminé') return false;
+      if (myName && t.assignee && t.assignee !== myName && (me.role||'') !== 'admin' && (me.role||'') !== 'Architecte gérant') {
+        return false;
+      }
+      return true;
+    });
+    rows.sort(function(a,b){
+      var ka = (a.location_zone||'') + '|' + (a.date_echeance||'9999');
+      var kb = (b.location_zone||'') + '|' + (b.date_echeance||'9999');
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+    var w = window.open('', '_blank');
+    if (!w) { showToast('Popup bloqué', 'error'); return; }
+    var html = '<!doctype html><html><head><meta charset="utf-8"><title>Feuille de route</title>';
+    html += '<style>body{font-family:Arial,sans-serif;padding:20px;color:#222}h1{color:#8b6f3a;border-bottom:2px solid #c8a96e;padding-bottom:6px}table{border-collapse:collapse;width:100%;margin-top:12px;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f5efe2}tr.sep td{background:#fbf6e8;font-weight:bold}</style>';
+    html += '</head><body>';
+    html += '<h1>Feuille de route — ' + new Date().toLocaleDateString('fr-FR') + '</h1>';
+    html += '<div style="font-size:12px;color:#666">Collaborateur : ' + (myName||'Tous') + ' · ' + rows.length + ' déplacement(s)</div>';
+    html += '<table><thead><tr><th>Zone</th><th>Type</th><th>Projet</th><th>Tâche</th><th>Échéance</th><th>Assigné</th></tr></thead><tbody>';
+    var lastZone = '';
+    rows.forEach(function(r){
+      if (r.location_zone !== lastZone) {
+        html += '<tr class="sep"><td colspan="6">' + (r.location_zone || '— Zone non précisée —') + '</td></tr>';
+        lastZone = r.location_zone;
+      }
+      html += '<tr><td>'+(r.location_zone||'—')+'</td><td>'+(r.location_type||'')+'</td><td>'+((r.projetCode||r.projet_code||'')+(r.projetNom? ' — '+r.projetNom:''))+'</td><td>'+(r.titre||'')+'</td><td>'+(r.dateEcheance||r.date_echeance||'—')+'</td><td>'+(r.assignee||'—')+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<script>window.onload=function(){window.print();}</scr'+'ipt></body></html>';
+    w.document.write(html); w.document.close();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  POPUP ÉCHÉANCES — à l'ouverture de session
+// ═══════════════════════════════════════════════════════════════
+
+var _deadlinesChecked = false;
+function checkDeadlinesPopup() {
+  if (_deadlinesChecked) return;
+  _deadlinesChecked = true;
+  var me = (window._currentUser || {});
+  var myName = ((me.prenom||'') + ' ' + (me.nom||'')).trim() || me.name || '';
+  var isPriv = (me.role === 'admin' || me.role === 'Architecte gérant');
+  loadTaches().then(function(list){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var lim = new Date(today); lim.setDate(lim.getDate() + 3);
+    var alerts = (list||[]).filter(function(t){
+      if (t.statut === 'Terminé') return false;
+      var d = t.dateEcheance || t.date_echeance;
+      if (!d) return false;
+      var dd = new Date(d); dd.setHours(0,0,0,0);
+      if (dd > lim) return false;
+      if (!isPriv && myName && t.assignee && t.assignee !== myName) return false;
+      return true;
+    });
+    if (!alerts.length) return;
+    alerts.sort(function(a,b){ return (a.dateEcheance||a.date_echeance||'') < (b.dateEcheance||b.date_echeance||'') ? -1 : 1; });
+    var wrap = document.getElementById('deadlines-list');
+    if (!wrap) return;
+    var html = '';
+    alerts.forEach(function(t){
+      var d = t.dateEcheance || t.date_echeance;
+      var dd = new Date(d); dd.setHours(0,0,0,0);
+      var overdue = dd < today;
+      var color = overdue ? '#c0392b' : '#d18e1e';
+      html += '<div style="border-left:3px solid '+color+';padding:0.5rem 0.7rem;background:var(--bg-2);border-radius:4px">';
+      html += '<div style="font-size:0.85rem;font-weight:500">'+(t.titre||'')+'</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-3)">'+(t.projetCode||t.projet_code||'')+' · '+(t.assignee||'Non assigné')+' · <span style="color:'+color+'">échéance '+d+(overdue?' (en retard)':'')+'</span></div>';
+      html += '</div>';
+    });
+    wrap.innerHTML = html;
+    openModal('modal-deadlines');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TIMESHEET — saisie du temps
+// ═══════════════════════════════════════════════════════════════
+
+var _timesheetCache = [];
+
+function renderTimesheetPage() {
+  // Populate filtres une seule fois
+  var selU = document.getElementById('ts-filter-user');
+  if (selU && selU.options.length <= 1) {
+    getMembres().forEach(function(m){
+      var n = ((m.prenom||'')+' '+(m.nom||'')).trim();
+      if (!n) return;
+      var o = document.createElement('option');
+      o.value = m.id; o.textContent = n;
+      selU.appendChild(o);
+    });
+  }
+  var selP = document.getElementById('ts-filter-projet');
+  if (selP && selP.options.length <= 1) {
+    getProjets().forEach(function(p){
+      var o = document.createElement('option');
+      o.value = p.id; o.textContent = (p.code?p.code+' — ':'') + p.nom;
+      selP.appendChild(o);
+    });
+  }
+  var q = [];
+  var u = (document.getElementById('ts-filter-user')||{}).value;
+  var pr = (document.getElementById('ts-filter-projet')||{}).value;
+  var df = (document.getElementById('ts-filter-from')||{}).value;
+  var dt = (document.getElementById('ts-filter-to')||{}).value;
+  if (u)  q.push('user_id='   + encodeURIComponent(u));
+  if (pr) q.push('projet_id=' + encodeURIComponent(pr));
+  if (df) q.push('date_from=' + encodeURIComponent(df));
+  if (dt) q.push('date_to='   + encodeURIComponent(dt));
+  apiFetch('api/timesheets.php' + (q.length?'?'+q.join('&'):'')).then(function(r){
+    _timesheetCache = r.data || [];
+    var wrap = document.getElementById('ts-table-wrap');
+    if (!wrap) return;
+    if (!_timesheetCache.length) {
+      wrap.innerHTML = '<div style="color:var(--text-3);padding:1.5rem;text-align:center;font-size:0.82rem">Aucune saisie sur la période.</div>';
+      var s = document.getElementById('ts-summary'); if (s) s.textContent = '';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem">';
+    html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-3);text-align:left"><th style="padding:0.5rem">Date</th><th>Collaborateur</th><th>Projet</th><th>Tâche</th><th style="text-align:right">Heures</th><th>Fact.</th><th>Commentaire</th><th></th></tr></thead><tbody>';
+    var total = 0, billable = 0;
+    _timesheetCache.forEach(function(t){
+      var h = parseFloat(t.hours_spent)||0;
+      total += h;
+      if (+t.is_billable) billable += h;
+      html += '<tr style="border-bottom:1px solid var(--border-subtle)">';
+      html += '<td style="padding:0.4rem 0.5rem">'+(t.date_jour||'')+'</td>';
+      html += '<td>'+(t.user_name||'—')+'</td>';
+      html += '<td>'+((t.projet_code||'')+(t.projet_nom?' — '+t.projet_nom:'') || '—')+'</td>';
+      html += '<td>'+(t.tache_titre||'—')+'</td>';
+      html += '<td style="text-align:right;font-variant-numeric:tabular-nums">'+h.toFixed(2)+'</td>';
+      html += '<td>'+(+t.is_billable?'✓':'—')+'</td>';
+      html += '<td style="color:var(--text-3);font-size:0.75rem">'+(t.commentaire||'')+'</td>';
+      html += '<td><button class="btn btn-sm" onclick="editTimesheet(\''+t.id+'\')">Modif</button> <button class="btn btn-sm" onclick="deleteTimesheet(\''+t.id+'\')">×</button></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+    var s = document.getElementById('ts-summary');
+    if (s) s.textContent = 'Total : '+total.toFixed(2)+' h · Facturable : '+billable.toFixed(2)+' h';
+  }).catch(function(e){
+    var wrap = document.getElementById('ts-table-wrap');
+    if (wrap) wrap.innerHTML = '<div style="color:var(--red);padding:1rem">Erreur : '+e.message+'</div>';
+  });
+}
+
+function openTimesheetModal(tacheId) {
+  document.getElementById('ts-id').value = '';
+  document.getElementById('ts-tache-id').value = tacheId || '';
+  document.getElementById('ts-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ts-hours').value = '';
+  document.getElementById('ts-commentaire').value = '';
+  document.getElementById('ts-billable').checked = true;
+  // Populate projet
+  var selP = document.getElementById('ts-projet');
+  selP.innerHTML = '<option value="">— Projet —</option>';
+  getProjets().forEach(function(p){
+    var o = document.createElement('option');
+    o.value = p.id; o.textContent = (p.code?p.code+' — ':'') + p.nom;
+    selP.appendChild(o);
+  });
+  // Populate tâche
+  var selT = document.getElementById('ts-tache');
+  selT.innerHTML = '<option value="">— Aucune —</option>';
+  (_suiviCache||[]).forEach(function(t){
+    if (t.niveau === 0) return;
+    var o = document.createElement('option');
+    o.value = t.id; o.textContent = (t.projetCode?t.projetCode+' · ':'') + (t.titre||'');
+    selT.appendChild(o);
+  });
+  if (tacheId) {
+    selT.value = tacheId;
+    var tk = (_suiviCache||[]).find(function(x){ return x.id === tacheId; });
+    if (tk && tk.projet_id) selP.value = tk.projet_id;
+  }
+  openModal('modal-timesheet');
+}
+
+function editTimesheet(id) {
+  var t = _timesheetCache.find(function(x){ return x.id === id; });
+  if (!t) return;
+  openTimesheetModal(t.tache_id);
+  document.getElementById('ts-id').value = t.id;
+  document.getElementById('ts-projet').value = t.projet_id || '';
+  document.getElementById('ts-tache').value  = t.tache_id || '';
+  document.getElementById('ts-date').value   = t.date_jour || '';
+  document.getElementById('ts-hours').value  = t.hours_spent || '';
+  document.getElementById('ts-billable').checked = !!(+t.is_billable);
+  document.getElementById('ts-commentaire').value = t.commentaire || '';
+}
+
+function saveTimesheet() {
+  var id = document.getElementById('ts-id').value;
+  var hours = parseFloat(document.getElementById('ts-hours').value);
+  if (!hours || hours <= 0) { showToast('Heures requises', 'error'); return; }
+  var body = {
+    projet_id:   document.getElementById('ts-projet').value || null,
+    tache_id:    document.getElementById('ts-tache').value || null,
+    date_jour:   document.getElementById('ts-date').value,
+    hours_spent: hours,
+    is_billable: document.getElementById('ts-billable').checked ? 1 : 0,
+    commentaire: document.getElementById('ts-commentaire').value.trim()
+  };
+  var url = id ? 'api/timesheets.php?id='+id : 'api/timesheets.php';
+  var method = id ? 'PUT' : 'POST';
+  apiFetch(url, { method: method, body: body }).then(function(){
+    closeModal('modal-timesheet');
+    showToast('✓ Temps enregistré');
+    if (typeof renderTimesheetPage === 'function' && document.getElementById('page-timesheet').classList.contains('active')) renderTimesheetPage();
+  }).catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+}
+
+function deleteTimesheet(id) {
+  if (!confirm('Supprimer cette saisie ?')) return;
+  apiFetch('api/timesheets.php?id='+id, { method:'DELETE' }).then(function(){
+    showToast('✓ Supprimé');
+    renderTimesheetPage();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GANTT — planning visuel (frappe-gantt)
+// ═══════════════════════════════════════════════════════════════
+
+function renderGanttPage() {
+  var selP = document.getElementById('gantt-projet');
+  if (selP && selP.options.length <= 1) {
+    getProjets().forEach(function(p){
+      var o = document.createElement('option');
+      o.value = p.id; o.textContent = (p.code?p.code+' — ':'') + p.nom;
+      selP.appendChild(o);
+    });
+  }
+  var projetId = selP ? selP.value : '';
+  loadTaches(projetId || null).then(function(list){
+    var tasks = (list||[]).filter(function(t){
+      return (t.date_debut || t.dateDebut) && (t.date_echeance || t.dateEcheance);
+    }).map(function(t){
+      return {
+        id: t.id,
+        name: (t.projetCode?t.projetCode+' · ':'') + (t.titre||''),
+        start: t.date_debut || t.dateDebut,
+        end:   t.date_echeance || t.dateEcheance,
+        progress: parseInt(t.progression,10) || 0,
+        dependencies: ''
+      };
+    });
+    var container = document.getElementById('gantt-container');
+    if (!container) return;
+    if (!tasks.length) {
+      container.innerHTML = '<div style="color:var(--text-3);padding:2rem;text-align:center;font-size:0.82rem">Aucune tâche avec dates (début + échéance) à afficher.</div>';
+      window._ganttInstance = null;
+      return;
+    }
+    container.innerHTML = '<svg id="gantt-svg"></svg>';
+    if (typeof Gantt === 'undefined') {
+      container.innerHTML = '<div style="color:var(--red);padding:1rem">Bibliothèque frappe-gantt non chargée.</div>';
+      return;
+    }
+    try {
+      window._ganttInstance = new Gantt('#gantt-svg', tasks, {
+        view_mode: (document.getElementById('gantt-scale')||{}).value || 'Week',
+        language: 'fr',
+        bar_height: 22,
+        padding: 16,
+        on_click: function(task){ editTache(task.id); }
+      });
+    } catch (e) {
+      container.innerHTML = '<div style="color:var(--red);padding:1rem">Erreur Gantt : '+e.message+'</div>';
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CHARGE DE TRAVAIL — capacité vs planifié
+// ═══════════════════════════════════════════════════════════════
+
+function renderChargePage() {
+  var df = (document.getElementById('charge-from')||{}).value;
+  var dt = (document.getElementById('charge-to')||{}).value;
+  if (!df || !dt) {
+    var today = new Date();
+    var weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+    if (!df) { document.getElementById('charge-from').value = today.toISOString().split('T')[0]; df = today.toISOString().split('T')[0]; }
+    if (!dt) { document.getElementById('charge-to').value = weekEnd.toISOString().split('T')[0]; dt = weekEnd.toISOString().split('T')[0]; }
+  }
+  loadTaches().then(function(list){
+    var membres = getMembres();
+    var byMember = {};
+    membres.forEach(function(m){
+      var n = ((m.prenom||'')+' '+(m.nom||'')).trim();
+      if (!n) return;
+      byMember[n] = { membre: m, planifie: 0, tasks: [] };
+    });
+    var d1 = new Date(df), d2 = new Date(dt);
+    (list||[]).forEach(function(t){
+      if (!t.assignee) return;
+      if (t.statut === 'Terminé') return;
+      var td = t.date_debut || t.dateDebut;
+      var te = t.date_echeance || t.dateEcheance;
+      // Inclure si chevauchement avec la période
+      if (td && te) {
+        var ts = new Date(td), tend = new Date(te);
+        if (tend < d1 || ts > d2) return;
+      }
+      var he = parseFloat(t.heures_estimees)||0;
+      if (!byMember[t.assignee]) byMember[t.assignee] = { membre: { prenom:'', nom:t.assignee, heures_mois:160, color:'#c8a96e' }, planifie:0, tasks:[] };
+      byMember[t.assignee].planifie += he;
+      byMember[t.assignee].tasks.push(t);
+    });
+    // Capacité hebdo = heures_mois / 4 ; ajuster selon longueur période
+    var periodDays = Math.max(1, Math.round((d2-d1)/86400000) + 1);
+    var wrap = document.getElementById('charge-wrap');
+    if (!wrap) return;
+    var html = '';
+    var names = Object.keys(byMember);
+    if (!names.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucun collaborateur.</div>'; return; }
+    names.forEach(function(n){
+      var d = byMember[n];
+      var capWeek = parseFloat(d.membre.heures_mois || 160) / 4;
+      var capacite = capWeek * (periodDays / 7);
+      var pct = capacite > 0 ? Math.round(d.planifie / capacite * 100) : 0;
+      var color = d.membre.color || '#c8a96e';
+      var barColor = pct > 100 ? '#c0392b' : (pct > 80 ? '#d18e1e' : color);
+      html += '<div style="margin-bottom:1rem">';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem">';
+      html += '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+color+';margin-right:0.4rem"></span>'+n+'</span>';
+      html += '<span style="color:var(--text-3)">'+d.planifie.toFixed(1)+' h / '+capacite.toFixed(1)+' h <strong style="color:'+barColor+'">('+pct+'%)</strong></span>';
+      html += '</div>';
+      html += '<div style="height:8px;background:var(--bg-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+barColor+';transition:width .3s"></div></div>';
+      if (d.tasks.length) {
+        html += '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">'+d.tasks.length+' tâche(s) active(s)</div>';
+      }
+      html += '</div>';
+    });
+    wrap.innerHTML = html;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AJOUT COULEUR MEMBRE — fiche membre
+// ═══════════════════════════════════════════════════════════════
+
+(function(){
+  // Hook saveMembre pour inclure color si un input existe
+  if (typeof saveMembre === 'function') {
+    var _origSaveMembre = saveMembre;
+    window.saveMembre = function() {
+      var colorEl = document.getElementById('membre-color');
+      if (colorEl && window._lastMembrePayload) {
+        window._lastMembrePayload.color = colorEl.value || '#c8a96e';
+      }
+      return _origSaveMembre.apply(this, arguments);
+    };
+  }
+})();
+
+// Helper pour récupérer la couleur d'un membre par son nom
+function getMemberColor(fullName) {
+  if (!fullName) return '#c8a96e';
+  var m = (getMembres()||[]).find(function(x){
+    var n = ((x.prenom||'')+' '+(x.nom||'')).trim();
+    return n === fullName;
+  });
+  return (m && m.color) || '#c8a96e';
+}
+window.getMemberColor = getMemberColor;
 
