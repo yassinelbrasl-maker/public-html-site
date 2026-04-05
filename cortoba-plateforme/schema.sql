@@ -392,3 +392,25 @@ ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `montant_tva` DECIMAL(14,3) D
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `timbre`      DECIMAL(14,3) DEFAULT 0;
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `montant_ttc` DECIMAL(14,3) DEFAULT 0;
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `lignes_json` LONGTEXT DEFAULT NULL;
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : Fiche de paie — infos employé + lien dépense/membre
+-- ════════════════════════════════════════════════════════════
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `cin`                 VARCHAR(20)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `matricule`           VARCHAR(40)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `n_cnss`              VARCHAR(40)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `situation_familiale` VARCHAR(20)  DEFAULT 'Célibataire';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `enfants_charge`      INT          DEFAULT 0;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `adresse`             VARCHAR(300) DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `echelon`             VARCHAR(40)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `categorie_emploi`    VARCHAR(40)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `emploi`              VARCHAR(120) DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `banque`              VARCHAR(120) DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `rib`                 VARCHAR(40)  DEFAULT '';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `mode_paiement`       VARCHAR(30)  DEFAULT 'Virement';
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `salaire_base`        DECIMAL(12,3) DEFAULT 0;
+
+-- Lier une dépense salaire à un membre (pour générer fiche de paie + historique)
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `employe_id`    VARCHAR(32) DEFAULT NULL;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `paie_mois`     VARCHAR(7)  DEFAULT NULL;
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `paie_snapshot` LONGTEXT    DEFAULT NULL;

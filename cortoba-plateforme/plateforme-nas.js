@@ -3030,6 +3030,13 @@ function saveDepense(){
       montantTtc: ttc, lignesJson: lignes,
       templateId: _depFromTemplateId || null
     };
+    // Si dépense de type salaire → lier au membre + snapshot fiche de paie
+    if (cat === 'Salaires & charges' && _currentSalaryMember) {
+      var moisInp = (document.getElementById('dep-paie-mois')||{value:''}).value;
+      body.employeId    = _currentSalaryMember.id;
+      body.paieMois     = moisInp || null;
+      body.paieSnapshot = JSON.stringify(_currentFichePaie || computeFichePaie(_currentSalaryMember, {}));
+    }
     var method = 'POST';
     var url    = 'api/data.php?table=depenses';
     if (_editingDepenseId) {
@@ -3382,7 +3389,24 @@ function openEditDepense(id) {
   if (saveBtn) saveBtn.textContent = 'Enregistrer les modifications →';
 
   var catEl = document.getElementById('dep-categorie');
-  if (catEl) catEl.value = d.cat || d.categorie || '';
+  if (catEl) { catEl.value = d.cat || d.categorie || ''; onDepCategorieChange(); }
+  // Si salaire : restaurer le bénéficiaire + mois
+  if ((d.categorie || d.cat) === 'Salaires & charges') {
+    var benefSel = document.getElementById('dep-beneficiaire');
+    var moisInp  = document.getElementById('dep-paie-mois');
+    if (d.employeId || d.employe_id) {
+      if (benefSel) benefSel.value = d.employeId || d.employe_id;
+    }
+    if (moisInp && (d.paieMois || d.paie_mois)) moisInp.value = d.paieMois || d.paie_mois;
+    if (d.paieSnapshot || d.paie_snapshot) {
+      try { _currentFichePaie = (typeof (d.paieSnapshot||d.paie_snapshot) === 'string') ? JSON.parse(d.paieSnapshot||d.paie_snapshot) : (d.paieSnapshot||d.paie_snapshot); } catch(e){}
+    }
+    var mm = (getMembres()||[]).find(function(x){ return x.id === (d.employeId||d.employe_id); });
+    if (mm) {
+      _currentSalaryMember = mm;
+      var pb = document.getElementById('dep-print-fiche-btn'); if (pb) pb.style.display = '';
+    }
+  }
   var libEl = document.getElementById('dep-libelle');
   if (libEl) libEl.value = d.libelle || d.description || '';
   var dateEl = document.getElementById('dep-date');
@@ -4048,6 +4072,7 @@ function showPage(id){
       if(banqueEl) banqueEl.value = getSetting('cortoba_banque', '');
       var mentEl = document.getElementById('param-fa-mentions');
       if(mentEl) mentEl.value = getSetting('cortoba_fa_mentions', '');
+      if (typeof loadPaieParams === 'function') loadPaieParams();
     };
     // Si le cache est déjà rempli (loadData terminé), remplir immédiatement
     if (Object.keys(_settingsCache).length > 3) {
@@ -5095,8 +5120,14 @@ function openModal_membre_reset() {
   var ids = ['mb-prenom','mb-nom','mb-email','mb-spec','mb-pass','mb-pass2',
              'mb-tel-pro','mb-tel-perso','mb-email-pro','mb-email-perso',
              'mb-salaire','mb-charges','mb-subv','mb-avant',
-             'mb-date-embauche','mb-date-augm'];
+             'mb-date-embauche','mb-date-augm',
+             // fiche de paie
+             'mb-salaire-base','mb-matricule','mb-cin','mb-n-cnss','mb-emploi',
+             'mb-cat-emploi','mb-echelon','mb-adresse-perso','mb-banque','mb-rib'];
   ids.forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  var sit = document.getElementById('mb-situation');   if (sit) sit.value = 'Célibataire';
+  var enf = document.getElementById('mb-enfants');      if (enf) enf.value = '0';
+  var mp  = document.getElementById('mb-mode-paie');    if (mp)  mp.value = 'Virement';
 
   var heuresEl = document.getElementById('mb-heures');       if (heuresEl) heuresEl.value = '160';
   var tauxEl   = document.getElementById('mb-taux-augm');    if (tauxEl)   tauxEl.value   = '5';
@@ -5149,6 +5180,20 @@ function editMembre(id) {
   setVal('mb-date-embauche', m.date_embauche);
   setVal('mb-date-augm',     m.date_derniere_augm);
   setVal('mb-taux-augm',     m.taux_augm_pct || 5);
+  // Fiche de paie
+  setVal('mb-salaire-base',  m.salaire_base);
+  setVal('mb-matricule',     m.matricule);
+  setVal('mb-cin',           m.cin);
+  setVal('mb-n-cnss',        m.n_cnss);
+  setVal('mb-emploi',        m.emploi);
+  setVal('mb-cat-emploi',    m.categorie_emploi);
+  setVal('mb-echelon',       m.echelon);
+  setVal('mb-adresse-perso', m.adresse);
+  setVal('mb-banque',        m.banque);
+  setVal('mb-rib',           m.rib);
+  var sitEl = document.getElementById('mb-situation'); if (sitEl) sitEl.value = m.situation_familiale || 'Célibataire';
+  var enfEl = document.getElementById('mb-enfants');   if (enfEl) enfEl.value = (m.enfants_charge!=null ? m.enfants_charge : 0);
+  var mpEl  = document.getElementById('mb-mode-paie'); if (mpEl)  mpEl.value = m.mode_paiement || 'Virement';
 
   var statEl = document.getElementById('mb-statut');
   if (statEl) statEl.value = m.statut || 'Actif';
@@ -5479,6 +5524,20 @@ function saveMembre() {
     payload.date_embauche      = val('mb-date-embauche') || null;
     payload.date_derniere_augm = val('mb-date-augm') || null;
     payload.taux_augm_pct      = num('mb-taux-augm') || 5;
+    // Fiche de paie
+    payload.salaire_base        = num('mb-salaire-base');
+    payload.matricule           = val('mb-matricule').trim();
+    payload.cin                 = val('mb-cin').trim();
+    payload.n_cnss              = val('mb-n-cnss').trim();
+    payload.emploi              = val('mb-emploi').trim();
+    payload.categorie_emploi    = val('mb-cat-emploi').trim();
+    payload.echelon             = val('mb-echelon').trim();
+    payload.situation_familiale = val('mb-situation') || 'Célibataire';
+    payload.enfants_charge      = parseInt(val('mb-enfants'),10) || 0;
+    payload.adresse             = val('mb-adresse-perso').trim();
+    payload.banque              = val('mb-banque').trim();
+    payload.rib                 = val('mb-rib').trim();
+    payload.mode_paiement       = val('mb-mode-paie') || 'Virement';
   }
 
   var saveBtn = document.querySelector('#modal-membre .btn-primary');
@@ -8076,10 +8135,22 @@ function loadDemandesAdmin() {
     .catch(function(e) { console.error('[DA] load error', e); showToast('Erreur chargement demandes admin', 'error'); return []; });
 }
 
-var DA_DEFAULT_TYPES = ['Demande d\'avis','Demande de devis','Demande de raccordement','Demande d\'autorisation','Demande de permis','Demande de certificat','Demande de régularisation','Lettre de relance'];
-var DA_DEFAULT_ADMINS = ['STEG','SONEDE','ONAS','Municipalité','Protection civile','Gouvernorat','Ministère de l\'Équipement','CRDA','Tribunal immobilier','Conservation foncière'];
+var DA_DEFAULT_TYPES = [
+  'Demande d\'avis','Demande d\'accord de principe','Demande d\'autorisation','Demande de permis de bâtir',
+  'Demande de raccordement','Demande de certificat','Demande de régularisation','Demande de devis',
+  'Demande d\'intervention','Demande de renseignements','Lettre de relance','Réclamation'
+];
+var DA_DEFAULT_ADMINS = [
+  'Municipalité','Gouvernorat','Délégation','STEG','SONEDE','ONAS','Protection civile','CRDA',
+  'Ministère de l\'Équipement et de l\'Habitat','Ministère des Domaines de l\'État','INP — Institut National du Patrimoine',
+  'ALIPH','APAL','Tribunal immobilier','Conservation foncière','Direction régionale de l\'urbanisme'
+];
 var DA_DEFAULT_GOUVS = ['Tunis','Ariana','Ben Arous','Manouba','Nabeul','Zaghouan','Bizerte','Béja','Jendouba','Le Kef','Siliana','Sousse','Monastir','Mahdia','Sfax','Kairouan','Kasserine','Sidi Bouzid','Gabès','Médenine','Tataouine','Gafsa','Tozeur','Kébili'];
-var DA_DEFAULT_DOCS = ['Copie CIN','Plan de situation','Plan d\'architecture','Titre foncier','Permis de bâtir','Attestation d\'assurance','Quittance de paiement','Procuration légalisée','Photos du site','Rapport technique'];
+// Délégations de Djerba (Médenine) + principales délégations Sud
+var DA_DEFAULT_DELEGS = ['Houmt Souk','Midoun','Ajim','Zarzis','Ben Gardane','Médenine Nord','Médenine Sud','Beni Khedache','Sidi Makhlouf','Djerba - Houmt Souk','Djerba - Midoun','Djerba - Ajim'];
+// Municipalités de Djerba + voisines
+var DA_DEFAULT_MUNIS = ['Municipalité de Houmt Souk','Municipalité de Midoun','Municipalité d\'Ajim','Municipalité d\'Erriadh','Municipalité de Zarzis','Municipalité de Ben Gardane','Municipalité de Médenine'];
+var DA_DEFAULT_DOCS = ['Copie CIN','Plan de situation','Plan d\'architecture','Titre foncier','Extrait du registre foncier','Permis de bâtir','Attestation d\'assurance','Quittance de paiement','Procuration légalisée','Photos du site','Rapport technique','Attestation de propriété','Levé topographique','Étude de sol'];
 
 function getDAList(key, defaults) {
   var val = getSetting(key, null);
@@ -8089,19 +8160,26 @@ function getDAList(key, defaults) {
 function getDATypes()  { return getDAList('types_demandes_admin', DA_DEFAULT_TYPES); }
 function getDAAdmins() { return getDAList('administrations_list', DA_DEFAULT_ADMINS); }
 function getDAGouvs()  { return getDAList('gouvernorats_list', DA_DEFAULT_GOUVS); }
-function getDADelegs() { return getDAList('delegations_list', []); }
-function getDAMunis()  { return getDAList('municipalites_list', []); }
+function getDADelegs() { return getDAList('delegations_list', DA_DEFAULT_DELEGS); }
+function getDAMunis()  { return getDAList('municipalites_list', DA_DEFAULT_MUNIS); }
 function getDADocs()   { return getDAList('documents_admin_list', DA_DEFAULT_DOCS); }
+function getDAObjets() { return getDAList('objets_demandes_admin', []); }
+
+function _daDefaultsFor(key) {
+  return key === 'types_demandes_admin' ? DA_DEFAULT_TYPES
+       : key === 'administrations_list' ? DA_DEFAULT_ADMINS
+       : key === 'gouvernorats_list'    ? DA_DEFAULT_GOUVS
+       : key === 'delegations_list'     ? DA_DEFAULT_DELEGS
+       : key === 'municipalites_list'   ? DA_DEFAULT_MUNIS
+       : key === 'documents_admin_list' ? DA_DEFAULT_DOCS
+       : [];
+}
 
 function addParamDAItem(settingKey, inputId, listId) {
   var inp = document.getElementById(inputId);
   var val = (inp.value || '').trim();
   if (!val) { alert('Saisissez une valeur.'); return; }
-  var defaults = settingKey === 'types_demandes_admin' ? DA_DEFAULT_TYPES
-               : settingKey === 'administrations_list' ? DA_DEFAULT_ADMINS
-               : settingKey === 'gouvernorats_list' ? DA_DEFAULT_GOUVS
-               : settingKey === 'documents_admin_list' ? DA_DEFAULT_DOCS : [];
-  var list = getDAList(settingKey, defaults);
+  var list = getDAList(settingKey, _daDefaultsFor(settingKey));
   if (list.indexOf(val) !== -1) { alert('Cette valeur existe déjà.'); return; }
   list.push(val);
   saveSetting(settingKey, list);
@@ -8111,14 +8189,21 @@ function addParamDAItem(settingKey, inputId, listId) {
 }
 
 function removeParamDAItem(settingKey, listId, val) {
-  var defaults = settingKey === 'types_demandes_admin' ? DA_DEFAULT_TYPES
-               : settingKey === 'administrations_list' ? DA_DEFAULT_ADMINS
-               : settingKey === 'gouvernorats_list' ? DA_DEFAULT_GOUVS
-               : settingKey === 'documents_admin_list' ? DA_DEFAULT_DOCS : [];
-  var list = getDAList(settingKey, defaults).filter(function(v) { return v !== val; });
+  var list = getDAList(settingKey, _daDefaultsFor(settingKey)).filter(function(v) { return v !== val; });
   saveSetting(settingKey, list);
   _renderDAParamList(settingKey, listId, list);
   showToast('Supprimé');
+}
+
+// Enregistre automatiquement un objet dans l'historique
+function _daSaveObjetHistory(objet) {
+  var val = (objet || '').trim();
+  if (!val) return;
+  var list = getDAObjets();
+  if (list.indexOf(val) !== -1) return;
+  list.push(val);
+  if (list.length > 100) list = list.slice(-100);
+  saveSetting('objets_demandes_admin', list);
 }
 
 function _renderDAParamList(settingKey, listId, list) {
@@ -8142,6 +8227,95 @@ function renderParametresDA() {
   _renderDAParamList('delegations_list', 'param-da-deleg-list', getDADelegs());
   _renderDAParamList('municipalites_list', 'param-da-muni-list', getDAMunis());
   _renderDAParamList('documents_admin_list', 'param-da-doc-list', getDADocs());
+  _renderDAParamList('objets_demandes_admin', 'param-da-objet-list', getDAObjets());
+
+  // En-tête agence — pré-remplir (réutilise les clés cortoba_agence_*)
+  var setVal = function(id, val) { var e = document.getElementById(id); if (e) e.value = val || ''; };
+  setVal('param-da-hdr-nom-fr', getSetting('cortoba_agence_raison', 'Cortoba Architecture Studio'));
+  setVal('param-da-hdr-nom-ar', getSetting('cortoba_agence_raison_ar', ''));
+  setVal('param-da-hdr-adr-fr', getSetting('cortoba_agence_adresse', ''));
+  setVal('param-da-hdr-adr-ar', getSetting('cortoba_agence_adresse_ar', ''));
+  setVal('param-da-hdr-tel',    getSetting('cortoba_agence_tel', ''));
+  setVal('param-da-hdr-email',  getSetting('cortoba_agence_email', ''));
+
+  var logo = getSetting('cortoba_agence_logo', '');
+  var imgL = document.getElementById('param-da-hdr-logo-preview');
+  if (imgL) {
+    if (logo) { imgL.src = logo; imgL.style.display = 'inline-block'; }
+    else      { imgL.src = ''; imgL.style.display = 'none'; }
+  }
+
+  var cachet = getSetting('cortoba_cachet_signature', '');
+  var imgC = document.getElementById('param-da-cachet-preview');
+  if (imgC) {
+    if (cachet) { imgC.src = cachet; imgC.style.display = 'inline-block'; }
+    else        { imgC.src = ''; imgC.style.display = 'none'; }
+  }
+
+  // Cachet visible uniquement pour gérants
+  var cachetWrap = document.getElementById('param-da-cachet-wrap');
+  if (cachetWrap) cachetWrap.style.display = _daIsGerant() ? '' : 'none';
+}
+
+function _daIsGerant() {
+  var s = getSession ? getSession() : null;
+  return !!(s && (s.isAdmin || s.role === 'Architecte gérant'));
+}
+
+function saveDAHeader() {
+  saveSetting('cortoba_agence_raison',    (document.getElementById('param-da-hdr-nom-fr').value || '').trim());
+  saveSetting('cortoba_agence_raison_ar', (document.getElementById('param-da-hdr-nom-ar').value || '').trim());
+  saveSetting('cortoba_agence_adresse',   (document.getElementById('param-da-hdr-adr-fr').value || '').trim());
+  saveSetting('cortoba_agence_adresse_ar',(document.getElementById('param-da-hdr-adr-ar').value || '').trim());
+  saveSetting('cortoba_agence_tel',       (document.getElementById('param-da-hdr-tel').value || '').trim());
+  saveSetting('cortoba_agence_email',     (document.getElementById('param-da-hdr-email').value || '').trim());
+  showToast('En-tête enregistré');
+}
+
+function _daReadFileAsDataURL(file, cb) {
+  var r = new FileReader();
+  r.onload = function(e) { cb(e.target.result); };
+  r.readAsDataURL(file);
+}
+
+function uploadDAHeaderLogo(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  if (f.size > 2 * 1024 * 1024) { alert('Logo trop volumineux (max 2 Mo).'); input.value = ''; return; }
+  _daReadFileAsDataURL(f, function(dataUrl) {
+    saveSetting('cortoba_agence_logo', dataUrl);
+    var img = document.getElementById('param-da-hdr-logo-preview');
+    if (img) { img.src = dataUrl; img.style.display = 'inline-block'; }
+    showToast('Logo enregistré');
+  });
+}
+function clearDAHeaderLogo() {
+  saveSetting('cortoba_agence_logo', '');
+  var img = document.getElementById('param-da-hdr-logo-preview');
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  var f = document.getElementById('param-da-hdr-logo-file'); if (f) f.value = '';
+  showToast('Logo retiré');
+}
+
+function uploadDACachet(input) {
+  if (!_daIsGerant()) { alert('Seul un Architecte gérant peut définir le cachet.'); input.value = ''; return; }
+  var f = input.files && input.files[0];
+  if (!f) return;
+  if (f.size > 2 * 1024 * 1024) { alert('Image trop volumineuse (max 2 Mo).'); input.value = ''; return; }
+  _daReadFileAsDataURL(f, function(dataUrl) {
+    saveSetting('cortoba_cachet_signature', dataUrl);
+    var img = document.getElementById('param-da-cachet-preview');
+    if (img) { img.src = dataUrl; img.style.display = 'inline-block'; }
+    showToast('Cachet enregistré');
+  });
+}
+function clearDACachet() {
+  if (!_daIsGerant()) { alert('Seul un Architecte gérant peut modifier le cachet.'); return; }
+  saveSetting('cortoba_cachet_signature', '');
+  var img = document.getElementById('param-da-cachet-preview');
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  var f = document.getElementById('param-da-cachet-file'); if (f) f.value = '';
+  showToast('Cachet retiré');
 }
 
 function renderDemandesAdminPage() {
@@ -8240,18 +8414,144 @@ function openDemandeAdminModal(data) {
   _populateDASelect('da-delegation', getDADelegs(), data ? data.delegation : '', true);
   _populateDASelect('da-municipalite', getDAMunis(), data ? data.municipalite : '', true);
 
+  // Clients
+  var cSel = document.getElementById('da-client');
+  if (cSel) {
+    cSel.innerHTML = '<option value="">-- Aucun --</option>';
+    (getClients() || []).slice().sort(function(a,b){
+      return String(a.display_nom || a.nom || '').localeCompare(String(b.display_nom || b.nom || ''));
+    }).forEach(function(c) {
+      var o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = (c.code ? c.code + ' — ' : '') + (c.display_nom || c.nom || c.raison || '—');
+      if (data && data.client_id === c.id) o.selected = true;
+      cSel.appendChild(o);
+    });
+  }
+
   var pSel = document.getElementById('da-projet');
   pSel.innerHTML = '<option value="">-- Aucun --</option>';
   (getProjets() || []).forEach(function(p) {
     var o = document.createElement('option');
     o.value = p.id; o.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
+    o.setAttribute('data-client-id', p.client_id || '');
     if (data && data.projet_id === p.id) o.selected = true;
     pSel.appendChild(o);
   });
 
+  // Historique objets → datalist
+  var dl = document.getElementById('da-objet-list');
+  if (dl) {
+    dl.innerHTML = '';
+    getDAObjets().forEach(function(o) {
+      var opt = document.createElement('option');
+      opt.value = o;
+      dl.appendChild(opt);
+    });
+  }
+
+  // En-tête agence preview
+  _renderDAHeaderPreview(document.getElementById('da-langue').value);
+
+  // Cachet section visible pour gérants uniquement
+  var cachetWrap = document.getElementById('da-cachet-wrap');
+  if (cachetWrap) cachetWrap.style.display = _daIsGerant() ? '' : 'none';
+  _daRefreshCachetState(data);
+
   _renderDADocsChecklist(data);
   toggleDALangue();
   openModal('modal-demande-admin');
+}
+
+function _daOnClientChange() {
+  var cSel = document.getElementById('da-client');
+  var pSel = document.getElementById('da-projet');
+  if (!cSel || !pSel) return;
+  var cid = cSel.value;
+  // Filtrer visuellement les projets : on ne touche que la sélection courante si elle n'appartient pas au client
+  if (!cid) return;
+  var current = pSel.options[pSel.selectedIndex];
+  if (current && current.getAttribute('data-client-id') && current.getAttribute('data-client-id') !== cid) {
+    pSel.value = '';
+  }
+  // Pré-sélectionner un projet du client si aucun sélectionné
+  if (!pSel.value) {
+    for (var i = 0; i < pSel.options.length; i++) {
+      if (pSel.options[i].getAttribute('data-client-id') === cid) {
+        pSel.selectedIndex = i;
+        break;
+      }
+    }
+  }
+}
+
+function _renderDAHeaderPreview(lang) {
+  var wrap = document.getElementById('da-header-preview');
+  if (!wrap) return;
+  var isAr = (lang === 'ar');
+  var logo = getSetting('cortoba_agence_logo', '');
+  var nom  = isAr ? (getSetting('cortoba_agence_raison_ar','') || getSetting('cortoba_agence_raison','Cortoba Architecture Studio'))
+                  : getSetting('cortoba_agence_raison','Cortoba Architecture Studio');
+  var adr  = isAr ? (getSetting('cortoba_agence_adresse_ar','') || getSetting('cortoba_agence_adresse',''))
+                  : getSetting('cortoba_agence_adresse','');
+  var tel  = getSetting('cortoba_agence_tel','');
+  var email = getSetting('cortoba_agence_email','');
+
+  var html = '<div style="display:flex;align-items:center;gap:0.8rem;' + (isAr ? 'direction:rtl;text-align:right;' : '') + '">';
+  if (logo) html += '<img src="' + logo + '" alt="" style="max-height:48px;max-width:120px;object-fit:contain" />';
+  html += '<div style="flex:1">';
+  html += '<div style="font-weight:600;font-size:0.9rem">' + escHtml(nom) + '</div>';
+  if (adr)   html += '<div style="font-size:0.75rem;color:var(--text-2)">' + escHtml(adr) + '</div>';
+  var contact = [];
+  if (tel)   contact.push(tel);
+  if (email) contact.push(email);
+  if (contact.length) html += '<div style="font-size:0.72rem;color:var(--text-3)">' + escHtml(contact.join(' · ')) + '</div>';
+  html += '</div></div>';
+  wrap.innerHTML = html;
+  wrap.style.display = '';
+  wrap.style.direction = isAr ? 'rtl' : 'ltr';
+}
+
+// État courant du cachet sur la demande en cours (on stocke dans une remarque ?
+// Non : on stocke dans une variable et on l'applique au print. On peut aussi marquer via un flag en remarques.
+// Ici : on utilise un attribut DOM sur le modal.
+function _daRefreshCachetState(data) {
+  var wrap = document.getElementById('da-cachet-wrap');
+  if (!wrap) return;
+  // Flag : la présence du marqueur dans remarques ou un champ spécifique → on lit depuis data.remarques si contient [CACHET]
+  var on = false;
+  if (data && typeof data.remarques === 'string' && data.remarques.indexOf('[CACHET]') !== -1) on = true;
+  wrap.setAttribute('data-cachet-on', on ? '1' : '0');
+  var btn = document.getElementById('da-cachet-btn');
+  var status = document.getElementById('da-cachet-status');
+  var preview = document.getElementById('da-cachet-preview');
+  var cachetImg = getSetting('cortoba_cachet_signature','');
+  if (btn) btn.textContent = on ? 'Retirer le cachet' : 'Ajouter cachet & signature';
+  if (status) {
+    if (!cachetImg) status.textContent = 'Aucun cachet défini dans Paramètres.';
+    else status.textContent = on ? 'Cachet activé pour cette lettre.' : '';
+  }
+  if (preview) {
+    preview.innerHTML = (on && cachetImg) ? '<img src="' + cachetImg + '" alt="cachet" style="max-height:90px;background:transparent" />' : '';
+  }
+}
+
+function toggleDACachet() {
+  if (!_daIsGerant()) { alert('Seul un Architecte gérant peut apposer le cachet.'); return; }
+  var cachetImg = getSetting('cortoba_cachet_signature','');
+  if (!cachetImg) { alert('Aucun cachet défini. Allez dans Paramètres → Demandes administratives pour en ajouter un.'); return; }
+  var wrap = document.getElementById('da-cachet-wrap');
+  var on = wrap.getAttribute('data-cachet-on') === '1';
+  on = !on;
+  wrap.setAttribute('data-cachet-on', on ? '1' : '0');
+
+  // Synchroniser avec le champ remarques (marqueur [CACHET])
+  var rem = document.getElementById('da-remarques');
+  var val = (rem.value || '').replace(/\s*\[CACHET\]\s*/g, '').trim();
+  if (on) val = (val ? val + ' ' : '') + '[CACHET]';
+  rem.value = val;
+
+  _daRefreshCachetState({ remarques: rem.value });
 }
 
 function _populateDASelect(selectId, items, selected, allowEmpty) {
@@ -8303,6 +8603,7 @@ function toggleDALangue() {
     objet.style.direction = 'ltr';
     objet.style.textAlign = 'left';
   }
+  _renderDAHeaderPreview(lang);
 }
 
 function editDemandeAdmin(id) {
@@ -8313,6 +8614,7 @@ function editDemandeAdmin(id) {
 
 function saveDemandeAdmin() {
   var id = document.getElementById('da-edit-id').value;
+  var clientEl = document.getElementById('da-client');
   var body = {
     type_demande:   document.getElementById('da-type').value,
     langue:         document.getElementById('da-langue').value,
@@ -8321,6 +8623,7 @@ function saveDemandeAdmin() {
     delegation:     document.getElementById('da-delegation').value || null,
     municipalite:   document.getElementById('da-municipalite').value || null,
     projet_id:      document.getElementById('da-projet').value || null,
+    client_id:      (clientEl && clientEl.value) ? clientEl.value : null,
     objet:          document.getElementById('da-objet').value,
     contenu:        document.getElementById('da-contenu').value,
     expediteur:     document.getElementById('da-expediteur').value,
@@ -8339,6 +8642,9 @@ function saveDemandeAdmin() {
   if (!body.type_demande)   { alert('Choisissez un type de demande.'); return; }
   if (!body.administration) { alert('Choisissez une administration.'); return; }
   if (!body.objet)          { alert('Saisissez l\'objet de la demande.'); return; }
+
+  // Sauvegarder l'objet dans l'historique
+  _daSaveObjetHistory(body.objet);
 
   var url = id ? 'api/demandes_admin.php?id=' + id : 'api/demandes_admin.php';
   var method = id ? 'PUT' : 'POST';
@@ -8377,70 +8683,123 @@ function generateDALetter() {
   var projet = document.getElementById('da-projet');
   var projetText = projet.selectedIndex > 0 ? projet.options[projet.selectedIndex].text : '';
 
+  var clientEl = document.getElementById('da-client');
+  var clientText = (clientEl && clientEl.selectedIndex > 0) ? clientEl.options[clientEl.selectedIndex].text : '';
+
   var docs = [];
   document.querySelectorAll('.da-doc-check:checked').forEach(function(cb) { docs.push(cb.value); });
 
-  var contenuEl = document.getElementById('da-contenu');
+  var ctx = { type:type, admin:admin, gouv:gouv, deleg:deleg, muni:muni, objet:objet, exped:exped,
+              dest:dest, ref:ref, date:date, projet:projetText, client:clientText, docs:docs };
 
-  if (lang === 'ar') {
-    contenuEl.value = _generateLetterAR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projetText, docs);
-  } else {
-    contenuEl.value = _generateLetterFR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projetText, docs);
-  }
+  var contenuEl = document.getElementById('da-contenu');
+  contenuEl.value = (lang === 'ar') ? _generateLetterAR(ctx) : _generateLetterFR(ctx);
   toggleDALangue();
 }
 
-function _generateLetterFR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projet, docs) {
-  var lieu = muni || deleg || gouv || '';
-  var dateStr = '';
-  try { dateStr = date ? new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; } catch(e) { dateStr = date || ''; }
-  var letter = '';
-
-  letter += (lieu ? lieu + ', le ' : 'Le ') + dateStr + '\n\n';
-  letter += exped + '\n';
-  if (ref) letter += 'Réf : ' + ref + '\n';
-  letter += '\n';
-  letter += 'À ' + (dest || 'Monsieur le Directeur') + '\n';
-  letter += admin + (gouv ? ' — ' + gouv : '') + '\n';
-  if (deleg) letter += 'Délégation de ' + deleg + '\n';
-  if (muni)  letter += muni + '\n';
-  letter += '\n';
-  letter += 'Objet : ' + objet + '\n';
-  if (projet) letter += 'Projet : ' + projet + '\n';
-  letter += '\n';
-  letter += (dest ? dest : 'Monsieur') + ',\n\n';
-  letter += 'J\'ai l\'honneur de vous adresser la présente ' + (type || 'demande').toLowerCase() + ' ';
-  letter += 'relative à ' + (objet || '...').toLowerCase() + '.\n\n';
-  if (projet) letter += 'Cette demande concerne le projet : ' + projet + '.\n\n';
-  letter += 'Je vous prie de bien vouloir donner suite à ma demande dans les meilleurs délais et vous remercie par avance pour votre diligence.\n\n';
-  letter += 'Dans l\'attente de votre réponse, veuillez agréer, ' + (dest || 'Monsieur') + ', l\'expression de mes salutations distinguées.\n\n';
-  letter += exped + '\n';
-
-  if (docs.length > 0) {
-    letter += '\n──────────────────────────\n';
-    letter += 'Pièces jointes :\n';
-    docs.forEach(function(d, i) { letter += (i + 1) + '. ' + d + '\n'; });
-  }
-
-  return letter;
+// Détecte la catégorie de l'administration pour choisir le bon corps de lettre
+function _daAdminCategory(admin) {
+  var a = (admin || '').toLowerCase();
+  if (a.indexOf('municipal') !== -1)                                 return 'municipalite';
+  if (a.indexOf('crda') !== -1 || a.indexOf('fonci') !== -1 || a.indexOf('domaines') !== -1) return 'domanial';
+  if (a.indexOf('steg') !== -1 || a.indexOf('sonede') !== -1 || a.indexOf('onas') !== -1)   return 'concessionnaire';
+  if (a.indexOf('ministère') !== -1 || a.indexOf('ministere') !== -1 || a.indexOf('inp') !== -1 || a.indexOf('aliph') !== -1 || a.indexOf('apal') !== -1) return 'ministere';
+  if (a.indexOf('gouvernorat') !== -1 || a.indexOf('délégation') !== -1 || a.indexOf('delegation') !== -1) return 'autorite';
+  if (a.indexOf('protection civile') !== -1)                         return 'concessionnaire';
+  return 'generique';
 }
 
-function _generateLetterAR(type, admin, gouv, deleg, muni, objet, exped, dest, ref, date, projet, docs) {
+function _generateLetterFR(c) {
+  var lieu = c.muni || c.deleg || c.gouv || 'Djerba';
+  lieu = String(lieu).replace(/^Municipalité (de |d'|d\u2019)/i,'').replace(/^Délégation (de |d'|d\u2019)/i,'');
   var dateStr = '';
-  try { dateStr = date ? new Date(date + 'T00:00:00').toLocaleDateString('ar-TN', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; } catch(e) { dateStr = date || ''; }
-  var lieu = muni || deleg || gouv || '';
+  try { dateStr = c.date ? new Date(c.date + 'T00:00:00').toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' }) : ''; } catch(e) { dateStr = c.date || ''; }
+
+  var cat = _daAdminCategory(c.admin);
+  var destinataire = c.dest || (cat === 'municipalite' ? 'Monsieur le Président de la Commune'
+                              : cat === 'autorite'     ? 'Monsieur le Gouverneur'
+                              : cat === 'ministere'    ? 'Monsieur le Ministre'
+                              : 'Monsieur le Directeur');
+
+  var L = '';
+  L += lieu + ', le ' + dateStr + '\n\n';
+  L += c.exped + '\n';
+  if (c.ref) L += 'Réf. : ' + c.ref + '\n';
+  L += '\n';
+  L += 'À\n' + destinataire + '\n';
+  L += c.admin;
+  if (c.gouv && c.admin.indexOf(c.gouv) === -1) L += ' — ' + c.gouv;
+  L += '\n';
+  if (c.deleg && cat === 'autorite') L += 'Délégation de ' + c.deleg + '\n';
+  L += '\n';
+  L += 'Objet : ' + c.objet + '\n';
+  if (c.projet) L += 'Projet : ' + c.projet + '\n';
+  if (c.client) L += 'Maître d\'ouvrage : ' + c.client + '\n';
+  L += '\n';
+  L += destinataire + ',\n\n';
+
+  // Corps selon la catégorie (templates extraits des documents Drive)
+  var typeLower = (c.type || 'demande').toLowerCase();
+  if (cat === 'municipalite') {
+    L += 'J\'ai l\'honneur, en ma qualité d\'architecte mandaté par ' + (c.client || 'le maître d\'ouvrage') + ', de solliciter de votre haute bienveillance ' + typeLower + ' ';
+    L += 'concernant ' + (c.objet || '...').toLowerCase() + (c.projet ? ', dans le cadre du projet « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'Le dossier technique correspondant, établi conformément à la réglementation en vigueur et aux prescriptions du plan d\'aménagement urbain, est joint à la présente.\n\n';
+    L += 'Je reste à votre entière disposition pour tout complément d\'information ou pièce complémentaire qui pourrait vous être utile à l\'instruction du dossier.\n\n';
+  } else if (cat === 'concessionnaire') {
+    L += 'J\'ai l\'honneur de solliciter de vos services ' + typeLower + ' ';
+    L += 'relative à ' + (c.objet || '...').toLowerCase() + (c.projet ? ', pour le projet « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'Vous trouverez ci-joint l\'ensemble des pièces requises pour l\'étude de cette demande.\n\n';
+    L += 'Je vous serais reconnaissant de bien vouloir donner suite à cette demande dans les meilleurs délais afin de nous permettre de poursuivre l\'avancement des travaux.\n\n';
+  } else if (cat === 'domanial') {
+    L += 'J\'ai l\'honneur, au nom de ' + (c.client || 'mon mandant') + ', de solliciter de vos services ' + typeLower + ' ';
+    L += 'portant sur ' + (c.objet || '...').toLowerCase() + (c.projet ? ' dans le cadre du projet « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'Les documents justificatifs et le dossier technique sont joints à la présente en vue de l\'instruction du dossier.\n\n';
+  } else if (cat === 'ministere') {
+    L += 'J\'ai l\'honneur de porter à la haute connaissance de Votre Excellence ' + typeLower + ' ';
+    L += 'relative à ' + (c.objet || '...').toLowerCase() + (c.projet ? ', dans le cadre du projet « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'Compte tenu de l\'intérêt du projet et de sa conformité aux orientations de votre département, je sollicite votre bienveillante attention pour l\'examen de ce dossier.\n\n';
+  } else if (cat === 'autorite') {
+    L += 'J\'ai l\'honneur de soumettre à votre haute appréciation ' + typeLower + ' ';
+    L += 'concernant ' + (c.objet || '...').toLowerCase() + (c.projet ? ', relative au projet « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'Le dossier complet accompagnant la présente est établi conformément aux textes réglementaires en vigueur.\n\n';
+  } else {
+    L += 'J\'ai l\'honneur de vous adresser la présente ' + typeLower + ' ';
+    L += 'relative à ' + (c.objet || '...').toLowerCase() + (c.projet ? ', concernant le projet « ' + c.projet + ' »' : '') + '.\n\n';
+  }
+
+  L += 'Dans l\'attente d\'une suite favorable, je vous prie d\'agréer, ' + destinataire + ', l\'expression de ma haute considération.\n\n';
+  L += '\n' + c.exped + '\n';
+  L += 'Architecte\n';
+
+  if (c.docs && c.docs.length > 0) {
+    L += '\n──────────────────────────\n';
+    L += 'Pièces jointes :\n';
+    c.docs.forEach(function(d, i) { L += '• ' + d + '\n'; });
+  }
+  return L;
+}
+
+function _generateLetterAR(c) {
+  var dateStr = '';
+  try { dateStr = c.date ? new Date(c.date + 'T00:00:00').toLocaleDateString('ar-TN', { day:'numeric', month:'long', year:'numeric' }) : ''; } catch(e) { dateStr = c.date || ''; }
+  var lieu = c.muni || c.deleg || c.gouv || 'جربة';
+  lieu = String(lieu).replace(/^Municipalité (de |d'|d\u2019)/i,'').replace(/^Délégation (de |d'|d\u2019)/i,'');
 
   var typeMap = {
-    'Demande d\'avis': 'مطلب رأي',
-    'Demande de devis': 'مطلب تقدير',
+    'Demande d\'avis': 'مطلب في الحصول على رأي',
+    'Demande d\'accord de principe': 'مطلب في الحصول على موافقة مبدئية',
+    'Demande d\'autorisation': 'مطلب في الحصول على ترخيص',
+    'Demande de permis de bâtir': 'مطلب في الحصول على رخصة بناء',
     'Demande de raccordement': 'مطلب ربط',
-    'Demande d\'autorisation': 'مطلب ترخيص',
-    'Demande de permis': 'مطلب رخصة',
-    'Demande de certificat': 'مطلب شهادة',
-    'Demande de régularisation': 'مطلب تسوية',
-    'Lettre de relance': 'رسالة تذكير'
+    'Demande de certificat': 'مطلب في الحصول على شهادة',
+    'Demande de régularisation': 'مطلب في تسوية وضعية',
+    'Demande de devis': 'مطلب تقدير',
+    'Demande d\'intervention': 'مطلب تدخّل',
+    'Demande de renseignements': 'مطلب إرشادات',
+    'Lettre de relance': 'مكتوب تذكير',
+    'Réclamation': 'مكتوب تظلّم'
   };
-  var typeAR = typeMap[type] || type || 'مطلب';
+  var typeAR = typeMap[c.type] || c.type || 'مطلب';
 
   var adminMap = {
     'STEG': 'الشركة التونسية للكهرباء والغاز',
@@ -8449,41 +8808,77 @@ function _generateLetterAR(type, admin, gouv, deleg, muni, objet, exped, dest, r
     'Municipalité': 'البلدية',
     'Protection civile': 'الحماية المدنية',
     'Gouvernorat': 'الولاية',
-    'Ministère de l\'Équipement': 'وزارة التجهيز والإسكان',
+    'Délégation': 'المعتمدية',
+    'Ministère de l\'Équipement et de l\'Habitat': 'وزارة التجهيز والإسكان',
+    'Ministère des Domaines de l\'État': 'وزارة أملاك الدولة والشؤون العقارية',
+    'INP — Institut National du Patrimoine': 'المعهد الوطني للتراث',
+    'ALIPH': 'التحالف الدولي لحماية التراث في مناطق النزاعات',
+    'APAL': 'وكالة حماية وتهيئة الشريط الساحلي',
     'CRDA': 'المندوبية الجهوية للتنمية الفلاحية',
     'Tribunal immobilier': 'المحكمة العقارية',
-    'Conservation foncière': 'إدارة الملكية العقارية'
+    'Conservation foncière': 'إدارة الملكية العقارية',
+    'Direction régionale de l\'urbanisme': 'الإدارة الجهوية للتعمير'
   };
-  var adminAR = adminMap[admin] || admin;
+  var adminAR = adminMap[c.admin] || c.admin;
+  var cat = _daAdminCategory(c.admin);
 
-  var letter = '';
-  letter += (lieu ? lieu + '، في ' : 'في ') + dateStr + '\n\n';
-  letter += 'من: ' + exped + '\n';
-  if (ref) letter += 'المرجع: ' + ref + '\n';
-  letter += '\n';
-  letter += 'إلى ' + (dest || 'السيد المدير') + '\n';
-  letter += adminAR + (gouv ? ' — ' + gouv : '') + '\n';
-  if (deleg) letter += 'معتمدية ' + deleg + '\n';
-  if (muni)  letter += muni + '\n';
-  letter += '\n';
-  letter += 'الموضوع: ' + objet + '\n';
-  if (projet) letter += 'المشروع: ' + projet + '\n';
-  letter += '\n';
-  letter += (dest || 'سيدي') + '،\n\n';
-  letter += 'يشرّفني أن أتقدّم إليكم بهذا ' + typeAR + ' ';
-  letter += 'المتعلّق بـ ' + (objet || '...') + '.\n\n';
-  if (projet) letter += 'يتعلّق هذا المطلب بالمشروع: ' + projet + '.\n\n';
-  letter += 'أرجو من سيادتكم التكرّم بالنظر في مطلبي والاستجابة له في أقرب الآجال، ولكم منّي جزيل الشكر والتقدير.\n\n';
-  letter += 'وتقبّلوا، ' + (dest || 'سيدي') + '، فائق عبارات الاحترام والتقدير.\n\n';
-  letter += exped + '\n';
+  var destAR = c.dest || (cat === 'municipalite' ? 'السيد رئيس البلدية'
+                        : cat === 'autorite'     ? 'السيد الوالي'
+                        : cat === 'ministere'    ? 'السيد الوزير'
+                        : 'السيد المدير');
 
-  if (docs.length > 0) {
-    letter += '\n──────────────────────────\n';
-    letter += 'الوثائق المرفقة:\n';
-    docs.forEach(function(d, i) { letter += (i + 1) + '. ' + d + '\n'; });
+  var L = '';
+  L += lieu + '، في ' + dateStr + '\n\n';
+  L += 'من: ' + c.exped + '\n';
+  if (c.ref) L += 'المرجع: ' + c.ref + '\n';
+  L += '\n';
+  L += 'إلى\n' + destAR + '\n';
+  L += adminAR + '\n';
+  if (c.deleg && cat === 'autorite') L += 'معتمدية ' + c.deleg + '\n';
+  L += '\n';
+  L += 'الموضوع: ' + c.objet + '\n';
+  if (c.projet) L += 'المشروع: ' + c.projet + '\n';
+  if (c.client) L += 'صاحب المشروع: ' + c.client + '\n';
+  L += '\n';
+  L += 'تحية طيبة وبعد،\n\n';
+
+  if (cat === 'municipalite') {
+    L += 'يشرّفني، بصفتي مهندسا معماريا مكلّفا من طرف ' + (c.client || 'صاحب المشروع') + '، أن أتقدّم إلى سيادتكم بـ' + typeAR + ' ';
+    L += 'يتعلّق بـ' + (c.objet || '...') + (c.projet ? '، في إطار مشروع « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'وقد تمّ إعداد الملف الفنّي المرفق طبق التراتيب الجاري بها العمل وبما يتماشى مع مقتضيات مثال التهيئة العمرانية.\n\n';
+    L += 'وأبقى على ذمّتكم لتقديم أيّ إيضاحات أو وثائق تكميلية قد تستلزمها دراسة الملف.\n\n';
+  } else if (cat === 'concessionnaire') {
+    L += 'يشرّفني أن أتقدّم إلى مصالحكم بـ' + typeAR + ' ';
+    L += 'يتعلّق بـ' + (c.objet || '...') + (c.projet ? '، في إطار مشروع « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'وتجدون رفقته جميع الوثائق المطلوبة لدراسة هذا المطلب.\n\n';
+    L += 'أرجو من سيادتكم التكرّم بالاستجابة لهذا الطلب في أقرب الآجال حتى يتسنّى لنا مواصلة إنجاز الأشغال.\n\n';
+  } else if (cat === 'domanial') {
+    L += 'يشرّفني، باسم ' + (c.client || 'موكّلي') + '، أن أتقدّم إلى مصالحكم بـ' + typeAR + ' ';
+    L += 'يتعلّق بـ' + (c.objet || '...') + (c.projet ? ' في إطار مشروع « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'وتجدون رفقته المؤيّدات اللازمة والملف الفنّي قصد دراسة الطلب.\n\n';
+  } else if (cat === 'ministere') {
+    L += 'يشرّفني أن أعرض على أنظار سيادتكم ' + typeAR + ' ';
+    L += 'يتعلّق بـ' + (c.objet || '...') + (c.projet ? '، في إطار مشروع « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'ونظرا لأهمّية المشروع وانسجامه مع التوجّهات المعتمدة بوزارتكم الموقّرة، ألتمس منكم الموافقة الكريمة على النظر في هذا الملف.\n\n';
+  } else if (cat === 'autorite') {
+    L += 'يشرّفني أن أعرض على سيادتكم ' + typeAR + ' ';
+    L += 'يتعلّق بـ' + (c.objet || '...') + (c.projet ? '، في إطار مشروع « ' + c.projet + ' »' : '') + '.\n\n';
+    L += 'وقد تمّ إعداد الملف المرفق طبق التراتيب الجاري بها العمل.\n\n';
+  } else {
+    L += 'يشرّفني أن أتقدّم إليكم بهذا ' + typeAR + ' ';
+    L += 'المتعلّق بـ' + (c.objet || '...') + (c.projet ? '، في إطار مشروع « ' + c.projet + ' »' : '') + '.\n\n';
   }
 
-  return letter;
+  L += 'وفي انتظار ردّكم الإيجابي، تقبّلوا، ' + destAR + '، فائق عبارات الاحترام والتقدير.\n\n';
+  L += '\n' + c.exped + '\n';
+  L += 'المهندس المعماري\n';
+
+  if (c.docs && c.docs.length > 0) {
+    L += '\n──────────────────────────\n';
+    L += 'الوثائق المرفقة:\n';
+    c.docs.forEach(function(d) { L += '• ' + d + '\n'; });
+  }
+  return L;
 }
 
 function printDALetter() {
@@ -8491,16 +8886,604 @@ function printDALetter() {
   if (!contenu) { alert('Générez d\'abord la lettre.'); return; }
 
   var lang = document.getElementById('da-langue').value;
-  var dir = lang === 'ar' ? 'rtl' : 'ltr';
-  var fontFamily = lang === 'ar' ? "'Amiri', 'Traditional Arabic', serif" : "'Segoe UI', sans-serif";
-  var textAlign = lang === 'ar' ? 'right' : 'left';
+  var isAr = (lang === 'ar');
+  var dir = isAr ? 'rtl' : 'ltr';
+  var fontFamily = isAr ? "'Amiri', 'Noto Sans Arabic', 'Traditional Arabic', serif" : "'Segoe UI', Arial, sans-serif";
+  var textAlign = isAr ? 'right' : 'left';
+
+  var logo = getSetting('cortoba_agence_logo', '');
+  var nom  = isAr ? (getSetting('cortoba_agence_raison_ar','') || getSetting('cortoba_agence_raison','Cortoba Architecture Studio'))
+                  : getSetting('cortoba_agence_raison','Cortoba Architecture Studio');
+  var adr  = isAr ? (getSetting('cortoba_agence_adresse_ar','') || getSetting('cortoba_agence_adresse',''))
+                  : getSetting('cortoba_agence_adresse','');
+  var tel  = getSetting('cortoba_agence_tel','');
+  var email = getSetting('cortoba_agence_email','');
+
+  // Cachet : seulement si flag actif sur cette demande
+  var wrap = document.getElementById('da-cachet-wrap');
+  var cachetOn = wrap && wrap.getAttribute('data-cachet-on') === '1';
+  var cachetImg = cachetOn ? getSetting('cortoba_cachet_signature','') : '';
+
+  var headerHtml = '<div class="da-header"><div class="da-header-inner">';
+  if (logo) headerHtml += '<img class="da-logo" src="' + logo + '" alt="" />';
+  headerHtml += '<div class="da-id">';
+  headerHtml += '<div class="da-name">' + escHtml(nom) + '</div>';
+  if (adr)   headerHtml += '<div class="da-adr">' + escHtml(adr) + '</div>';
+  var contact = [];
+  if (tel)   contact.push(tel);
+  if (email) contact.push(email);
+  if (contact.length) headerHtml += '<div class="da-contact">' + escHtml(contact.join(' · ')) + '</div>';
+  headerHtml += '</div></div><hr/></div>';
+
+  var cachetHtml = cachetImg ? '<div class="da-cachet"><img src="' + cachetImg + '" alt="cachet et signature" /></div>' : '';
+
+  var css =
+    '@page{size:A4;margin:18mm 20mm}' +
+    'body{font-family:' + fontFamily + ';font-size:13px;line-height:1.75;padding:20px 30px;max-width:820px;margin:0 auto;direction:' + dir + ';text-align:' + textAlign + ';color:#222}' +
+    '.da-header{margin-bottom:18px}' +
+    '.da-header-inner{display:flex;align-items:center;gap:14px;' + (isAr ? 'flex-direction:row-reverse;' : '') + '}' +
+    '.da-logo{max-height:70px;max-width:160px;object-fit:contain}' +
+    '.da-id{flex:1}' +
+    '.da-name{font-weight:700;font-size:15px}' +
+    '.da-adr{font-size:11px;color:#555}' +
+    '.da-contact{font-size:10.5px;color:#777}' +
+    'hr{border:none;border-top:1px solid #333;margin:10px 0 0}' +
+    'pre{white-space:pre-wrap;font-family:inherit;font-size:inherit;line-height:inherit;margin:0}' +
+    '.da-cachet{margin-top:30px;' + (isAr ? 'text-align:left;' : 'text-align:right;') + '}' +
+    '.da-cachet img{max-height:140px;max-width:240px;background:transparent}' +
+    '@media print{body{padding:0}}';
 
   var win = window.open('', '_blank');
   win.document.write('<!DOCTYPE html><html dir="' + dir + '"><head><meta charset="utf-8"><title>Demande administrative</title>');
-  win.document.write('<link href="https://fonts.googleapis.com/css2?family=Amiri&display=swap" rel="stylesheet">');
-  win.document.write('<style>body{font-family:' + fontFamily + ';font-size:14px;line-height:1.8;padding:40px 60px;max-width:800px;margin:0 auto;direction:' + dir + ';text-align:' + textAlign + ';}pre{white-space:pre-wrap;font-family:inherit;font-size:inherit;line-height:inherit;}@media print{body{padding:20px;}}</style>');
-  win.document.write('</head><body><pre>' + escHtml(contenu) + '</pre></body></html>');
+  win.document.write('<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">');
+  win.document.write('<style>' + css + '</style>');
+  win.document.write('</head><body>' + headerHtml + '<pre>' + escHtml(contenu) + '</pre>' + cachetHtml + '</body></html>');
   win.document.close();
-  setTimeout(function() { win.print(); }, 500);
+  setTimeout(function() { win.print(); }, 700);
 }
+
+// ══════════════════════════════════════════════════════════════
+//  FICHE DE PAIE — Paramètres agence + calcul + impression
+// ══════════════════════════════════════════════════════════════
+
+// Valeurs par défaut Tunisie 2024
+var PAIE_DEFAULTS = {
+  cnss_affiliation: '',
+  cnss_sal_taux: 9.18,
+  cnss_pat_taux: 16.57,
+  at_taux: 0.4,
+  css_taux: 1.0,
+  frais_pro_taux: 10,
+  frais_pro_plafond: 2000,
+  deduc_marie: 300,
+  deduc_enfant: 100,
+  bareme_irpp: [
+    { min: 0,     max: 5000,  taux: 0 },
+    { min: 5000,  max: 20000, taux: 26 },
+    { min: 20000, max: 30000, taux: 28 },
+    { min: 30000, max: 50000, taux: 32 },
+    { min: 50000, max: null,  taux: 35 }
+  ]
+};
+
+function getPaieParam(key) {
+  var defaults = PAIE_DEFAULTS;
+  var v = getSetting('cortoba_paie_' + key, null);
+  if (v === null || v === undefined || v === '') return defaults[key];
+  if (typeof defaults[key] === 'number') return parseFloat(v);
+  return v;
+}
+
+function getIrppBareme() {
+  var raw = getSetting('cortoba_paie_bareme_irpp', null);
+  if (!raw) return PAIE_DEFAULTS.bareme_irpp.slice();
+  try {
+    var arr = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+    if (Array.isArray(arr) && arr.length) return arr;
+  } catch(e){}
+  return PAIE_DEFAULTS.bareme_irpp.slice();
+}
+
+function loadPaieParams() {
+  var set = function(id, val){ var e=document.getElementById(id); if(e) e.value = (val==null?'':val); };
+  set('param-paie-cnss-aff',          getPaieParam('cnss_affiliation'));
+  set('param-paie-cnss-sal',          getPaieParam('cnss_sal_taux'));
+  set('param-paie-cnss-pat',          getPaieParam('cnss_pat_taux'));
+  set('param-paie-at',                getPaieParam('at_taux'));
+  set('param-paie-css',                getPaieParam('css_taux'));
+  set('param-paie-frais-pro',         getPaieParam('frais_pro_taux'));
+  set('param-paie-frais-pro-plafond', getPaieParam('frais_pro_plafond'));
+  set('param-paie-deduc-marie',       getPaieParam('deduc_marie'));
+  set('param-paie-deduc-enfant',      getPaieParam('deduc_enfant'));
+  renderIrppBaremeEditor();
+}
+
+function renderIrppBaremeEditor() {
+  var wrap = document.getElementById('param-paie-irpp-wrap');
+  if (!wrap) return;
+  var bareme = getIrppBareme();
+  wrap.innerHTML = bareme.map(function(t, i){
+    return '<div><label style="font-size:0.65rem;color:var(--text-3)">De (TND)</label>'
+      + '<input class="form-input irpp-min" type="number" step="1" value="'+(t.min||0)+'" data-idx="'+i+'" /></div>'
+      + '<div><label style="font-size:0.65rem;color:var(--text-3)">À (TND, vide = ∞)</label>'
+      + '<input class="form-input irpp-max" type="number" step="1" value="'+(t.max==null?'':t.max)+'" data-idx="'+i+'" /></div>'
+      + '<div><label style="font-size:0.65rem;color:var(--text-3)">Taux (%)</label>'
+      + '<input class="form-input irpp-taux" type="number" step="0.5" value="'+(t.taux||0)+'" data-idx="'+i+'" /></div>'
+      + '<button type="button" class="btn btn-sm" onclick="removeIrppTranche('+i+')" style="color:#e07070">✕</button>';
+  }).join('');
+}
+
+function addIrppTranche() {
+  var bareme = collectIrppFromForm();
+  bareme.push({ min: 0, max: null, taux: 0 });
+  saveSetting('cortoba_paie_bareme_irpp', JSON.stringify(bareme));
+  renderIrppBaremeEditor();
+}
+function removeIrppTranche(idx) {
+  var bareme = collectIrppFromForm();
+  bareme.splice(idx, 1);
+  saveSetting('cortoba_paie_bareme_irpp', JSON.stringify(bareme));
+  renderIrppBaremeEditor();
+}
+function collectIrppFromForm() {
+  var wrap = document.getElementById('param-paie-irpp-wrap');
+  if (!wrap) return getIrppBareme();
+  var mins  = wrap.querySelectorAll('.irpp-min');
+  var maxs  = wrap.querySelectorAll('.irpp-max');
+  var tauxs = wrap.querySelectorAll('.irpp-taux');
+  var out = [];
+  for (var i=0; i<mins.length; i++) {
+    var mi = parseFloat(mins[i].value)||0;
+    var mx = maxs[i].value === '' ? null : parseFloat(maxs[i].value);
+    var tx = parseFloat(tauxs[i].value)||0;
+    out.push({ min: mi, max: mx, taux: tx });
+  }
+  return out;
+}
+
+function savePaieParams() {
+  var v = function(id){ var e=document.getElementById(id); return e ? e.value : ''; };
+  var tasks = [
+    saveSetting('cortoba_paie_cnss_affiliation',  v('param-paie-cnss-aff')),
+    saveSetting('cortoba_paie_cnss_sal_taux',     parseFloat(v('param-paie-cnss-sal'))||0),
+    saveSetting('cortoba_paie_cnss_pat_taux',     parseFloat(v('param-paie-cnss-pat'))||0),
+    saveSetting('cortoba_paie_at_taux',           parseFloat(v('param-paie-at'))||0),
+    saveSetting('cortoba_paie_css_taux',          parseFloat(v('param-paie-css'))||0),
+    saveSetting('cortoba_paie_frais_pro_taux',    parseFloat(v('param-paie-frais-pro'))||0),
+    saveSetting('cortoba_paie_frais_pro_plafond', parseFloat(v('param-paie-frais-pro-plafond'))||0),
+    saveSetting('cortoba_paie_deduc_marie',       parseFloat(v('param-paie-deduc-marie'))||0),
+    saveSetting('cortoba_paie_deduc_enfant',      parseFloat(v('param-paie-deduc-enfant'))||0),
+    saveSetting('cortoba_paie_bareme_irpp',       JSON.stringify(collectIrppFromForm()))
+  ];
+  Promise.all(tasks).then(function(){ showToast('✓ Paramètres fiche de paie enregistrés'); })
+                    .catch(function(){ showToast('⚠ Erreur sauvegarde', 'error'); });
+}
+
+function resetPaieParams() {
+  if (!confirm('Réinitialiser toutes les valeurs par défaut ?')) return;
+  var keys = ['cnss_affiliation','cnss_sal_taux','cnss_pat_taux','at_taux','css_taux',
+              'frais_pro_taux','frais_pro_plafond','deduc_marie','deduc_enfant'];
+  keys.forEach(function(k){ saveSetting('cortoba_paie_'+k, PAIE_DEFAULTS[k]); });
+  saveSetting('cortoba_paie_bareme_irpp', JSON.stringify(PAIE_DEFAULTS.bareme_irpp));
+  setTimeout(loadPaieParams, 200);
+  showToast('✓ Valeurs par défaut restaurées');
+}
+
+// ── Calcul fiche de paie (mensuel) ──
+function computeFichePaie(member, options) {
+  options = options || {};
+  var salBase  = parseFloat(member.salaire_base) || parseFloat(member.salaire_net) || 0;
+  var primes   = parseFloat(options.primes   || 0);
+  var htsup    = parseFloat(options.htsup    || 0);
+  var transp   = parseFloat(options.transp   || 0);
+  var panier   = parseFloat(options.panier   || 0);
+  var autres   = parseFloat(options.autres   || 0);
+  var avance   = parseFloat(options.avance   || 0);
+
+  var brut = salBase + primes + htsup + transp + panier + autres;
+
+  var cnssSalTaux = getPaieParam('cnss_sal_taux');
+  var cnssPatTaux = getPaieParam('cnss_pat_taux');
+  var atTaux      = getPaieParam('at_taux');
+  var cssTaux     = getPaieParam('css_taux');
+  var fraisPct    = getPaieParam('frais_pro_taux');
+  var fraisPlaf   = getPaieParam('frais_pro_plafond');
+  var deducMarie  = getPaieParam('deduc_marie');
+  var deducEnf    = getPaieParam('deduc_enfant');
+
+  var cnssSal  = brut * cnssSalTaux / 100;
+  var cnssPat  = brut * cnssPatTaux / 100;
+  var atCot    = brut * atTaux / 100;
+  var totalCot = cnssPat + atCot;
+
+  var brutImposableMensuel = brut - cnssSal;
+  // Frais pro : % sur brut imposable, plafonné annuellement
+  var fraisMensuelPlafond = fraisPlaf / 12;
+  var fraisProM = Math.min(brutImposableMensuel * fraisPct / 100, fraisMensuelPlafond);
+
+  var deducSitM = 0;
+  if ((member.situation_familiale || 'Célibataire') === 'Marié') {
+    deducSitM = deducMarie / 12;
+  }
+  var nbEnfants = parseInt(member.enfants_charge || 0, 10);
+  var deducEnfM = (nbEnfants * deducEnf) / 12;
+
+  var baseIrppM = Math.max(0, brutImposableMensuel - fraisProM - deducSitM - deducEnfM);
+  // Calcul IRPP via barème annualisé
+  var bareme = getIrppBareme();
+  var baseAnnuelle = baseIrppM * 12;
+  var irppAnnuel = 0;
+  for (var i = 0; i < bareme.length; i++) {
+    var t = bareme[i];
+    var low = t.min || 0;
+    var high = (t.max==null) ? Infinity : t.max;
+    if (baseAnnuelle > low) {
+      var slice = Math.min(baseAnnuelle, high) - low;
+      if (slice > 0) irppAnnuel += slice * (t.taux || 0) / 100;
+    }
+  }
+  var irppM = irppAnnuel / 12;
+
+  // CSS : 1% sur base calcul CSS (brut imposable mensuel)
+  var baseCssM = brutImposableMensuel;
+  var cssM = baseCssM * cssTaux / 100;
+
+  var salaireNet = brutImposableMensuel - irppM - cssM;
+  var netAPayer  = salaireNet - avance;
+
+  return {
+    salaire_base: salBase,
+    primes: primes, htsup: htsup, transp: transp, panier: panier, autres: autres,
+    total_brut: brut,
+    cnss_sal: cnssSal, cnss_pat: cnssPat, at_cot: atCot, total_cot: totalCot,
+    brut_imposable: brutImposableMensuel,
+    frais_pro: fraisProM, deduc_situation: deducSitM, deduc_enfants: deducEnfM,
+    base_irpp: baseIrppM, irpp: irppM,
+    base_css: baseCssM, css: cssM,
+    salaire_net: salaireNet, avance: avance, net_a_payer: netAPayer,
+    // Taux appliqués
+    taux_cnss_sal: cnssSalTaux, taux_cnss_pat: cnssPatTaux, taux_at: atTaux, taux_css: cssTaux
+  };
+}
+
+// ── Conversion montant en lettres (français) ──
+function numberToWordsFR(n) {
+  if (n == null || isNaN(n)) return '';
+  n = Math.round(parseFloat(n) * 1000) / 1000;
+  var entier = Math.floor(Math.abs(n));
+  var millimes = Math.round((Math.abs(n) - entier) * 1000);
+  var units = ['zéro','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
+  var tens  = ['','','vingt','trente','quarante','cinquante','soixante','soixante','quatre-vingt','quatre-vingt'];
+  function hundreds(num) {
+    if (num === 0) return '';
+    if (num < 20) return units[num];
+    var t = Math.floor(num/10), r = num%10;
+    if (t === 7 || t === 9) return tens[t] + '-' + units[10 + r];
+    var s = tens[t];
+    if (r === 1 && t !== 8) s += ' et un';
+    else if (r > 0) s += '-' + units[r];
+    else if (t === 8) s += 's';
+    return s;
+  }
+  function thousands(num) {
+    if (num < 100) return hundreds(num);
+    var c = Math.floor(num/100), r = num%100;
+    var s = '';
+    if (c === 1) s = 'cent';
+    else s = units[c] + ' cent' + (r===0?'s':'');
+    if (r > 0) s += ' ' + hundreds(r);
+    return s;
+  }
+  function bigNum(num) {
+    if (num === 0) return 'zéro';
+    var parts = [];
+    var mil = Math.floor(num / 1000000);
+    if (mil > 0) {
+      parts.push((mil === 1 ? 'un million' : thousands(mil) + ' millions'));
+      num -= mil * 1000000;
+    }
+    var mille = Math.floor(num / 1000);
+    if (mille > 0) {
+      parts.push((mille === 1 ? 'mille' : thousands(mille) + ' mille'));
+      num -= mille * 1000;
+    }
+    if (num > 0) parts.push(thousands(num));
+    return parts.join(' ');
+  }
+  var txt = bigNum(entier) + ' dinar' + (entier>1?'s':'');
+  if (millimes > 0) txt += ' ' + bigNum(millimes) + ' millime' + (millimes>1?'s':'');
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Modal dépense — adaptation catégorie SALAIRE
+// ══════════════════════════════════════════════════════════════
+
+var _currentSalaryMember = null;     // membre sélectionné pour dépense salaire
+var _currentFichePaie    = null;     // dernier calcul (pour impression)
+
+function onDepCategorieChange() {
+  var cat = (document.getElementById('dep-categorie')||{value:''}).value;
+  var isSalaire = (cat === 'Salaires & charges');
+  var benefWrap = document.getElementById('dep-beneficiaire-wrap');
+  var moisWrap  = document.getElementById('dep-paie-mois-wrap');
+  var fourWrap  = document.getElementById('dep-fournisseur-wrap');
+  var printBtn  = document.getElementById('dep-print-fiche-btn');
+
+  if (isSalaire) {
+    if (benefWrap) benefWrap.style.display = '';
+    if (moisWrap)  moisWrap.style.display  = '';
+    if (fourWrap)  fourWrap.style.display  = 'none';
+    populateDepBeneficiaireSelect();
+    // Pré-remplir mois courant
+    var mi = document.getElementById('dep-paie-mois');
+    if (mi && !mi.value) {
+      var now = new Date();
+      mi.value = now.getFullYear() + '-' + ('0'+(now.getMonth()+1)).slice(-2);
+    }
+  } else {
+    if (benefWrap) benefWrap.style.display = 'none';
+    if (moisWrap)  moisWrap.style.display  = 'none';
+    if (fourWrap)  fourWrap.style.display  = '';
+    if (printBtn)  printBtn.style.display  = 'none';
+    _currentSalaryMember = null;
+    _currentFichePaie    = null;
+  }
+}
+
+function populateDepBeneficiaireSelect() {
+  var sel = document.getElementById('dep-beneficiaire');
+  if (!sel) return;
+  var currentVal = sel.value;
+  var list = (getMembres() || []).filter(function(m){
+    return (m.statut !== 'Inactif');
+  });
+  sel.innerHTML = '<option value="">— Sélectionner un membre —</option>'
+    + list.map(function(m){
+        return '<option value="'+m.id+'">'+escHtml((m.prenom||'') + ' ' + (m.nom||''))
+             + (m.role ? ' — ' + escHtml(m.role) : '')
+             + '</option>';
+      }).join('');
+  if (currentVal) sel.value = currentVal;
+}
+
+function onDepBeneficiaireChange() {
+  var sel = document.getElementById('dep-beneficiaire');
+  if (!sel) return;
+  var id = sel.value;
+  var infoEl = document.getElementById('dep-benef-info');
+  var printBtn = document.getElementById('dep-print-fiche-btn');
+
+  if (!id) {
+    _currentSalaryMember = null;
+    _currentFichePaie    = null;
+    if (infoEl) infoEl.style.display = 'none';
+    if (printBtn) printBtn.style.display = 'none';
+    return;
+  }
+
+  var m = (getMembres()||[]).find(function(x){ return x.id === id; });
+  if (!m) return;
+  _currentSalaryMember = m;
+
+  // Calcul fiche de paie
+  var fp = computeFichePaie(m, {});
+  _currentFichePaie = fp;
+
+  // Mois de paie
+  var moisInput = (document.getElementById('dep-paie-mois')||{value:''}).value;
+  var moisLabel = formatMonthLabelFR(moisInput);
+
+  // Auto-remplissage du formulaire dépense :
+  //  - libellé : "Salaire <mois> <année> — <Nom Prénom>"
+  //  - fournisseur (caché) : nom du membre
+  //  - date : dernier jour du mois (ou aujourd'hui)
+  //  - lignes : UNIQUE ligne avec HT = net à payer, TVA = 0
+  var libelle = 'Salaire ' + moisLabel + ' — ' + (m.prenom||'') + ' ' + (m.nom||'');
+  var libEl = document.getElementById('dep-libelle'); if (libEl) libEl.value = libelle;
+  var fourEl = document.getElementById('dep-fournisseur'); if (fourEl) fourEl.value = (m.prenom||'')+' '+(m.nom||'');
+
+  // Reconstruire les lignes : 1 ligne nette
+  var wrap = document.getElementById('dep-lignes-wrap');
+  if (wrap) wrap.innerHTML = '';
+  _depLigneCount = 0;
+  if (typeof addDepenseLigne === 'function') {
+    addDepenseLigne({ desc: 'Salaire net à payer (' + moisLabel + ')', ht: fp.net_a_payer, tva: 0 });
+  }
+  if (typeof calcDepTotal === 'function') calcDepTotal();
+
+  // Info résumé sous le select
+  if (infoEl) {
+    infoEl.style.display = '';
+    infoEl.innerHTML = '<strong>Brut :</strong> ' + fmtTnd(fp.total_brut)
+      + ' &nbsp;•&nbsp; <strong>CNSS :</strong> ' + fmtTnd(fp.cnss_sal)
+      + ' &nbsp;•&nbsp; <strong>IRPP :</strong> ' + fmtTnd(fp.irpp)
+      + ' &nbsp;•&nbsp; <strong>Net à payer :</strong> <span style="color:var(--accent);font-weight:600">' + fmtTnd(fp.net_a_payer) + '</span>';
+  }
+
+  if (printBtn) printBtn.style.display = '';
+}
+
+function formatMonthLabelFR(ym) {
+  if (!ym) { var n = new Date(); ym = n.getFullYear()+'-'+('0'+(n.getMonth()+1)).slice(-2); }
+  var parts = ym.split('-');
+  var mois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var idx = parseInt(parts[1],10) - 1;
+  return (mois[idx] || '') + ' ' + parts[0];
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Impression fiche de paie — gabarit HTML inspiré du modèle XLSX
+// ══════════════════════════════════════════════════════════════
+
+function openFichePaiePreview() {
+  if (!_currentSalaryMember) { alert('Sélectionnez un salarié bénéficiaire.'); return; }
+  var fp = computeFichePaie(_currentSalaryMember, {});
+  _currentFichePaie = fp;
+  var html = renderFichePaieHtml(_currentSalaryMember, fp);
+  var wrap = document.getElementById('fiche-paie-content');
+  if (wrap) wrap.innerHTML = html;
+  openModal('modal-fiche-paie');
+}
+
+function printFichePaie() {
+  var content = document.getElementById('fiche-paie-content');
+  if (!content) return;
+  var win = window.open('', '_blank', 'width=900,height=1200');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bulletin de paie</title>');
+  win.document.write('<style>' + fichePaieCss() + '</style>');
+  win.document.write('</head><body>' + content.innerHTML + '</body></html>');
+  win.document.close();
+  setTimeout(function(){ win.print(); }, 500);
+}
+
+function fichePaieCss() {
+  return ''
+    + 'body{font-family:Arial,sans-serif;padding:1.5rem;color:#111;background:#fff}'
+    + '.fp-wrap{max-width:820px;margin:0 auto;border:2px solid #333}'
+    + '.fp-title{background:#2c3e50;color:#fff;text-align:center;padding:0.8rem;font-size:1.1rem;font-weight:bold;letter-spacing:0.15em}'
+    + '.fp-section{padding:0.6rem 0.9rem;border-bottom:1px solid #ccc}'
+    + '.fp-row{display:flex;justify-content:space-between;margin:0.22rem 0;font-size:0.8rem}'
+    + '.fp-row strong{color:#333;min-width:150px}'
+    + '.fp-grid2{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem}'
+    + 'table.fp-tbl{width:100%;border-collapse:collapse;font-size:0.75rem;margin-top:0.4rem}'
+    + 'table.fp-tbl th,table.fp-tbl td{border:1px solid #999;padding:4px 6px;text-align:left}'
+    + 'table.fp-tbl th{background:#ecf0f1;font-weight:600;font-size:0.7rem;text-transform:uppercase}'
+    + 'table.fp-tbl td.num{text-align:right;font-family:monospace}'
+    + 'table.fp-tbl tr.total td{background:#f8f9fa;font-weight:bold}'
+    + '.fp-net{background:#2c3e50;color:#fff;padding:0.7rem 1rem;font-size:1rem;font-weight:bold;display:flex;justify-content:space-between;align-items:center}'
+    + '.fp-lettres{padding:0.6rem 0.9rem;font-style:italic;font-size:0.78rem;color:#555;border-bottom:1px solid #ccc}'
+    + '.fp-signatures{display:flex;justify-content:space-between;padding:1.4rem 0.9rem 0.4rem;font-size:0.75rem;color:#666}'
+    + '.fp-sig-box{flex:0 0 46%;text-align:center;border-top:1px solid #666;padding-top:0.3rem}'
+    + '@media print{body{padding:0}.fp-wrap{border:none}}';
+}
+
+function renderFichePaieHtml(m, fp) {
+  var fN = function(n){ return (parseFloat(n)||0).toFixed(3).replace('.',','); };
+  var ag = {
+    raison: getSetting('cortoba_agence_raison','Cortoba Architecture Studio'),
+    adresse: getSetting('cortoba_agence_adresse','Djerba, Tunisie'),
+    mf:      getSetting('cortoba_agence_mf',''),
+    cnoa:    getSetting('cortoba_agence_cnoa','')
+  };
+  var cnssAff = getPaieParam('cnss_affiliation');
+  var moisInput = (document.getElementById('dep-paie-mois')||{value:''}).value;
+  var moisLabel = formatMonthLabelFR(moisInput);
+  var datePaie = (document.getElementById('dep-date')||{value:''}).value || new Date().toISOString().split('T')[0];
+  var taux_h   = (parseFloat(m.salaire_base)||0) / (parseFloat(m.heures_mois)||208);
+
+  var html = '<div class="fp-wrap">';
+  html += '<div class="fp-title">BULLETIN DE PAIE</div>';
+
+  // En-tête société
+  html += '<div class="fp-section">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.6rem">';
+  html += '<div><div style="font-size:0.95rem;font-weight:bold;color:#2c3e50">'+escHtml(ag.raison)+'</div>';
+  html += '<div style="font-size:0.72rem;color:#666;margin-top:2px">'+escHtml(ag.adresse)+'</div>';
+  if (cnssAff) html += '<div style="font-size:0.72rem;color:#666">Affiliation CNSS : '+escHtml(cnssAff)+'</div>';
+  html += '</div>';
+  html += '<div style="font-size:0.75rem;text-align:right">';
+  html += '<div><strong>Année :</strong> '+ (moisInput.split('-')[0] || new Date().getFullYear()) +'</div>';
+  html += '<div><strong>Mois :</strong> '+ escHtml(moisLabel) +'</div>';
+  html += '<div><strong>Date de paiement :</strong> '+ fmtDate(datePaie) +'</div>';
+  html += '</div>';
+  html += '</div></div>';
+
+  // Identification salarié
+  html += '<div class="fp-section">';
+  html += '<div class="fp-grid2">';
+  html += '<div>';
+  html += '<div class="fp-row"><strong>Matricule</strong><span>'+escHtml(m.matricule||'—')+'</span></div>';
+  html += '<div class="fp-row"><strong>Nom & Prénom</strong><span>'+escHtml((m.prenom||'')+' '+(m.nom||''))+'</span></div>';
+  html += '<div class="fp-row"><strong>CIN</strong><span>'+escHtml(m.cin||'—')+'</span></div>';
+  html += '<div class="fp-row"><strong>N° CNSS</strong><span>'+escHtml(m.n_cnss||'—')+'</span></div>';
+  html += '<div class="fp-row"><strong>Adresse</strong><span>'+escHtml(m.adresse||'—')+'</span></div>';
+  html += '</div>';
+  html += '<div>';
+  html += '<div class="fp-row"><strong>Emploi</strong><span>'+escHtml(m.emploi||m.role||'—')+'</span></div>';
+  html += '<div class="fp-row"><strong>Catégorie</strong><span>'+escHtml(m.categorie_emploi||'—')+'</span></div>';
+  html += '<div class="fp-row"><strong>Échelon</strong><span>'+escHtml(m.echelon||'—')+'</span></div>';
+  html += '<div class="fp-row"><strong>Situation familiale</strong><span>'+escHtml(m.situation_familiale||'—')+'</span></div>';
+  html += '<div class="fp-row"><strong>Enfants à charge</strong><span>'+(m.enfants_charge||0)+'</span></div>';
+  html += '<div class="fp-row"><strong>Salaire de base</strong><span>'+fN(m.salaire_base)+' TND</span></div>';
+  html += '<div class="fp-row"><strong>Taux horaire</strong><span>'+fN(taux_h)+' TND</span></div>';
+  html += '</div>';
+  html += '</div></div>';
+
+  // Tableau rubriques
+  html += '<div class="fp-section">';
+  html += '<table class="fp-tbl"><thead><tr>';
+  html += '<th>Désignation</th><th>Base</th><th>Taux</th><th>Gain</th><th>Retenue</th>';
+  html += '</tr></thead><tbody>';
+  html += '<tr><td>Salaire de base</td><td class="num">'+fN(m.heures_mois||208)+'</td><td class="num">'+fN(taux_h)+'</td><td class="num">'+fN(fp.salaire_base)+'</td><td class="num">—</td></tr>';
+  if (fp.primes > 0) html += '<tr><td>Primes</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.primes)+'</td><td class="num">—</td></tr>';
+  if (fp.transp > 0) html += '<tr><td>Indemnité de transport</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.transp)+'</td><td class="num">—</td></tr>';
+  if (fp.panier > 0) html += '<tr><td>Prime de panier</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.panier)+'</td><td class="num">—</td></tr>';
+  if (fp.htsup  > 0) html += '<tr><td>Heures supplémentaires</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.htsup)+'</td><td class="num">—</td></tr>';
+  html += '<tr class="total"><td colspan="3">Total Brut</td><td class="num">'+fN(fp.total_brut)+'</td><td class="num">—</td></tr>';
+  html += '<tr><td>Retenue CNSS salariale</td><td class="num">'+fN(fp.total_brut)+'</td><td class="num">'+fN(fp.taux_cnss_sal)+'%</td><td class="num">—</td><td class="num">'+fN(fp.cnss_sal)+'</td></tr>';
+  html += '<tr class="total"><td colspan="3">Salaire Brut Imposable</td><td class="num">'+fN(fp.brut_imposable)+'</td><td class="num">—</td></tr>';
+  html += '<tr><td>Déduction frais professionnels</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.frais_pro)+'</td><td class="num">—</td></tr>';
+  html += '<tr><td>Déduction situation familiale</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.deduc_situation)+'</td><td class="num">—</td></tr>';
+  if (fp.deduc_enfants > 0) html += '<tr><td>Déduction enfants à charge</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.deduc_enfants)+'</td><td class="num">—</td></tr>';
+  html += '<tr class="total"><td colspan="3">Base imposable IRPP</td><td class="num">'+fN(fp.base_irpp)+'</td><td class="num">—</td></tr>';
+  html += '<tr><td>IRPP (barème annuel)</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.irpp)+'</td></tr>';
+  html += '<tr><td>Contribution Sociale Solidaire (CSS)</td><td class="num">'+fN(fp.base_css)+'</td><td class="num">'+fN(fp.taux_css)+'%</td><td class="num">—</td><td class="num">'+fN(fp.css)+'</td></tr>';
+  html += '<tr class="total"><td colspan="3">Salaire Net</td><td class="num">'+fN(fp.salaire_net)+'</td><td class="num">—</td></tr>';
+  if (fp.avance > 0) html += '<tr><td>Avance</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">'+fN(fp.avance)+'</td></tr>';
+  html += '</tbody></table>';
+  html += '</div>';
+
+  // Cotisations patronales (info)
+  html += '<div class="fp-section" style="font-size:0.72rem;color:#666">';
+  html += '<div style="font-weight:600;margin-bottom:0.3rem;text-transform:uppercase;font-size:0.68rem;letter-spacing:0.08em">Contributions patronales (information)</div>';
+  html += '<div class="fp-row"><strong>CNSS patronale ('+fN(fp.taux_cnss_pat)+'%)</strong><span>'+fN(fp.cnss_pat)+' TND</span></div>';
+  html += '<div class="fp-row"><strong>Accident de travail ('+fN(fp.taux_at)+'%)</strong><span>'+fN(fp.at_cot)+' TND</span></div>';
+  html += '<div class="fp-row"><strong>Total cotisation patronale</strong><span>'+fN(fp.total_cot)+' TND</span></div>';
+  html += '</div>';
+
+  // Net à payer
+  html += '<div class="fp-net"><span>NET À PAYER</span><span>'+fN(fp.net_a_payer)+' TND</span></div>';
+  html += '<div class="fp-lettres">Arrêté la présente fiche à la somme de : <strong>'+escHtml(numberToWordsFR(fp.net_a_payer))+'</strong></div>';
+
+  // Mode de paiement
+  html += '<div class="fp-section" style="font-size:0.76rem">';
+  html += '<div class="fp-grid2">';
+  html += '<div class="fp-row"><strong>Mode de paiement</strong><span>'+escHtml(m.mode_paiement||'Virement')+'</span></div>';
+  html += '<div class="fp-row"><strong>Banque</strong><span>'+escHtml(m.banque||'—')+'</span></div>';
+  html += '<div class="fp-row" style="grid-column:1/-1"><strong>N° de compte / RIB</strong><span>'+escHtml(m.rib||'—')+'</span></div>';
+  html += '</div></div>';
+
+  // Signatures
+  html += '<div class="fp-signatures">';
+  html += '<div class="fp-sig-box">Signature et cachet employeur</div>';
+  html += '<div class="fp-sig-box">Signature employé</div>';
+  html += '</div>';
+
+  html += '</div>'; // fp-wrap
+  return html;
+}
+
+// ── Réinitialisation modale dépense : ajout salaire ──
+(function(){
+  var origReset = resetDepenseForm;
+  if (typeof origReset === 'function') {
+    resetDepenseForm = function(){
+      origReset.apply(this, arguments);
+      var benefWrap = document.getElementById('dep-beneficiaire-wrap');
+      var moisWrap  = document.getElementById('dep-paie-mois-wrap');
+      var fourWrap  = document.getElementById('dep-fournisseur-wrap');
+      var printBtn  = document.getElementById('dep-print-fiche-btn');
+      if (benefWrap) benefWrap.style.display = 'none';
+      if (moisWrap)  moisWrap.style.display  = 'none';
+      if (fourWrap)  fourWrap.style.display  = '';
+      if (printBtn)  printBtn.style.display  = 'none';
+      var bSel = document.getElementById('dep-beneficiaire'); if (bSel) bSel.value = '';
+      var bMoi = document.getElementById('dep-paie-mois');    if (bMoi) bMoi.value = '';
+      var bInf = document.getElementById('dep-benef-info');   if (bInf) bInf.style.display = 'none';
+      _currentSalaryMember = null;
+      _currentFichePaie    = null;
+    };
+  }
+})();
 

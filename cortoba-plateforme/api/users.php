@@ -42,6 +42,20 @@ function ensureUsersTable() {
         "date_embauche       DATE         DEFAULT NULL",
         "date_derniere_augm  DATE         DEFAULT NULL",
         "taux_augm_pct       DECIMAL(5,2) DEFAULT 5",
+        // ── Informations fiche de paie ──
+        "cin                 VARCHAR(20)  DEFAULT ''",
+        "matricule           VARCHAR(40)  DEFAULT ''",
+        "n_cnss              VARCHAR(40)  DEFAULT ''",
+        "situation_familiale VARCHAR(20)  DEFAULT 'Célibataire'",
+        "enfants_charge      INT          DEFAULT 0",
+        "adresse             VARCHAR(300) DEFAULT ''",
+        "echelon             VARCHAR(40)  DEFAULT ''",
+        "categorie_emploi    VARCHAR(40)  DEFAULT ''",
+        "emploi              VARCHAR(120) DEFAULT ''",
+        "banque              VARCHAR(120) DEFAULT ''",
+        "rib                 VARCHAR(40)  DEFAULT ''",
+        "mode_paiement       VARCHAR(30)  DEFAULT 'Virement'",
+        "salaire_base        DECIMAL(12,3) DEFAULT 0",
     );
     foreach ($extraCols as $colDef) {
         try { $db->exec("ALTER TABLE cortoba_users ADD COLUMN IF NOT EXISTS $colDef"); }
@@ -82,6 +96,10 @@ function filterMemberRow($row, $viewer) {
             'tel_perso', 'email_perso',
             'salaire_net', 'charges_sociales', 'subventions', 'avantages_nature',
             'heures_mois', 'date_embauche', 'date_derniere_augm', 'taux_augm_pct',
+            // Fiche de paie
+            'cin', 'matricule', 'n_cnss', 'situation_familiale', 'enfants_charge',
+            'adresse', 'echelon', 'categorie_emploi', 'emploi',
+            'banque', 'rib', 'mode_paiement', 'salaire_base',
         ));
     }
 
@@ -172,6 +190,21 @@ try {
         if ($dateEmb === '') $dateEmb = null;
         if ($dateAug === '') $dateAug = null;
 
+        // Fiche de paie (champs partiellement sensibles — nécessitent aussi le droit sensible)
+        $cin        = $canEditSalary ? trim($body['cin']                 ?? '') : null;
+        $matricule  = $canEditSalary ? trim($body['matricule']           ?? '') : null;
+        $nCnss      = $canEditSalary ? trim($body['n_cnss']              ?? '') : null;
+        $sitFam     = $canEditSalary ? trim($body['situation_familiale'] ?? 'Célibataire') : null;
+        $enfants    = $canEditSalary ? (int)($body['enfants_charge']     ?? 0) : null;
+        $adresseP   = $canEditSalary ? trim($body['adresse']             ?? '') : null;
+        $echelon    = $canEditSalary ? trim($body['echelon']             ?? '') : null;
+        $catEmploi  = $canEditSalary ? trim($body['categorie_emploi']    ?? '') : null;
+        $emploi     = $canEditSalary ? trim($body['emploi']              ?? '') : null;
+        $banqueP    = $canEditSalary ? trim($body['banque']              ?? '') : null;
+        $ribP       = $canEditSalary ? trim($body['rib']                 ?? '') : null;
+        $modePaie   = $canEditSalary ? trim($body['mode_paiement']       ?? 'Virement') : null;
+        $salaireBas = $canEditSalary ? (float)($body['salaire_base']     ?? 0) : null;
+
         if (!$prenom || !$nom || !$email) jsonError('Champs requis manquants', 400);
         if (!$isEdit && !$pass)             jsonError('Mot de passe requis', 400);
 
@@ -192,6 +225,20 @@ try {
             $cols['date_embauche']      = $dateEmb;
             $cols['date_derniere_augm'] = $dateAug;
             $cols['taux_augm_pct']      = $tauxAug;
+            // Fiche de paie
+            $cols['cin']                 = $cin;
+            $cols['matricule']           = $matricule;
+            $cols['n_cnss']              = $nCnss;
+            $cols['situation_familiale'] = $sitFam;
+            $cols['enfants_charge']      = $enfants;
+            $cols['adresse']             = $adresseP;
+            $cols['echelon']             = $echelon;
+            $cols['categorie_emploi']    = $catEmploi;
+            $cols['emploi']              = $emploi;
+            $cols['banque']              = $banqueP;
+            $cols['rib']                 = $ribP;
+            $cols['mode_paiement']       = $modePaie;
+            $cols['salaire_base']        = $salaireBas;
         }
 
         if ($isEdit) {

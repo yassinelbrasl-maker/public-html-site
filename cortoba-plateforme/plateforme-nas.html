@@ -1671,6 +1671,69 @@
           </div>
         </div>
 
+        <!-- ═══ FICHE DE PAIE — PARAMÈTRES AGENCE ═══ -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Fiche de paie — Paramètres bulletin</div>
+          <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:1rem">
+            Données utilisées par le gabarit bulletin de paie (CNSS, cotisations, barème IRPP tunisien).
+          </div>
+          <div class="form-grid">
+            <div class="form-field full">
+              <label class="form-label">Affiliation CNSS société</label>
+              <input id="param-paie-cnss-aff" class="form-input" placeholder="Ex: 00010202-99" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Taux CNSS salarial (%)</label>
+              <input id="param-paie-cnss-sal" class="form-input" type="number" step="0.01" placeholder="9.18" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Taux CNSS patronal (%)</label>
+              <input id="param-paie-cnss-pat" class="form-input" type="number" step="0.01" placeholder="16.57" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Accident du travail (%)</label>
+              <input id="param-paie-at" class="form-input" type="number" step="0.01" placeholder="0.4" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Contribution sociale solidaire (%)</label>
+              <input id="param-paie-css" class="form-input" type="number" step="0.01" placeholder="1.0" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Frais professionnels (%)</label>
+              <input id="param-paie-frais-pro" class="form-input" type="number" step="0.5" placeholder="10" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Plafond frais pro (TND/an)</label>
+              <input id="param-paie-frais-pro-plafond" class="form-input" type="number" step="1" placeholder="2000" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Déduction chef de famille (TND/an)</label>
+              <input id="param-paie-deduc-marie" class="form-input" type="number" step="1" placeholder="300" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Déduction par enfant (TND/an)</label>
+              <input id="param-paie-deduc-enfant" class="form-input" type="number" step="1" placeholder="100" />
+            </div>
+          </div>
+
+          <div style="margin-top:1.2rem;font-size:0.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem">Barème IRPP annuel (tranches)</div>
+          <div id="param-paie-irpp-wrap" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.4rem;align-items:end">
+            <!-- Généré par renderIrppBaremeEditor() -->
+          </div>
+          <button type="button" class="btn btn-sm" style="margin-top:0.6rem" onclick="addIrppTranche()">+ Ajouter une tranche</button>
+
+          <div style="margin-top:1rem;padding:0.7rem 0.9rem;background:rgba(0,180,120,0.06);border-left:2px solid rgba(0,180,120,0.4);border-radius:4px;font-size:0.72rem;color:var(--text-3);line-height:1.5">
+            <strong style="color:var(--green)">Valeurs par défaut Tunisie 2024 :</strong>
+            CNSS salarial 9,18% • CNSS patronal 16,57% • AT 0,4% • CSS 1% •
+            Frais pro 10% (plafond 2000) • Chef famille 300 • Enfant 100.<br>
+            Barème IRPP : 0–5000 ⇒ 0% • 5000–20000 ⇒ 26% • 20000–30000 ⇒ 28% • 30000–50000 ⇒ 32% • >50000 ⇒ 35%.
+          </div>
+          <div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:0.5rem">
+            <button class="btn btn-sm" onclick="resetPaieParams()">Valeurs par défaut</button>
+            <button class="btn btn-primary btn-sm" onclick="savePaieParams()">Enregistrer</button>
+          </div>
+        </div>
+
         <!-- RIB & coordonnées bancaires pour facturation -->
         <div class="card" style="margin-bottom:1.5rem">
           <div class="card-title">Coordonnées bancaires (pour factures)</div>
@@ -1847,6 +1910,49 @@
               <button class="btn btn-sm btn-primary" onclick="addParamDAItem('documents_admin_list','param-da-doc-input','param-da-doc-list')">Ajouter</button>
             </div>
             <div id="param-da-doc-list" class="param-tag-list"></div>
+          </div>
+
+          <!-- En-tête de l'agence -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">En-tête de l'agence (sur lettres générées)</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:0.5rem">
+              <div class="form-field"><label class="form-label">Nom (FR)</label><input id="param-da-hdr-nom-fr" class="form-input" placeholder="Cortoba Architecture Studio" /></div>
+              <div class="form-field"><label class="form-label">Nom (AR)</label><input id="param-da-hdr-nom-ar" class="form-input" placeholder="استوديو قرطبة للهندسة المعمارية" dir="rtl" /></div>
+              <div class="form-field"><label class="form-label">Adresse (FR)</label><input id="param-da-hdr-adr-fr" class="form-input" placeholder="Adresse, Djerba, Tunisie" /></div>
+              <div class="form-field"><label class="form-label">Adresse (AR)</label><input id="param-da-hdr-adr-ar" class="form-input" placeholder="العنوان، جربة، تونس" dir="rtl" /></div>
+              <div class="form-field"><label class="form-label">Téléphone</label><input id="param-da-hdr-tel" class="form-input" placeholder="+216 ..." /></div>
+              <div class="form-field"><label class="form-label">Email</label><input id="param-da-hdr-email" class="form-input" placeholder="contact@..." /></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-top:0.5rem;flex-wrap:wrap">
+              <label class="form-label" style="margin:0">Logo</label>
+              <input type="file" id="param-da-hdr-logo-file" accept="image/*" onchange="uploadDAHeaderLogo(this)" />
+              <img id="param-da-hdr-logo-preview" src="" alt="" style="max-height:48px;display:none;border:1px solid var(--border);border-radius:4px" />
+              <button class="btn btn-sm" onclick="clearDAHeaderLogo()" type="button">Retirer</button>
+            </div>
+            <div style="margin-top:0.5rem">
+              <button class="btn btn-sm btn-primary" onclick="saveDAHeader()" type="button">Enregistrer l'en-tête</button>
+            </div>
+          </div>
+
+          <!-- Cachet & signature numérique (gérants uniquement) -->
+          <div style="margin-bottom:1.2rem" id="param-da-cachet-wrap">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Cachet &amp; signature numérique <span style="font-size:0.72rem;color:var(--text-3)">(gérants uniquement)</span></div>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+              <input type="file" id="param-da-cachet-file" accept="image/*" onchange="uploadDACachet(this)" />
+              <img id="param-da-cachet-preview" src="" alt="" style="max-height:90px;display:none;border:1px solid var(--border);border-radius:4px;background:#fff" />
+              <button class="btn btn-sm" onclick="clearDACachet()" type="button">Retirer</button>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">L'image doit idéalement avoir un fond transparent (PNG).</div>
+          </div>
+
+          <!-- Historique objets -->
+          <div style="margin-bottom:1.2rem">
+            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">Historique des objets de demande</div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+              <input id="param-da-objet-input" class="form-input" placeholder="Objet récurrent (ajouté automatiquement lors des demandes)" style="flex:1" />
+              <button class="btn btn-sm btn-primary" onclick="addParamDAItem('objets_demandes_admin','param-da-objet-input','param-da-objet-list')">Ajouter</button>
+            </div>
+            <div id="param-da-objet-list" class="param-tag-list"></div>
           </div>
         </div>
 
@@ -2446,7 +2552,7 @@
         <!-- 1. Catégorie en premier -->
         <div class="form-field">
           <label class="form-label">Catégorie <span style="color:#e07070">*</span></label>
-          <select id="dep-categorie" class="form-select">
+          <select id="dep-categorie" class="form-select" onchange="onDepCategorieChange()">
             <option value="">— Sélectionner —</option>
             <option>Salaires & charges</option>
             <option>Logiciels & licences</option>
@@ -2484,12 +2590,27 @@
           <input id="dep-reference" class="form-input" placeholder="N° facture, bon de commande…" />
         </div>
 
-        <!-- 5. Fournisseur -->
-        <div class="form-field">
+        <!-- 5. Fournisseur OU bénéficiaire salaire (switch dynamique) -->
+        <div class="form-field" id="dep-fournisseur-wrap">
           <label class="form-label">Fournisseur / Bénéficiaire</label>
           <input id="dep-fournisseur" class="form-input" placeholder="Nom du fournisseur"
             list="dep-fournisseur-list" autocomplete="off" />
           <datalist id="dep-fournisseur-list"></datalist>
+        </div>
+
+        <!-- 5bis. Bénéficiaire salarié (révélé si catégorie = Salaires & charges) -->
+        <div class="form-field" id="dep-beneficiaire-wrap" style="display:none">
+          <label class="form-label">Salarié bénéficiaire <span style="color:#e07070">*</span></label>
+          <select id="dep-beneficiaire" class="form-select" onchange="onDepBeneficiaireChange()">
+            <option value="">— Sélectionner un membre —</option>
+          </select>
+          <div id="dep-benef-info" style="font-size:0.68rem;color:var(--text-3);margin-top:0.3rem;display:none"></div>
+        </div>
+
+        <!-- 5ter. Mois de paie (révélé si catégorie = Salaires & charges) -->
+        <div class="form-field" id="dep-paie-mois-wrap" style="display:none">
+          <label class="form-label">Mois de paie</label>
+          <input id="dep-paie-mois" class="form-input" type="month" onchange="onDepBeneficiaireChange()" />
         </div>
 
         <!-- 6. Code TVA fournisseur -->
@@ -2596,7 +2717,25 @@
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-depense')">Annuler</button>
+      <button class="btn" id="dep-print-fiche-btn" style="display:none" onclick="openFichePaiePreview()">🖨️ Imprimer fiche de paie</button>
       <button class="btn btn-primary" onclick="saveDepense()">Enregistrer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal aperçu fiche de paie (impression) ═══ -->
+<div class="modal-overlay" id="modal-fiche-paie">
+  <div class="modal-box" style="max-width:920px;width:98%;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title">Bulletin de paie — Aperçu</div>
+      <button class="modal-close" onclick="closeModal('modal-fiche-paie')">✕</button>
+    </div>
+    <div class="modal-body" style="flex:1;overflow:auto;background:#f5f5f5;padding:1.2rem">
+      <div id="fiche-paie-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-fiche-paie')">Fermer</button>
+      <button class="btn btn-primary" onclick="printFichePaie()">🖨️ Imprimer</button>
     </div>
   </div>
 </div>
@@ -2938,6 +3077,71 @@
             <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.25rem">Utilisé par le module Rendement pour la marge nette projets</div>
           </div>
         </div>
+
+        <!-- ═══ FICHE DE PAIE — Informations employé ═══ -->
+        <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
+        <div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem">Fiche de paie — Informations employé</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Salaire de base (brut mensuel)</label>
+            <input id="mb-salaire-base" class="form-input" type="number" step="0.001" min="0" value="0" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Matricule</label>
+            <input id="mb-matricule" class="form-input" placeholder="Ex: 94571014" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">CIN</label>
+            <input id="mb-cin" class="form-input" placeholder="Numéro CIN" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">N° CNSS</label>
+            <input id="mb-n-cnss" class="form-input" placeholder="Ex: 12647500-05" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Emploi (intitulé poste)</label>
+            <input id="mb-emploi" class="form-input" placeholder="Ex: Architecte junior" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Catégorie</label>
+            <input id="mb-cat-emploi" class="form-input" placeholder="Ex: 5" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Échelon</label>
+            <input id="mb-echelon" class="form-input" placeholder="Ex: 3" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Situation familiale</label>
+            <select id="mb-situation" class="form-select">
+              <option value="Célibataire">Célibataire</option>
+              <option value="Marié">Marié(e)</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Enfants à charge</label>
+            <input id="mb-enfants" class="form-input" type="number" step="1" min="0" max="10" value="0" />
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Adresse personnelle</label>
+            <input id="mb-adresse-perso" class="form-input" placeholder="Ex: Avenue de la liberté 1002 Tunis" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Mode de paiement</label>
+            <select id="mb-mode-paie" class="form-select">
+              <option value="Virement">Virement</option>
+              <option value="Chèque">Chèque</option>
+              <option value="Espèces">Espèces</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Banque</label>
+            <input id="mb-banque" class="form-input" placeholder="Ex: BIAT, STB…" />
+          </div>
+          <div class="form-field full">
+            <label class="form-label">RIB / N° de compte</label>
+            <input id="mb-rib" class="form-input" placeholder="50 0002014500569752 51" />
+          </div>
+        </div>
       </div>
 
       <!-- ─── TAB AUGMENTATION (privilégié) ─── -->
@@ -3161,6 +3365,8 @@
     <div class="modal-body" style="max-height:75vh;overflow-y:auto">
       <input type="hidden" id="da-edit-id" />
 
+      <div id="da-header-preview" class="da-header-preview" style="display:none;padding:0.6rem;margin-bottom:0.6rem;border:1px dashed var(--border,#ccc);border-radius:6px;background:var(--bg-soft,#fafafa);font-size:0.82rem"></div>
+
       <div class="form-grid" style="grid-template-columns:1fr 1fr">
         <div class="form-field">
           <label class="form-label">Langue</label>
@@ -3183,11 +3389,18 @@
           </select>
         </div>
         <div class="form-field">
-          <label class="form-label">Projet (optionnel)</label>
-          <select id="da-projet" class="form-input">
+          <label class="form-label">Client</label>
+          <select id="da-client" class="form-input" onchange="_daOnClientChange()">
             <option value="">-- Aucun --</option>
           </select>
         </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Projet (optionnel)</label>
+        <select id="da-projet" class="form-input">
+          <option value="">-- Aucun --</option>
+        </select>
       </div>
 
       <div class="form-grid" style="grid-template-columns:1fr 1fr">
@@ -3238,12 +3451,22 @@
 
       <div class="form-field">
         <label class="form-label">Objet</label>
-        <input id="da-objet" class="form-input" placeholder="Objet de la demande" />
+        <input id="da-objet" class="form-input" list="da-objet-list" placeholder="Objet de la demande" />
+        <datalist id="da-objet-list"></datalist>
       </div>
 
       <div class="form-field">
         <label class="form-label">Contenu de la lettre</label>
         <textarea id="da-contenu" class="form-input" rows="8" placeholder="Corps de la demande..."></textarea>
+      </div>
+
+      <div class="form-field" id="da-cachet-wrap" style="display:none">
+        <label class="form-label">Cachet &amp; signature num&eacute;rique</label>
+        <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+          <button type="button" class="btn btn-sm" id="da-cachet-btn" onclick="toggleDACachet()">Ajouter cachet &amp; signature</button>
+          <span id="da-cachet-status" style="font-size:0.8rem;color:var(--muted,#666)"></span>
+        </div>
+        <div id="da-cachet-preview" style="margin-top:0.4rem"></div>
       </div>
 
       <!-- Documents à joindre -->

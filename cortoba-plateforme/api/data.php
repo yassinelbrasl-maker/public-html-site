@@ -54,7 +54,8 @@ $TABLES = array(
         'table'    => 'CA_depenses',
         'cols'     => array('description','montant','categorie','projet_id','date_dep','justificatif',
                             'fournisseur','reference','code_tva_fournisseur',
-                            'montant_ht','montant_tva','timbre','montant_ttc','lignes_json','template_id'),
+                            'montant_ht','montant_tva','timbre','montant_ttc','lignes_json','template_id',
+                            'employe_id','paie_mois','paie_snapshot'),
         'cree_par' => true,
     ),
 );
