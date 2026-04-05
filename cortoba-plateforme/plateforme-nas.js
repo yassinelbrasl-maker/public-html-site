@@ -8689,14 +8689,25 @@ function openDemandeAdminModal(data) {
   document.getElementById('da-expediteur').value = data ? (data.expediteur || '') : getSetting('cortoba_agence_raison', 'Cortoba Architecture Studio');
   document.getElementById('da-destinataire').value = data ? (data.destinataire || '') : '';
   document.getElementById('da-reference').value = data ? (data.reference || '') : '';
-  document.getElementById('da-statut').value = data ? (data.statut || 'Brouillon') : 'Brouillon';
+  // Migration douce : anciens statuts "Réponse reçue (positive/négative)" → statut unique + reponse_type
+  var _rawStatut = data ? (data.statut || 'Brouillon') : 'Brouillon';
+  var _autoReponse = '';
+  if (_rawStatut.indexOf('Réponse reçue') === 0) {
+    if (_rawStatut.indexOf('positive') !== -1) _autoReponse = 'positive';
+    else if (_rawStatut.indexOf('négative') !== -1 || _rawStatut.indexOf('negative') !== -1) _autoReponse = 'negative';
+    _rawStatut = 'Réponse reçue';
+  }
+  // Anciens "Envoyée" → "Déposé" / "Répondue" → "Réponse reçue"
+  if (_rawStatut === 'Envoyée') _rawStatut = 'Déposé';
+  if (_rawStatut === 'Répondue') _rawStatut = 'Réponse reçue';
+  document.getElementById('da-statut').value = _rawStatut;
   document.getElementById('da-remarques').value = data ? (data.remarques || '') : '';
 
   // v3 : workflow DA
   var dEl = document.getElementById('da-date-depot'); if (dEl) dEl.value = (data && data.date_depot) || '';
   var jEl = document.getElementById('da-justificatif-current');
   if (jEl) jEl.innerHTML = (data && data.justificatif_url) ? '<a href="'+data.justificatif_url+'" target="_blank" style="color:var(--accent)">📎 Justificatif actuel</a>' : '';
-  var rEl = document.getElementById('da-reponse-type'); if (rEl) rEl.value = (data && data.reponse_type) || '';
+  var rEl = document.getElementById('da-reponse-type'); if (rEl) rEl.value = (data && data.reponse_type) || _autoReponse;
   window._daCurrentEdit = data || null;
   _daRenderManquants(data);
   _daRefreshWorkflow();
@@ -10354,15 +10365,8 @@ function _daRefreshWorkflow() {
   if (statut === 'Déposé' || statut === 'Envoyée') { if (dep) dep.style.display = ''; show = true; }
   if (statut === 'En attente de documents')        { if (man) man.style.display = ''; show = true; }
   if (statut === 'Prêt à déposer')                 { if (pre) pre.style.display = ''; show = true; }
-  if (statut.indexOf('Réponse reçue') === 0)       {
+  if (statut === 'Réponse reçue')                  {
     if (rep) rep.style.display = '';
-    var rt = (document.getElementById('da-reponse-type')||{}).value || '';
-    if (!rt) {
-      // Pré-remplir selon le statut
-      var autoRT = (statut.indexOf('positive') !== -1) ? 'positive' : 'negative';
-      var rSel = document.getElementById('da-reponse-type');
-      if (rSel) rSel.value = autoRT;
-    }
     onDAReponseChange();
     show = true;
   }
@@ -10385,27 +10389,61 @@ function onDAReponseChange() {
 function _daRenderManquants(data) {
   var wrap = document.getElementById('da-manquants-list');
   if (!wrap) return;
-  var type = data ? data.type_demande : (document.getElementById('da-type')||{}).value;
-  var allDocs = [];
-  try {
-    var types = getSetting('cortoba_da_types', []) || [];
-    var match = types.find(function(t){ return t.nom === type || t.id === type; });
-    if (match && Array.isArray(match.documents)) allDocs = match.documents;
-  } catch(e) {}
-  if (!allDocs.length) {
-    // Fallback : liste générique
-    allDocs = ['Copie CIN', 'Justificatif domicile', 'Plans d\'architecte', 'Titre de propriété', 'Timbre fiscal'];
-  }
+  // Source = liste des pièces paramétrée (identique à la checklist "Pièces jointes")
+  var allDocs = (typeof getDADocs === 'function') ? (getDADocs() || []).slice() : [];
+  // Pièces déjà marquées manquantes sur cette demande
   var already = [];
   if (data && data.documents_manquants) {
     try { already = Array.isArray(data.documents_manquants) ? data.documents_manquants : JSON.parse(data.documents_manquants); } catch(e) { already = []; }
   }
+  // Inclure les pièces custom qui ne sont pas dans la liste paramétrée
+  already.forEach(function(d){ if (allDocs.indexOf(d) === -1) allDocs.push(d); });
+
   var html = '';
   allDocs.forEach(function(doc){
     var checked = already.indexOf(doc) !== -1 ? 'checked' : '';
-    html += '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;cursor:pointer"><input type="checkbox" class="da-manquant-check" value="'+escHtml(doc)+'" '+checked+' /> '+escHtml(doc)+'</label>';
+    var safe = String(doc).replace(/"/g,'&quot;');
+    html += '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;cursor:pointer;padding:0.2rem 0.3rem;border-radius:3px">';
+    html += '<input type="checkbox" class="da-manquant-check" value="'+escHtml(doc)+'" '+checked+' />';
+    html += '<span style="flex:1">'+escHtml(doc)+'</span>';
+    html += '<button type="button" class="suivi-del" onclick="_daRemoveManquant(this, \''+safe.replace(/'/g,"\\'")+'\')" title="Retirer" style="background:none;border:none;color:#e07070;cursor:pointer;font-size:0.8rem">✕</button>';
+    html += '</label>';
   });
+  // Ligne d'ajout personnalisé
+  html += '<div style="display:flex;gap:0.4rem;margin-top:0.5rem;padding-top:0.5rem;border-top:1px dashed var(--border)">';
+  html += '<input type="text" id="da-manquant-new" class="form-input" placeholder="+ Ajouter une pièce personnalisée…" style="flex:1;font-size:0.78rem" onkeypress="if(event.key===\'Enter\'){event.preventDefault();_daAddManquant();}" />';
+  html += '<button type="button" class="btn btn-sm" onclick="_daAddManquant()">Ajouter</button>';
+  html += '</div>';
   wrap.innerHTML = html;
+}
+
+function _daAddManquant() {
+  var inp = document.getElementById('da-manquant-new');
+  if (!inp) return;
+  var val = (inp.value || '').trim();
+  if (!val) return;
+  var wrap = document.getElementById('da-manquants-list');
+  // Vérifier doublon
+  var dupli = false;
+  wrap.querySelectorAll('.da-manquant-check').forEach(function(cb){
+    if (cb.value === val) dupli = true;
+  });
+  if (dupli) { showToast('Pièce déjà présente', 'error'); return; }
+  // Ajouter la nouvelle ligne (cochée par défaut puisqu'on la crée comme manquante)
+  var safe = val.replace(/'/g,"\\'");
+  var label = document.createElement('label');
+  label.style.cssText = 'display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;cursor:pointer;padding:0.2rem 0.3rem;border-radius:3px';
+  label.innerHTML = '<input type="checkbox" class="da-manquant-check" value="'+escHtml(val)+'" checked /><span style="flex:1">'+escHtml(val)+'</span><button type="button" onclick="_daRemoveManquant(this, \''+safe+'\')" title="Retirer" style="background:none;border:none;color:#e07070;cursor:pointer;font-size:0.8rem">✕</button>';
+  // Insérer avant la ligne d'ajout
+  var addLine = inp.parentElement;
+  wrap.insertBefore(label, addLine);
+  inp.value = '';
+  inp.focus();
+}
+
+function _daRemoveManquant(btn, val) {
+  var label = btn.closest('label');
+  if (label) label.remove();
 }
 
 function _daUploadJustificatif() {
