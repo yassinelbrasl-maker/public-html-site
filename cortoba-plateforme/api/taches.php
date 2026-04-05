@@ -8,6 +8,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/chat_helpers.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
@@ -28,6 +29,25 @@ try {
         try { $db0->exec("ALTER TABLE CA_taches ADD COLUMN IF NOT EXISTS $cdef"); }
         catch (\Throwable $e) { /* déjà présent */ }
     }
+    // Table livrables (utilisée pour le LEFT JOIN du compteur) — créée si absente
+    try {
+        $db0->exec("
+            CREATE TABLE IF NOT EXISTS CA_tache_livrables (
+                id            VARCHAR(32)  NOT NULL PRIMARY KEY,
+                tache_id      VARCHAR(32)  NOT NULL,
+                label         VARCHAR(300) NOT NULL,
+                done          TINYINT(1)   NOT NULL DEFAULT 0,
+                catalogue_id  VARCHAR(40)  DEFAULT NULL,
+                ordre         INT          NOT NULL DEFAULT 0,
+                done_par      VARCHAR(120) DEFAULT NULL,
+                done_at       DATETIME     DEFAULT NULL,
+                cree_par      VARCHAR(120) DEFAULT NULL,
+                cree_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                modifie_at    DATETIME     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                KEY idx_tache (tache_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } catch (\Throwable $e) { /* silencieux */ }
 } catch (\Throwable $e) { /* silencieux */ }
 
 try {
@@ -52,9 +72,15 @@ function getAll() {
     if (!empty($_GET['assignee']))              { $where[] = 't.assignee = ?';      $params[] = $_GET['assignee']; }
     if (!empty($_GET['location_type']))         { $where[] = 't.location_type = ?'; $params[] = $_GET['location_type']; }
 
-    $sql  = 'SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
+    $sql  = 'SELECT t.*, p.nom AS projet_nom, p.code AS projet_code,
+                    COALESCE(lv.total,0) AS livrables_total,
+                    COALESCE(lv.done,0)  AS livrables_done
              FROM CA_taches t
              LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = t.projet_id COLLATE utf8mb4_unicode_ci
+             LEFT JOIN (
+                 SELECT tache_id, COUNT(*) AS total, SUM(done) AS done
+                 FROM CA_tache_livrables GROUP BY tache_id
+             ) lv ON lv.tache_id = t.id
              WHERE ' . implode(' AND ', $where) . '
              ORDER BY t.ordre ASC, t.cree_at ASC';
     $stmt = $db->prepare($sql);
@@ -132,6 +158,11 @@ function create(array $user) {
     // Cascade ascendante : recalculer le parent si enfant
     recalcParentProgression($db, $id);
 
+    // Hook chat : auto-adhésion de l'assignee au groupe projet (si existant)
+    if (!empty($body['assignee'])) {
+        chat_hook_task_assignment($projetId, $body['assignee'], $titre);
+    }
+
     $stmt = $db->prepare('SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
                           FROM CA_taches t LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = t.projet_id COLLATE utf8mb4_unicode_ci
                           WHERE t.id = ?');
@@ -181,6 +212,16 @@ function update($id, array $user) {
 
     // Cascade ascendante après update
     recalcParentProgression($db, $id);
+
+    // Hook chat : auto-adhésion si l'assignee est (re)défini
+    if (array_key_exists('assignee', $body) && !empty($body['assignee'])) {
+        try {
+            $st = $db->prepare('SELECT projet_id, titre FROM CA_taches WHERE id = ?');
+            $st->execute([$id]);
+            $tRow = $st->fetch();
+            if ($tRow) chat_hook_task_assignment($tRow['projet_id'], $body['assignee'], $tRow['titre']);
+        } catch (\Throwable $e) { /* silencieux */ }
+    }
 
     getOne($id);
 }

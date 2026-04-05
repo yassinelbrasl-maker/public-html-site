@@ -141,11 +141,11 @@ var DEFAULT_DEVIS = [
   {id:'dv4',ref:'DV-2026-031',client:'Invest Djerba SA',objet:'Complexe hôtelier — Djerba',montant:95000,date:'2026-02-10',statut:'Refusé'},
 ];
 var DEFAULT_PROJETS = [
-  {id:'pj1',nom:'Villa Ben Salah — Hammamet',client:'Ben Salah, Karim',phase:'EXE',honoraires:45000,delai:'2026-09-01',nas:'\\\\NAS\\Projets\\2026\\P001'},
-  {id:'pj2',nom:'Immeuble Mahjoub — Sfax',client:'Mahjoub SCI',phase:'APD',honoraires:80000,delai:'2027-03-01',nas:'\\\\NAS\\Projets\\2026\\P002'},
-  {id:'pj3',nom:'Villa Hamdi — Tunis',client:'Hamdi, Leila',phase:'PC',honoraires:23000,delai:'2026-12-01',nas:'\\\\NAS\\Projets\\2026\\P003'},
-  {id:'pj4',nom:'Bureaux Midoun',client:'Invest Djerba SA',phase:'APS',honoraires:3500,delai:'2026-06-01',nas:'\\\\NAS\\Projets\\2026\\P004'},
-  {id:'pj5',nom:'Résidence SARL Méd.',client:'SARL Méditerranée',phase:'DCE',honoraires:55000,delai:'2026-11-01',nas:'\\\\NAS\\Projets\\2026\\P005'},
+  {id:'pj1',nom:'Villa Ben Salah — Hammamet',client:'Ben Salah, Karim',phase:'EXE',honoraires:45000,delai:'2026-09-01'},
+  {id:'pj2',nom:'Immeuble Mahjoub — Sfax',client:'Mahjoub SCI',phase:'APD',honoraires:80000,delai:'2027-03-01'},
+  {id:'pj3',nom:'Villa Hamdi — Tunis',client:'Hamdi, Leila',phase:'PC',honoraires:23000,delai:'2026-12-01'},
+  {id:'pj4',nom:'Bureaux Midoun',client:'Invest Djerba SA',phase:'APS',honoraires:3500,delai:'2026-06-01'},
+  {id:'pj5',nom:'Résidence SARL Méd.',client:'SARL Méditerranée',phase:'DCE',honoraires:55000,delai:'2026-11-01'},
 ];
 var DEFAULT_FACTURES = [
   {id:'fa1',num:'F-2026-018',client:'Ben Salah, Karim',projet:'Villa Ben Salah — Hammamet',montant:15000,tva:'7%',echeance:'2026-03-31',statut:'Payée'},
@@ -1591,40 +1591,19 @@ function genProjetCode(annee, clientDisplayNom, clientCode){
   return seq+'_'+yy+'_'+(code||'XXX');
 }
 
-function genNasPath(code, clientObj){
-  var yy   = (code||'').split('_')[1] || String(new Date().getFullYear()).slice(-2);
-  var year = '20'+yy;
-  var suffix = '';
-  if (clientObj) {
-    if (clientObj.type==='morale') suffix = (clientObj.raison||'').trim().replace(/\s+/g,'_');
-    else {
-      var p=(clientObj.prenom||'').trim(), n=(clientObj.nom||'').trim();
-      suffix = (p&&n) ? p+'_'+n : (n||p);
-      suffix = suffix.replace(/\s+/g,'_');
-    }
-  }
-  // Utiliser le chemin UNC complet configuré dans les paramètres NAS
-  var base = (getSetting('cortoba_nas_local', '') || '\\\\192.168.1.165\\Public\\CAS_PROJETS').replace(/[\\/]+$/, '');
-  var folderName = code + (suffix ? '_' + suffix : '');
-  return base + '\\' + year + '\\' + folderName;
-}
-
 function previewPjCode(){
   var clientSel = document.getElementById('pj-client');
   var anneeEl   = document.getElementById('pj-annee');
   var codeEl    = document.getElementById('pj-code-preview');
-  var nasEl     = document.getElementById('pj-nas-preview');
   if (!clientSel||!codeEl) return;
   var clientVal = clientSel.value;
   var annee     = parseInt(anneeEl&&anneeEl.value)||new Date().getFullYear();
   var client    = getClients().find(function(c){ return c.id===clientVal; });
   var clientNom = client ? (client.displayNom||client.display_nom||client.nom||'') : '';
   var clientCode= client ? client.code : '';
-  if (!clientVal) { codeEl.textContent='—'; if(nasEl) nasEl.textContent='—'; return; }
+  if (!clientVal) { codeEl.textContent='—'; return; }
   var code    = genProjetCode(annee, clientNom, clientCode);
-  var nasPath = client ? genNasPath(code, client) : '—';
   codeEl.textContent = code;
-  if (nasEl) nasEl.textContent = nasPath || '—';
 }
 
 function populateClientSelect(){
@@ -1878,7 +1857,6 @@ function resetProjetForm(){
 
   var err     = document.getElementById('pj-err');     if(err)    err.style.display='none';
   var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) codeEl.textContent='—';
-  var nasEl   = document.getElementById('pj-nas-preview');  if(nasEl)  nasEl.textContent='—';
   var latEl   = document.getElementById('pj-lat');      if(latEl)  latEl.value='';
   var lngEl   = document.getElementById('pj-lng');      if(lngEl)  lngEl.value='';
   var coordsD = document.getElementById('pj-coords-display'); if(coordsD) coordsD.style.display='none';
@@ -1985,29 +1963,14 @@ function openEditProjet(id){
   if (p.intervenants && p.intervenants.length) p.intervenants.forEach(function(i){ addIntervenant(i); });
 
   document.getElementById('pj-code-preview').textContent = p.code||'—';
-  document.getElementById('pj-nas-preview').textContent  = p.nasPath||p.nas_path||p.nas||'—';
 
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
 }
 
-function copyNasPath(encoded){
-  var path = decodeURIComponent(encoded);
-  if (navigator.clipboard) navigator.clipboard.writeText(path);
-  else { var t=document.createElement('textarea');t.value=path;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove(); }
-  var toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-1);border:1px solid var(--accent);border-radius:6px;padding:0.6rem 1rem;font-size:0.8rem;color:var(--accent);z-index:9999';
-  toast.textContent = '📋 Chemin NAS copié';
-  document.body.appendChild(toast); setTimeout(function(){ toast.remove(); }, 2000);
-}
-
 function openProjetDetail(id){
   var p = getProjets().find(function(x){ return x.id===id; }); if(!p) return;
   var typeBatVal = p.typeBat||p.type_bat||'';
-  var nasPath = p.nasPath||p.nas_path||p.nas||'';
-  var nasBtn = nasPath
-    ? '<button class="btn btn-sm" onclick="copyNasPath(\''+encodeURIComponent(nasPath)+'\')" title="'+nasPath+'">📋 Copier</button>'
-    : '';
   var rows = [
     ['Code dossier','<span style="font-family:var(--mono);color:var(--accent);font-weight:700">'+(p.code||'—')+'</span>'],
     ['Statut','<span class="'+badgeClass(p.statut)+'">'+(p.statut||'—')+'</span>'],
@@ -2017,8 +1980,7 @@ function openProjetDetail(id){
     ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'],
     p.budget  ? ['Budget client', fmtMontant(p.budget)] : null,
     p.surface ? ['Surface', p.surface+' m²'] : null,
-    p.adresse ? ['Lieu', p.adresse] : null,
-    (p.nasPath||p.nas_path||p.nas) ? ['Chemin NAS','<span style="font-family:var(--mono);font-size:0.72rem;color:var(--text-2)">'+(p.nasPath||p.nas_path||p.nas)+'</span> '+nasBtn] : null
+    p.adresse ? ['Lieu', p.adresse] : null
   ].filter(Boolean);
   var tr = rows.map(function(r){
     return '<tr><td style="padding:0.5rem 1rem 0.5rem 0;color:var(--text-3);font-size:0.78rem;white-space:nowrap;vertical-align:top">'+r[0]+'</td>'+
@@ -2088,7 +2050,6 @@ function saveProjet(){
   var code        = _editingProjetId
     ? (document.getElementById('pj-code-preview').textContent || genProjetCode(annee, displayNom, client.code))
     : genProjetCode(annee, displayNom, client.code);
-  var nasPath     = genNasPath(code, client);
 
   var body = {
     nom:nom, client:displayNom, clientId:clientId,
@@ -2098,8 +2059,7 @@ function saveProjet(){
     honoraires:honoraires,
     budget:budget||null, surface:surface||null,
     description:description||null, adresse:adresse||null,
-    lat:lat, lng:lng, nasPath:nasPath,
-    nas_path:nasPath,                  // compatibilité snake_case
+    lat:lat, lng:lng,
     surface_shon: parseFloat((document.getElementById('pj-shon')||{}).value)||null,
     surface_shob: parseFloat((document.getElementById('pj-shob')||{}).value)||null,
     surface_terrain: parseFloat((document.getElementById('pj-terrain')||{}).value)||null,
@@ -2139,8 +2099,7 @@ var ALL_PJ_COLUMNS = [
   {key:'statut',    label:'Statut',     default:true, locked:false,sortable:true, render:function(p){return'<span class="'+badgeClass(p.statut||'')+'">'+(p.statut||'—')+'</span>';}},
   {key:'typeBat',   label:'Type bât.',  default:false,locked:false,sortable:true, render:function(p){return p.typeBat||p.type_bat||'—';}},
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
-  {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
-  {key:'nas',       label:'NAS',        default:true, locked:false,sortable:false,render:function(p){var path=p.nasPath||p.nas_path||p.nas;if(!path)return'—';return'<button class="btn btn-sm" onclick="event.stopPropagation();copyNasPath(\''+encodeURIComponent(path)+'\')" title="'+path+'" style="font-size:0.7rem">'+(p.code||'NAS')+'</button>';}}
+  {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}}
 ];
 var _pjActiveColumns = null;
 

@@ -4,6 +4,22 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/chat_helpers.php';
+
+// ── Migrations idempotentes pour colonnes Rendement ──
+function ensureProjetsRendementColumns() {
+    $db = getDB();
+    $extra = array(
+        "contract_value DECIMAL(14,3) DEFAULT NULL",
+        "project_type   VARCHAR(80)   DEFAULT NULL",
+        "budget_heures  DECIMAL(8,2)  DEFAULT NULL",
+    );
+    foreach ($extra as $def) {
+        try { $db->exec("ALTER TABLE CA_projets ADD COLUMN IF NOT EXISTS $def"); }
+        catch (\Throwable $e) { /* déjà présent ou MySQL ancien */ }
+    }
+}
+try { ensureProjetsRendementColumns(); } catch (\Throwable $e) {}
 
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
@@ -164,6 +180,17 @@ function create(array $user) {
     if ($nasResult !== null) {
         $result['nas_debug'] = $nasResult;
     }
+
+    // ── Création optionnelle du groupe de discussion (Lot 2) ──
+    if (!empty($body['create_chat_room']) && $projet) {
+        try {
+            $roomId = chat_create_project_room($db, $projet, $user['name'] ?? null);
+            $result['chat_room_id'] = $roomId;
+        } catch (\Throwable $e) {
+            $result['chat_room_error'] = $e->getMessage();
+        }
+    }
+
     jsonOk($result);
 }
 
@@ -214,6 +241,16 @@ function update($id, array $user) {
 
     saveMissions($id, $body['missions'] ?? []);
     saveIntervenants($id, $body['intervenants'] ?? []);
+
+    // Création différée du groupe de discussion si coché en édition
+    if (!empty($body['create_chat_room'])) {
+        try {
+            $st = $db->prepare('SELECT * FROM CA_projets WHERE id = ?');
+            $st->execute([$id]);
+            $proj = $st->fetch(PDO::FETCH_ASSOC);
+            if ($proj) chat_create_project_room($db, $proj, $user['name'] ?? null);
+        } catch (\Throwable $e) { /* silencieux */ }
+    }
 
     getOne($id);
 }

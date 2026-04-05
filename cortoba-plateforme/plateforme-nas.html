@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="plateforme.css">
   <link rel="stylesheet" href="ergonomie.css">
+  <link rel="stylesheet" href="chat.css?t=20260405b">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" />
   <style>
@@ -166,10 +167,6 @@
 
       <div class="sidebar-section">
         <div class="sidebar-label">Ressources</div>
-        <button class="nav-item" onclick="showPage('nas')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-          Serveur NAS
-        </button>
         <button class="nav-item" onclick="showPage('equipe')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Équipe
@@ -309,13 +306,6 @@
                   <div class="activity-time">Lundi 09 Mar, 08:00</div>
                 </div>
               </div>
-              <div class="activity-item">
-                <div class="activity-dot" style="background:var(--text-3)"></div>
-                <div>
-                  <div class="activity-text">Nouveau fichier ajouté au NAS — <strong>Lot 04 – Résidence Sfax</strong></div>
-                  <div class="activity-time">Vendredi 07 Mar, 14:22</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -451,10 +441,6 @@
             <h1 class="page-title">Projets</h1>
           </div>
           <div class="page-actions">
-            <button class="btn" onclick="showPage('nas')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-              Serveur NAS
-            </button>
             <button class="btn btn-primary" onclick="openConfigurateur()">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Nouveau projet
@@ -487,7 +473,7 @@
           <div id="pj-col-list"></div>
         </div>
 
-        <!-- Tableau projets (en-têtes remplis par JS : CODE, PROJET, CLIENT, PHASE, STATUT, HONORAIRES, DÉLAI, NAS + actions) -->
+        <!-- Tableau projets (en-têtes remplis par JS : CODE, PROJET, CLIENT, PHASE, STATUT, HONORAIRES, DÉLAI + actions) -->
         <div class="table-wrap" style="overflow-x:auto;position:relative;margin-bottom:2rem">
           <table id="projets-table">
             <thead id="projets-thead"><tr></tr></thead>
@@ -939,104 +925,6 @@
 
       </div>
 
-      <!-- ══ SERVEUR NAS ══ -->
-      <!-- ══ SERVEUR NAS ══ -->
-      <div class="page" id="page-nas">
-        <div class="page-header">
-          <div class="page-title-group">
-            <div class="page-eyebrow">Stockage</div>
-            <h1 class="page-title">Serveur NAS</h1>
-          </div>
-          <div class="page-actions">
-            <button class="btn btn-sm" onclick="nasRefreshStatus()" title="Actualiser l'état">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            </button>
-            <button class="btn" onclick="nasOpenLocal()" id="nas-btn-local">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-              Réseau local
-            </button>
-            <button class="btn btn-primary" onclick="nasOpenCloud()" id="nas-btn-cloud">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-              En ligne
-            </button>
-          </div>
-        </div>
-
-        <!-- Barre d'état dynamique -->
-        <div class="nas-status-bar" id="nas-status-bar" style="flex-wrap:wrap;gap:0.6rem">
-          <div class="nas-status-item">
-            <div id="nas-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text-3);flex-shrink:0;transition:background .4s"></div>
-            <span id="nas-stat-label" style="font-weight:500">Vérification…</span>
-          </div>
-          <div class="nas-status-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-            <span id="nas-stat-model">QNAP NAS</span>
-          </div>
-          <div class="nas-status-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span id="nas-stat-addr-text">—</span>
-          </div>
-          <div class="nas-status-item" style="flex:1;min-width:180px;gap:0.5rem">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-            <span id="nas-stat-storage-text">Stockage : —</span>
-            <div id="nas-storage-bar" style="flex:1;height:4px;background:var(--bg-3);border-radius:2px;display:none">
-              <div id="nas-storage-fill" style="height:100%;border-radius:2px;background:var(--accent);width:0%;transition:width .6s"></div>
-            </div>
-          </div>
-          <div class="nas-status-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span id="nas-stat-ping">Latence : —</span>
-          </div>
-        </div>
-
-        <div class="grid-2" style="align-items:start">
-
-          <!-- Accès rapide personnalisable -->
-          <div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
-              <p style="font-size:0.68rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin:0">Accès rapide</p>
-              <button class="btn btn-sm" onclick="openModal('modal-nas-raccourci')" style="font-size:0.7rem">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Ajouter
-              </button>
-            </div>
-            <div id="nas-raccourcis-grid"></div>
-          </div>
-
-          <!-- Fichiers récents -->
-          <div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem">
-              <p style="font-size:0.68rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin:0">Fichiers récents</p>
-              <div style="display:flex;gap:0.4rem">
-                <button class="btn btn-sm" onclick="nasLoadWebDAV()" title="Charger depuis WebDAV" style="font-size:0.7rem">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                  WebDAV
-                </button>
-                <button class="btn btn-sm" onclick="openNasFichierModal()" style="font-size:0.7rem">+ Ajouter</button>
-              </div>
-            </div>
-            <div class="table-wrap" style="margin-bottom:0">
-              <table>
-                <thead><tr><th>Fichier</th><th>Projet</th><th>Modifié</th><th></th></tr></thead>
-                <tbody id="nas-fichiers-tbody"></tbody>
-              </table>
-            </div>
-            <div id="nas-webdav-status" style="font-size:0.72rem;color:var(--text-3);margin-top:0.5rem;display:none"></div>
-          </div>
-        </div>
-
-        <!-- Pied de config -->
-        <div style="margin-top:1.5rem;padding:1rem 1.2rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.75rem;color:var(--text-2);display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center">
-          <span><strong style="color:var(--accent)">Local :</strong> <span id="nas-info-local">—</span></span>
-          <span style="color:var(--border)">·</span>
-          <span><strong style="color:var(--accent)">Cloud :</strong> <span id="nas-info-cloud" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">—</span></span>
-          <span style="color:var(--border)">·</span>
-          <span id="nas-webdav-badge" style="display:none;color:var(--green)">● WebDAV actif</span>
-          <span id="nas-webdav-badge-off" style="color:var(--text-3)">○ WebDAV non configuré</span>
-          <button class="btn btn-sm" onclick="showPage('parametres')" style="margin-left:auto;font-size:0.7rem">⚙ Configurer</button>
-        </div>
-      </div>
-
       <!-- ══ DEMANDES ══ -->
       <div class="page" id="page-demandes">
         <div class="page-header">
@@ -1348,6 +1236,19 @@
               <input type="checkbox" id="tache-progression-manuelle" />
               <span>Forcer la progression manuellement (désactive la cascade automatique)</span>
             </label>
+            <!-- Livrables (checklist) -->
+            <div class="form-field" id="tache-livrables-section" style="display:none;border-top:1px solid var(--border);padding-top:0.9rem;margin-top:0.3rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                <label class="form-label" style="margin:0">Livrables <span id="tache-livrables-count" style="color:var(--text-3);font-weight:400"></span></label>
+                <button type="button" class="btn btn-sm" onclick="applyLivrablesCatalogue()" title="Préremplir depuis le catalogue">⤵ Depuis catalogue</button>
+              </div>
+              <div id="tache-livrables-list" style="display:flex;flex-direction:column;gap:0.3rem;max-height:200px;overflow-y:auto;padding:0.4rem;background:var(--bg-2);border-radius:6px;border:1px solid var(--border)"></div>
+              <div style="display:flex;gap:0.4rem;margin-top:0.5rem">
+                <input id="tache-livrable-new" class="form-input" placeholder="Ajouter un livrable…" onkeydown="if(event.key==='Enter'){event.preventDefault();addTacheLivrable();}" />
+                <button type="button" class="btn btn-sm" onclick="addTacheLivrable()">+</button>
+              </div>
+              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.3rem">Enregistrez la tâche une première fois pour activer la liste.</div>
+            </div>
             <div id="tache-err" class="form-error" style="display:none;color:var(--red);font-size:0.78rem"></div>
           </div>
           <div class="modal-footer">
@@ -1513,7 +1414,6 @@
           <button class="param-tab"        data-param-tab="equipe"   onclick="switchParamTab('equipe',this)"   style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Équipe &amp; Paie</button>
           <button class="param-tab"        data-param-tab="projets"  onclick="switchParamTab('projets',this)"  style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Projets &amp; Listes</button>
           <button class="param-tab"        data-param-tab="da"       onclick="switchParamTab('da',this)"       style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Demandes admin</button>
-          <button class="param-tab"        data-param-tab="nas"      onclick="switchParamTab('nas',this)"      style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">NAS &amp; stockage</button>
         </div>
 
         <div class="card" data-param-tab="agence">
@@ -1547,6 +1447,29 @@
             <div style="margin-top:1rem;display:flex;justify-content:flex-end">
               <button class="btn btn-primary btn-sm" onclick="changePassword()">Mettre à jour</button>
             </div>
+        </div>
+
+        <!-- Rendement — Taux horaires standards -->
+        <div class="card" data-param-tab="equipe" style="margin-bottom:1.5rem">
+          <div class="card-title">Rendement — Taux horaires standards</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Ces taux sont utilisés par défaut pour le calcul du <b>Bénéfice généré</b> et de la <b>marge nette</b> dans le module Rendement, lorsqu'un collaborateur n'a pas de taux spécifique défini dans sa fiche.
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Taux de facturation standard (TND/h)</label>
+              <input id="param-taux-facturation-std" class="form-input" type="number" step="0.001" min="0" placeholder="Ex: 60" />
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.2rem">Prix vendu au client par heure pointée facturable.</div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Coût horaire standard agence (TND/h)</label>
+              <input id="param-taux-cout-std" class="form-input" type="number" step="0.001" min="0" placeholder="Ex: 25" />
+              <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.2rem">Coût interne moyen d'une heure de collaborateur.</div>
+            </div>
+          </div>
+          <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+            <button class="btn btn-primary btn-sm" onclick="saveRendementParams()">Enregistrer</button>
+          </div>
         </div>
 
         <div class="card" data-param-tab="agence" style="margin-bottom:1.5rem">
@@ -1624,101 +1547,38 @@
           </div>
         </div>
 
-        <!-- NAS -->
-        <div class="card" data-param-tab="nas" style="margin-bottom:1.5rem">
-          <div class="card-title">Serveur NAS — Configuration</div>
-          <div class="form-grid">
-            <div class="form-field">
-              <label class="form-label">Adresse réseau local</label>
-              <input id="param-nas-local" class="form-input" placeholder="192.168.1.100" />
-              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">IP locale du NAS (sans le port)</div>
-            </div>
-            <div class="form-field">
-              <label class="form-label">Port QTS Web</label>
-              <input id="param-nas-port" class="form-input" placeholder="8080" />
-              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Visible dans l'URL de l'interface QTS</div>
-            </div>
-            <div class="form-field">
-              <label class="form-label">Identifiant QTS</label>
-              <input id="param-nas-user" class="form-input" placeholder="admin" autocomplete="off" />
-            </div>
-            <div class="form-field">
-              <label class="form-label">Mot de passe QTS</label>
-              <input id="param-nas-pass" class="form-input" type="password" placeholder="••••••••" autocomplete="off" />
-              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Stocké localement uniquement</div>
-            </div>
-            <div class="form-field full">
-              <label class="form-label">URL myQNAPcloud / QuickConnect</label>
-              <input id="param-nas-cloud" class="form-input" placeholder="https://www.myqnapcloud.com/smartshare/…" />
-            </div>
-            <div class="form-field full">
-              <label class="form-label">Clé API myQNAPcloud</label>
-              <input id="param-nas-apikey" class="form-input" placeholder="Votre clé API myQNAPcloud" autocomplete="off" />
-            </div>
-            <div class="form-field">
-              <label class="form-label">Modèle NAS</label>
-              <input id="param-nas-model" class="form-input" placeholder="Ex: QNAP TS-264" />
-            </div>
-            <div class="form-field">
-              <label class="form-label">Capacité totale (To)</label>
-              <input id="param-nas-capacity" class="form-input" type="number" step="0.1" placeholder="Ex: 8" />
-            </div>
-            <div class="form-field">
-              <label class="form-label">Espace utilisé (To)</label>
-              <input id="param-nas-used" class="form-input" type="number" step="0.01" placeholder="Ex: 1.84" />
-            </div>
-            <div class="form-field">
-              <label class="form-label">Port WebDAV</label>
-              <input id="param-nas-webdav-port" class="form-input" placeholder="5005 (HTTP) ou 5006 (HTTPS)" />
-            </div>
-            <div class="form-field full">
-              <label class="form-label">Dossier WebDAV racine</label>
-              <input id="param-nas-webdav" class="form-input" placeholder="Ex: Projets" />
-              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Nom du dossier partagé principal</div>
-            </div>
-            <div class="form-field full">
-              <label class="form-label">IP / Domaine public <span style="color:var(--accent);font-size:0.7rem">(Port Forwarding)</span></label>
-              <input id="param-nas-public-ip" class="form-input" placeholder="Ex: 41.230.xx.xx ou monnas.ddns.net" />
-              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Adresse publique redirigée vers le NAS — utilisée par le serveur pour créer les dossiers projets</div>
-            </div>
+        <!-- Catalogue de livrables -->
+        <div class="card" data-param-tab="projets" style="margin-bottom:1.5rem">
+          <div class="card-title">Catalogue de livrables</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Livrables-types (plans, coupes, façades, détails, CCTP, estimatifs…) classés par mission, tâche et sous-tâche. Ils apparaîtront comme liste à cocher dans le module Suivi pour chaque tâche correspondante.
           </div>
-
-          <!-- Guide WebDAV -->
-          <div style="margin-top:1.2rem;padding:1rem;background:var(--bg-2);border-radius:6px;border:1px solid rgba(200,169,110,0.2)">
-            <div style="font-size:0.72rem;font-weight:600;color:var(--accent);margin-bottom:0.7rem;display:flex;align-items:center;gap:0.4rem">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              Guide — Activer WebDAV sur votre QNAP
-            </div>
-            <div style="font-size:0.75rem;color:var(--text-2);line-height:1.8">
-              <strong>1.</strong> Ouvrez l'interface QTS → <strong>App Center</strong> → recherchez et installez <strong>WebDAV</strong><br>
-              <strong>2.</strong> Lancez WebDAV → activez le service → notez le port (défaut HTTP : <strong>5005</strong>)<br>
-              <strong>3.</strong> Dans <strong>Panneau de configuration → Dossiers partagés</strong> → clic droit sur votre dossier → Modifier les autorisations → autorisez votre compte en lecture<br>
-              <strong>4.</strong> Renseignez le port WebDAV et le nom du dossier ci-dessus<br>
-              <strong>5.</strong> Test : ouvrez <span style="font-family:var(--font-mono);background:var(--bg-3);padding:0 4px;border-radius:2px">http://[IP_NAS]:5005/dav/[dossier]</span> dans votre navigateur
-            </div>
+          <div id="param-livrables-wrap">
+            <div style="color:var(--text-3);font-size:0.82rem">Chargement…</div>
           </div>
-
-          <!-- Guide clé API myQNAPcloud -->
-          <div style="margin-top:0.8rem;padding:1rem;background:var(--bg-2);border-radius:6px;border:1px solid rgba(200,169,110,0.2)">
-            <div style="font-size:0.72rem;font-weight:600;color:var(--accent);margin-bottom:0.7rem;display:flex;align-items:center;gap:0.4rem">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-              Guide — Créer une clé API myQNAPcloud
+          <div style="margin-top:1rem;display:grid;grid-template-columns:1fr 1fr 1fr 2fr auto;gap:0.5rem;align-items:end">
+            <div class="form-field" style="margin:0">
+              <label class="form-label" style="font-size:0.7rem">Mission</label>
+              <select id="param-livrable-mission" class="form-select" onchange="onParamLivrableMissionChange()">
+                <option value="">— Mission —</option>
+              </select>
             </div>
-            <div style="font-size:0.75rem;color:var(--text-2);line-height:1.8">
-              <strong>1.</strong> Connectez-vous sur <a href="https://account.qnap.com" target="_blank" style="color:var(--accent)">account.qnap.com</a> avec votre compte QNAP<br>
-              <strong>2.</strong> Allez dans <strong>Security → Application Credentials</strong> (ou <strong>API Keys</strong>)<br>
-              <strong>3.</strong> Cliquez <strong>Create Application</strong> → donnez le nom "Cortoba Atelier"<br>
-              <strong>4.</strong> Copiez la clé générée dans le champ "Clé API myQNAPcloud" ci-dessus<br>
-              <strong>5.</strong> Cette clé permet de récupérer automatiquement la capacité et l'état du NAS depuis internet
+            <div class="form-field" style="margin:0">
+              <label class="form-label" style="font-size:0.7rem">Tâche (optionnel)</label>
+              <select id="param-livrable-tache" class="form-select">
+                <option value="">— Toute la mission —</option>
+              </select>
             </div>
+            <div class="form-field" style="margin:0">
+              <label class="form-label" style="font-size:0.7rem">Sous-tâche (optionnel)</label>
+              <input id="param-livrable-sous" class="form-input" placeholder="Texte libre" />
+            </div>
+            <div class="form-field" style="margin:0">
+              <label class="form-label" style="font-size:0.7rem">Livrable</label>
+              <input id="param-livrable-nom" class="form-input" placeholder="Ex: Plan masse 1/500, CCTP, Estimatif…" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="addParamLivrable()">+ Ajouter</button>
           </div>
-
-          <div style="margin-top:1rem;display:flex;gap:0.6rem;justify-content:flex-end;flex-wrap:wrap">
-            <button class="btn btn-sm" onclick="nasTestConnection()">🔌 Tester la connexion</button>
-            <button class="btn btn-sm" onclick="window.open(getSetting('cortoba_nas_cloud',''),'_blank')">🌐 Accès cloud</button>
-            <button class="btn btn-primary btn-sm" onclick="saveNasConfig()">Enregistrer</button>
-          </div>
-          <div id="nas-test-result" style="display:none;margin-top:0.8rem;padding:0.7rem 1rem;border-radius:6px;font-size:0.78rem"></div>
         </div>
 
         <!-- Logo de l'agence -->
@@ -2285,6 +2145,75 @@
         </div>
       </div>
 
+      <!-- ══════════════════════════════════
+           PAGE : Notifications
+      ══════════════════════════════════ -->
+      <div class="page" id="page-notifications">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Centre de notifications</div>
+            <h1 class="page-title">Notifications</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="notifMarkAllReadInbox()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+              Tout marquer lu
+            </button>
+          </div>
+        </div>
+
+        <!-- Onglets : Boîte · Non lues · Archivées -->
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem">
+          <button class="nf-tab active" data-nf-status="inbox" onclick="notifSwitchTab('inbox',this)"
+                  style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid var(--accent)">
+            Boîte de réception
+          </button>
+          <button class="nf-tab" data-nf-status="unread" onclick="notifSwitchTab('unread',this)"
+                  style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">
+            Non lues
+          </button>
+          <button class="nf-tab" data-nf-status="read" onclick="notifSwitchTab('read',this)"
+                  style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">
+            Lues
+          </button>
+          <button class="nf-tab" data-nf-status="archived" onclick="notifSwitchTab('archived',this)"
+                  style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">
+            Archivées
+          </button>
+        </div>
+
+        <!-- Filtres & tri -->
+        <div class="card" style="margin-bottom:1rem;padding:0.8rem 1rem">
+          <div style="display:flex;gap:0.8rem;flex-wrap:wrap;align-items:center">
+            <input type="text" id="nf-search" placeholder="Rechercher dans les notifications…"
+                   oninput="notifApplyFilters()"
+                   style="flex:1;min-width:200px;background:var(--bg-2);border:1px solid var(--border);color:var(--text-1);padding:0.5rem 0.7rem;border-radius:6px;font-size:0.82rem">
+            <select id="nf-type" onchange="notifApplyFilters()"
+                    style="background:var(--bg-2);border:1px solid var(--border);color:var(--text-1);padding:0.5rem 0.7rem;border-radius:6px;font-size:0.82rem">
+              <option value="">Tous les types</option>
+              <option value="info">Info</option>
+              <option value="success">Succès</option>
+              <option value="warning">Avertissement</option>
+              <option value="error">Erreur</option>
+              <option value="conge">Congés</option>
+            </select>
+            <select id="nf-sort" onchange="notifApplyFilters()"
+                    style="background:var(--bg-2);border:1px solid var(--border);color:var(--text-1);padding:0.5rem 0.7rem;border-radius:6px;font-size:0.82rem">
+              <option value="recent">Plus récentes d'abord</option>
+              <option value="old">Plus anciennes d'abord</option>
+              <option value="unread_first">Non lues en premier</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Liste -->
+        <div class="card">
+          <div id="nf-list" style="font-size:0.85rem">
+            <div style="color:var(--text-3);padding:1rem;text-align:center">Chargement…</div>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -2532,10 +2461,6 @@
             <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Code dossier</div>
             <div id="pj-code-preview" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.08em">—</div>
           </div>
-          <div>
-            <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Chemin NAS</div>
-            <div id="pj-nas-preview" style="font-family:var(--mono);font-size:0.75rem;color:var(--text-2)">—</div>
-          </div>
         </div>
         <div class="form-grid">
           <div class="form-field full">
@@ -2656,10 +2581,9 @@
       </div>
     </div>
     <div class="modal-footer" style="flex-wrap:wrap;gap:0.6rem">
-      <label id="pj-nas-create-wrap" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2);margin-right:auto">
-        <input type="checkbox" id="pj-nas-create" checked style="accent-color:var(--accent)" />
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        Créer le dossier sur le NAS
+      <label id="pj-chat-create-wrap" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2);margin-right:auto">
+        <input type="checkbox" id="pj-chat-create" style="accent-color:var(--accent)" />
+        💬 Créer un groupe de discussion pour ce projet
       </label>
       <button class="btn" onclick="closeModal('modal-projet')">Annuler</button>
       <button class="btn btn-primary" id="pj-save-btn" onclick="saveProjet()">Créer le projet →</button>
@@ -3487,6 +3411,16 @@
             <label class="form-label">Heures travaillées / mois</label>
             <input id="mb-heures" class="form-input" type="number" step="0.5" min="1" value="160" oninput="recomputeCoutEmployeur()" />
           </div>
+          <div class="form-field">
+            <label class="form-label">Coût horaire Rendement <span style="color:var(--text-3);font-weight:400">(optionnel)</span></label>
+            <input id="mb-hourly-cost" class="form-input" type="number" step="0.001" min="0" placeholder="Laisser vide = fallback global" />
+            <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.2rem">Utilisé pour le calcul de la marge nette. Vide → taux standard des Paramètres.</div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Taux horaire de facturation <span style="color:var(--text-3);font-weight:400">(optionnel)</span></label>
+            <input id="mb-hourly-billing" class="form-input" type="number" step="0.001" min="0" placeholder="Laisser vide = fallback global" />
+            <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.2rem">Taux vendu au client. Utilisé pour le « Bénéfice généré ». Vide → taux standard des Paramètres.</div>
+          </div>
         </div>
 
         <div style="height:1px;background:var(--border);margin:1.2rem 0"></div>
@@ -3630,88 +3564,6 @@
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-delete-membre')">Annuler</button>
       <button class="btn" style="background:rgba(224,112,112,0.12);border-color:rgba(224,112,112,0.35);color:#e07b72" onclick="confirmDeleteMembre()">Supprimer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MODAL Raccourci NAS ══ -->
-<div class="modal-overlay" id="modal-nas-raccourci">
-  <div class="modal-box" style="max-width:480px;width:95%">
-    <div class="modal-header">
-      <div>
-        <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">NAS — Accès rapide</div>
-        <div class="modal-title" id="modal-raccourci-title">Nouveau raccourci</div>
-      </div>
-      <button class="modal-close" onclick="closeModal('modal-nas-raccourci')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="form-field full">
-          <label class="form-label">Nom du raccourci <span style="color:#e07070">*</span></label>
-          <input id="rc-nom" class="form-input" placeholder="Ex: Projets actifs" />
-        </div>
-        <div class="form-field full">
-          <label class="form-label">Description</label>
-          <input id="rc-desc" class="form-input" placeholder="Ex: Plans, DCE, PV de chantier" />
-        </div>
-        <div class="form-field full">
-          <label class="form-label">Chemin / URL</label>
-          <input id="rc-url" class="form-input" placeholder="Ex: /Projets/Actifs" />
-          <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Chemin NAS relatif ou URL complète</div>
-        </div>
-        <div class="form-field full">
-          <label class="form-label">Icône</label>
-          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.3rem">
-            <button type="button" onclick="selectRcIcon('folder',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📁</button>
-            <button type="button" onclick="selectRcIcon('doc',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📄</button>
-            <button type="button" onclick="selectRcIcon('image',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">🖼️</button>
-            <button type="button" onclick="selectRcIcon('pdf',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📑</button>
-            <button type="button" onclick="selectRcIcon('archive',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">🗂️</button>
-            <button type="button" onclick="selectRcIcon('plan',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📐</button>
-            <button type="button" onclick="selectRcIcon('photo',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📷</button>
-            <button type="button" onclick="selectRcIcon('contrat',this)" class="btn btn-sm rc-icon-btn" style="font-size:1.1rem;padding:0.4rem 0.7rem">📋</button>
-          </div>
-          <input type="hidden" id="rc-icone" value="folder" />
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-nas-raccourci')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveRaccourci()">Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MODAL Fichier récent NAS ══ -->
-<div class="modal-overlay" id="modal-nas-fichier">
-  <div class="modal-box" style="max-width:480px;width:95%">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-fichier-title">Ajouter un fichier récent</div>
-      <button class="modal-close" onclick="closeModal('modal-nas-fichier')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-grid">
-        <div class="form-field full">
-          <label class="form-label">Nom du fichier <span style="color:#e07070">*</span></label>
-          <input id="nf-nom" class="form-input" placeholder="Ex: Plan_RDC_v4.dwg" />
-        </div>
-        <div class="form-field">
-          <label class="form-label">Projet associé</label>
-          <select id="nf-projet" class="form-select"></select>
-        </div>
-        <div class="form-field">
-          <label class="form-label">Date de modification</label>
-          <input id="nf-date" class="form-input" type="date" />
-        </div>
-        <div class="form-field full">
-          <label class="form-label">Chemin / Lien</label>
-          <input id="nf-url" class="form-input" placeholder="Ex: /Projets/VillaNabeul/Plan_RDC.dwg" />
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-nas-fichier')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveNasFichier()">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -3996,6 +3848,7 @@ if (typeof Gantt === 'undefined') {
 </script>
 <script src="plateforme-nas.js?t=20260328u"></script>
 <script src="ergonomie.js?t=20260328e"></script>
+<script src="chat.js?t=20260405b"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {
