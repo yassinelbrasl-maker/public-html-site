@@ -4073,6 +4073,11 @@ function showPage(id){
       var mentEl = document.getElementById('param-fa-mentions');
       if(mentEl) mentEl.value = getSetting('cortoba_fa_mentions', '');
       if (typeof loadPaieParams === 'function') loadPaieParams();
+      // Activer l'onglet par défaut (Agence) à l'ouverture de la page
+      if (typeof switchParamTab === 'function') {
+        var defBtn = document.querySelector('#param-tabs-bar .param-tab[data-param-tab="agence"]');
+        if (defBtn) switchParamTab('agence', defBtn);
+      }
     };
     // Si le cache est déjà rempli (loadData terminé), remplir immédiatement
     if (Object.keys(_settingsCache).length > 3) {
@@ -8985,6 +8990,25 @@ function getIrppBareme() {
     if (Array.isArray(arr) && arr.length) return arr;
   } catch(e){}
   return PAIE_DEFAULTS.bareme_irpp.slice();
+}
+
+// ═══ Onglets Paramètres ═══════════════════════════════════════
+function switchParamTab(tab, btn) {
+  // Style des boutons
+  document.querySelectorAll('#param-tabs-bar .param-tab').forEach(function(b){
+    b.classList.remove('active');
+    b.style.color = 'var(--text-3)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  if (btn) {
+    btn.classList.add('active');
+    btn.style.color = 'var(--accent)';
+    btn.style.borderBottomColor = 'var(--accent)';
+  }
+  // Afficher/masquer les cartes
+  document.querySelectorAll('#page-parametres [data-param-tab]').forEach(function(c){
+    c.style.display = (c.getAttribute('data-param-tab') === tab) ? '' : 'none';
+  });
 }
 
 function loadPaieParams() {
