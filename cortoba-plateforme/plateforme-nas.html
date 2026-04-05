@@ -3836,6 +3836,58 @@
           <input id="da-remarques" class="form-input" placeholder="Notes internes" />
         </div>
       </div>
+
+      <!-- ══ Workflow DA selon le statut ══ -->
+      <div id="da-workflow-box" style="margin-top:1rem;padding:0.9rem;background:var(--bg-2);border-radius:6px;border:1px solid var(--border);display:none">
+        <div style="font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem">Workflow</div>
+
+        <!-- Déposé → upload justificatif + date dépôt -->
+        <div id="da-wf-depose" style="display:none">
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Date de d&eacute;p&ocirc;t</label>
+              <input id="da-date-depot" type="date" class="form-input" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Justificatif de d&eacute;p&ocirc;t</label>
+              <input id="da-justificatif-file" type="file" class="form-input" accept="image/*,application/pdf" />
+              <div id="da-justificatif-current" style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- En attente de documents → checklist -->
+        <div id="da-wf-manquants" style="display:none">
+          <label class="form-label">Pi&egrave;ces manquantes &agrave; r&eacute;cup&eacute;rer</label>
+          <div id="da-manquants-list" style="display:flex;flex-direction:column;gap:0.3rem;max-height:180px;overflow:auto;margin-top:0.3rem"></div>
+        </div>
+
+        <!-- Prêt à déposer → CTA affectation -->
+        <div id="da-wf-pret" style="display:none">
+          <div style="padding:0.7rem;background:#f7e9c9;border-left:3px solid #d18e1e;border-radius:4px;font-size:0.8rem;color:#6b4e1a">
+            ⚠ <strong>Action requise :</strong> affectez un coursier ou collaborateur pour d&eacute;poser le dossier.
+            <button class="btn btn-sm" style="margin-left:0.5rem" onclick="createDATaskFromDA()">Cr&eacute;er une t&acirc;che de d&eacute;p&ocirc;t</button>
+          </div>
+        </div>
+
+        <!-- Réponse reçue → switch + clone si négative -->
+        <div id="da-wf-reponse" style="display:none">
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Type de r&eacute;ponse</label>
+              <select id="da-reponse-type" class="form-input" onchange="onDAReponseChange()">
+                <option value="">—</option>
+                <option value="positive">✓ Positive</option>
+                <option value="negative">✕ N&eacute;gative</option>
+              </select>
+            </div>
+            <div class="form-field" id="da-reponse-clone-wrap" style="display:none;align-items:flex-end">
+              <button class="btn btn-danger" style="background:#c0392b;color:#fff;border:none" onclick="cloneDAForRedepot()">↻ &Agrave; rectifier et red&eacute;poser</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center">
       <div style="display:flex;gap:0.4rem">

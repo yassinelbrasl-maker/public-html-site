@@ -2006,8 +2006,7 @@ function openProjetDetail(id){
   var typeBatVal = p.typeBat||p.type_bat||'';
   var nasPath = p.nasPath||p.nas_path||p.nas||'';
   var nasBtn = nasPath
-    ? '<button class="btn btn-sm" onclick="copyNasPath(\''+encodeURIComponent(nasPath)+'\')" title="'+nasPath+'">📋 Copier</button> '
-      + '<button class="btn btn-sm" onclick="createNasFolderForProjet(\''+p.id+'\')" title="Créer le dossier sur le NAS">📁 Créer dossier</button>'
+    ? '<button class="btn btn-sm" onclick="copyNasPath(\''+encodeURIComponent(nasPath)+'\')" title="'+nasPath+'">📋 Copier</button>'
     : '';
   var rows = [
     ['Code dossier','<span style="font-family:var(--mono);color:var(--accent);font-weight:700">'+(p.code||'—')+'</span>'],
@@ -2123,15 +2122,8 @@ function saveProjet(){
     url    = 'api/projets.php';
   }
 
-  var isCreation = !_editingProjetId;
-
   apiFetch(url, {method:method, body:body})
     .then(function(resp){
-      // Créer le dossier NAS côté navigateur (iframe caché vers le NAS local)
-      // Le PHP ne peut pas atteindre le NAS (serveur distant) — c'est le navigateur qui le fait
-      if (isCreation && nasPath && nasPath !== '—') {
-        createNasFolder(nasPath);
-      }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
       resetProjetForm();
@@ -7025,6 +7017,18 @@ function _extractProjetYear(code, fallback) {
   return (new Date()).getFullYear();
 }
 
+// Pourcentage planifié = temps écoulé entre date_debut et date_echeance
+function _calcPlanifiedPct(debut, fin) {
+  if (!debut || !fin) return 0;
+  var d1 = new Date(debut).getTime();
+  var d2 = new Date(fin).getTime();
+  var now = Date.now();
+  if (isNaN(d1) || isNaN(d2) || d2 <= d1) return 0;
+  if (now <= d1) return 0;
+  if (now >= d2) return 100;
+  return Math.round((now - d1) / (d2 - d1) * 100);
+}
+
 // Pastille de couleur membre
 function _memberDot(name) {
   if (!name) return '';
@@ -7113,7 +7117,14 @@ function renderSuiviTree(items) {
       html += '</div>';
       html += '<div class="suivi-mission-right">';
       html += suiviStatutBadge(m.statut);
-      html += suiviProgressBar(m.progression);
+      // Planifié (temps écoulé) vs réel (progression)
+      var planPct = _calcPlanifiedPct(m.date_debut || m.dateDebut, m.date_echeance || m.dateEcheance);
+      var realPct = parseInt(m.progression,10) || 0;
+      var deltaColor = realPct >= planPct ? 'var(--green)' : '#c0392b';
+      html += '<div title="Planifié '+planPct+'% vs Réel '+realPct+'%" style="display:flex;flex-direction:column;gap:2px;min-width:80px">';
+      html += '<div style="height:4px;background:var(--bg-2);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+planPct+'%;background:var(--text-3)"></div></div>';
+      html += '<div style="height:4px;background:var(--bg-2);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+realPct+'%;background:'+deltaColor+'"></div></div>';
+      html += '</div>';
       if (m.dateEcheance) html += '<span class="suivi-date" title="Échéance">' + fmtDate(m.dateEcheance) + '</span>';
       if (m.assignee) html += '<span class="suivi-assignee" title="' + m.assignee + '">' + _memberDot(m.assignee) + m.assignee.split(' ')[0] + '</span>';
       html += '<div class="suivi-actions">';
@@ -7148,6 +7159,7 @@ function renderSuiviTree(items) {
         if (tache.dateEcheance) html += '<span class="suivi-date">' + fmtDate(tache.dateEcheance) + '</span>';
         if (tache.assignee) html += '<span class="suivi-assignee">' + _memberDot(tache.assignee) + tache.assignee.split(' ')[0] + '</span>';
         html += '<div class="suivi-actions">';
+        html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openTimesheetModal(\'' + tache.id + '\')" title="Saisir du temps">⏱</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(2, \'' + tache.id + '\', \'' + pid + '\')" title="Ajouter sous-tâche">+</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + tache.id + '\')" title="Modifier">✎</button>';
         html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + tache.id + '\')" title="Supprimer">✕</button>';
@@ -7237,6 +7249,7 @@ function renderSuiviKanban(items) {
         html += '<div class="suivi-kanban-card-bottom">';
         if (t.assignee) html += '<span class="suivi-assignee">' + _memberDot(t.assignee) + t.assignee + '</span>';
         if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
+        html += '<button class="suivi-action-btn" style="margin-left:auto" onclick="event.stopPropagation();openTimesheetModal(\'' + t.id + '\')" title="Saisir du temps">⏱</button>';
         html += '</div>';
         html += '</div>';
       });
@@ -7448,34 +7461,54 @@ function _toggleTitreField(niveau, selectedValue) {
 }
 
 // ── Remplir le select missions groupé par catégorie ──
+//    Missions affectées au projet = normales, les autres = demi-teinte (cliquables)
 function _populateMissionsSelect(selectedValue) {
   var sel = document.getElementById('tache-titre-select');
   sel.innerHTML = '<option value="">— Choisir une mission —</option>';
   var missions = getMissions();
   var cats = getMissionCategories();
 
+  // Récupérer les missions affectées au projet courant
+  var projetId = (document.getElementById('tache-projet')||{}).value;
+  var affectees = null;
+  if (projetId) {
+    var projet = (getProjets()||[]).find(function(p){ return p.id === projetId; });
+    if (projet) {
+      try { affectees = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
+      catch(e) { affectees = []; }
+    }
+  }
+  var isAffectee = function(nom){
+    if (!affectees) return true; // pas de contexte projet → toutes normales
+    return affectees.indexOf(nom) !== -1;
+  };
+  var makeOpt = function(m){
+    var opt = document.createElement('option');
+    opt.value = m.nom;
+    opt.textContent = (isAffectee(m.nom) ? '' : '◌ ') + m.nom;
+    if (!isAffectee(m.nom)) {
+      opt.style.color = 'var(--text-3)';
+      opt.style.opacity = '0.55';
+      opt.title = 'Non affectée — cliquer pour ajouter au projet';
+      opt.setAttribute('data-unaffected', '1');
+    }
+    return opt;
+  };
+
   cats.forEach(function(cat) {
     var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
     if (catMissions.length === 0) return;
+    // Trier : affectées d'abord
+    catMissions.sort(function(a,b){ return (isAffectee(a.nom)?0:1) - (isAffectee(b.nom)?0:1); });
     var optgroup = document.createElement('optgroup');
     optgroup.label = cat.label;
-    catMissions.forEach(function(m) {
-      var opt = document.createElement('option');
-      opt.value = m.nom;
-      opt.textContent = m.nom;
-      optgroup.appendChild(opt);
-    });
+    catMissions.forEach(function(m) { optgroup.appendChild(makeOpt(m)); });
     sel.appendChild(optgroup);
   });
 
-  // Missions orphelines (sans catégorie)
   var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
-  orphans.forEach(function(m) {
-    var opt = document.createElement('option');
-    opt.value = m.nom;
-    opt.textContent = m.nom;
-    sel.appendChild(opt);
-  });
+  orphans.sort(function(a,b){ return (isAffectee(a.nom)?0:1) - (isAffectee(b.nom)?0:1); });
+  orphans.forEach(function(m) { sel.appendChild(makeOpt(m)); });
 
   if (selectedValue) sel.value = selectedValue;
 }
@@ -7506,6 +7539,17 @@ function editTache(id) {
   document.getElementById('tache-id').value = t.id;
   document.getElementById('tache-parent-id').value = t.parent_id || '';
   document.getElementById('tache-niveau').value = t.niveau;
+  // Pré-remplir le projet AVANT le toggle pour que _populateMissionsSelect ait le contexte
+  var _selP0 = document.getElementById('tache-projet');
+  if (_selP0 && t.projet_id) {
+    if (!_selP0.querySelector('option[value="'+t.projet_id+'"]')) {
+      var _o0 = document.createElement('option');
+      _o0.value = t.projet_id;
+      _o0.textContent = (t.projetCode ? t.projetCode+' — ' : '') + (t.projetNom || '');
+      _selP0.appendChild(_o0);
+    }
+    _selP0.value = t.projet_id;
+  }
   // Afficher select mission ou input titre selon le niveau
   _toggleTitreField(t.niveau, t.titre || '');
   document.getElementById('tache-desc').value = t.description || '';
@@ -8701,6 +8745,18 @@ function openDemandeAdminModal(data) {
   document.getElementById('da-statut').value = data ? (data.statut || 'Brouillon') : 'Brouillon';
   document.getElementById('da-remarques').value = data ? (data.remarques || '') : '';
 
+  // v3 : workflow DA
+  var dEl = document.getElementById('da-date-depot'); if (dEl) dEl.value = (data && data.date_depot) || '';
+  var jEl = document.getElementById('da-justificatif-current');
+  if (jEl) jEl.innerHTML = (data && data.justificatif_url) ? '<a href="'+data.justificatif_url+'" target="_blank" style="color:var(--accent)">📎 Justificatif actuel</a>' : '';
+  var rEl = document.getElementById('da-reponse-type'); if (rEl) rEl.value = (data && data.reponse_type) || '';
+  window._daCurrentEdit = data || null;
+  _daRenderManquants(data);
+  _daRefreshWorkflow();
+  // Hook change listener une seule fois
+  var sSel = document.getElementById('da-statut');
+  if (sSel && !sSel._daHooked) { sSel.addEventListener('change', _daRefreshWorkflow); sSel._daHooked = true; }
+
   _populateDASelect('da-type', getDATypes(), data ? data.type_demande : '');
   _populateDASelectSorted('da-administration', getDAAdmins(), data ? data.administration : '', false, 'da_recent_admins');
   _populateDASelectSorted('da-gouvernorat',    getDAGouvs(),  data ? data.gouvernorat  : '', true, 'da_recent_gouvs');
@@ -9006,8 +9062,21 @@ function saveDemandeAdmin() {
     date_demande:   document.getElementById('da-date').value,
     statut:         document.getElementById('da-statut').value,
     remarques:      document.getElementById('da-remarques').value,
+    date_depot:     (document.getElementById('da-date-depot')||{}).value || null,
+    reponse_type:   (document.getElementById('da-reponse-type')||{}).value || null,
+    documents_manquants: (function(){
+      var arr = [];
+      document.querySelectorAll('.da-manquant-check').forEach(function(cb){
+        if (cb.checked) arr.push(cb.value);
+      });
+      return arr;
+    })(),
     documents_joints: []
   };
+  // Justificatif URL (si déjà uploadé dans _daCurrentEdit)
+  if (window._daCurrentEdit && window._daCurrentEdit.justificatif_url) {
+    body.justificatif_url = window._daCurrentEdit.justificatif_url;
+  }
 
   document.querySelectorAll('.da-doc-check:checked').forEach(function(cb) {
     body.documents_joints.push(cb.value);
@@ -10308,6 +10377,136 @@ function renderChargePage() {
     };
   }
 })();
+
+// ═══════════════════════════════════════════════════════════════
+//  DA — Workflow avancé (déposé / en attente / prêt / réponse)
+// ═══════════════════════════════════════════════════════════════
+
+function _daRefreshWorkflow() {
+  var statut = (document.getElementById('da-statut')||{}).value || '';
+  var box = document.getElementById('da-workflow-box');
+  if (!box) return;
+  var dep = document.getElementById('da-wf-depose');
+  var man = document.getElementById('da-wf-manquants');
+  var pre = document.getElementById('da-wf-pret');
+  var rep = document.getElementById('da-wf-reponse');
+  if (dep) dep.style.display = 'none';
+  if (man) man.style.display = 'none';
+  if (pre) pre.style.display = 'none';
+  if (rep) rep.style.display = 'none';
+  var show = false;
+  if (statut === 'Déposé' || statut === 'Envoyée') { if (dep) dep.style.display = ''; show = true; }
+  if (statut === 'En attente de documents')        { if (man) man.style.display = ''; show = true; }
+  if (statut === 'Prêt à déposer')                 { if (pre) pre.style.display = ''; show = true; }
+  if (statut.indexOf('Réponse reçue') === 0)       {
+    if (rep) rep.style.display = '';
+    var rt = (document.getElementById('da-reponse-type')||{}).value || '';
+    if (!rt) {
+      // Pré-remplir selon le statut
+      var autoRT = (statut.indexOf('positive') !== -1) ? 'positive' : 'negative';
+      var rSel = document.getElementById('da-reponse-type');
+      if (rSel) rSel.value = autoRT;
+    }
+    onDAReponseChange();
+    show = true;
+  }
+  box.style.display = show ? '' : 'none';
+
+  // Hook upload si visible
+  var fIn = document.getElementById('da-justificatif-file');
+  if (fIn && !fIn._daHooked) {
+    fIn.addEventListener('change', _daUploadJustificatif);
+    fIn._daHooked = true;
+  }
+}
+
+function onDAReponseChange() {
+  var rt = (document.getElementById('da-reponse-type')||{}).value || '';
+  var wrap = document.getElementById('da-reponse-clone-wrap');
+  if (wrap) wrap.style.display = (rt === 'negative') ? 'flex' : 'none';
+}
+
+function _daRenderManquants(data) {
+  var wrap = document.getElementById('da-manquants-list');
+  if (!wrap) return;
+  var type = data ? data.type_demande : (document.getElementById('da-type')||{}).value;
+  var allDocs = [];
+  try {
+    var types = getSetting('cortoba_da_types', []) || [];
+    var match = types.find(function(t){ return t.nom === type || t.id === type; });
+    if (match && Array.isArray(match.documents)) allDocs = match.documents;
+  } catch(e) {}
+  if (!allDocs.length) {
+    // Fallback : liste générique
+    allDocs = ['Copie CIN', 'Justificatif domicile', 'Plans d\'architecte', 'Titre de propriété', 'Timbre fiscal'];
+  }
+  var already = [];
+  if (data && data.documents_manquants) {
+    try { already = Array.isArray(data.documents_manquants) ? data.documents_manquants : JSON.parse(data.documents_manquants); } catch(e) { already = []; }
+  }
+  var html = '';
+  allDocs.forEach(function(doc){
+    var checked = already.indexOf(doc) !== -1 ? 'checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;cursor:pointer"><input type="checkbox" class="da-manquant-check" value="'+escHtml(doc)+'" '+checked+' /> '+escHtml(doc)+'</label>';
+  });
+  wrap.innerHTML = html;
+}
+
+function _daUploadJustificatif() {
+  var fIn = document.getElementById('da-justificatif-file');
+  if (!fIn || !fIn.files || !fIn.files[0]) return;
+  var id = document.getElementById('da-edit-id').value;
+  if (!id) {
+    showToast('Enregistrez d\'abord la demande avant d\'uploader le justificatif', 'error');
+    fIn.value = '';
+    return;
+  }
+  var fd = new FormData();
+  fd.append('file', fIn.files[0]);
+  fd.append('demande_id', id);
+  var token = sessionStorage.getItem('cortoba_token') || '';
+  fetch('api/upload_da_justif.php', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: fd
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (res && res.success) {
+      showToast('✓ Justificatif envoyé');
+      if (window._daCurrentEdit) window._daCurrentEdit.justificatif_url = res.data.url;
+      var cur = document.getElementById('da-justificatif-current');
+      if (cur) cur.innerHTML = '<a href="'+res.data.url+'" target="_blank" style="color:var(--accent)">📎 '+res.data.filename+'</a>';
+    } else {
+      showToast('Erreur : '+(res && res.error ? res.error : 'upload échoué'), 'error');
+    }
+  }).catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+}
+
+function cloneDAForRedepot() {
+  var id = document.getElementById('da-edit-id').value;
+  if (!id) { showToast('Enregistrez d\'abord la demande', 'error'); return; }
+  if (!confirm('Cloner cette demande en brouillon pour redépôt ?')) return;
+  apiFetch('api/demandes_admin.php?action=clone&id='+id, { method:'POST', body:{} }).then(function(r){
+    showToast('✓ Demande clonée (nouveau brouillon)');
+    closeModal('modal-demande-admin');
+    renderDemandesAdminPage();
+  }).catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+}
+
+function createDATaskFromDA() {
+  var d = window._daCurrentEdit;
+  if (!d || !d.projet_id) {
+    showToast('Liez cette demande à un projet pour créer une tâche', 'error');
+    return;
+  }
+  closeModal('modal-demande-admin');
+  setTimeout(function(){
+    openSuiviModal(1, null, d.projet_id);
+    var t = document.getElementById('tache-titre');
+    if (t) t.value = 'Dépôt : ' + (d.objet || d.type_demande || '');
+    var loc = document.getElementById('tache-location-type'); if (loc) loc.value = 'Administration';
+    var zone = document.getElementById('tache-location-zone'); if (zone) zone.value = d.administration || '';
+  }, 200);
+}
 
 // Helper pour récupérer la couleur d'un membre par son nom
 function getMemberColor(fullName) {
