@@ -1444,8 +1444,18 @@
             <h1 class="page-title">Paramètres</h1>
           </div>
         </div>
-        <div class="grid-2">
-          <div class="card">
+
+        <!-- Onglets Paramètres -->
+        <div id="param-tabs-bar" style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto;flex-wrap:nowrap">
+          <button class="param-tab active" data-param-tab="agence"  onclick="switchParamTab('agence',this)"  style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid var(--accent);white-space:nowrap;transition:all .2s">Agence</button>
+          <button class="param-tab"        data-param-tab="securite" onclick="switchParamTab('securite',this)" style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Sécurité</button>
+          <button class="param-tab"        data-param-tab="equipe"   onclick="switchParamTab('equipe',this)"   style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Équipe &amp; Paie</button>
+          <button class="param-tab"        data-param-tab="projets"  onclick="switchParamTab('projets',this)"  style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Projets &amp; Listes</button>
+          <button class="param-tab"        data-param-tab="da"       onclick="switchParamTab('da',this)"       style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Demandes admin</button>
+          <button class="param-tab"        data-param-tab="nas"      onclick="switchParamTab('nas',this)"      style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">NAS &amp; stockage</button>
+        </div>
+
+        <div class="card" data-param-tab="agence">
             <div class="card-title">Informations de l'agence</div>
             <div class="form-grid">
               <div class="form-field"><label class="form-label">Raison sociale</label><input id="param-agence-raison" class="form-input" placeholder="Ex: Cortoba Architecture Studio" /></div>
@@ -1458,8 +1468,9 @@
             <div style="margin-top:1rem;display:flex;justify-content:flex-end">
               <button class="btn btn-primary btn-sm" onclick="saveAgenceParams()">Enregistrer</button>
             </div>
-          </div>
-          <div class="card">
+        </div>
+
+        <div class="card" data-param-tab="securite">
             <div class="card-title">Sécurité & accès</div>
             <div class="form-grid">
               <div class="form-field full"><label class="form-label">Identifiant admin</label><input class="form-input" value="amal.cortoba" /></div>
@@ -1475,9 +1486,9 @@
             <div style="margin-top:1rem;display:flex;justify-content:flex-end">
               <button class="btn btn-primary btn-sm" onclick="changePassword()">Mettre à jour</button>
             </div>
-          </div>
         </div>
-        <div class="card" style="margin-bottom:1.5rem">
+
+        <div class="card" data-param-tab="agence" style="margin-bottom:1.5rem">
           <div class="card-title">Modèles de documents</div>
           <div style="display:flex;gap:0.8rem;flex-wrap:wrap">
             <button class="btn" onclick="alert('Modèle de devis — à configurer dans Paramètres.')">📄 Modèle devis</button>
@@ -1488,7 +1499,7 @@
         </div>
 
         <!-- C — Listes déroulantes configurables -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="projets" style="margin-bottom:1.5rem">
           <div class="card-title">Listes déroulantes</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
             Personnalisez les options des menus déroulants dans les fiches projet et client.
@@ -1500,7 +1511,7 @@
         </div>
 
         <!-- Types de bâtiment — Configurateur -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="projets" style="margin-bottom:1.5rem">
           <div class="card-title">Types de bâtiment — Configurateur</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
             Personnalisez les types de bâtiment et leurs sous-types affichés dans le configurateur de projet.
@@ -1517,7 +1528,7 @@
         </div>
 
         <!-- Missions -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="projets" style="margin-bottom:1.5rem">
           <div class="card-title">Missions architecturales</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
             Ces missions apparaissent dans le configurateur public, la création de projet et la création de devis.
@@ -1535,7 +1546,7 @@
         </div>
 
         <!-- Tâches-types par mission -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="projets" style="margin-bottom:1.5rem">
           <div class="card-title">Tâches-types par mission</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
             Liste des tâches prédéfinies classées par mission. Elles apparaissent dans le module Suivi lors de l'ajout d'une tâche.
@@ -1553,7 +1564,7 @@
         </div>
 
         <!-- NAS -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="nas" style="margin-bottom:1.5rem">
           <div class="card-title">Serveur NAS — Configuration</div>
           <div class="form-grid">
             <div class="form-field">
@@ -1650,7 +1661,7 @@
         </div>
 
         <!-- Logo de l'agence -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="agence" style="margin-bottom:1.5rem">
           <div class="card-title">Logo de l'agence</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
             Le logo apparaît sur les factures générées. Format recommandé : PNG transparent, min. 300×100px.
@@ -1672,7 +1683,7 @@
         </div>
 
         <!-- ═══ FICHE DE PAIE — PARAMÈTRES AGENCE ═══ -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="equipe" style="margin-bottom:1.5rem">
           <div class="card-title">Fiche de paie — Paramètres bulletin</div>
           <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:1rem">
             Données utilisées par le gabarit bulletin de paie (CNSS, cotisations, barème IRPP tunisien).
@@ -1735,7 +1746,7 @@
         </div>
 
         <!-- RIB & coordonnées bancaires pour facturation -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="agence" style="margin-bottom:1.5rem">
           <div class="card-title">Coordonnées bancaires (pour factures)</div>
           <div class="form-grid">
             <div class="form-field"><label class="form-label">Banque</label><input id="param-banque" class="form-input" placeholder="Ex: BNA, STB, BIAT…" /></div>
@@ -1748,7 +1759,7 @@
         </div>
 
         <!-- Rôles de l'équipe -->
-        <div class="card" style="margin-bottom:1.5rem" id="param-roles-card">
+        <div class="card" data-param-tab="equipe" style="margin-bottom:1.5rem" id="param-roles-card">
           <div class="card-title">Rôles de l'équipe</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
             Gérez les rôles disponibles lors de l'ajout d'un membre. Les rôles en <span style="color:var(--accent)">or</span> sont personnalisés.
@@ -1762,7 +1773,7 @@
         </div>
 
         <!-- Configurateur de projet — Paramètres -->
-        <div class="card" style="margin-bottom:1.5rem">
+        <div class="card" data-param-tab="projets" style="margin-bottom:1.5rem">
           <div class="card-title">Configurateur de projet</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1.2rem">
             Ces valeurs sont utilisées par le configurateur public pour estimer les coûts et surfaces. Toute modification sera appliquée immédiatement.
@@ -1849,7 +1860,7 @@
         </div>
 
         <!-- ── Demandes administratives ── -->
-        <div class="card" style="margin-top:1.5rem">
+        <div class="card" data-param-tab="da" style="margin-top:1.5rem">
           <div class="card-title">Demandes administratives</div>
 
           <!-- Types de demandes -->

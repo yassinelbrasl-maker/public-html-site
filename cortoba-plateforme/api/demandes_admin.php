@@ -51,9 +51,11 @@ function getAll() {
     }
 
     $sql = 'SELECT d.*,
-                   p.nom AS projet_nom, p.code AS projet_code
+                   p.nom AS projet_nom, p.code AS projet_code,
+                   c.display_nom AS client_nom, c.code AS client_code
             FROM CA_demandes_admin d
             LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = d.projet_id COLLATE utf8mb4_unicode_ci
+            LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = d.client_id COLLATE utf8mb4_unicode_ci
             WHERE ' . implode(' AND ', $where) . '
             ORDER BY d.date_demande DESC, d.cree_at DESC';
 
@@ -76,13 +78,14 @@ function create(array $user) {
     if (!$objet)          jsonError("L'objet est requis");
 
     $db->prepare('
-        INSERT INTO CA_demandes_admin (id, projet_id, type_demande, langue, administration,
+        INSERT INTO CA_demandes_admin (id, projet_id, client_id, type_demande, langue, administration,
             gouvernorat, delegation, municipalite, objet, contenu, documents_joints,
             expediteur, destinataire, reference, date_demande, statut, remarques, cree_par)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $body['projet_id'] ?? null,
+        $body['client_id'] ?? null,
         $typeDemande,
         $body['langue'] ?? 'fr',
         $administration,
@@ -115,7 +118,7 @@ function update($id, array $user) {
 
     $fields = [];
     $params = [];
-    $allowed = ['projet_id','type_demande','langue','administration','gouvernorat',
+    $allowed = ['projet_id','client_id','type_demande','langue','administration','gouvernorat',
                 'delegation','municipalite','objet','contenu','documents_joints',
                 'expediteur','destinataire','reference','date_demande','statut','remarques'];
 
