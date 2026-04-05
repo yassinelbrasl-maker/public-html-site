@@ -9012,8 +9012,8 @@ function switchParamTab(tab, btn) {
     btn.style.color = 'var(--accent)';
     btn.style.borderBottomColor = 'var(--accent)';
   }
-  // Afficher/masquer les cartes
-  document.querySelectorAll('#page-parametres [data-param-tab]').forEach(function(c){
+  // Afficher/masquer les cartes (scope restreint aux .card pour ne pas toucher les boutons d'onglets)
+  document.querySelectorAll('#page-parametres .card[data-param-tab]').forEach(function(c){
     c.style.display = (c.getAttribute('data-param-tab') === tab) ? '' : 'none';
   });
 }
