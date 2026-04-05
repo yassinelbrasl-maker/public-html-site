@@ -4025,7 +4025,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   var _allowed = getAllowedModules();
@@ -4050,6 +4050,7 @@ function showPage(id){
   if(id==='gantt')      setTimeout(function(){ if(typeof renderGanttPage==='function') renderGanttPage(); },80);
   if(id==='charge')     setTimeout(function(){ if(typeof renderChargePage==='function') renderChargePage(); },80);
   if(id==='demandes-admin') setTimeout(renderDemandesAdminPage,80);
+  if(id==='conges')     setTimeout(function(){ if(typeof renderCongesPage==='function') renderCongesPage(); },80);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
@@ -6254,10 +6255,6 @@ function renderNasPage() {
   nasRefreshStatus();
 }
 
-// ══════════════════════════════════════════════════════════
-//  CRÉATION DOSSIER NAS (via nas-mkdir.php hébergé sur le NAS)
-// ══════════════════════════════════════════════════════════
-
 // Extraire l'IP pure d'une valeur qui peut contenir un chemin UNC
 function extractNasIp(val) {
   if (!val) return '';
@@ -6266,86 +6263,6 @@ function extractNasIp(val) {
   var m = s.match(/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/);
   if (m) return m[1];
   return s.split('/')[0];
-}
-
-function createNasFolder(nasPath, callback) {
-  if (!nasPath || nasPath === '—') {
-    if (callback) callback(false, 'Chemin NAS non défini');
-    return;
-  }
-
-  var cfg = getNasConfig();
-  var nasIp = cfg.local || '192.168.1.165';
-
-  // Convertir le chemin UNC en chemin relatif : Public/CAS_PROJETS/2026/XX
-  var foldersPath = nasPath.replace(/\\\\/g, '/').replace(/\\/g, '/');
-  foldersPath = foldersPath.replace(/^\/\/[^\/]+\//, '');
-
-  if (!nasIp) {
-    _nasCopyClipboard(nasPath, callback);
-    return;
-  }
-
-  // Appel direct au PHP hébergé sur le NAS (nas-mkdir.php)
-  // Essayer HTTPS d'abord (port 8081), puis HTTP (port 80) en fallback
-  var httpsUrl = 'https://' + nasIp + ':8081/nas-mkdir.php?folders=' + encodeURIComponent(foldersPath);
-  var httpUrl  = 'http://' + nasIp + '/nas-mkdir.php?folders=' + encodeURIComponent(foldersPath);
-
-  console.log('[NAS] Création dossier:', foldersPath);
-
-  _nasFetchCreate(httpsUrl, nasPath, callback, function() {
-    // HTTPS échoué (cert self-signed non accepté) → essayer HTTP
-    console.log('[NAS] HTTPS échoué, essai HTTP...');
-    _nasFetchCreate(httpUrl, nasPath, callback, function() {
-      // HTTP aussi échoué (mixed content) → fallback clipboard
-      console.warn('[NAS] HTTP aussi échoué — fallback clipboard');
-      _nasCopyClipboard(nasPath, callback);
-    });
-  });
-}
-
-function _nasFetchCreate(url, nasPath, callback, onError) {
-  fetch(url, { mode: 'cors', cache: 'no-cache' })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      if (d.success) {
-        var msg = d.created ? 'Dossier NAS créé' : 'Dossier NAS existe déjà';
-        if (d.template_copied && d.template_copied.length) {
-          msg += ' + ' + d.template_copied.length + ' sous-dossiers copiés';
-        }
-        console.log('[NAS] Succès:', d);
-        showToast(msg);
-        if (callback) callback(true, msg);
-      } else {
-        console.warn('[NAS] Erreur serveur:', d.error);
-        showToast('Erreur NAS : ' + (d.error || 'inconnue'), 'error');
-        if (callback) callback(false, d.error);
-      }
-    })
-    .catch(function(e) {
-      console.warn('[NAS] fetch échoué:', e.message);
-      if (onError) onError();
-    });
-}
-
-// Fallback : copier le chemin NAS dans le presse-papier
-function _nasCopyClipboard(nasPath, callback) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(nasPath).then(function() {
-      showToast('Chemin NAS copié — collez dans l\'Explorateur Windows (Ctrl+V)');
-    }).catch(function() {
-      showToast('Chemin NAS : ' + nasPath);
-    });
-  }
-  if (callback) callback('clipboard', nasPath);
-}
-
-function createNasFolderForProjet(projetId) {
-  var p = getProjets().find(function(x){ return x.id === projetId; });
-  if (!p) return;
-  var path = p.nasPath || p.nas_path || '';
-  if (!path) { showToast('Aucun chemin NAS pour ce projet', 'error'); return; }
-  createNasFolder(path);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -7460,6 +7377,34 @@ function _toggleTitreField(niveau, selectedValue) {
   }
 }
 
+// Normaliser les missions affectées à un projet : retourne un tableau de noms
+//   Le format stocké peut être "m01_Nom de la mission" (checkbox value), "m01" ou juste "Nom"
+function _normalizeProjetMissions(rawList) {
+  if (!rawList) return [];
+  var arr = Array.isArray(rawList) ? rawList : [];
+  var missions = getMissions();
+  var out = [];
+  arr.forEach(function(v){
+    if (v == null) return;
+    var s = String(v);
+    // Format "id_Nom"
+    var m = s.match(/^([a-z0-9]+)_(.+)$/i);
+    if (m) {
+      var byId = missions.find(function(x){ return x.id === m[1]; });
+      if (byId) { out.push(byId.nom); return; }
+      out.push(m[2]);
+      return;
+    }
+    // Format id seul
+    var byIdOnly = missions.find(function(x){ return x.id === s; });
+    if (byIdOnly) { out.push(byIdOnly.nom); return; }
+    // Sinon nom brut
+    out.push(s);
+  });
+  return out;
+}
+window._normalizeProjetMissions = _normalizeProjetMissions;
+
 // ── Remplir le select missions groupé par catégorie ──
 //    Missions affectées au projet = normales, les autres = demi-teinte (cliquables)
 function _populateMissionsSelect(selectedValue) {
@@ -7468,14 +7413,16 @@ function _populateMissionsSelect(selectedValue) {
   var missions = getMissions();
   var cats = getMissionCategories();
 
-  // Récupérer les missions affectées au projet courant
+  // Récupérer les missions affectées au projet courant (format unifié = noms)
   var projetId = (document.getElementById('tache-projet')||{}).value;
   var affectees = null;
   if (projetId) {
     var projet = (getProjets()||[]).find(function(p){ return p.id === projetId; });
     if (projet) {
-      try { affectees = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
-      catch(e) { affectees = []; }
+      var raw;
+      try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
+      catch(e) { raw = []; }
+      affectees = _normalizeProjetMissions(raw);
     }
   }
   var isAffectee = function(nom){
@@ -9941,18 +9888,27 @@ function onTacheTitreSelectChange(sel) {
   if (!projetId) return;
   var projet = getProjets().find(function(p){ return p.id === projetId; });
   if (!projet) return;
-  var affectees = [];
-  try { affectees = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); } catch(e) { affectees = []; }
-  if (affectees.indexOf(sel.value) === -1) {
-    if (confirm('La mission "'+sel.value+'" n\'est pas affectée au projet '+(projet.code||projet.nom)+'. L\'ajouter à la fiche projet ?')) {
-      affectees.push(sel.value);
-      projet.missions = affectees;
-      apiFetch('api/projets.php?id='+projet.id, { method:'PUT', body:{ missions: affectees } })
-        .then(function(){ showToast('✓ Mission ajoutée au projet'); })
-        .catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
-    } else {
-      sel.value = '';
-    }
+  var rawList = [];
+  try { rawList = Array.isArray(projet.missions) ? projet.missions.slice() : (projet.missions ? JSON.parse(projet.missions) : []); } catch(e) { rawList = []; }
+  // Normaliser en noms pour comparaison
+  var nomsAffectees = _normalizeProjetMissions(rawList);
+  if (nomsAffectees.indexOf(sel.value) !== -1) return; // déjà affectée
+
+  if (confirm('La mission "'+sel.value+'" n\'est pas affectée au projet '+(projet.code||projet.nom)+'. L\'ajouter à la fiche projet ?')) {
+    // Trouver l'ID de la mission et stocker au format "id_nom" (comme populateMissionsList)
+    var missionObj = (getMissions()||[]).find(function(m){ return m.nom === sel.value; });
+    var toPush = missionObj ? (missionObj.id + '_' + missionObj.nom) : sel.value;
+    rawList.push(toPush);
+    projet.missions = rawList;
+    apiFetch('api/projets.php?id='+projet.id, { method:'PUT', body:{ missions: rawList } })
+      .then(function(){
+        showToast('✓ Mission ajoutée au projet');
+        // Re-peupler le select pour que la mission ne soit plus demi-teinte
+        _populateMissionsSelect(sel.value);
+      })
+      .catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+  } else {
+    sel.value = '';
   }
 }
 
@@ -10518,4 +10474,380 @@ function getMemberColor(fullName) {
   return (m && m.color) || '#c8a96e';
 }
 window.getMemberColor = getMemberColor;
+
+// ═══════════════════════════════════════════════════════════
+//  MODULE CONGÉS — soldes, demandes, heatmap, admin
+// ═══════════════════════════════════════════════════════════
+var _congesState = { current: null, heatmap: null, isManager: false, decideId: null };
+
+function _cgFmtDate(s){
+  if (!s) return '—';
+  var d = new Date(s);
+  if (isNaN(d)) return s;
+  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+}
+function _cgEscape(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function _cgIsManager(){
+  // Heuristique : rôle admin / gerant / non-membre
+  try {
+    var token = sessionStorage.getItem('cortoba_token');
+    if (!token) return false;
+    var parts = token.split('.');
+    if (parts.length !== 3) return false;
+    var payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    var role = (payload.role || '').toLowerCase();
+    if (['admin','gerant','gérant','manager','directeur'].indexOf(role) !== -1) return true;
+    if (!payload.isMember) return true;
+    return false;
+  } catch(e){ return false; }
+}
+
+function switchCongeTab(tab, btn){
+  document.querySelectorAll('.cg-tab').forEach(function(b){
+    b.classList.remove('active');
+    b.style.color = 'var(--text-3)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  if (btn){
+    btn.classList.add('active');
+    btn.style.color = 'var(--text-2)';
+    btn.style.borderBottomColor = 'var(--accent)';
+  }
+  document.getElementById('cg-panel-mine').style.display  = tab === 'mine'  ? '' : 'none';
+  document.getElementById('cg-panel-admin').style.display = tab === 'admin' ? '' : 'none';
+  if (tab === 'admin') renderCongesAdmin();
+}
+
+function renderCongesPage(){
+  _congesState.isManager = _cgIsManager();
+  var tabAdmin = document.getElementById('cg-tab-admin');
+  if (tabAdmin) tabAdmin.style.display = _congesState.isManager ? '' : 'none';
+  renderCongesMine();
+  if (_congesState.isManager) refreshCongesPendingBadge();
+}
+
+// ── Vue collaborateur ──
+function renderCongesMine(){
+  // Soldes
+  apiFetch('api/conges.php?action=balance').then(function(r){
+    var d = r.data || r;
+    var bal = d.balance || {};
+    var usage = d.usage || {};
+    var annuels = parseFloat(bal.conges_annuels || 0);
+    var mal = parseFloat(bal.maladie || 0);
+    var rec = parseFloat(bal.recuperation || 0);
+    var pending = 0;
+    Object.keys(usage).forEach(function(k){ pending += parseFloat(usage[k].pending || 0); });
+    document.getElementById('cg-solde-annuels').textContent = annuels.toFixed(1).replace(/\.0$/,'') + ' j';
+    document.getElementById('cg-solde-maladie').textContent = mal.toFixed(1).replace(/\.0$/,'') + ' j';
+    document.getElementById('cg-solde-recup').textContent   = rec.toFixed(1).replace(/\.0$/,'') + ' j';
+    document.getElementById('cg-solde-pending').textContent = pending.toFixed(1).replace(/\.0$/,'') + ' j';
+  }).catch(function(e){ console.warn('[conges] balance', e); });
+
+  // Historique perso
+  apiFetch('api/conges.php?action=list').then(function(r){
+    var list = r.data || r || [];
+    var el = document.getElementById('cg-mes-demandes');
+    if (!list.length){
+      el.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">Aucune demande pour le moment.</div>';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.78rem"><thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">'
+      + '<th style="padding:0.5rem 0.4rem">Période</th><th>Type</th><th>Jours</th><th>Statut</th><th></th></tr></thead><tbody>';
+    list.forEach(function(r){
+      var color = r.statut === 'Approuvé' ? '#3fa66a' : r.statut === 'Refusé' ? '#d45656' : r.statut === 'Annulé' ? '#888' : '#d4a64a';
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
+        + '<td style="padding:0.55rem 0.4rem">' + _cgFmtDate(r.date_debut) + ' → ' + _cgFmtDate(r.date_fin) + '</td>'
+        + '<td>' + _cgEscape(r.type) + '</td>'
+        + '<td>' + parseFloat(r.jours||0).toFixed(1).replace(/\.0$/,'') + ' j</td>'
+        + '<td><span style="color:' + color + ';font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em">' + _cgEscape(r.statut) + '</span></td>'
+        + '<td style="text-align:right">';
+      if (r.statut === 'En attente'){
+        html += '<button class="btn btn-sm" onclick="cancelConge(\'' + r.id + '\')" style="font-size:0.7rem">Annuler</button>';
+      }
+      if (r.commentaire_admin){
+        html += ' <span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3)">💬</span>';
+      }
+      html += '</td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }).catch(function(e){
+    document.getElementById('cg-mes-demandes').innerHTML = '<div style="color:var(--red);padding:1rem">Erreur : ' + _cgEscape(e.message) + '</div>';
+  });
+
+  // Heatmap (période : aujourd'hui → +3 mois)
+  var today = new Date();
+  var from = today.toISOString().slice(0,10);
+  var end = new Date(today.getFullYear(), today.getMonth()+3, 0);
+  var to = end.toISOString().slice(0,10);
+  apiFetch('api/conges.php?action=heatmap&from=' + from + '&to=' + to).then(function(r){
+    var d = r.data || r;
+    _congesState.heatmap = d.days || {};
+    renderHeatmap('cg-heatmap', _congesState.heatmap, from, to);
+  }).catch(function(e){
+    document.getElementById('cg-heatmap').innerHTML = '<div style="color:var(--red);padding:1rem;font-size:0.78rem">Erreur heatmap : ' + _cgEscape(e.message) + '</div>';
+  });
+}
+
+// ── Heatmap (calendrier mensuel simplifié) ──
+function renderHeatmap(containerId, days, from, to){
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  var start = new Date(from); var end = new Date(to);
+  if (isNaN(start) || isNaN(end)) { el.innerHTML = ''; return; }
+
+  var monthsHtml = '';
+  var cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (cur <= end){
+    var y = cur.getFullYear(); var m = cur.getMonth();
+    var first = new Date(y, m, 1);
+    var last  = new Date(y, m+1, 0);
+    var monthName = cur.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+    monthsHtml += '<div style="margin-bottom:1rem">';
+    monthsHtml += '<div style="font-size:0.75rem;color:var(--text-2);text-transform:capitalize;margin-bottom:0.4rem;font-weight:500">' + monthName + '</div>';
+    monthsHtml += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+    // Labels jours
+    ['L','M','M','J','V','S','D'].forEach(function(lbl){
+      monthsHtml += '<div style="font-size:0.6rem;color:var(--text-3);text-align:center;padding:2px">' + lbl + '</div>';
+    });
+    // Offset (Lundi = 1)
+    var offset = (first.getDay() + 6) % 7;
+    for (var i = 0; i < offset; i++) monthsHtml += '<div></div>';
+    for (var d = 1; d <= last.getDate(); d++){
+      var key = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      var info = days[key];
+      var lvl = info ? info.level : 'green';
+      var bg = lvl === 'red' ? '#d45656' : lvl === 'yellow' ? '#d4a64a' : '#3fa66a';
+      var dayDate = new Date(y, m, d);
+      var dow = dayDate.getDay();
+      var isWeekend = (dow === 0 || dow === 6);
+      if (isWeekend){ bg = 'rgba(255,255,255,0.04)'; }
+      var items = info && info.items ? info.items : [];
+      var tipLines = items.map(function(it){
+        return '• ' + it.titre + (it.projet ? ' — ' + it.projet : '') + ' (échéance ' + _cgFmtDate(it.date_echeance) + ')';
+      });
+      var tip = tipLines.length
+        ? tipLines.join('\n')
+        : (isWeekend ? 'Week-end' : 'Aucune deadline majeure — disponibilité normale');
+      monthsHtml += '<div class="cg-hm-cell" data-key="' + key + '" title="' + _cgEscape(tip) + '" '
+        + 'style="background:' + bg + ';color:#fff;font-size:0.65rem;text-align:center;padding:6px 2px;border-radius:3px;cursor:help;font-weight:500;opacity:' + (isWeekend?'0.4':'1') + '">'
+        + d + '</div>';
+    }
+    monthsHtml += '</div></div>';
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  el.innerHTML = monthsHtml;
+}
+
+// ── Formulaire nouvelle demande ──
+function openCongeForm(){
+  document.getElementById('cg-type').value = 'Congés annuels';
+  document.getElementById('cg-date-debut').value = '';
+  document.getElementById('cg-date-fin').value = '';
+  document.getElementById('cg-jours').value = '0';
+  document.getElementById('cg-motif').value = '';
+  document.getElementById('cg-delegation').value = '';
+  document.getElementById('cg-warning').style.display = 'none';
+  openModal('modal-conge');
+}
+
+function onCongeDatesChange(){
+  var d1 = document.getElementById('cg-date-debut').value;
+  var d2 = document.getElementById('cg-date-fin').value;
+  if (!d1 || !d2) { document.getElementById('cg-jours').value = '0'; return; }
+  // Compte jours ouvrés (lun-ven)
+  var s = new Date(d1); var e = new Date(d2);
+  if (e < s) { document.getElementById('cg-jours').value = '0'; return; }
+  var count = 0;
+  var cur = new Date(s);
+  while (cur <= e){
+    var dow = cur.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    cur.setDate(cur.getDate()+1);
+  }
+  document.getElementById('cg-jours').value = count;
+
+  // Alerte préventive — inspection de la heatmap locale
+  var warn = document.getElementById('cg-warning');
+  if (_congesState.heatmap){
+    var red = 0, yellow = 0, redItems = [];
+    var cur2 = new Date(s);
+    while (cur2 <= e){
+      var k = cur2.toISOString().slice(0,10);
+      var info = _congesState.heatmap[k];
+      if (info){
+        if (info.level === 'red') { red++; (info.items||[]).forEach(function(it){ if (redItems.indexOf(it.titre)===-1) redItems.push(it.titre); }); }
+        else if (info.level === 'yellow') yellow++;
+      }
+      cur2.setDate(cur2.getDate()+1);
+    }
+    if (red > 0){
+      warn.innerHTML = '<strong>⚠ Attention — charge élevée sur cette période.</strong><br>'
+        + 'Vous avez ' + redItems.length + ' livrable(s) critique(s) en chevauchement : '
+        + redItems.slice(0,3).map(_cgEscape).join(', ')
+        + (redItems.length > 3 ? '…' : '')
+        + '.<br>Assurez-vous d\'avoir organisé une passation solide avant de soumettre.';
+      warn.style.display = '';
+    } else if (yellow > 0){
+      warn.innerHTML = '<strong>ℹ Charge moyenne</strong> sur cette période — tâches actives en cours, gérable avec passation.';
+      warn.style.display = '';
+      warn.style.background = 'rgba(212,166,74,0.08)';
+      warn.style.borderColor = 'rgba(212,166,74,0.3)';
+      warn.style.color = '#d4a64a';
+    } else {
+      warn.style.display = 'none';
+    }
+  }
+}
+
+function submitCongeRequest(){
+  var body = {
+    type:        document.getElementById('cg-type').value,
+    date_debut:  document.getElementById('cg-date-debut').value,
+    date_fin:    document.getElementById('cg-date-fin').value,
+    motif:       document.getElementById('cg-motif').value,
+    delegation:  document.getElementById('cg-delegation').value.trim(),
+  };
+  if (!body.date_debut || !body.date_fin) return alert('Dates requises');
+  if (!body.delegation)                   return alert('La délégation / passation est obligatoire');
+  apiFetch('api/conges.php?action=create', { method:'POST', body: body })
+    .then(function(r){
+      var d = r.data || r;
+      var msg = 'Demande soumise (' + d.jours + ' jour(s) ouvrés). En attente de validation.';
+      if (d.conflicts && d.conflicts.length){
+        msg += '\n\n⚠ Conflits potentiels détectés :\n' + d.conflicts.map(function(c){
+          return '• ' + c.user_name + ' — ' + c.date_debut + ' → ' + c.date_fin + ' (' + c.statut + ')';
+        }).join('\n');
+      }
+      alert(msg);
+      closeModal('modal-conge');
+      renderCongesMine();
+      refreshCongesPendingBadge();
+    })
+    .catch(function(e){ alert('Erreur : ' + e.message); });
+}
+
+function cancelConge(id){
+  if (!confirm('Annuler cette demande ?')) return;
+  apiFetch('api/conges.php?action=cancel&id=' + encodeURIComponent(id), { method:'POST', body: {} })
+    .then(function(){ renderCongesMine(); refreshCongesPendingBadge(); })
+    .catch(function(e){ alert('Erreur : ' + e.message); });
+}
+
+// ── Vue admin ──
+function renderCongesAdmin(){
+  // Demandes en attente + historique
+  apiFetch('api/conges.php?action=list').then(function(r){
+    var list = r.data || r || [];
+    var pending = list.filter(function(x){ return x.statut === 'En attente'; });
+    var history = list.filter(function(x){ return x.statut !== 'En attente'; });
+    renderCongesAdminTable('cg-admin-pending', pending, true);
+    renderCongesAdminTable('cg-admin-history', history, false);
+  }).catch(function(e){
+    document.getElementById('cg-admin-pending').innerHTML = '<div style="color:var(--red);padding:1rem">' + _cgEscape(e.message) + '</div>';
+  });
+
+  // Soldes équipe
+  apiFetch('api/conges.php?action=balances').then(function(r){
+    var list = r.data || r || [];
+    var el = document.getElementById('cg-admin-balances');
+    if (!list.length){ el.innerHTML = '<div style="color:var(--text-3);padding:0.8rem">Aucun membre.</div>'; return; }
+    var html = '<table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">'
+      + '<th style="padding:0.5rem 0.4rem">Collaborateur</th><th>Annuels</th><th>Consommés</th><th>Restants</th><th>Maladie</th><th>Récup.</th></tr></thead><tbody>';
+    list.forEach(function(u){
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
+        + '<td style="padding:0.55rem 0.4rem">' + _cgEscape(u.user_name) + '</td>'
+        + '<td>' + parseFloat(u.conges_annuels).toFixed(1).replace(/\.0$/,'') + '</td>'
+        + '<td>' + parseFloat(u.consomme).toFixed(1).replace(/\.0$/,'') + '</td>'
+        + '<td><strong>' + parseFloat(u.restant).toFixed(1).replace(/\.0$/,'') + '</strong></td>'
+        + '<td>' + parseFloat(u.maladie).toFixed(1).replace(/\.0$/,'') + '</td>'
+        + '<td>' + parseFloat(u.recuperation).toFixed(1).replace(/\.0$/,'') + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }).catch(function(){});
+}
+
+function renderCongesAdminTable(containerId, list, withActions){
+  var el = document.getElementById(containerId);
+  if (!list.length){
+    el.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">' + (withActions ? 'Aucune demande en attente.' : 'Aucun historique.') + '</div>';
+    return;
+  }
+  var html = '<table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">'
+    + '<th style="padding:0.5rem 0.4rem">Collab.</th><th>Période</th><th>Type</th><th>Jours</th><th>Délégation</th><th>Statut</th><th></th></tr></thead><tbody>';
+  list.forEach(function(r){
+    var color = r.statut === 'Approuvé' ? '#3fa66a' : r.statut === 'Refusé' ? '#d45656' : r.statut === 'Annulé' ? '#888' : '#d4a64a';
+    // Check conflict : plusieurs demandes qui se chevauchent
+    var hasConflict = list.some(function(o){
+      if (o.id === r.id) return false;
+      if (o.statut !== 'En attente' && o.statut !== 'Approuvé') return false;
+      return !(o.date_fin < r.date_debut || o.date_debut > r.date_fin);
+    });
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
+      + '<td style="padding:0.55rem 0.4rem">' + _cgEscape(r.user_name) + (hasConflict ? ' <span title="Conflit : chevauchement avec un autre collab." style="color:#d45656">⚠</span>' : '') + '</td>'
+      + '<td>' + _cgFmtDate(r.date_debut) + ' → ' + _cgFmtDate(r.date_fin) + '</td>'
+      + '<td>' + _cgEscape(r.type) + '</td>'
+      + '<td>' + parseFloat(r.jours||0).toFixed(1).replace(/\.0$/,'') + '</td>'
+      + '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _cgEscape(r.delegation) + '">' + _cgEscape(r.delegation) + '</td>'
+      + '<td><span style="color:' + color + ';font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em">' + _cgEscape(r.statut) + '</span></td>'
+      + '<td style="text-align:right">';
+    if (withActions){
+      html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem">Décider</button>';
+    } else if (r.commentaire_admin){
+      html += '<span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3)">💬</span>';
+    }
+    html += '</td></tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function openCongeDecide(id){
+  apiFetch('api/conges.php?action=list').then(function(r){
+    var list = r.data || r || [];
+    var req = list.find(function(x){ return x.id === id; });
+    if (!req) return alert('Demande introuvable');
+    _congesState.decideId = id;
+    document.getElementById('cg-decide-title').textContent = 'Demande de ' + req.user_name;
+    document.getElementById('cg-decide-info').innerHTML =
+      '<strong>' + _cgEscape(req.type) + '</strong> · ' + _cgFmtDate(req.date_debut) + ' → ' + _cgFmtDate(req.date_fin)
+      + ' (' + parseFloat(req.jours||0).toFixed(1).replace(/\.0$/,'') + ' j)'
+      + (req.motif ? '<br><em>Motif :</em> ' + _cgEscape(req.motif) : '')
+      + '<br><em>Délégation :</em> ' + _cgEscape(req.delegation);
+    document.getElementById('cg-decide-comment').value = '';
+    openModal('modal-conge-decide');
+  });
+}
+
+function submitCongeDecision(decision){
+  var id = _congesState.decideId;
+  if (!id) return;
+  var commentaire = document.getElementById('cg-decide-comment').value.trim();
+  apiFetch('api/conges.php?action=decide&id=' + encodeURIComponent(id), {
+    method: 'POST', body: { decision: decision, commentaire: commentaire }
+  }).then(function(){
+    closeModal('modal-conge-decide');
+    renderCongesAdmin();
+    refreshCongesPendingBadge();
+  }).catch(function(e){ alert('Erreur : ' + e.message); });
+}
+
+// ── Badge sidebar : nombre de demandes en attente (admin) ──
+function refreshCongesPendingBadge(){
+  if (!_cgIsManager()) return;
+  apiFetch('api/conges.php?action=list&statut=En attente').then(function(r){
+    var n = (r.data || r || []).length;
+    var b = document.getElementById('conges-badge');
+    if (!b) return;
+    if (n > 0) { b.textContent = n; b.style.display = ''; }
+    else        { b.style.display = 'none'; }
+  }).catch(function(){});
+}
+
+// Lancer le badge au chargement
+setTimeout(function(){ try { refreshCongesPendingBadge(); } catch(e){} }, 2500);
 

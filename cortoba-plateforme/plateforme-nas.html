@@ -178,6 +178,11 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Clients
         </button>
+        <button class="nav-item" onclick="showPage('conges')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+          Congés
+          <span class="nav-badge" id="conges-badge" style="display:none">0</span>
+        </button>
         <button class="nav-item" onclick="showPage('demandes-admin')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           Demandes admin
@@ -2200,6 +2205,85 @@
         <div class="card"><div id="charge-wrap" style="padding:1rem"><div style="color:var(--text-3);font-size:0.82rem">Chargement…</div></div></div>
       </div>
 
+      <!-- ══ CONGÉS ══ -->
+      <div class="page" id="page-conges">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">RH · Congés & absences</div>
+            <h1 class="page-title">Congés</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openCongeForm()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouvelle demande
+            </button>
+          </div>
+        </div>
+
+        <!-- Onglets : Mon espace | Administration (masqué pour non-gérant) -->
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.2rem">
+          <button class="cg-tab active" data-cg-tab="mine" onclick="switchCongeTab('mine',this)"
+                  style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid var(--accent)">
+            Mon espace
+          </button>
+          <button class="cg-tab" data-cg-tab="admin" id="cg-tab-admin" onclick="switchCongeTab('admin',this)"
+                  style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent;display:none">
+            Administration
+          </button>
+        </div>
+
+        <!-- ── PANEL : Mon espace (collaborateur) ── -->
+        <div class="cg-panel" id="cg-panel-mine">
+          <!-- Soldes -->
+          <div class="kpi-grid" id="cg-soldes" style="margin-bottom:1.2rem">
+            <div class="kpi-card"><div class="kpi-label">Congés annuels restants</div><div class="kpi-value" id="cg-solde-annuels">—</div><div class="kpi-delta neutral" id="cg-solde-annuels-sub">sur 22 j/an</div></div>
+            <div class="kpi-card"><div class="kpi-label">Maladie</div><div class="kpi-value" id="cg-solde-maladie">—</div><div class="kpi-delta neutral">jours disponibles</div></div>
+            <div class="kpi-card"><div class="kpi-label">Récupération</div><div class="kpi-value" id="cg-solde-recup">—</div><div class="kpi-delta neutral">heures/jours acquis</div></div>
+            <div class="kpi-card"><div class="kpi-label">En attente de validation</div><div class="kpi-value" id="cg-solde-pending">—</div><div class="kpi-delta neutral">jours provisionnés</div></div>
+          </div>
+
+          <div class="grid-2" style="align-items:flex-start">
+            <!-- Historique -->
+            <div class="card">
+              <div class="card-title">Mes demandes</div>
+              <div id="cg-mes-demandes" style="font-size:0.82rem">
+                <div style="color:var(--text-3);padding:1rem;text-align:center">Chargement…</div>
+              </div>
+            </div>
+
+            <!-- Heatmap charge de travail -->
+            <div class="card">
+              <div class="card-title">Mon calendrier de charge</div>
+              <div style="font-size:0.72rem;color:var(--text-3);margin-bottom:0.6rem">
+                Survolez une case pour voir les deadlines qui impactent votre disponibilité.
+              </div>
+              <div style="display:flex;gap:0.6rem;font-size:0.68rem;color:var(--text-3);margin-bottom:0.8rem;flex-wrap:wrap">
+                <span><span style="display:inline-block;width:10px;height:10px;background:#3fa66a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Faible</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#d4a64a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Moyenne</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#d45656;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Forte (période charrette)</span>
+              </div>
+              <div id="cg-heatmap"><div style="color:var(--text-3);font-size:0.78rem;padding:1rem;text-align:center">Chargement…</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PANEL : Admin (gérant) ── -->
+        <div class="cg-panel" id="cg-panel-admin" style="display:none">
+          <div class="card" style="margin-bottom:1rem">
+            <div class="card-title">Demandes en attente de validation</div>
+            <div id="cg-admin-pending"><div style="color:var(--text-3);font-size:0.82rem;padding:1rem;text-align:center">Chargement…</div></div>
+          </div>
+          <div class="card" style="margin-bottom:1rem">
+            <div class="card-title">Soldes de l'équipe</div>
+            <div id="cg-admin-balances" style="font-size:0.82rem;overflow-x:auto"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Historique (approuvées / refusées)</div>
+            <div id="cg-admin-history" style="font-size:0.82rem"></div>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -3931,5 +4015,68 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 800);
 });
 </script>
+
+<!-- ══ Modal : Nouvelle demande de congé ══ -->
+<div class="modal-overlay" id="modal-conge">
+  <div class="modal-box" style="max-width:640px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title">Nouvelle demande de congé</div>
+      <button class="modal-close" onclick="closeModal('modal-conge')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:75vh;overflow-y:auto;padding-right:0.5rem">
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="form-label">Type de congé</label>
+          <select id="cg-type" class="form-select">
+            <option>Congés annuels</option>
+            <option>Maladie</option>
+            <option>Récupération</option>
+            <option>Sans solde</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="form-field"><label class="form-label">Jours ouvrés</label><input id="cg-jours" class="form-input" readonly value="0" /></div>
+        <div class="form-field"><label class="form-label">Date de début</label><input id="cg-date-debut" class="form-input" type="date" onchange="onCongeDatesChange()" /></div>
+        <div class="form-field"><label class="form-label">Date de fin</label><input id="cg-date-fin" class="form-input" type="date" onchange="onCongeDatesChange()" /></div>
+        <div class="form-field full"><label class="form-label">Motif (optionnel)</label><input id="cg-motif" class="form-input" placeholder="Ex: vacances familiales, déplacement…" /></div>
+        <div class="form-field full">
+          <label class="form-label">Délégation / Passation <span style="color:var(--red)">*</span></label>
+          <textarea id="cg-delegation" class="form-input" rows="3" placeholder="Indiquez à qui vous transférez vos tâches urgentes (ex: finalisation rendus 3D Villa X → Amine ; corrections plans projet Y → Sabrine)"></textarea>
+          <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.3rem">Obligatoire : précisez qui prend le relais sur vos livrables sensibles.</div>
+        </div>
+      </div>
+
+      <div id="cg-warning" style="display:none;margin-top:1rem;padding:0.8rem 1rem;background:rgba(212,86,86,0.08);border:1px solid rgba(212,86,86,0.3);border-radius:4px;font-size:0.78rem;color:#d45656"></div>
+
+      <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1.2rem">
+        <button class="btn" onclick="closeModal('modal-conge')">Annuler</button>
+        <button class="btn btn-primary" onclick="submitCongeRequest()">Soumettre la demande</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal : Décision admin (approuver / refuser) ══ -->
+<div class="modal-overlay" id="modal-conge-decide">
+  <div class="modal-box" style="max-width:520px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="cg-decide-title">Décision</div>
+      <button class="modal-close" onclick="closeModal('modal-conge-decide')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="cg-decide-info" style="font-size:0.82rem;color:var(--text-2);margin-bottom:1rem"></div>
+      <div class="form-field">
+        <label class="form-label">Commentaire (optionnel)</label>
+        <textarea id="cg-decide-comment" class="form-input" rows="3" placeholder="Ex: Refusé car rendu APD prévu le même jour"></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1.2rem">
+        <button class="btn" onclick="closeModal('modal-conge-decide')">Annuler</button>
+        <button class="btn" style="color:var(--red);border-color:rgba(212,86,86,0.4)" onclick="submitCongeDecision('refuse')">Refuser</button>
+        <button class="btn btn-primary" onclick="submitCongeDecision('approve')">Approuver</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

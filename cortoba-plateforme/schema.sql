@@ -467,3 +467,39 @@ CREATE TABLE IF NOT EXISTS `CA_task_dependencies` (
   KEY `idx_task`    (`task_id`),
   KEY `idx_depends` (`depends_on`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ════════════════════════════════════════════════════════════
+-- MIGRATION : Module Congés — demandes + soldes + heatmap
+-- ════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS `CA_leave_requests` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `user_id`          VARCHAR(32)   NOT NULL,
+  `user_name`        VARCHAR(120)  DEFAULT NULL,
+  `type`             VARCHAR(30)   NOT NULL DEFAULT 'Congés annuels'
+                     COMMENT 'Congés annuels | Maladie | Récupération | Sans solde | Autre',
+  `date_debut`       DATE          NOT NULL,
+  `date_fin`         DATE          NOT NULL,
+  `jours`            DECIMAL(5,1)  NOT NULL DEFAULT 0,
+  `motif`            VARCHAR(400)  DEFAULT NULL,
+  `delegation`       VARCHAR(400)  NOT NULL COMMENT 'A qui les tâches urgentes sont transférées',
+  `statut`           VARCHAR(20)   NOT NULL DEFAULT 'En attente'
+                     COMMENT 'En attente | Approuvé | Refusé | Annulé',
+  `commentaire_admin` VARCHAR(500) DEFAULT NULL,
+  `decision_par`     VARCHAR(120)  DEFAULT NULL,
+  `decision_at`      DATETIME      DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_user`   (`user_id`),
+  KEY `idx_statut` (`statut`),
+  KEY `idx_dates`  (`date_debut`,`date_fin`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `CA_leave_balances` (
+  `user_id`          VARCHAR(32)   NOT NULL,
+  `annee`            INT           NOT NULL,
+  `conges_annuels`   DECIMAL(5,1)  NOT NULL DEFAULT 22,
+  `maladie`          DECIMAL(5,1)  NOT NULL DEFAULT 15,
+  `recuperation`     DECIMAL(5,1)  NOT NULL DEFAULT 0,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`,`annee`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
