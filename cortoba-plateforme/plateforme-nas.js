@@ -11272,3 +11272,218 @@ function refreshCongesPendingBadge(){
 // Lancer le badge au chargement
 setTimeout(function(){ try { refreshCongesPendingBadge(); } catch(e){} }, 2500);
 
+
+// ════════════════════════════════════════════════════════════════
+//  LIVRABLES — Catalogue (paramètres) + checklist par tâche (suivi)
+// ════════════════════════════════════════════════════════════════
+
+function getLivrablesCatalogue() {
+  var arr = (typeof getSetting === 'function') ? getSetting('cortoba_livrables_catalogue') : null;
+  return Array.isArray(arr) ? arr : [];
+}
+
+function _paramLivMissions() {
+  var m = (typeof getSetting === 'function') ? getSetting('cortoba_missions') : null;
+  return Array.isArray(m) ? m : [];
+}
+function _paramLivTachesTypes() {
+  var t = (typeof getSetting === 'function') ? getSetting('cortoba_taches_types') : null;
+  return Array.isArray(t) ? t : [];
+}
+
+function renderParametresLivrables() {
+  var wrap = document.getElementById('param-livrables-wrap');
+  if (!wrap) return;
+  var missions = _paramLivMissions();
+  var tachesTypes = _paramLivTachesTypes();
+  var cat = getLivrablesCatalogue();
+
+  var selMission = document.getElementById('param-liv-mission');
+  var selTache   = document.getElementById('param-liv-tache');
+  if (selMission) {
+    var curM = selMission.value;
+    selMission.innerHTML = '<option value="">— Mission —</option>' +
+      missions.map(function(m){ return '<option value="'+escHtml(m.id||'')+'">'+escHtml(m.nom||'')+'</option>'; }).join('');
+    if (curM) selMission.value = curM;
+  }
+  if (selTache) {
+    var curT = selTache.value;
+    var mid = selMission ? selMission.value : '';
+    var filtered = mid ? tachesTypes.filter(function(tt){ return (tt.mission_id||'') === mid; }) : tachesTypes;
+    selTache.innerHTML = '<option value="">— Tâche (optionnel) —</option>' +
+      filtered.map(function(tt){ return '<option value="'+escHtml(tt.id||'')+'">'+escHtml(tt.nom||'')+'</option>'; }).join('');
+    if (curT) selTache.value = curT;
+  }
+
+  var byMission = {};
+  cat.forEach(function(e){
+    var k = e.mission_id || '';
+    (byMission[k] = byMission[k] || []).push(e);
+  });
+  var html = '';
+  if (cat.length === 0) {
+    html = '<div style="color:var(--text-3);font-size:0.85rem;padding:0.5rem 0">Aucun livrable au catalogue. Ajoutez-en ci-dessus.</div>';
+  } else {
+    missions.forEach(function(m){
+      var list = byMission[m.id] || [];
+      if (!list.length) return;
+      html += '<div style="margin-top:0.6rem"><div style="font-weight:600;font-size:0.82rem;color:var(--text-2);margin-bottom:0.25rem">'+escHtml(m.nom||'')+'</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
+      list.forEach(function(e){ html += _paramLivrableBadge(e, tachesTypes); });
+      html += '</div></div>';
+    });
+    if (byMission['']) {
+      html += '<div style="margin-top:0.6rem"><div style="font-weight:600;font-size:0.82rem;color:var(--text-2);margin-bottom:0.25rem">(Sans mission)</div><div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
+      byMission[''].forEach(function(e){ html += _paramLivrableBadge(e, tachesTypes); });
+      html += '</div></div>';
+    }
+  }
+  wrap.innerHTML = html;
+}
+
+function _paramLivrableBadge(e, tachesTypes) {
+  var tt = (tachesTypes || []).find(function(x){ return x.id === e.tache_type_id; });
+  var ctx = [];
+  if (tt) ctx.push(tt.nom);
+  if (e.sous_tache) ctx.push(e.sous_tache);
+  var ctxTxt = ctx.length ? ' <span style="color:var(--text-3);font-size:0.7rem">('+escHtml(ctx.join(' › '))+')</span>' : '';
+  return '<span style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:0.2rem 0.55rem;font-size:0.78rem">'+
+    escHtml(e.nom||'') + ctxTxt +
+    ' <button type="button" onclick="removeParamLivrable(\''+escHtml(e.id||'')+'\')" style="background:none;border:none;color:var(--text-3);cursor:pointer;padding:0;font-size:0.9rem" title="Supprimer">✕</button></span>';
+}
+
+function onParamLivrableMissionChange() { renderParametresLivrables(); }
+
+function addParamLivrable() {
+  var selM = document.getElementById('param-liv-mission');
+  var selT = document.getElementById('param-liv-tache');
+  var inpS = document.getElementById('param-liv-sous-tache');
+  var inpN = document.getElementById('param-liv-nom');
+  if (!inpN) return;
+  var nom = (inpN.value||'').trim();
+  if (!nom) { showToast('Saisir un nom de livrable', 'error'); return; }
+  var cat = getLivrablesCatalogue();
+  cat.push({
+    id: 'liv_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+    mission_id: selM ? selM.value : '',
+    tache_type_id: selT ? selT.value : '',
+    sous_tache: inpS ? (inpS.value||'').trim() : '',
+    nom: nom
+  });
+  if (typeof saveSetting === 'function') {
+    saveSetting('cortoba_livrables_catalogue', cat).then(function(){
+      inpN.value = '';
+      if (inpS) inpS.value = '';
+      renderParametresLivrables();
+      showToast('Livrable ajouté', 'success');
+    }).catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+  }
+}
+
+function removeParamLivrable(id) {
+  if (!confirm('Supprimer ce livrable du catalogue ?')) return;
+  var cat = getLivrablesCatalogue().filter(function(e){ return e.id !== id; });
+  if (typeof saveSetting === 'function') {
+    saveSetting('cortoba_livrables_catalogue', cat).then(function(){
+      renderParametresLivrables();
+    }).catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+  }
+}
+
+// ── Checklist livrables par tâche (dans modal suivi) ──
+var _currentTacheLivrables = [];
+
+function loadTacheLivrables(tacheId) {
+  if (!tacheId) { _currentTacheLivrables = []; renderTacheLivrables(); return; }
+  apiFetch('api/livrables.php?tache_id=' + encodeURIComponent(tacheId))
+    .then(function(r){
+      _currentTacheLivrables = r.data || [];
+      renderTacheLivrables();
+    })
+    .catch(function(e){ console.error('[loadTacheLivrables]', e); _currentTacheLivrables = []; renderTacheLivrables(); });
+}
+
+function renderTacheLivrables() {
+  var list = document.getElementById('tache-livrables-list');
+  var cnt  = document.getElementById('tache-livrables-count');
+  if (!list) return;
+  var items = _currentTacheLivrables || [];
+  var done = items.filter(function(i){ return parseInt(i.done,10) === 1; }).length;
+  if (cnt) cnt.textContent = items.length ? '(' + done + '/' + items.length + ')' : '';
+  if (!items.length) {
+    list.innerHTML = '<div style="color:var(--text-3);font-size:0.78rem;padding:0.3rem 0.2rem">Aucun livrable. Ajoutez-en ou appliquez le catalogue.</div>';
+    return;
+  }
+  list.innerHTML = items.map(function(i){
+    var checked = parseInt(i.done,10) === 1;
+    var meta = '';
+    if (checked && i.done_par) meta = ' <span style="color:var(--text-3);font-size:0.65rem">par '+escHtml(i.done_par)+'</span>';
+    return '<label style="display:flex;align-items:center;gap:0.45rem;padding:0.22rem 0.3rem;border-radius:4px;cursor:pointer'+(checked?';opacity:0.75':'')+'">'+
+      '<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleTacheLivrable(\''+escHtml(i.id)+'\', this.checked)" />'+
+      '<span style="flex:1;font-size:0.82rem'+(checked?';text-decoration:line-through':'')+'">'+escHtml(i.label||'')+meta+'</span>'+
+      '<button type="button" onclick="deleteTacheLivrable(\''+escHtml(i.id)+'\')" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.85rem" title="Supprimer">✕</button>'+
+    '</label>';
+  }).join('');
+}
+
+function addTacheLivrable() {
+  var inp = document.getElementById('tache-livrables-input');
+  var tId = document.getElementById('tache-id');
+  if (!inp || !tId || !tId.value) { showToast("Enregistrer la tâche avant d'ajouter des livrables", 'error'); return; }
+  var label = (inp.value||'').trim();
+  if (!label) return;
+  apiFetch('api/livrables.php', { method:'POST', body: JSON.stringify({ tache_id: tId.value, label: label }) })
+    .then(function(r){
+      _currentTacheLivrables.push(r.data);
+      inp.value = '';
+      renderTacheLivrables();
+      _refreshSuiviLivrablesCount(tId.value);
+    })
+    .catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+}
+
+function toggleTacheLivrable(id, checked) {
+  apiFetch('api/livrables.php?id=' + encodeURIComponent(id), { method:'PUT', body: JSON.stringify({ done: checked ? 1 : 0 }) })
+    .then(function(r){
+      var idx = _currentTacheLivrables.findIndex(function(i){ return i.id === id; });
+      if (idx >= 0) _currentTacheLivrables[idx] = r.data;
+      renderTacheLivrables();
+      var tId = document.getElementById('tache-id');
+      if (tId && tId.value) _refreshSuiviLivrablesCount(tId.value);
+    })
+    .catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+}
+
+function deleteTacheLivrable(id) {
+  if (!confirm('Supprimer ce livrable ?')) return;
+  apiFetch('api/livrables.php?id=' + encodeURIComponent(id), { method:'DELETE' })
+    .then(function(){
+      _currentTacheLivrables = _currentTacheLivrables.filter(function(i){ return i.id !== id; });
+      renderTacheLivrables();
+      var tId = document.getElementById('tache-id');
+      if (tId && tId.value) _refreshSuiviLivrablesCount(tId.value);
+    })
+    .catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+}
+
+function applyLivrablesCatalogue() {
+  var tId = document.getElementById('tache-id');
+  if (!tId || !tId.value) { showToast("Enregistrer la tâche avant d'appliquer le catalogue", 'error'); return; }
+  apiFetch('api/livrables.php', { method:'POST', body: JSON.stringify({ tache_id: tId.value, action: 'apply_catalogue' }) })
+    .then(function(r){
+      _currentTacheLivrables = (r.data && r.data.items) || [];
+      renderTacheLivrables();
+      var added = (r.data && r.data.added) || 0;
+      showToast(added > 0 ? (added + ' livrable(s) ajouté(s)') : 'Aucun livrable à ajouter', added > 0 ? 'success' : 'info');
+      _refreshSuiviLivrablesCount(tId.value);
+    })
+    .catch(function(e){ showToast('Erreur : '+e.message, 'error'); });
+}
+
+function _refreshSuiviLivrablesCount(tacheId) {
+  var t = (_suiviCache || []).find(function(x){ return x.id === tacheId; });
+  if (!t) return;
+  var items = _currentTacheLivrables || [];
+  t.livrables_total = items.length;
+  t.livrables_done = items.filter(function(i){ return parseInt(i.done,10) === 1; }).length;
+}
