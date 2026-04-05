@@ -64,7 +64,6 @@ function loadData(){
         // Normaliser snake_case → camelCase
         if(p.type_bat !== undefined && p.typeBat === undefined) p.typeBat = p.type_bat;
         if(p.client_id !== undefined && p.clientId === undefined) p.clientId = p.client_id;
-        if(p.nas_path !== undefined && p.nasPath === undefined) p.nasPath = p.nas_path;
         return p;
       });
       return _cache.projets;
@@ -1889,6 +1888,7 @@ function resetProjetForm(){
   var titleEl = document.getElementById('pj-modal-title');  if(titleEl) titleEl.textContent='Nouveau projet';
   var eyebrow = document.getElementById('pj-modal-eyebrow');if(eyebrow) eyebrow.textContent='NOUVEAU PROJET';
   var saveBtn = document.getElementById('pj-save-btn');     if(saveBtn) saveBtn.textContent='Créer le projet →';
+  var chatChk = document.getElementById('pj-chat-create');  if(chatChk) chatChk.checked = false;
 
   populateClientSelect();
   populateMissionsList([]);
@@ -2829,6 +2829,28 @@ function saveAgenceParams(){
   });
 }
 
+// Paramètres Rendement — taux horaires standards
+function saveRendementParams(){
+  var fact = (document.getElementById('param-taux-facturation-std')||{value:''}).value;
+  var cout = (document.getElementById('param-taux-cout-std')||{value:''}).value;
+  var vFact = fact === '' ? 0 : parseFloat(fact);
+  var vCout = cout === '' ? 0 : parseFloat(cout);
+  Promise.all([
+    saveSetting('rendement_taux_facturation_std', vFact),
+    saveSetting('rendement_taux_cout_std',        vCout)
+  ]).then(function(results){
+    var errors = results.filter(function(r){ return r && r.error; });
+    if (errors.length > 0) showToast('⚠ Sauvegarde locale OK, mais ' + errors.length + ' erreur(s) serveur', 'error');
+    else showToast('✓ Taux Rendement enregistrés');
+  });
+}
+function loadRendementParams(){
+  var f = document.getElementById('param-taux-facturation-std');
+  var c = document.getElementById('param-taux-cout-std');
+  if (f) f.value = getSetting('rendement_taux_facturation_std', 60);
+  if (c) c.value = getSetting('rendement_taux_cout_std', 25);
+}
+
 // Charger les infos agence dans les champs
 function loadAgenceParams(){
   var map = {
@@ -3557,9 +3579,9 @@ function showNotifications(){
   var devis = getDevis().filter(function(d){ return d.statut === 'En attente'; });
 
   var ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:flex-start;justify-content:flex-end;padding:4rem 1.5rem 0';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:9999;display:flex;align-items:flex-start;justify-content:flex-end;padding:4rem 1.5rem 0';
   var box = document.createElement('div');
-  box.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.5rem;min-width:340px;max-width:440px;max-height:80vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+  box.style.cssText = 'background:#1b1b1f;border:1px solid var(--border);border-radius:10px;padding:1.2rem 1.5rem;min-width:360px;max-width:460px;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.85)';
   var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">'
     + '<div style="font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3)">Notifications</div>'
     + '<div style="display:flex;gap:0.5rem;align-items:center">'
@@ -3568,8 +3590,8 @@ function showNotifications(){
     + '</div></div>';
   box.innerHTML = header;
 
-  // Parallel : personal notifications + dépenses dues
-  var pNotifs = apiFetch('api/notifications.php?action=list&limit=30')
+  // Parallel : personal notifications + dépenses dues (dropdown = 5 plus récentes hors archivées)
+  var pNotifs = apiFetch('api/notifications.php?action=list&status=inbox&sort=unread_first&limit=5')
     .then(function(r){ return (r && r.data) ? r.data : (r || []); })
     .catch(function(){ return []; });
   var pDue = apiFetch('api/depenses_templates.php?action=due')
@@ -3594,8 +3616,8 @@ function showNotifications(){
       notifs.forEach(function(n){
         var entry = document.createElement('div');
         var unread = !parseInt(n.is_read||0, 10);
-        entry.style.cssText = 'font-size:0.82rem;padding:0.6rem 0.6rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;margin:0 -0.3rem;transition:background 0.15s;'
-          + (unread ? 'background:rgba(200,169,110,0.06);border-left:2px solid var(--accent)' : 'opacity:0.72');
+        entry.style.cssText = 'font-size:0.82rem;padding:0.6rem 0.6rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;margin:0 -0.3rem;transition:background 0.15s;color:var(--text-1);'
+          + (unread ? 'background:rgba(200,169,110,0.08);border-left:2px solid var(--accent)' : '');
         entry.onmouseover = function(){ entry.style.background = unread ? 'rgba(200,169,110,0.1)' : 'rgba(255,255,255,0.04)'; };
         entry.onmouseout  = function(){ entry.style.background = unread ? 'rgba(200,169,110,0.06)' : 'transparent'; };
         var when = n.cree_at ? _cgRelativeTime(n.cree_at) : '';
@@ -3665,6 +3687,22 @@ function showNotifications(){
       empty.innerHTML = '\u2705 Aucune notification en attente';
       box.appendChild(empty);
     }
+
+    // ── Footer : bouton "Afficher tout" ──
+    var footer = document.createElement('div');
+    footer.style.cssText = 'margin-top:0.8rem;padding-top:0.7rem;border-top:1px solid var(--border);text-align:center';
+    var btnAll = document.createElement('button');
+    btnAll.type = 'button';
+    btnAll.style.cssText = 'background:rgba(200,169,110,0.1);border:1px solid var(--accent);color:var(--accent);padding:0.5rem 1rem;border-radius:6px;font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;width:100%;transition:background 0.15s';
+    btnAll.textContent = 'Afficher toutes les notifications';
+    btnAll.onmouseover = function(){ btnAll.style.background = 'rgba(200,169,110,0.22)'; };
+    btnAll.onmouseout  = function(){ btnAll.style.background = 'rgba(200,169,110,0.1)'; };
+    btnAll.addEventListener('click', function(){
+      ov.remove();
+      showPage('notifications');
+    });
+    footer.appendChild(btnAll);
+    box.appendChild(footer);
   });
 
   box.querySelector('#notif-close').addEventListener('click', function(){ ov.remove(); });
@@ -4090,11 +4128,12 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
+  // ('notifications' est toujours accessible : ouvert depuis la cloche)
   var _allowed = getAllowedModules();
-  if (_allowed !== null && _allowed.indexOf(id) === -1) {
+  if (id !== 'notifications' && _allowed !== null && _allowed.indexOf(id) === -1) {
     var _first = _allowed[0] || 'dashboard';
     if (_first !== id) showPage(_first);
     return;
@@ -4116,6 +4155,7 @@ function showPage(id){
   if(id==='charge')     setTimeout(function(){ if(typeof renderChargePage==='function') renderChargePage(); },80);
   if(id==='demandes-admin') setTimeout(renderDemandesAdminPage,80);
   if(id==='conges')     setTimeout(function(){ if(typeof renderCongesPage==='function') renderCongesPage(); },80);
+  if(id==='notifications') setTimeout(function(){ if(typeof renderNotificationsPage==='function') renderNotificationsPage(); },40);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
@@ -4126,9 +4166,11 @@ function showPage(id){
       renderCfgTypesParams();
       renderParametresMissions();
       if (typeof renderParametresTachesTypes === 'function') renderParametresTachesTypes();
+      if (typeof renderParametresLivrables === 'function') renderParametresLivrables();
       if (typeof renderParametresDA === 'function') renderParametresDA();
       if (typeof renderParametresRoles === 'function') renderParametresRoles();
       loadAgenceParams();
+      loadRendementParams();
       loadNasParams();
       loadLogoParam();
       loadCfgParams();
@@ -6897,6 +6939,8 @@ function loadTaches(projetId) {
       if (isNaN(t.niveau)) t.niveau = 0;
       t.progression = parseInt(t.progression, 10) || 0;
       t.ordre       = parseInt(t.ordre, 10) || 0;
+      t.livrables_total = parseInt(t.livrables_total, 10) || 0;
+      t.livrables_done  = parseInt(t.livrables_done,  10) || 0;
       return t;
     });
     console.info('[loadTaches] ' + _suiviCache.length + ' tâches chargées');
@@ -6975,6 +7019,15 @@ function suiviPrioriteBadge(p) {
   if (p === 'Haute')   return '<span class="suivi-prio suivi-prio-haute">Haute</span>';
   if (p === 'Basse')   return '<span class="suivi-prio suivi-prio-basse">Basse</span>';
   return '';
+}
+
+function _livrablesBadgeHtml(t) {
+  var tot = parseInt(t && t.livrables_total, 10) || 0;
+  if (!tot) return '';
+  var done = parseInt(t && t.livrables_done, 10) || 0;
+  var full = done >= tot;
+  var color = full ? 'var(--green)' : (done > 0 ? 'var(--accent)' : 'var(--text-3)');
+  return '<span class="suivi-livrables-badge" title="Livrables cochés" style="display:inline-flex;align-items:center;gap:0.2rem;font-size:0.7rem;color:' + color + ';background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:0.05rem 0.45rem;margin-left:0.35rem">☑ ' + done + '/' + tot + '</span>';
 }
 
 function suiviProgressBar(val) {
@@ -7136,6 +7189,7 @@ function renderSuiviTree(items) {
         html += '<input type="checkbox" class="suivi-cb" ' + (tache.statut === 'Terminé' ? 'checked' : '') + ' onchange="toggleTacheStatut(\'' + tache.id + '\', this.checked)" onclick="event.stopPropagation()" />';
         html += '<span class="suivi-tache-titre' + (tache.statut === 'Terminé' ? ' done' : '') + '">' + (tache.titre||'') + '</span>';
         html += suiviPrioriteBadge(tache.priorite);
+        html += _livrablesBadgeHtml(tache);
         html += '</div>';
         html += '<div class="suivi-tache-right">';
         html += suiviStatutBadge(tache.statut);
@@ -7159,6 +7213,7 @@ function renderSuiviTree(items) {
             html += '<input type="checkbox" class="suivi-cb" ' + (st.statut === 'Terminé' ? 'checked' : '') + ' onchange="toggleTacheStatut(\'' + st.id + '\', this.checked)" />';
             html += '<span class="suivi-tache-titre' + (st.statut === 'Terminé' ? ' done' : '') + '">' + (st.titre||'') + '</span>';
             html += suiviPrioriteBadge(st.priorite);
+            html += _livrablesBadgeHtml(st);
             html += '<div style="margin-left:auto;display:flex;align-items:center;gap:0.4rem">';
             html += suiviStatutBadge(st.statut);
             html += suiviProgressBar(st.progression || 0);
@@ -7401,6 +7456,9 @@ function openSuiviModal(niveau, parentId, projetId) {
   _r = document.getElementById('tache-heures-estimees');     if (_r) _r.value = '';
   _r = document.getElementById('tache-order-index');         if (_r) _r.value = '';
   _r = document.getElementById('tache-progression-manuelle'); if (_r) _r.checked = false;
+  var _livSec = document.getElementById('tache-livrables-section');
+  if (_livSec) _livSec.style.display = 'none';
+  _currentTacheLivrables = [];
   var errEl = document.getElementById('tache-err');
   if (errEl) errEl.style.display = 'none';
 
@@ -7647,6 +7705,8 @@ function editTache(id) {
   document.getElementById('tache-prog-val').textContent = (t.progression||0) + '%';
   document.getElementById('tache-date-debut').value = t.dateDebut || t.date_debut || '';
   document.getElementById('tache-date-echeance').value = t.dateEcheance || t.date_echeance || '';
+  var _livSecE = document.getElementById('tache-livrables-section');
+  if (_livSecE) { _livSecE.style.display = ''; loadTacheLivrables(t.id); }
   var errEl = document.getElementById('tache-err');
   if (errEl) errEl.style.display = 'none';
 
@@ -10761,21 +10821,45 @@ function renderCongesMine(){
   var from = today.toISOString().slice(0,10);
   var end = new Date(today.getFullYear(), today.getMonth()+3, 0);
   var to = end.toISOString().slice(0,10);
-  apiFetch('api/conges.php?action=heatmap&from=' + from + '&to=' + to).then(function(r){
-    var d = r.data || r;
+  Promise.all([
+    apiFetch('api/conges.php?action=heatmap&from=' + from + '&to=' + to),
+    apiFetch('api/conges.php?action=team_shared&from=' + from + '&to=' + to).catch(function(){ return { data: [] }; })
+  ]).then(function(results){
+    var d  = results[0].data || results[0];
+    var ts = results[1].data || results[1] || [];
     _congesState.heatmap = d.days || {};
-    renderHeatmap('cg-heatmap', _congesState.heatmap, from, to);
+    _congesState.teamAbsences = _cgBuildTeamAbsenceMap(ts);
+    renderHeatmap('cg-heatmap', _congesState.heatmap, from, to, _congesState.teamAbsences);
   }).catch(function(e){
     document.getElementById('cg-heatmap').innerHTML = '<div style="color:var(--red);padding:1rem;font-size:0.78rem">Erreur heatmap : ' + _cgEscape(e.message) + '</div>';
   });
 }
 
+// Construit un index date → [absences équipe] à partir d'une liste de congés partagés
+function _cgBuildTeamAbsenceMap(list){
+  var map = {};
+  (list || []).forEach(function(c){
+    var s = new Date(c.date_debut); var e = new Date(c.date_fin);
+    if (isNaN(s) || isNaN(e)) return;
+    var cur = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+    while (cur <= e) {
+      var k = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
+      if (!map[k]) map[k] = [];
+      map[k].push({ name: c.user_name, type: c.type });
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  return map;
+}
+
 // ── Heatmap (calendrier mensuel simplifié) ──
-function renderHeatmap(containerId, days, from, to){
+// teamAbsences : map { 'YYYY-MM-DD' => [{name, type}, ...] } pour overlay "sous-effectif"
+function renderHeatmap(containerId, days, from, to, teamAbsences){
   var el = document.getElementById(containerId);
   if (!el) return;
   var start = new Date(from); var end = new Date(to);
   if (isNaN(start) || isNaN(end)) { el.innerHTML = ''; return; }
+  teamAbsences = teamAbsences || {};
 
   var monthsHtml = '';
   var cur = new Date(start.getFullYear(), start.getMonth(), 1);
@@ -10807,12 +10891,23 @@ function renderHeatmap(containerId, days, from, to){
       var tipLines = items.map(function(it){
         return '• ' + it.titre + (it.projet ? ' — ' + it.projet : '') + ' (échéance ' + _cgFmtDate(it.date_echeance) + ')';
       });
+      // Overlay "sous-effectif" si au moins un membre en congé partagé ce jour-là
+      var absents = teamAbsences[key] || [];
+      var extraBorder = '';
+      var absentBadge = '';
+      if (absents.length && !isWeekend) {
+        extraBorder = ';box-shadow:inset 0 0 0 2px #9b6bd6';
+        var names = absents.map(function(a){ return a.name + (a.type ? ' (' + a.type + ')' : ''); }).join(', ');
+        tipLines.push('');
+        tipLines.push('⚠ Sous-effectif : ' + absents.length + ' absent(s) — ' + names);
+        absentBadge = '<div style="position:absolute;top:-4px;right:-4px;background:#9b6bd6;color:#fff;font-size:0.55rem;min-width:14px;height:14px;padding:0 3px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;border:1px solid var(--bg-1)">' + absents.length + '</div>';
+      }
       var tip = tipLines.length
         ? tipLines.join('\n')
         : (isWeekend ? 'Week-end' : 'Aucune deadline majeure — disponibilité normale');
       monthsHtml += '<div class="cg-hm-cell" data-key="' + key + '" title="' + _cgEscape(tip) + '" '
-        + 'style="background:' + bg + ';color:#fff;font-size:0.65rem;text-align:center;padding:6px 2px;border-radius:3px;cursor:help;font-weight:500;opacity:' + (isWeekend?'0.4':'1') + '">'
-        + d + '</div>';
+        + 'style="position:relative;background:' + bg + ';color:#fff;font-size:0.65rem;text-align:center;padding:6px 2px;border-radius:3px;cursor:help;font-weight:500;opacity:' + (isWeekend?'0.4':'1') + extraBorder + '">'
+        + d + absentBadge + '</div>';
     }
     monthsHtml += '</div></div>';
     cur.setMonth(cur.getMonth() + 1);
@@ -10845,7 +10940,7 @@ function openCongeForm(){
   loader.then(function(r){
     var d = r.data || r;
     _congesState.heatmap = d.days || _congesState.heatmap || {};
-    renderHeatmap('cg-modal-heatmap', _congesState.heatmap, from, to);
+    renderHeatmap('cg-modal-heatmap', _congesState.heatmap, from, to, _congesState.teamAbsences || {});
     // Rendre les cases cliquables pour sélectionner début / fin
     var cells = document.querySelectorAll('#cg-modal-heatmap .cg-hm-cell');
     cells.forEach(function(cell){
@@ -11030,13 +11125,43 @@ function renderCongesAdminTable(containerId, list, withActions){
       + '<td style="text-align:right">';
     if (withActions){
       html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem">Décider</button>';
-    } else if (r.commentaire_admin){
-      html += '<span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3)">💬</span>';
+    } else {
+      if (r.statut === 'Approuvé' || r.statut === 'Refusé') {
+        html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem" title="Modifier la décision">✎ Modifier</button> ';
+      }
+      if (r.commentaire_admin){
+        html += '<span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3);margin-left:4px">💬</span>';
+      }
+      if (r.statut === 'Approuvé' && parseInt(r.partage||0,10) === 0) {
+        html += ' <span title="Non partagé avec le calendrier équipe" style="cursor:help;color:var(--text-3);margin-left:4px">🔒</span>';
+      }
     }
     html += '</td></tr>';
   });
   html += '</tbody></table>';
   el.innerHTML = html;
+}
+
+// Injecte dynamiquement la case "Partager avec l'équipe" si pas déjà présente dans le DOM
+function _ensureDecideExtras(){
+  var commentField = document.getElementById('cg-decide-comment');
+  if (!commentField) return null;
+  if (!document.getElementById('cg-decide-partage-wrap')) {
+    var wrap = document.createElement('div');
+    wrap.id = 'cg-decide-partage-wrap';
+    wrap.className = 'form-field';
+    wrap.style.marginTop = '0.6rem';
+    wrap.innerHTML =
+      '<label style="display:flex;align-items:flex-start;gap:0.55rem;cursor:pointer;font-size:0.8rem;line-height:1.35">'
+      + '<input type="checkbox" id="cg-decide-partage" checked style="margin-top:2px">'
+      + '<span><strong>Partager avec le calendrier de l\'équipe</strong>'
+      + '<span style="display:block;color:var(--text-3);font-size:0.72rem;margin-top:2px">'
+      + 'Les autres membres verront ces jours comme <em>sous-effectif</em>. Décocher pour masquer (absence confidentielle).'
+      + '</span></span></label>';
+    var commentBlock = commentField.closest('.form-field') || commentField.parentNode;
+    commentBlock.parentNode.insertBefore(wrap, commentBlock.nextSibling);
+  }
+  return document.getElementById('cg-decide-partage');
 }
 
 function openCongeDecide(id){
@@ -11045,13 +11170,31 @@ function openCongeDecide(id){
     var req = list.find(function(x){ return x.id === id; });
     if (!req) return alert('Demande introuvable');
     _congesState.decideId = id;
-    document.getElementById('cg-decide-title').textContent = 'Demande de ' + req.user_name;
-    document.getElementById('cg-decide-info').innerHTML =
+    var isModif = (req.statut === 'Approuvé' || req.statut === 'Refusé');
+    document.getElementById('cg-decide-title').textContent = (isModif ? 'Modifier la décision — ' : 'Demande de ') + req.user_name;
+    var statutBadge = '';
+    if (isModif) {
+      var col = req.statut === 'Approuvé' ? '#3fa66a' : '#d45656';
+      statutBadge = '<div style="display:inline-block;padding:2px 8px;border-radius:3px;background:' + col + '22;color:' + col + ';font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem">Décision actuelle : ' + req.statut + '</div><br>';
+    }
+    document.getElementById('cg-decide-info').innerHTML = statutBadge +
       '<strong>' + _cgEscape(req.type) + '</strong> · ' + _cgFmtDate(req.date_debut) + ' → ' + _cgFmtDate(req.date_fin)
       + ' (' + parseFloat(req.jours||0).toFixed(1).replace(/\.0$/,'') + ' j)'
       + (req.motif ? '<br><em>Motif :</em> ' + _cgEscape(req.motif) : '')
       + '<br><em>Délégation :</em> ' + _cgEscape(req.delegation);
-    document.getElementById('cg-decide-comment').value = '';
+    document.getElementById('cg-decide-comment').value = req.commentaire_admin || '';
+    // Case "partage" : pré-cocher selon l'état courant (défaut : coché)
+    var partageCb = _ensureDecideExtras();
+    if (partageCb) {
+      var cur = (req.partage == null) ? 1 : parseInt(req.partage, 10);
+      partageCb.checked = cur !== 0;
+    }
+    // Relibeler les boutons si modification
+    var btns = document.querySelectorAll('#modal-conge-decide button');
+    btns.forEach(function(b){
+      if (/Approuver|Basculer → Approuvé/i.test(b.textContent)) b.textContent = isModif ? 'Basculer → Approuvé' : 'Approuver';
+      if (/^Refuser$|Basculer → Refusé/i.test(b.textContent))   b.textContent = isModif ? 'Basculer → Refusé'   : 'Refuser';
+    });
 
     // Charger le travail restant du collaborateur pendant la période demandée
     var wl = document.getElementById('cg-decide-workload');
@@ -11144,8 +11287,10 @@ function submitCongeDecision(decision){
   var id = _congesState.decideId;
   if (!id) return;
   var commentaire = document.getElementById('cg-decide-comment').value.trim();
+  var partageCb = document.getElementById('cg-decide-partage');
+  var partage = partageCb ? (partageCb.checked ? 1 : 0) : 1;
   apiFetch('api/conges.php?action=decide&id=' + encodeURIComponent(id), {
-    method: 'POST', body: { decision: decision, commentaire: commentaire }
+    method: 'POST', body: { decision: decision, commentaire: commentaire, partage: partage }
   }).then(function(){
     closeModal('modal-conge-decide');
     renderCongesAdmin();

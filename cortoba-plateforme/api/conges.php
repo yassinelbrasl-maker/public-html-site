@@ -35,6 +35,7 @@ try {
         `commentaire_admin` VARCHAR(500) DEFAULT NULL,
         `decision_par` VARCHAR(120) DEFAULT NULL,
         `decision_at` DATETIME DEFAULT NULL,
+        `partage` TINYINT(1) NOT NULL DEFAULT 1,
         `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
         KEY `idx_user`(`user_id`), KEY `idx_statut`(`statut`), KEY `idx_dates`(`date_debut`,`date_fin`)
@@ -48,6 +49,14 @@ try {
         `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (`user_id`,`annee`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+} catch (\Throwable $e) { /* silencieux */ }
+
+// Migration idempotente : ajouter la colonne `partage` si absente
+try {
+    $col = $db->query("SHOW COLUMNS FROM CA_leave_requests LIKE 'partage'")->fetch();
+    if (!$col) {
+        $db->exec("ALTER TABLE CA_leave_requests ADD COLUMN `partage` TINYINT(1) NOT NULL DEFAULT 1 AFTER `decision_at`");
+    }
 } catch (\Throwable $e) { /* silencieux */ }
 
 // ── Helper : est-ce un gérant / admin ? ──
@@ -325,13 +334,15 @@ try {
             break;
         }
 
-        // ────────────────────────────── DECIDE (admin)
+        // ────────────────────────────── DECIDE (admin) — initial OU modification
         case 'decide': {
             if (!isManager($user)) jsonError('Accès refusé', 403);
             $id      = $_GET['id'] ?? '';
             $body    = getBody();
             $decision= $body['decision'] ?? ''; // 'approve' | 'refuse'
             $commentaire = trim($body['commentaire'] ?? '');
+            // Partagé avec le calendrier de l'équipe (sous-effectif). Par défaut : partagé.
+            $partage = array_key_exists('partage', $body) ? (intval($body['partage']) ? 1 : 0) : 1;
             if (!$id) jsonError('ID requis');
             if (!in_array($decision, ['approve','refuse'], true)) jsonError('Décision invalide');
 
@@ -339,42 +350,83 @@ try {
             $stmt->execute([$id]);
             $req = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$req) jsonError('Demande introuvable', 404);
-            if ($req['statut'] !== 'En attente') jsonError('Demande déjà traitée');
+            if ($req['statut'] === 'Annulé') jsonError('Demande annulée — non modifiable');
 
-            $newStatut = $decision === 'approve' ? 'Approuvé' : 'Refusé';
+            $isModification = in_array($req['statut'], ['Approuvé','Refusé'], true);
+            $previousStatut = $req['statut'];
+            $newStatut      = $decision === 'approve' ? 'Approuvé' : 'Refusé';
 
-            $db->prepare('UPDATE CA_leave_requests SET statut=?, commentaire_admin=?, decision_par=?, decision_at=NOW() WHERE id=?')
-               ->execute([$newStatut, $commentaire ?: null, $user['name'] ?? '', $id]);
+            // Si modification d'une décision précédemment "Approuvé" : restituer le solde avant re-application
+            $colFromType = function(string $type): ?string {
+                if ($type === 'Congés annuels') return 'conges_annuels';
+                if ($type === 'Maladie')         return 'maladie';
+                if ($type === 'Récupération')    return 'recuperation';
+                return null;
+            };
+            $annee = intval(substr($req['date_debut'], 0, 4));
+            if ($isModification && $previousStatut === 'Approuvé') {
+                $col = $colFromType($req['type']);
+                if ($col) {
+                    ensureBalance($db, $req['user_id'], $annee);
+                    $db->prepare("UPDATE CA_leave_balances SET $col = $col + ? WHERE user_id = ? AND annee = ?")
+                       ->execute([$req['jours'], $req['user_id'], $annee]);
+                }
+            }
+
+            $db->prepare('UPDATE CA_leave_requests SET statut=?, commentaire_admin=?, decision_par=?, decision_at=NOW(), partage=? WHERE id=?')
+               ->execute([$newStatut, $commentaire ?: null, $user['name'] ?? '', $partage, $id]);
 
             // Décrémenter le solde si approuvé
             if ($decision === 'approve') {
-                $annee = intval(substr($req['date_debut'], 0, 4));
-                $bal   = ensureBalance($db, $req['user_id'], $annee);
-                $col   = null;
-                if ($req['type'] === 'Congés annuels') $col = 'conges_annuels';
-                elseif ($req['type'] === 'Maladie')      $col = 'maladie';
-                elseif ($req['type'] === 'Récupération') $col = 'recuperation';
+                $col = $colFromType($req['type']);
                 if ($col) {
+                    ensureBalance($db, $req['user_id'], $annee);
                     $db->prepare("UPDATE CA_leave_balances SET $col = GREATEST(0, $col - ?) WHERE user_id = ? AND annee = ?")
                        ->execute([$req['jours'], $req['user_id'], $annee]);
                 }
             }
 
-            // Notifier le collaborateur
+            // Notifier le collaborateur (initial OU modification)
             if (function_exists('notifCreate')) {
                 $periode = date('d/m/Y', strtotime($req['date_debut'])) . ' → ' . date('d/m/Y', strtotime($req['date_fin']));
-                $title = $decision === 'approve'
-                    ? '✅ Votre demande de congé a été approuvée'
-                    : '❌ Votre demande de congé a été refusée';
-                $msg = $req['type'] . ' — ' . $periode
-                     . ' (' . rtrim(rtrim(number_format(floatval($req['jours']),1,'.',''),'0'),'.') . ' j)'
-                     . ($commentaire ? "\n\nCommentaire : " . $commentaire : '');
+                if ($isModification) {
+                    $title = $decision === 'approve'
+                        ? '🔄 Décision modifiée : votre congé est désormais approuvé'
+                        : '🔄 Décision modifiée : votre congé est désormais refusé';
+                } else {
+                    $title = $decision === 'approve'
+                        ? '✅ Votre demande de congé a été approuvée'
+                        : '❌ Votre demande de congé a été refusée';
+                }
+                $jStr = rtrim(rtrim(number_format(floatval($req['jours']),1,'.',''),'0'),'.');
+                $msg = $req['type'] . ' — ' . $periode . ' (' . $jStr . ' j)'
+                     . ($commentaire ? "\n\nCommentaire : " . $commentaire : '')
+                     . ($decision === 'approve'
+                         ? "\n\nVisibilité équipe : " . ($partage ? 'partagé (affiché dans le calendrier équipe)' : 'masqué (non visible dans le calendrier équipe)')
+                         : '');
                 try {
                     notifCreate($db, $req['user_id'], 'conge_' . $decision, $title, $msg, 'conges', $id, $user['name'] ?? null);
                 } catch (\Throwable $e) { /* silencieux : ne pas bloquer la décision */ }
             }
 
-            jsonOk(['id'=>$id,'statut'=>$newStatut]);
+            jsonOk(['id'=>$id,'statut'=>$newStatut,'partage'=>$partage,'modification'=>$isModification]);
+            break;
+        }
+
+        // ────────────────────────────── TEAM_SHARED (calendrier équipe)
+        // Retourne les congés approuvés ET partagés des AUTRES membres sur une plage,
+        // pour afficher "sous-effectif" dans le heatmap personnel.
+        case 'team_shared': {
+            $from = $_GET['from'] ?? date('Y-m-01');
+            $to   = $_GET['to']   ?? date('Y-m-t', strtotime('+2 months'));
+            $stmt = $db->prepare("SELECT id, user_id, user_name, type, date_debut, date_fin
+                                  FROM CA_leave_requests
+                                  WHERE statut = 'Approuvé' AND partage = 1
+                                    AND user_id <> ?
+                                    AND NOT (date_fin < ? OR date_debut > ?)
+                                  ORDER BY date_debut ASC");
+            $stmt->execute([$user['id'], $from, $to]);
+            jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
             break;
         }
 
