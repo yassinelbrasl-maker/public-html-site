@@ -8422,20 +8422,8 @@ function openDemandeAdminModal(data) {
   _populateDASelectSorted('da-delegation',     getDADelegs(), data ? data.delegation   : '', true, 'da_recent_delegs');
   _populateDASelectSorted('da-municipalite',   getDAMunis(),  data ? data.municipalite : '', true, 'da_recent_munis');
 
-  // Clients
-  var cSel = document.getElementById('da-client');
-  if (cSel) {
-    cSel.innerHTML = '<option value="">-- Aucun --</option>';
-    (getClients() || []).slice().sort(function(a,b){
-      return String(a.display_nom || a.nom || '').localeCompare(String(b.display_nom || b.nom || ''));
-    }).forEach(function(c) {
-      var o = document.createElement('option');
-      o.value = c.id;
-      o.textContent = (c.code ? c.code + ' — ' : '') + (c.display_nom || c.nom || c.raison || '—');
-      if (data && data.client_id === c.id) o.selected = true;
-      cSel.appendChild(o);
-    });
-  }
+  // Clients (avec recherche)
+  _daPopulateClients(data ? data.client_id : '');
 
   // Projets : filtrés par client si client_id présent
   _daPopulateProjets(data ? data.projet_id : '', data ? data.client_id : '');
@@ -8471,11 +8459,6 @@ function _daPopulateProjets(selectedProjetId, clientId) {
   pSel.innerHTML = '<option value="">-- Aucun --</option>';
   var all = getProjets() || [];
 
-  // Champ de recherche au-dessus du select (ajouté une seule fois)
-  _daEnsureProjetSearch();
-  var q = (document.getElementById('da-projet-search') || {}).value || '';
-  q = q.trim().toLowerCase();
-
   var filtered = all;
   if (clientId) {
     var client = (getClients() || []).find(function(c) { return c.id === clientId; });
@@ -8487,12 +8470,6 @@ function _daPopulateProjets(selectedProjetId, clientId) {
       return false;
     });
   }
-  if (q) {
-    filtered = filtered.filter(function(p) {
-      var hay = ((p.code || '') + ' ' + (p.nom || '') + ' ' + (p.client || '')).toLowerCase();
-      return hay.indexOf(q) !== -1;
-    });
-  }
 
   filtered.forEach(function(p) {
     var o = document.createElement('option');
@@ -8502,27 +8479,49 @@ function _daPopulateProjets(selectedProjetId, clientId) {
     if (selectedProjetId && p.id === selectedProjetId) o.selected = true;
     pSel.appendChild(o);
   });
-
-  // Compteur visible
-  var info = document.getElementById('da-projet-count');
-  if (info) info.textContent = filtered.length + ' projet(s)';
 }
 
-// Injecte (une seule fois) un input de recherche au-dessus du select projet
-function _daEnsureProjetSearch() {
-  if (document.getElementById('da-projet-search')) return;
-  var pSel = document.getElementById('da-projet');
-  if (!pSel) return;
+// Remplit le select des clients en appliquant la recherche courante
+function _daPopulateClients(selectedClientId) {
+  var cSel = document.getElementById('da-client');
+  if (!cSel) return;
+  _daEnsureClientSearch();
+  var q = ((document.getElementById('da-client-search') || {}).value || '').trim().toLowerCase();
+  cSel.innerHTML = '<option value="">-- Aucun --</option>';
+  var list = (getClients() || []).slice().sort(function(a, b) {
+    return String(a.display_nom || a.nom || '').localeCompare(String(b.display_nom || b.nom || ''), 'fr', { sensitivity: 'base' });
+  });
+  if (q) {
+    list = list.filter(function(c) {
+      var hay = ((c.code || '') + ' ' + (c.display_nom || '') + ' ' + (c.nom || '') + ' ' + (c.raison || '') + ' ' + (c.email || '') + ' ' + (c.tel || '')).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+  }
+  list.forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = (c.code ? c.code + ' — ' : '') + (c.display_nom || c.nom || c.raison || '—');
+    if (selectedClientId && c.id === selectedClientId) o.selected = true;
+    cSel.appendChild(o);
+  });
+  var info = document.getElementById('da-client-count');
+  if (info) info.textContent = list.length + ' client(s)';
+}
+
+// Injecte (une seule fois) un input de recherche au-dessus du select client
+function _daEnsureClientSearch() {
+  if (document.getElementById('da-client-search')) return;
+  var cSel = document.getElementById('da-client');
+  if (!cSel) return;
   var wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.3rem';
   wrap.innerHTML =
-    '<input id="da-projet-search" class="form-input" placeholder="Rechercher un projet…" style="flex:1;font-size:0.8rem" />' +
-    '<span id="da-projet-count" style="font-size:0.72rem;color:var(--text-3);white-space:nowrap"></span>';
-  pSel.parentNode.insertBefore(wrap, pSel);
-  document.getElementById('da-projet-search').addEventListener('input', function() {
-    var cSel = document.getElementById('da-client');
-    var current = pSel.value;
-    _daPopulateProjets(current, (cSel && cSel.value) ? cSel.value : null);
+    '<input id="da-client-search" class="form-input" placeholder="Rechercher un client…" style="flex:1;font-size:0.8rem" />' +
+    '<span id="da-client-count" style="font-size:0.72rem;color:var(--text-3);white-space:nowrap"></span>';
+  cSel.parentNode.insertBefore(wrap, cSel);
+  document.getElementById('da-client-search').addEventListener('input', function() {
+    var current = cSel.value;
+    _daPopulateClients(current);
   });
 }
 
