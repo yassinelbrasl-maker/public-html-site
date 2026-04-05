@@ -43,6 +43,20 @@ function ensureModulesTable() {
         $stmt = $db->prepare("INSERT INTO cortoba_modules (id, label, route_url, categorie, ordre) VALUES (?, ?, ?, ?, ?)");
         foreach ($defaults as $m) $stmt->execute($m);
     }
+
+    // ── Modules ajoutés après le seed initial : upsert idempotent ──
+    // (permet aux nouveaux modules d'apparaître sur les installs existantes)
+    $required = array(
+        array('timesheet',      'Timesheet',             '#timesheet',      'principal', 55),
+        array('gantt',          'Gantt',                 '#gantt',          'principal', 56),
+        array('charge',         'Charge de travail',     '#charge',         'principal', 57),
+        array('demandes-admin', 'Demandes admin',        '#demandes-admin', 'admin',    135),
+        array('conges',         'Congés',                '#conges',         'admin',    138),
+    );
+    $up = $db->prepare("INSERT INTO cortoba_modules (id, label, route_url, categorie, ordre)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE actif = 1");
+    foreach ($required as $m) { try { $up->execute($m); } catch (\Throwable $e) {} }
 }
 
 $method = $_SERVER['REQUEST_METHOD'];

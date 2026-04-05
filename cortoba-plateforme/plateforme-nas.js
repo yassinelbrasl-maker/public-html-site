@@ -3895,7 +3895,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','conges','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -4863,6 +4863,8 @@ var MODULES_PLATEFORME = [
   { id: 'nas',         label: 'Serveur NAS' },
   { id: 'equipe',      label: 'Équipe' },
   { id: 'clients',     label: 'Clients' },
+  { id: 'demandes-admin', label: 'Demandes admin' },
+  { id: 'conges',      label: 'Congés' },
   { id: 'parametres',  label: 'Paramètres' },
 ];
 
