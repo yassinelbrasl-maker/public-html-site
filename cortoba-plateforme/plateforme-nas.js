@@ -7212,17 +7212,27 @@ function _renderMembreColumn(nom, taches) {
 
   var ini = '?';
   var displayName = 'Non assigné';
+  var photoUrl = null;
   if (nom) {
     displayName = nom;
     var parts = nom.split(' ');
     ini = ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || '');
     ini = ini.toUpperCase() || '?';
+    // Retrouver le membre pour récupérer sa photo de profil
+    var membreMatch = (getMembres() || []).find(function(mb){
+      return ((mb.prenom||'') + ' ' + (mb.nom||'')).trim() === nom;
+    });
+    if (membreMatch && membreMatch.profile_picture_url) photoUrl = membreMatch.profile_picture_url;
   }
+
+  var avatarInner = photoUrl
+    ? '<img src="' + escHtml(photoUrl) + '" alt="' + escHtml(displayName) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">'
+    : ini;
 
   var html = '<div class="suivi-membre-card">';
   // Header membre
   html += '<div class="suivi-membre-header">';
-  html += '<div class="suivi-membre-avatar' + (nom ? '' : ' no-assign') + '">' + ini + '</div>';
+  html += '<div class="suivi-membre-avatar' + (nom ? '' : ' no-assign') + '" style="overflow:hidden">' + avatarInner + '</div>';
   html += '<div class="suivi-membre-info">';
   html += '<div class="suivi-membre-nom">' + displayName + '</div>';
   html += '<div class="suivi-membre-stats">';
@@ -8014,7 +8024,7 @@ function _renderRendementMembres(taches, entries) {
   membres.forEach(function(m) {
     var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
     if (!fullName) return;
-    stats[fullName] = { nom: fullName, role: m.role || '', assignees: 0, terminees: 0, enCours: 0, bloquees: 0, heures: 0, entries: 0, progSum: 0 };
+    stats[fullName] = { nom: fullName, role: m.role || '', photo: m.profile_picture_url || null, assignees: 0, terminees: 0, enCours: 0, bloquees: 0, heures: 0, entries: 0, progSum: 0 };
   });
 
   // Stats depuis les tâches
@@ -8032,7 +8042,7 @@ function _renderRendementMembres(taches, entries) {
   entries.forEach(function(e) {
     var m = (e.membre || '').trim();
     if (!m) return;
-    if (!stats[m]) stats[m] = { nom: m, role: '', assignees: 0, terminees: 0, enCours: 0, bloquees: 0, heures: 0, entries: 0, progSum: 0 };
+    if (!stats[m]) stats[m] = { nom: m, role: '', photo: null, assignees: 0, terminees: 0, enCours: 0, bloquees: 0, heures: 0, entries: 0, progSum: 0 };
     stats[m].heures += parseFloat(e.heures || 0);
     stats[m].entries++;
     stats[m].progSum += parseInt(e.progression_apres || 0) - parseInt(e.progression_avant || 0);
@@ -8056,10 +8066,14 @@ function _renderRendementMembres(taches, entries) {
     // Couleur selon performance
     var perfColor = tauxCompl >= 80 ? 'var(--green)' : tauxCompl >= 50 ? 'var(--accent)' : tauxCompl > 0 ? 'var(--orange)' : 'var(--text-3)';
 
+    var avatarInner = s.photo
+      ? '<img src="' + escHtml(s.photo) + '" alt="' + escHtml(s.nom) + '" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">'
+      : ini;
+
     html += '<div class="rendement-card">';
     // Header
     html += '<div class="rendement-card-header">';
-    html += '<div class="suivi-membre-avatar">' + ini + '</div>';
+    html += '<div class="suivi-membre-avatar" style="overflow:hidden">' + avatarInner + '</div>';
     html += '<div style="flex:1;min-width:0">';
     html += '<div class="suivi-membre-nom">' + s.nom + '</div>';
     if (s.role) html += '<div style="font-size:0.7rem;color:var(--text-3)">' + s.role + '</div>';
@@ -8263,11 +8277,140 @@ function renderParametresDA() {
   // Cachet visible uniquement pour gérants
   var cachetWrap = document.getElementById('param-da-cachet-wrap');
   if (cachetWrap) cachetWrap.style.display = _daIsGerant() ? '' : 'none';
+
+  // Style en-tête : pré-remplir les champs + aperçu
+  _daWriteHeaderStyleToForm(getDAHeaderStyle());
+  previewDAHeader();
 }
 
 function _daIsGerant() {
   var s = getSession ? getSession() : null;
   return !!(s && (s.isAdmin || s.role === 'Architecte gérant'));
+}
+
+// Style par défaut de l'en-tête des lettres
+var DA_HDR_STYLE_DEFAULTS = {
+  font: "'Segoe UI', Arial, sans-serif",
+  sizeName: 16,
+  sizeText: 11,
+  colorName: '#1a1a1a',
+  colorText: '#555555',
+  weight: '700',
+  logoPos: 'left',
+  logoSize: 70,
+  align: 'left',
+  marginTop: 0,
+  marginBottom: 10,
+  separator: 'line',
+  lineHeight: 1.4
+};
+
+function getDAHeaderStyle() {
+  var s = getSetting('cortoba_agence_header_style', null);
+  if (!s || typeof s !== 'object') return Object.assign({}, DA_HDR_STYLE_DEFAULTS);
+  var out = Object.assign({}, DA_HDR_STYLE_DEFAULTS);
+  Object.keys(s).forEach(function(k) { if (s[k] !== undefined && s[k] !== null && s[k] !== '') out[k] = s[k]; });
+  return out;
+}
+
+// Génère le HTML de l'en-tête (partagé preview + impression)
+function _daBuildHeaderHtml(lang, style) {
+  var isAr = (lang === 'ar');
+  var logo = getSetting('cortoba_agence_logo', '');
+  var nom  = isAr ? (getSetting('cortoba_agence_raison_ar','') || getSetting('cortoba_agence_raison','Cortoba Architecture Studio'))
+                  : getSetting('cortoba_agence_raison','Cortoba Architecture Studio');
+  var adr  = isAr ? (getSetting('cortoba_agence_adresse_ar','') || getSetting('cortoba_agence_adresse',''))
+                  : getSetting('cortoba_agence_adresse','');
+  var tel  = getSetting('cortoba_agence_tel','');
+  var email = getSetting('cortoba_agence_email','');
+
+  var dir = isAr ? 'rtl' : 'ltr';
+  var contact = [];
+  if (tel)   contact.push(tel);
+  if (email) contact.push(email);
+
+  var logoHtml = (logo && style.logoPos !== 'none') ? '<img src="' + logo + '" alt="" style="max-height:' + style.logoSize + 'px;max-width:200px;object-fit:contain" />' : '';
+  var textBlock = '';
+  textBlock += '<div style="flex:1;line-height:' + style.lineHeight + '">';
+  textBlock += '<div style="font-weight:' + style.weight + ';font-size:' + style.sizeName + 'px;color:' + style.colorName + '">' + escHtml(nom) + '</div>';
+  if (adr)           textBlock += '<div style="font-size:' + style.sizeText + 'px;color:' + style.colorText + '">' + escHtml(adr) + '</div>';
+  if (contact.length) textBlock += '<div style="font-size:' + (style.sizeText - 1) + 'px;color:' + style.colorText + '">' + escHtml(contact.join(' · ')) + '</div>';
+  textBlock += '</div>';
+
+  var sepCss = 'none';
+  if (style.separator === 'line')   sepCss = '1px solid ' + style.colorName;
+  if (style.separator === 'thick')  sepCss = '2px solid ' + style.colorName;
+  if (style.separator === 'double') sepCss = '3px double ' + style.colorName;
+  if (style.separator === 'dashed') sepCss = '1px dashed ' + style.colorName;
+
+  var inner, wrapAlign;
+  if (style.logoPos === 'center') {
+    inner = (logoHtml ? '<div style="text-align:center;margin-bottom:6px">' + logoHtml + '</div>' : '') +
+            '<div style="text-align:' + style.align + '">' + textBlock.replace('flex:1;', '') + '</div>';
+    wrapAlign = '';
+  } else {
+    var flexDir = (style.logoPos === 'right') ? 'row-reverse' : 'row';
+    if (isAr) flexDir = (style.logoPos === 'right') ? 'row' : 'row-reverse';
+    inner = '<div style="display:flex;align-items:center;gap:14px;flex-direction:' + flexDir + ';text-align:' + style.align + '">' +
+            logoHtml + textBlock + '</div>';
+    wrapAlign = '';
+  }
+
+  return '<div style="font-family:' + style.font + ';direction:' + dir + ';margin-top:' + style.marginTop + 'mm;padding-bottom:6px;border-bottom:' + sepCss + ';margin-bottom:' + style.marginBottom + 'mm">' + inner + '</div>';
+}
+
+// Applique les valeurs courantes des champs de style dans l'aperçu Paramètres
+function previewDAHeader() {
+  var wrap = document.getElementById('param-da-hdr-preview');
+  if (!wrap) return;
+  var style = _daReadHeaderStyleFromForm();
+  var lang = (document.getElementById('param-da-hdr-prev-lang') || {}).value || 'fr';
+  wrap.innerHTML = _daBuildHeaderHtml(lang, style);
+}
+
+function _daReadHeaderStyleFromForm() {
+  var v = function(id) { var e = document.getElementById(id); return e ? e.value : ''; };
+  var n = function(id) { var x = parseFloat(v(id)); return isNaN(x) ? null : x; };
+  var s = Object.assign({}, DA_HDR_STYLE_DEFAULTS);
+  if (v('param-da-hdr-font'))       s.font       = v('param-da-hdr-font');
+  if (n('param-da-hdr-size-name') !== null) s.sizeName = n('param-da-hdr-size-name');
+  if (n('param-da-hdr-size-text') !== null) s.sizeText = n('param-da-hdr-size-text');
+  if (v('param-da-hdr-color-name')) s.colorName  = v('param-da-hdr-color-name');
+  if (v('param-da-hdr-color-text')) s.colorText  = v('param-da-hdr-color-text');
+  if (v('param-da-hdr-weight'))     s.weight     = v('param-da-hdr-weight');
+  if (v('param-da-hdr-logo-pos'))   s.logoPos    = v('param-da-hdr-logo-pos');
+  if (n('param-da-hdr-logo-size') !== null) s.logoSize = n('param-da-hdr-logo-size');
+  if (v('param-da-hdr-align'))      s.align      = v('param-da-hdr-align');
+  if (n('param-da-hdr-mt') !== null) s.marginTop = n('param-da-hdr-mt');
+  if (n('param-da-hdr-mb') !== null) s.marginBottom = n('param-da-hdr-mb');
+  if (v('param-da-hdr-sep'))        s.separator  = v('param-da-hdr-sep');
+  if (n('param-da-hdr-lh') !== null) s.lineHeight = n('param-da-hdr-lh');
+  return s;
+}
+
+function _daWriteHeaderStyleToForm(s) {
+  var set = function(id, val) { var e = document.getElementById(id); if (e) e.value = val; };
+  set('param-da-hdr-font',       s.font);
+  set('param-da-hdr-size-name',  s.sizeName);
+  set('param-da-hdr-size-text',  s.sizeText);
+  set('param-da-hdr-color-name', s.colorName);
+  set('param-da-hdr-color-text', s.colorText);
+  set('param-da-hdr-weight',     s.weight);
+  set('param-da-hdr-logo-pos',   s.logoPos);
+  set('param-da-hdr-logo-size',  s.logoSize);
+  set('param-da-hdr-align',      s.align);
+  set('param-da-hdr-mt',         s.marginTop);
+  set('param-da-hdr-mb',         s.marginBottom);
+  set('param-da-hdr-sep',        s.separator);
+  set('param-da-hdr-lh',         s.lineHeight);
+}
+
+function resetDAHeaderStyle() {
+  if (!confirm('Réinitialiser le style de l\'en-tête ?')) return;
+  saveSetting('cortoba_agence_header_style', null);
+  _daWriteHeaderStyleToForm(DA_HDR_STYLE_DEFAULTS);
+  previewDAHeader();
+  showToast('Style réinitialisé');
 }
 
 function saveDAHeader() {
@@ -8277,6 +8420,8 @@ function saveDAHeader() {
   saveSetting('cortoba_agence_adresse_ar',(document.getElementById('param-da-hdr-adr-ar').value || '').trim());
   saveSetting('cortoba_agence_tel',       (document.getElementById('param-da-hdr-tel').value || '').trim());
   saveSetting('cortoba_agence_email',     (document.getElementById('param-da-hdr-email').value || '').trim());
+  saveSetting('cortoba_agence_header_style', _daReadHeaderStyleFromForm());
+  previewDAHeader();
   showToast('En-tête enregistré');
 }
 
@@ -8547,28 +8692,10 @@ function _daOnClientChange() {
 function _renderDAHeaderPreview(lang) {
   var wrap = document.getElementById('da-header-preview');
   if (!wrap) return;
-  var isAr = (lang === 'ar');
-  var logo = getSetting('cortoba_agence_logo', '');
-  var nom  = isAr ? (getSetting('cortoba_agence_raison_ar','') || getSetting('cortoba_agence_raison','Cortoba Architecture Studio'))
-                  : getSetting('cortoba_agence_raison','Cortoba Architecture Studio');
-  var adr  = isAr ? (getSetting('cortoba_agence_adresse_ar','') || getSetting('cortoba_agence_adresse',''))
-                  : getSetting('cortoba_agence_adresse','');
-  var tel  = getSetting('cortoba_agence_tel','');
-  var email = getSetting('cortoba_agence_email','');
-
-  var html = '<div style="display:flex;align-items:center;gap:0.8rem;' + (isAr ? 'direction:rtl;text-align:right;' : '') + '">';
-  if (logo) html += '<img src="' + logo + '" alt="" style="max-height:48px;max-width:120px;object-fit:contain" />';
-  html += '<div style="flex:1">';
-  html += '<div style="font-weight:600;font-size:0.9rem">' + escHtml(nom) + '</div>';
-  if (adr)   html += '<div style="font-size:0.75rem;color:var(--text-2)">' + escHtml(adr) + '</div>';
-  var contact = [];
-  if (tel)   contact.push(tel);
-  if (email) contact.push(email);
-  if (contact.length) html += '<div style="font-size:0.72rem;color:var(--text-3)">' + escHtml(contact.join(' · ')) + '</div>';
-  html += '</div></div>';
-  wrap.innerHTML = html;
+  wrap.innerHTML = _daBuildHeaderHtml(lang, getDAHeaderStyle());
   wrap.style.display = '';
-  wrap.style.direction = isAr ? 'rtl' : 'ltr';
+  wrap.style.background = '#fff';
+  wrap.style.color = '#222';
 }
 
 // État courant du cachet sur la demande en cours (on stocke dans une remarque ?
@@ -9002,43 +9129,19 @@ function printDALetter() {
   var fontFamily = isAr ? "'Amiri', 'Noto Sans Arabic', 'Traditional Arabic', serif" : "'Segoe UI', Arial, sans-serif";
   var textAlign = isAr ? 'right' : 'left';
 
-  var logo = getSetting('cortoba_agence_logo', '');
-  var nom  = isAr ? (getSetting('cortoba_agence_raison_ar','') || getSetting('cortoba_agence_raison','Cortoba Architecture Studio'))
-                  : getSetting('cortoba_agence_raison','Cortoba Architecture Studio');
-  var adr  = isAr ? (getSetting('cortoba_agence_adresse_ar','') || getSetting('cortoba_agence_adresse',''))
-                  : getSetting('cortoba_agence_adresse','');
-  var tel  = getSetting('cortoba_agence_tel','');
-  var email = getSetting('cortoba_agence_email','');
-
   // Cachet : seulement si flag actif sur cette demande
   var wrap = document.getElementById('da-cachet-wrap');
   var cachetOn = wrap && wrap.getAttribute('data-cachet-on') === '1';
   var cachetImg = cachetOn ? getSetting('cortoba_cachet_signature','') : '';
 
-  var headerHtml = '<div class="da-header"><div class="da-header-inner">';
-  if (logo) headerHtml += '<img class="da-logo" src="' + logo + '" alt="" />';
-  headerHtml += '<div class="da-id">';
-  headerHtml += '<div class="da-name">' + escHtml(nom) + '</div>';
-  if (adr)   headerHtml += '<div class="da-adr">' + escHtml(adr) + '</div>';
-  var contact = [];
-  if (tel)   contact.push(tel);
-  if (email) contact.push(email);
-  if (contact.length) headerHtml += '<div class="da-contact">' + escHtml(contact.join(' · ')) + '</div>';
-  headerHtml += '</div></div><hr/></div>';
+  // En-tête stylé selon les paramètres
+  var headerHtml = _daBuildHeaderHtml(lang, getDAHeaderStyle());
 
   var cachetHtml = cachetImg ? '<div class="da-cachet"><img src="' + cachetImg + '" alt="cachet et signature" /></div>' : '';
 
   var css =
     '@page{size:A4;margin:18mm 20mm}' +
     'body{font-family:' + fontFamily + ';font-size:13px;line-height:1.75;padding:20px 30px;max-width:820px;margin:0 auto;direction:' + dir + ';text-align:' + textAlign + ';color:#222}' +
-    '.da-header{margin-bottom:18px}' +
-    '.da-header-inner{display:flex;align-items:center;gap:14px;' + (isAr ? 'flex-direction:row-reverse;' : '') + '}' +
-    '.da-logo{max-height:70px;max-width:160px;object-fit:contain}' +
-    '.da-id{flex:1}' +
-    '.da-name{font-weight:700;font-size:15px}' +
-    '.da-adr{font-size:11px;color:#555}' +
-    '.da-contact{font-size:10.5px;color:#777}' +
-    'hr{border:none;border-top:1px solid #333;margin:10px 0 0}' +
     'pre{white-space:pre-wrap;font-family:inherit;font-size:inherit;line-height:inherit;margin:0}' +
     '.da-cachet{margin-top:30px;' + (isAr ? 'text-align:left;' : 'text-align:right;') + '}' +
     '.da-cachet img{max-height:140px;max-width:240px;background:transparent}' +
