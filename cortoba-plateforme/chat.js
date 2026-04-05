@@ -2,7 +2,7 @@
 //  CORTOBA CHAT — Widget messagerie interne
 //  Lot 1 (socle) + Lot 2 (groupes projet + auto-adhésion)
 //  Transport : long polling (1.5 s quand fenêtre ouverte, 6 s quand fermée)
-//  Dépend de : apiFetch, getSession, window._currentUser (plateforme-nas.js)
+//  Dépend de : apiFetch, getSession, window._currentUser (plateforme-nas.js — fichier principal)
 // ═══════════════════════════════════════════════════════════
 
 (function () {
@@ -327,7 +327,20 @@
       }
       bodyChildren.push(h('div', { class: 'chat-msg-time' }, fmtTime(m.cree_at) + (mine ? ' ✓' : '')));
       var body = h('div', { class: 'chat-msg-body' }, bodyChildren);
-      box.appendChild(h('div', { class: 'chat-msg' + (mine ? ' me' : '') }, [av, body]));
+      var msgEl = h('div', { class: 'chat-msg' + (mine ? ' me' : '') }, [av, body]);
+      // Clic droit sur message (groupe projet uniquement) → épingler comme info critique
+      msgEl.oncontextmenu = function (ev) {
+        ev.preventDefault();
+        var room = STATE.rooms.find(function (r) { return r.id === STATE.currentRoomId; });
+        if (!room || room.type !== 'projet') return;
+        var label = prompt('Épingler comme information critique.\nLibellé (optionnel) :', '');
+        if (label === null) return;
+        api('pin_message', 'POST', { message_id: m.id, label: label || '' }).then(function () {
+          loadMessages(false);
+          showToast('Épinglé', 'Message ajouté au Decision Log');
+        }).catch(function (e) { alert(e.message || 'Erreur'); });
+      };
+      box.appendChild(msgEl);
     });
     if (scroll) box.scrollTop = box.scrollHeight;
   }
@@ -335,10 +348,12 @@
   function sendCurrentMessage() {
     var input = document.getElementById('chat-input');
     var text = (input.value || '').trim();
-    if (!text || !STATE.currentRoomId) return;
+    if (!text) return;
+    if (!STATE.currentRoomId) return;
     var btn = document.getElementById('chat-send-btn');
     btn.disabled = true;
-    api('send', 'POST', { room_id: STATE.currentRoomId, content: text }).then(function () {
+    var payload = { room_id: STATE.currentRoomId, content: text };
+    api('send', 'POST', payload).then(function () {
       input.value = '';
       input.style.height = 'auto';
       loadMessages(false);

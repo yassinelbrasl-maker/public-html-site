@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="plateforme.css">
   <link rel="stylesheet" href="ergonomie.css">
-  <link rel="stylesheet" href="chat.css?t=20260405b">
+  <link rel="stylesheet" href="chat.css?t=20260405c">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" />
   <style>
@@ -1349,24 +1349,64 @@
             <h1 class="page-title">Rendement de l'équipe</h1>
           </div>
           <div class="page-actions">
-            <select id="rendement-periode" class="form-select" style="width:auto" onchange="renderRendementPage()">
-              <option value="7">7 derniers jours</option>
-              <option value="30" selected>30 derniers jours</option>
-              <option value="90">3 mois</option>
-              <option value="365">12 mois</option>
-              <option value="all">Depuis le début</option>
-            </select>
+            <div class="rdm-daterange">
+              <button type="button" class="rdm-drp-btn" id="rdm-drp-btn" onclick="toggleRdmDatePicker()">
+                <span id="rdm-drp-label">30 derniers jours</span>
+                <span style="opacity:.6">▾</span>
+              </button>
+              <div class="rdm-drp-pop" id="rdm-drp-pop" style="display:none">
+                <div class="rdm-drp-presets">
+                  <button type="button" onclick="applyRdmPreset('today')">Aujourd'hui</button>
+                  <button type="button" onclick="applyRdmPreset('7')">7 derniers jours</button>
+                  <button type="button" onclick="applyRdmPreset('30')">30 derniers jours</button>
+                  <button type="button" onclick="applyRdmPreset('month')">Ce mois-ci</button>
+                  <button type="button" onclick="applyRdmPreset('lastmonth')">Mois dernier</button>
+                  <button type="button" onclick="applyRdmPreset('year')">Année en cours</button>
+                  <button type="button" onclick="applyRdmPreset('all')">Depuis le début</button>
+                </div>
+                <div class="rdm-drp-custom">
+                  <label>Du <input type="date" id="rdm-drp-from" class="form-input" /></label>
+                  <label>Au <input type="date" id="rdm-drp-to" class="form-input" /></label>
+                  <button type="button" class="btn btn-primary" onclick="applyRdmCustom()">Appliquer</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- KPIs globaux -->
-        <div id="rendement-kpis" class="journal-kpis" style="grid-template-columns:repeat(5,1fr)"></div>
+        <!-- Tabs -->
+        <div class="rdm-tabs" role="tablist">
+          <button type="button" class="rdm-tab active" data-rdm-tab="equipe" onclick="switchRdmTab('equipe')">Équipe</button>
+          <button type="button" class="rdm-tab" data-rdm-tab="operations" onclick="switchRdmTab('operations')">Projets &amp; Opérations</button>
+          <button type="button" class="rdm-tab" data-rdm-tab="finances" onclick="switchRdmTab('finances')">Finances</button>
+          <button type="button" class="rdm-tab" data-rdm-tab="commercial" onclick="switchRdmTab('commercial')">Commercial</button>
+        </div>
 
-        <!-- Synthèse par membre -->
-        <div id="rendement-membres" style="margin-top:1rem"></div>
+        <!-- Panels -->
+        <div class="rdm-tab-panel active" id="rdm-panel-equipe">
+          <div id="rendement-kpis" class="journal-kpis" style="grid-template-columns:repeat(6,1fr)"></div>
+          <div id="rendement-membres" style="margin-top:1rem"></div>
+          <div id="rendement-historique" style="margin-top:1.5rem"></div>
+        </div>
+        <div class="rdm-tab-panel" id="rdm-panel-operations">
+          <div class="rdm-placeholder"><div class="rdm-soon">Bientôt</div>Budget vs consommé, taux de révision par phase.</div>
+        </div>
+        <div class="rdm-tab-panel" id="rdm-panel-finances">
+          <div class="rdm-placeholder"><div class="rdm-soon">Bientôt</div>Marge nette par projet, TRH (taux de rentabilité horaire).</div>
+        </div>
+        <div class="rdm-tab-panel" id="rdm-panel-commercial">
+          <div class="rdm-placeholder"><div class="rdm-soon">Bientôt</div>Funnel commercial, pipeline pondéré, CA par typologie.</div>
+        </div>
 
-        <!-- Historique des performances -->
-        <div id="rendement-historique" style="margin-top:1.5rem"></div>
+        <!-- Offcanvas deep-dive membre -->
+        <div class="rdm-offcanvas-backdrop" id="rdm-oc-backdrop" onclick="closeRdmOffcanvas()"></div>
+        <aside class="rdm-offcanvas" id="rdm-offcanvas" aria-hidden="true">
+          <div class="rdm-offcanvas-header">
+            <div id="rdm-oc-title" style="font-weight:600"></div>
+            <button type="button" class="rdm-oc-close" onclick="closeRdmOffcanvas()" aria-label="Fermer">×</button>
+          </div>
+          <div class="rdm-offcanvas-body" id="rdm-oc-body"></div>
+        </aside>
       </div>
 
       <!-- ══ DEMANDES ADMINISTRATIVES ══ -->
@@ -3846,9 +3886,9 @@ if (typeof Gantt === 'undefined') {
   document.head.appendChild(_fg);
 }
 </script>
-<script src="plateforme-nas.js?t=20260328u"></script>
+<script src="plateforme-nas.js?t=20260405a"></script>
 <script src="ergonomie.js?t=20260328e"></script>
-<script src="chat.js?t=20260405b"></script>
+<script src="chat.js?t=20260405c"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {

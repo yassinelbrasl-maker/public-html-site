@@ -6,10 +6,10 @@
 /* Bouton flottant d'ouverture */
 #chat-fab {
   position: fixed;
-  right: 22px;
-  bottom: 22px;
-  width: 54px;
-  height: 54px;
+  right: calc(2rem + 66px);
+  bottom: 2rem;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: var(--accent, #c8a96e);
   color: #1a1a1a;
@@ -24,6 +24,12 @@
 }
 #chat-fab:hover { transform: scale(1.07); }
 #chat-fab svg  { width: 24px; height: 24px; }
+
+/* Empêche le FAB de masquer des boutons cliquables en bas-droit des pages.
+   Sans ce padding, le FAB (z-index 9500) intercepte les clics sur les
+   éléments qui tombent dessous (ex. bouton Modifier de la table historique
+   des congés) — visible seulement à certains niveaux de zoom. */
+.page { padding-bottom: 110px; }
 #chat-fab .chat-fab-badge {
   position: absolute;
   top: -2px; right: -2px;

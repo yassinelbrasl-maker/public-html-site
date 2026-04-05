@@ -424,6 +424,52 @@ elseif ($action === 'mkdir') {
     ));
 }
 
+// ── ACTION : download (proxy fichier WebDAV → navigateur) ──
+elseif ($action === 'download') {
+    requireAuth();
+    $path = isset($_GET['path']) ? trim($_GET['path']) : '';
+    if (!$path) { http_response_code(400); echo 'path requis'; exit; }
+
+    $ip         = getNasParam('cortoba_nas_local', '');
+    $webdavPort = getNasParam('cortoba_nas_webdav_port', '5005');
+    $nasUser    = getNasParam('cortoba_nas_user', 'admin');
+    $nasPass    = getNasParam('cortoba_nas_pass', '');
+    $ip = extractIp($ip);
+    if (!$ip) { http_response_code(500); echo 'NAS non configuré'; exit; }
+
+    $path = str_replace('\\', '/', $path);
+    if (strpos($path, '..') !== false) { http_response_code(400); echo 'path invalide'; exit; }
+    $path = '/' . ltrim($path, '/');
+
+    $url  = 'http://' . $ip . ':' . $webdavPort . $path;
+    $name = basename($path);
+
+    if (!function_exists('curl_init')) { http_response_code(500); echo 'curl manquant'; exit; }
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, $nasUser . ':' . $nasPass);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $hSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+    $ctype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+
+    if ($resp === false || $code !== 200) { http_response_code(404); echo 'Fichier introuvable (' . $code . ')'; exit; }
+    $body = substr($resp, $hSize);
+
+    while (ob_get_level()) ob_end_clean();
+    header('Content-Type: ' . ($ctype ?: 'application/octet-stream'));
+    header('Content-Length: ' . strlen($body));
+    header('Content-Disposition: inline; filename="' . addslashes($name) . '"');
+    header('Cache-Control: private, max-age=3600');
+    echo $body;
+    exit;
+}
+
 // ── ACTION : ping ──
 elseif ($action === 'ping') {
     $ip   = getNasParam('cortoba_nas_local', '');

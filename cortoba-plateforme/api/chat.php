@@ -8,6 +8,14 @@
 require_once __DIR__ . '/../config/middleware.php';
 require_once __DIR__ . '/chat_helpers.php';
 
+// ── Lot 7 : actions publiques (token client) sans auth JWT ──
+$publicAction = $_GET['action'] ?? '';
+if (in_array($publicAction, ['client_view','client_send'], true)) {
+    chat_ensure_schema();
+    if ($publicAction === 'client_view') { clientView(); exit; }
+    if ($publicAction === 'client_send') { clientSend(); exit; }
+}
+
 $user = requireAuth();
 chat_ensure_schema();
 
@@ -34,6 +42,8 @@ try {
         case 'create_project_room': createProjectRoomAction($user); break;
         case 'pin_message':  pinMessage($user); break;
         case 'pinned':       listPinned($user); break;
+        case 'response_times': responseTimes($user); break;
+        case 'create_client_portal': createClientPortal($user); break;
         default: jsonError('Action inconnue', 404);
     }
 } catch (\Throwable $e) {
@@ -86,10 +96,23 @@ function listRooms($user) {
     $stmt->execute([$uid, $uid]);
     $mine = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Précharger les infos projet (nom/code) pour les rooms projet
+    $projetInfos = [];
+    try {
+        $stP = $db->query("SELECT id, nom, code FROM CA_projets");
+        while ($pr = $stP->fetch(PDO::FETCH_ASSOC)) {
+            $projetInfos[$pr['id']] = ['nom'=>$pr['nom'], 'code'=>$pr['code']];
+        }
+    } catch (\Throwable $e) {}
+
     // Pour chaque room directe, peupler "other_user" (l'interlocuteur)
     foreach ($mine as &$r) {
         $r['unread'] = intval($r['unread']);
         $r['is_favorite'] = !empty($r['is_favorite']) ? 1 : 0;
+        if ($r['type'] === 'projet' && !empty($r['projet_id']) && isset($projetInfos[$r['projet_id']])) {
+            $r['projet_nom']  = $projetInfos[$r['projet_id']]['nom'];
+            $r['projet_code'] = $projetInfos[$r['projet_id']]['code'];
+        }
         if ($r['type'] === 'direct') {
             $st2 = $db->prepare("SELECT cp.user_id, cp.user_name, u.profile_picture_url, u.color, u.role
                                  FROM CA_chat_participants cp
@@ -134,6 +157,10 @@ function listRooms($user) {
             $r['supervision'] = 1; // marqueur lecture-seule superviseur
             $r['unread']      = 0;
             $r['is_favorite'] = 0;
+            if (!empty($r['projet_id']) && isset($projetInfos[$r['projet_id']])) {
+                $r['projet_nom']  = $projetInfos[$r['projet_id']]['nom'];
+                $r['projet_code'] = $projetInfos[$r['projet_id']]['code'];
+            }
         }
         unset($r);
         $rooms = array_merge($rooms, $extras);
@@ -405,6 +432,176 @@ function pinMessage($user) {
         '📌 Message épinglé comme information critique par ' . ($user['name'] ?? '') . ($label ? ' — ' . $label : ''));
 
     jsonOk(['id' => $id]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Lot 7 — Portail client externe (groupe dédié + lien tokenisé)
+// ═══════════════════════════════════════════════════════════════
+
+// POST ?action=create_client_portal
+//   body: { projet_id, client_name, client_email }
+//   → crée une room type='client' liée au projet, avec access_token,
+//     ajoute le user courant comme participant, retourne l'URL publique.
+function createClientPortal($user) {
+    $db   = getDB();
+    $body = getBody();
+    $pid  = $body['projet_id'] ?? '';
+    $cname = trim($body['client_name']  ?? '');
+    $cmail = trim($body['client_email'] ?? '');
+    if (!$pid) jsonError('projet_id requis');
+
+    $stmt = $db->prepare("SELECT * FROM CA_projets WHERE id = ?");
+    $stmt->execute([$pid]);
+    $projet = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$projet) jsonError('Projet introuvable', 404);
+
+    // Room client existante ?
+    $stmt = $db->prepare("SELECT * FROM CA_chat_rooms WHERE type='client' AND projet_id = ? LIMIT 1");
+    $stmt->execute([$pid]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing) {
+        $roomId = $existing['id'];
+        $token  = $existing['access_token'];
+        // MAJ optionnelle des infos client
+        if ($cname || $cmail) {
+            $db->prepare("UPDATE CA_chat_rooms SET client_name = COALESCE(NULLIF(?,''), client_name),
+                          client_email = COALESCE(NULLIF(?,''), client_email) WHERE id = ?")
+               ->execute([$cname, $cmail, $roomId]);
+        }
+    } else {
+        $roomId = chat_genid();
+        $token  = bin2hex(random_bytes(24));
+        $label  = trim(($projet['code'] ? $projet['code'] . ' - ' : '') . $projet['nom'] . ' — Espace client');
+        $db->prepare("INSERT INTO CA_chat_rooms (id, type, name, projet_id, created_by, access_token, client_name, client_email)
+                      VALUES (?, 'client', ?, ?, ?, ?, ?, ?)")
+           ->execute([$roomId, $label, $pid, $user['name'] ?? '', $token, $cname ?: null, $cmail ?: null]);
+
+        // Ajouter le créateur comme participant
+        $db->prepare("INSERT INTO CA_chat_participants (room_id, user_id, user_name) VALUES (?,?,?)")
+           ->execute([$roomId, $user['id'] ?? '', $user['name'] ?? '']);
+
+        chat_post_system_message($db, $roomId,
+            '🔐 Espace de discussion client créé par ' . ($user['name'] ?? '') .
+            ($cname ? ' pour ' . $cname : '') . '. Le client peut valider les phases et échanger via un lien sécurisé.');
+    }
+
+    // URL publique (basée sur l'hôte du serveur)
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? '';
+    $dir    = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/'); // .../cortoba-plateforme
+    $url    = $scheme . '://' . $host . $dir . '/client-portal.html?token=' . urlencode($token);
+
+    jsonOk(['room_id' => $roomId, 'token' => $token, 'url' => $url]);
+}
+
+// GET ?action=client_view&token=...
+//   Retourne les messages + métadonnées projet pour l'espace client.
+function clientView() {
+    $db    = getDB();
+    $token = $_GET['token'] ?? '';
+    if (!$token) jsonError('token requis', 400);
+
+    $stmt = $db->prepare("SELECT r.*, p.nom AS projet_nom, p.code AS projet_code, p.phase AS projet_phase
+                          FROM CA_chat_rooms r
+                          LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = r.projet_id COLLATE utf8mb4_unicode_ci
+                          WHERE r.type = 'client' AND r.access_token = ? LIMIT 1");
+    $stmt->execute([$token]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$room) jsonError('Lien invalide ou expiré', 404);
+
+    $stmt = $db->prepare("SELECT id, sender_id, sender_name, kind, content, cree_at
+                          FROM CA_chat_messages WHERE room_id = ? ORDER BY cree_at ASC LIMIT 500");
+    $stmt->execute([$room['id']]);
+    $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    jsonOk([
+        'room' => [
+            'id'           => $room['id'],
+            'name'         => $room['name'],
+            'projet_nom'   => $room['projet_nom'],
+            'projet_code'  => $room['projet_code'],
+            'projet_phase' => $room['projet_phase'],
+            'client_name'  => $room['client_name'],
+            'is_archived'  => $room['is_archived'],
+        ],
+        'messages' => $messages,
+    ]);
+}
+
+// POST ?action=client_send  body: { token, content }
+function clientSend() {
+    $db   = getDB();
+    $body = getBody();
+    $token = $body['token'] ?? '';
+    $content = trim($body['content'] ?? '');
+    if (!$token || $content === '') jsonError('token et content requis', 400);
+
+    $stmt = $db->prepare("SELECT * FROM CA_chat_rooms WHERE type='client' AND access_token = ? LIMIT 1");
+    $stmt->execute([$token]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$room) jsonError('Lien invalide', 404);
+    if (!empty($room['is_archived'])) jsonError('Discussion clôturée', 403);
+
+    $mid = chat_genid();
+    $clientName = $room['client_name'] ?: 'Client';
+    $db->prepare("INSERT INTO CA_chat_messages (id, room_id, sender_id, sender_name, kind, content)
+                  VALUES (?, ?, NULL, ?, 'text', ?)")
+       ->execute([$mid, $room['id'], $clientName, $content]);
+
+    jsonOk(['id' => $mid]);
+}
+
+// ---------------------------------------------------------------
+// GET ?action=response_times
+//   Calcule le temps moyen de réponse (en minutes) par membre sur
+//   les groupes projet : délai entre un message d'un tiers et la
+//   première réponse de l'utilisateur dans la même room.
+//   Retour : [ { user_id, user_name, avg_minutes, samples } ]
+// ---------------------------------------------------------------
+function responseTimes($user) {
+    $db = getDB();
+    // Récupérer tous les messages des rooms projet, triés par room + temps
+    $sql = "SELECT m.room_id, m.sender_id, m.sender_name, m.cree_at
+            FROM CA_chat_messages m
+            INNER JOIN CA_chat_rooms r ON r.id = m.room_id
+            WHERE r.type = 'projet' AND m.kind <> 'system' AND m.sender_id IS NOT NULL
+            ORDER BY m.room_id, m.cree_at ASC";
+    $rows = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+
+    // Grouper par room
+    $byRoom = [];
+    foreach ($rows as $r) $byRoom[$r['room_id']][] = $r;
+
+    // Pour chaque room, calculer les deltas : quand un user répond après un tiers
+    $stats = []; // user_id => ['name'=>..., 'sum'=>sec, 'count'=>int]
+    foreach ($byRoom as $msgs) {
+        $prev = null;
+        foreach ($msgs as $m) {
+            if ($prev && $prev['sender_id'] !== $m['sender_id']) {
+                $delta = strtotime($m['cree_at']) - strtotime($prev['cree_at']);
+                // Ignorer délais > 48h (pas une vraie "réponse")
+                if ($delta > 0 && $delta <= 48 * 3600) {
+                    $uid = $m['sender_id'];
+                    if (!isset($stats[$uid])) $stats[$uid] = ['user_id'=>$uid, 'user_name'=>$m['sender_name'], 'sum'=>0, 'count'=>0];
+                    $stats[$uid]['sum']   += $delta;
+                    $stats[$uid]['count'] += 1;
+                }
+            }
+            $prev = $m;
+        }
+    }
+    $out = [];
+    foreach ($stats as $s) {
+        if ($s['count'] < 1) continue;
+        $out[] = [
+            'user_id'     => $s['user_id'],
+            'user_name'   => $s['user_name'],
+            'avg_minutes' => round(($s['sum'] / $s['count']) / 60, 1),
+            'samples'     => $s['count'],
+        ];
+    }
+    jsonOk($out);
 }
 
 // ---------------------------------------------------------------

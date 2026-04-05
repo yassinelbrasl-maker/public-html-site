@@ -87,10 +87,10 @@ function create(array $user) {
         try {
             $db->prepare('
                 INSERT INTO CA_projets (id, code, nom, client, client_code, annee, phase, statut, type_bat,
-                    delai, honoraires, budget, surface, description, adresse, lat, lng, nas_path,
+                    delai, honoraires, budget, surface, description, adresse, lat, lng,
                     surface_shon, surface_shob, surface_terrain, standing, zone, cout_construction, cout_m2,
                     cree_par)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ')->execute([
                 $id,
                 $code,
@@ -109,7 +109,6 @@ function create(array $user) {
                 $body['adresse']     ?? null,
                 !empty($body['lat']) ? floatval($body['lat']) : null,
                 !empty($body['lng']) ? floatval($body['lng']) : null,
-                $body['nasPath']     ?? null,
                 !empty($body['surface_shon']) ? floatval($body['surface_shon']) : null,
                 !empty($body['surface_shob']) ? floatval($body['surface_shob']) : null,
                 !empty($body['surface_terrain']) ? floatval($body['surface_terrain']) : null,
@@ -137,20 +136,9 @@ function create(array $user) {
         }
     }
 
-    // Si le code a été recalculé, mettre à jour le nas_path en DB
+    // Si le code a été recalculé, mettre à jour en DB
     if ($code !== ($body['code'] ?? '')) {
-        $nasPath = $body['nasPath'] ?? '';
-        if ($nasPath) {
-            $nasPath = preg_replace('/[^\\\\\/]+$/', '', $nasPath);
-            // Reconstruire le nom du dossier avec le nouveau code
-            $clientNom = $body['client'] ?? '';
-            $suffix = preg_replace('/\s+/', '_', trim($clientNom));
-            $suffix = preg_replace('/[^\w\-.]/', '', $suffix);
-            $nasPath .= $code . ($suffix ? '_' . $suffix : '');
-            $db->prepare('UPDATE CA_projets SET code = ?, nas_path = ? WHERE id = ?')->execute([$code, $nasPath, $id]);
-        } else {
-            $db->prepare('UPDATE CA_projets SET code = ? WHERE id = ?')->execute([$code, $id]);
-        }
+        $db->prepare('UPDATE CA_projets SET code = ? WHERE id = ?')->execute([$code, $id]);
     }
 
     saveMissions($id, $body['missions'] ?? []);
@@ -160,26 +148,11 @@ function create(array $user) {
         $db->prepare('UPDATE CA_clients SET projets = projets + 1 WHERE code = ?')->execute([$body['clientCode']]);
     }
 
-    // Créer le dossier sur le NAS via WebDAV
-    $nasResult = null;
-    if ($code) {
-        $nasPath = $body['nasPath'] ?? '';
-        $nasFolderName = '';
-        if ($nasPath) {
-            $parts = preg_split('/[\\\\\/]/', rtrim($nasPath, '\\/'));
-            $nasFolderName = end($parts);
-        }
-        $nasResult = createProjectNasFolder($code, $annee, '', $nasFolderName);
-    }
-
-    // Retourner le projet créé + résultat NAS
+    // Retourner le projet créé
     $stmt = $db->prepare('SELECT * FROM CA_projets WHERE id = ?');
     $stmt->execute([$id]);
     $projet = $stmt->fetch(PDO::FETCH_ASSOC);
     $result = $projet ?: array('id' => $id);
-    if ($nasResult !== null) {
-        $result['nas_debug'] = $nasResult;
-    }
 
     // ── Création optionnelle du groupe de discussion (Lot 2) ──
     if (!empty($body['create_chat_room']) && $projet) {
@@ -242,6 +215,11 @@ function update($id, array $user) {
     saveMissions($id, $body['missions'] ?? []);
     saveIntervenants($id, $body['intervenants'] ?? []);
 
+    // Hook chat : archive/réactivation selon statut
+    try {
+        chat_hook_project_status($id, $body['statut'] ?? '');
+    } catch (\Throwable $e) { /* silencieux */ }
+
     // Création différée du groupe de discussion si coché en édition
     if (!empty($body['create_chat_room'])) {
         try {
@@ -276,189 +254,6 @@ function getIntervenants(string $projetId) {
     $stmt = getDB()->prepare('SELECT role, nom, contact FROM CA_projets_intervenants WHERE projet_id = ? ORDER BY id');
     $stmt->execute([$projetId]);
     return $stmt->fetchAll();
-}
-
-// ── Lire un paramètre NAS depuis CA_settings puis CA_parametres (fallback) ──
-function getNasCfg($key, $default = '') {
-    $db = getDB();
-    // 1) Chercher dans CA_settings
-    try {
-        $stmt = $db->prepare('SELECT setting_value FROM CA_settings WHERE setting_key = ? LIMIT 1');
-        $stmt->execute(array($key));
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $decoded = json_decode($row['setting_value'], true);
-            return ($decoded !== null) ? $decoded : $row['setting_value'];
-        }
-    } catch (Exception $e) {}
-    // 2) Fallback CA_parametres
-    try {
-        $stmt = $db->prepare('SELECT valeur FROM CA_parametres WHERE cle = ? LIMIT 1');
-        $stmt->execute(array($key));
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $decoded = json_decode($row['valeur'], true);
-            return ($decoded !== null) ? $decoded : $row['valeur'];
-        }
-    } catch (Exception $e) {}
-    return $default;
-}
-
-// ── Créer un dossier via WebDAV MKCOL ──
-function webdavMkcol($url, $user, $pass) {
-    if (!function_exists('curl_init')) return array('code' => 0, 'error' => 'curl not available');
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'MKCOL');
-    curl_setopt($ch, CURLOPT_USERPWD, $user . ':' . $pass);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-    curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-    return array('code' => $httpCode, 'error' => $error, 'url' => $url);
-}
-
-// ── Lister les sous-dossiers via WebDAV PROPFIND ──
-function webdavListFolders($url, $user, $pass) {
-    if (!function_exists('curl_init')) return array();
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PROPFIND');
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Depth: 1', 'Content-Type: application/xml'));
-    curl_setopt($ch, CURLOPT_USERPWD, $user . ':' . $pass);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    $body = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if ($code != 207 || !$body) return array();
-
-    $folders = array();
-    // Extraire les href depuis la réponse XML (compatible tous formats namespace)
-    if (preg_match_all('/<(?:D:|d:)?href>([^<]+)<\/(?:D:|d:)?href>/i', $body, $matches)) {
-        $parentPath = rtrim(parse_url($url, PHP_URL_PATH), '/');
-        for ($i = 0; $i < count($matches[1]); $i++) {
-            $href = rtrim($matches[1][$i], '/');
-            if ($href === $parentPath) continue; // Ignorer le dossier parent lui-même
-            $parts = explode('/', $href);
-            $name = rawurldecode(end($parts));
-            if ($name && $name !== '.' && $name !== '..') {
-                $folders[] = $name;
-            }
-        }
-    }
-    return $folders;
-}
-
-// ── Copier un dossier/fichier via WebDAV COPY ──
-function webdavCopy($srcUrl, $destUrl, $user, $pass) {
-    if (!function_exists('curl_init')) return 0;
-    $ch = curl_init($srcUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'COPY');
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-        'Destination: ' . $destUrl,
-        'Depth: infinity',
-        'Overwrite: F'
-    ));
-    curl_setopt($ch, CURLOPT_USERPWD, $user . ':' . $pass);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-    curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    return $httpCode; // 201=copié, 204=écrasé
-}
-
-// ── Créer le dossier projet sur le NAS via WebDAV ──
-function createProjectNasFolder($code, $annee, $clientNom, $nasFolderName = '') {
-    $debug = array('status' => 'started');
-    try {
-        $local      = getNasCfg('cortoba_nas_local', '');
-        $publicIp   = getNasCfg('cortoba_nas_public_ip', '');
-        $webdavPort = getNasCfg('cortoba_nas_webdav_port', '5005');
-        $webdavBase = getNasCfg('cortoba_nas_webdav', '');
-        $user       = getNasCfg('cortoba_nas_user', 'admin');
-        $pass       = getNasCfg('cortoba_nas_pass', '');
-
-        $debug['config'] = array(
-            'local' => $local, 'publicIp' => $publicIp,
-            'webdavPort' => $webdavPort, 'webdavBase' => $webdavBase,
-            'user' => $user, 'hasPass' => !empty($pass)
-        );
-
-        // Extraire le chemin WebDAV depuis le UNC si non configuré
-        if (!$webdavBase && $local && preg_match('/^[\\\\\/]{2}[^\\\\\/]+[\\\\\/](.+)$/', $local, $mx)) {
-            $webdavBase = str_replace('\\', '/', trim($mx[1], '\\/'));
-        }
-
-        // IP publique en priorité, sinon IP locale
-        if ($publicIp) {
-            $ip = trim($publicIp);
-        } elseif ($local) {
-            if (preg_match('/^[\\\\\/]{2}([^\\\\\/]+)/', $local, $m)) {
-                $ip = $m[1];
-            } else {
-                $ip = trim($local);
-            }
-        } else {
-            $debug['status'] = 'no_ip';
-            return $debug;
-        }
-
-        if (!$ip || !$webdavPort) { $debug['status'] = 'missing_config'; return $debug; }
-
-        if ($nasFolderName) {
-            $folderName = $nasFolderName;
-        } else {
-            $suffix = preg_replace('/\s+/', '_', trim($clientNom));
-            $suffix = preg_replace('/[^\w\-.]/', '', $suffix);
-            $folderName = $code . ($suffix ? '_' . $suffix : '');
-        }
-
-        $base = rtrim('http://' . $ip . ':' . $webdavPort . ($webdavBase ? '/' . ltrim(str_replace('\\', '/', $webdavBase), '/') : ''), '/');
-
-        $yearUrl    = $base . '/' . $annee . '/';
-        $projectUrl = $yearUrl . rawurlencode($folderName) . '/';
-
-        $debug['ip'] = $ip;
-        $debug['base'] = $base;
-        $debug['yearUrl'] = $yearUrl;
-        $debug['projectUrl'] = $projectUrl;
-        $debug['folderName'] = $folderName;
-
-        // 1. Créer le dossier année
-        $r1 = webdavMkcol($yearUrl, $user, $pass);
-        $debug['year_mkcol'] = $r1;
-
-        // 2. Créer le dossier projet
-        $r2 = webdavMkcol($projectUrl, $user, $pass);
-        $debug['project_mkcol'] = $r2;
-
-        // 3. Copier les sous-dossiers template si le dossier a été créé
-        if ($r2['code'] == 201) {
-            $templateUrl = $yearUrl . rawurlencode('00-Dossier Type') . '/';
-            $subfolders  = webdavListFolders($templateUrl, $user, $pass);
-            $debug['template_folders'] = $subfolders;
-            foreach ($subfolders as $sub) {
-                $src  = $templateUrl . rawurlencode($sub) . '/';
-                $dest = $projectUrl . rawurlencode($sub) . '/';
-                webdavCopy($src, $dest, $user, $pass);
-            }
-        }
-
-        $debug['status'] = ($r2['code'] == 201 || $r2['code'] == 405) ? 'ok' : 'failed';
-    } catch (\Throwable $e) {
-        $debug['status'] = 'error';
-        $debug['exception'] = $e->getMessage();
-    }
-    return $debug;
 }
 
 function saveMissions(string $projetId, array $missions) {

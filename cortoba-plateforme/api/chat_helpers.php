@@ -29,6 +29,12 @@ function chat_ensure_schema() {
         KEY idx_archived (is_archived)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    // Colonnes portail client (idempotent)
+    try { $db->exec("ALTER TABLE CA_chat_rooms ADD COLUMN access_token VARCHAR(64) DEFAULT NULL"); } catch (\Throwable $e) {}
+    try { $db->exec("ALTER TABLE CA_chat_rooms ADD COLUMN client_email VARCHAR(200) DEFAULT NULL"); } catch (\Throwable $e) {}
+    try { $db->exec("ALTER TABLE CA_chat_rooms ADD COLUMN client_name  VARCHAR(200) DEFAULT NULL"); } catch (\Throwable $e) {}
+    try { $db->exec("ALTER TABLE CA_chat_rooms ADD INDEX idx_token (access_token)"); } catch (\Throwable $e) {}
+
     $db->exec("CREATE TABLE IF NOT EXISTS CA_chat_messages (
         id              VARCHAR(32)  NOT NULL PRIMARY KEY,
         room_id         VARCHAR(32)  NOT NULL,
@@ -176,6 +182,29 @@ function chat_post_system_message($db, $roomId, $content) {
                   VALUES (?, ?, NULL, 'Système', 'system', ?)")
        ->execute([$mid, $roomId, $content]);
     return $mid;
+}
+
+// Hook : archive/désarchive la room projet selon le statut du projet
+// Statuts qui archivent : 'Terminé', 'Archivé', 'Clôturé'
+function chat_hook_project_status($projetId, $statut) {
+    if (!$projetId) return;
+    try {
+        chat_ensure_schema();
+        $db = getDB();
+        $stmt = $db->prepare("SELECT id, is_archived FROM CA_chat_rooms WHERE type='projet' AND projet_id = ? LIMIT 1");
+        $stmt->execute([$projetId]);
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$room) return;
+
+        $shouldArchive = in_array($statut, ['Terminé','Termine','Archivé','Archive','Clôturé','Cloture'], true);
+        if ($shouldArchive && empty($room['is_archived'])) {
+            $db->prepare("UPDATE CA_chat_rooms SET is_archived = 1 WHERE id = ?")->execute([$room['id']]);
+            chat_post_system_message($db, $room['id'], '🔒 Projet passé en statut « ' . $statut . ' » — discussion archivée (lecture seule).');
+        } elseif (!$shouldArchive && !empty($room['is_archived'])) {
+            $db->prepare("UPDATE CA_chat_rooms SET is_archived = 0 WHERE id = ?")->execute([$room['id']]);
+            chat_post_system_message($db, $room['id'], '🔓 Projet réactivé — discussion rouverte.');
+        }
+    } catch (\Throwable $e) { /* silencieux */ }
 }
 
 // Hook : appelé depuis taches.php quand une tâche reçoit un assignee
