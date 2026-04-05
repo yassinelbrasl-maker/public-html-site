@@ -8417,10 +8417,10 @@ function openDemandeAdminModal(data) {
   document.getElementById('da-remarques').value = data ? (data.remarques || '') : '';
 
   _populateDASelect('da-type', getDATypes(), data ? data.type_demande : '');
-  _populateDASelect('da-administration', getDAAdmins(), data ? data.administration : '');
-  _populateDASelect('da-gouvernorat', getDAGouvs(), data ? data.gouvernorat : '', true);
-  _populateDASelect('da-delegation', getDADelegs(), data ? data.delegation : '', true);
-  _populateDASelect('da-municipalite', getDAMunis(), data ? data.municipalite : '', true);
+  _populateDASelectSorted('da-administration', getDAAdmins(), data ? data.administration : '', false, 'da_recent_admins');
+  _populateDASelectSorted('da-gouvernorat',    getDAGouvs(),  data ? data.gouvernorat  : '', true, 'da_recent_gouvs');
+  _populateDASelectSorted('da-delegation',     getDADelegs(), data ? data.delegation   : '', true, 'da_recent_delegs');
+  _populateDASelectSorted('da-municipalite',   getDAMunis(),  data ? data.municipalite : '', true, 'da_recent_munis');
 
   // Clients
   var cSel = document.getElementById('da-client');
@@ -8470,14 +8470,59 @@ function _daPopulateProjets(selectedProjetId, clientId) {
   if (!pSel) return;
   pSel.innerHTML = '<option value="">-- Aucun --</option>';
   var all = getProjets() || [];
-  var filtered = clientId ? all.filter(function(p) { return p.client_id === clientId; }) : all;
+
+  // Champ de recherche au-dessus du select (ajouté une seule fois)
+  _daEnsureProjetSearch();
+  var q = (document.getElementById('da-projet-search') || {}).value || '';
+  q = q.trim().toLowerCase();
+
+  var filtered = all;
+  if (clientId) {
+    var client = (getClients() || []).find(function(c) { return c.id === clientId; });
+    var clientDisplay = client ? (client.display_nom || client.displayNom || client.nom || client.raison || '') : '';
+    filtered = all.filter(function(p) {
+      if (p.client_id && p.client_id === clientId) return true;
+      if (p.clientId && p.clientId === clientId)   return true;
+      if (clientDisplay && p.client && String(p.client).trim() === String(clientDisplay).trim()) return true;
+      return false;
+    });
+  }
+  if (q) {
+    filtered = filtered.filter(function(p) {
+      var hay = ((p.code || '') + ' ' + (p.nom || '') + ' ' + (p.client || '')).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+  }
+
   filtered.forEach(function(p) {
     var o = document.createElement('option');
     o.value = p.id;
     o.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
-    o.setAttribute('data-client-id', p.client_id || '');
+    o.setAttribute('data-client-id', p.client_id || p.clientId || '');
     if (selectedProjetId && p.id === selectedProjetId) o.selected = true;
     pSel.appendChild(o);
+  });
+
+  // Compteur visible
+  var info = document.getElementById('da-projet-count');
+  if (info) info.textContent = filtered.length + ' projet(s)';
+}
+
+// Injecte (une seule fois) un input de recherche au-dessus du select projet
+function _daEnsureProjetSearch() {
+  if (document.getElementById('da-projet-search')) return;
+  var pSel = document.getElementById('da-projet');
+  if (!pSel) return;
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.3rem';
+  wrap.innerHTML =
+    '<input id="da-projet-search" class="form-input" placeholder="Rechercher un projet…" style="flex:1;font-size:0.8rem" />' +
+    '<span id="da-projet-count" style="font-size:0.72rem;color:var(--text-3);white-space:nowrap"></span>';
+  pSel.parentNode.insertBefore(wrap, pSel);
+  document.getElementById('da-projet-search').addEventListener('input', function() {
+    var cSel = document.getElementById('da-client');
+    var current = pSel.value;
+    _daPopulateProjets(current, (cSel && cSel.value) ? cSel.value : null);
   });
 }
 
@@ -8580,6 +8625,54 @@ function _populateDASelect(selectId, items, selected, allowEmpty) {
   });
 }
 
+// Variante tri alphabétique + épinglage des récents en haut
+function _populateDASelectSorted(selectId, items, selected, allowEmpty, recentsKey) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = allowEmpty ? '<option value="">-- Aucun(e) --</option>' : '<option value="">-- Choisir --</option>';
+
+  var recents = (getSetting(recentsKey, []) || []).filter(function(v) { return items.indexOf(v) !== -1; });
+  var others  = items.slice().filter(function(v) { return recents.indexOf(v) === -1; });
+  others.sort(function(a, b) { return String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' }); });
+
+  if (recents.length) {
+    var gR = document.createElement('optgroup');
+    gR.label = '★ Récents';
+    recents.forEach(function(v) {
+      var o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === selected) o.selected = true;
+      gR.appendChild(o);
+    });
+    sel.appendChild(gR);
+    var gO = document.createElement('optgroup');
+    gO.label = 'Tous';
+    others.forEach(function(v) {
+      var o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === selected) o.selected = true;
+      gO.appendChild(o);
+    });
+    sel.appendChild(gO);
+  } else {
+    others.forEach(function(v) {
+      var o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === selected) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+}
+
+// Pousse une valeur en tête des récents (max 5)
+function _daPushRecent(key, val) {
+  if (!val) return;
+  var list = (getSetting(key, []) || []).filter(function(v) { return v !== val; });
+  list.unshift(val);
+  if (list.length > 5) list = list.slice(0, 5);
+  saveSetting(key, list);
+}
+
 function _renderDADocsChecklist(data) {
   var wrap = document.getElementById('da-docs-checklist');
   if (!wrap) return;
@@ -8658,8 +8751,12 @@ function saveDemandeAdmin() {
   if (!body.administration) { alert('Choisissez une administration.'); return; }
   if (!body.objet)          { alert('Saisissez l\'objet de la demande.'); return; }
 
-  // Sauvegarder l'objet dans l'historique
+  // Sauvegarder l'objet dans l'historique + épingler les choix utilisés
   _daSaveObjetHistory(body.objet);
+  _daPushRecent('da_recent_admins', body.administration);
+  _daPushRecent('da_recent_gouvs',  body.gouvernorat);
+  _daPushRecent('da_recent_delegs', body.delegation);
+  _daPushRecent('da_recent_munis',  body.municipalite);
 
   var url = id ? 'api/demandes_admin.php?id=' + id : 'api/demandes_admin.php';
   var method = id ? 'PUT' : 'POST';
