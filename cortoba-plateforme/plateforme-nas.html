@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="plateforme.css">
   <link rel="stylesheet" href="ergonomie.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" />
   <style>
     /* Garantir que l'écran de login est visible immédiatement, avant que le CSS externe charge */
     #login-screen { display: flex !important; }
@@ -126,6 +127,18 @@
         <button class="nav-item" onclick="showPage('rendement')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Rendement
+        </button>
+        <button class="nav-item" onclick="showPage('timesheet')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Timesheet
+        </button>
+        <button class="nav-item" onclick="showPage('gantt')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="6" x2="13" y2="6"/><line x1="7" y1="12" x2="18" y2="12"/><line x1="5" y1="18" x2="15" y2="18"/></svg>
+          Gantt
+        </button>
+        <button class="nav-item" onclick="showPage('charge')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Charge de travail
         </button>
         <button class="nav-item" onclick="showPage('facturation')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -1195,6 +1208,14 @@
             <option value="">Toutes priorités</option>
             <option>Urgente</option><option>Haute</option><option>Normale</option><option>Basse</option>
           </select>
+          <select id="suivi-filter-location" class="form-select" style="width:auto;min-width:140px" onchange="renderSuiviPage()">
+            <option value="">Tous lieux</option>
+            <option>Bureau</option><option>Chantier</option><option>Administration</option>
+          </select>
+          <button class="btn btn-sm" title="Mes déplacements (chantier/administration)" onclick="openDeplacementsView()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Mes déplacements
+          </button>
           <span id="suivi-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
         </div>
 
@@ -1236,13 +1257,20 @@
             </div>
             <div class="form-field" id="tache-titre-field-select">
               <label class="form-label">Mission *</label>
-              <select id="tache-titre-select" class="form-select">
+              <select id="tache-titre-select" class="form-select" onchange="onTacheTitreSelectChange(this)">
                 <option value="">— Choisir une mission —</option>
               </select>
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Les missions <span style="color:var(--text-3);opacity:0.5">grisées</span> ne sont pas affectées à ce projet — cliquer pour les ajouter à la fiche projet.</div>
             </div>
             <div class="form-field" id="tache-titre-field-input" style="display:none">
               <label class="form-label">Titre *</label>
-              <input id="tache-titre" class="form-input" placeholder="Ex: Vérification des plans" />
+              <div style="display:flex;gap:0.4rem">
+                <select id="tache-titre-type-select" class="form-select" style="flex:1" onchange="onTacheTitreTypeChange(this)">
+                  <option value="">— Choisir une tâche-type —</option>
+                </select>
+                <button type="button" class="btn btn-sm" onclick="openAddTacheTypeInline()" title="Ajouter une nouvelle tâche-type">+</button>
+              </div>
+              <input id="tache-titre" class="form-input" placeholder="Ex: Vérification des plans" style="margin-top:0.4rem" />
             </div>
             <div class="form-field">
               <label class="form-label">Description</label>
@@ -1287,6 +1315,33 @@
                 <input id="tache-date-echeance" class="form-input" type="date" />
               </div>
             </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label class="form-label">Localisation</label>
+                <select id="tache-location-type" class="form-select">
+                  <option>Bureau</option><option>Chantier</option><option>Administration</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Zone / Ville</label>
+                <input id="tache-location-zone" class="form-input" placeholder="Ex: Midoun, Houmt Souk…" />
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label class="form-label">Heures estimées <span style="color:var(--red)">*</span></label>
+                <input id="tache-heures-estimees" class="form-input" type="number" step="0.25" min="0" placeholder="Ex: 8" required />
+                <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Requis pour Gantt & Charge de travail</div>
+              </div>
+              <div class="form-field">
+                <label class="form-label">Ordre d'affichage</label>
+                <input id="tache-order-index" class="form-input" type="number" step="1" placeholder="Auto" />
+              </div>
+            </div>
+            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.78rem;cursor:pointer">
+              <input type="checkbox" id="tache-progression-manuelle" />
+              <span>Forcer la progression manuellement (désactive la cascade automatique)</span>
+            </label>
             <div id="tache-err" class="form-error" style="display:none;color:var(--red);font-size:0.78rem"></div>
           </div>
           <div class="modal-footer">
@@ -1927,12 +1982,12 @@
           <div style="margin-bottom:1.2rem">
             <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.5rem;color:var(--text)">En-tête de l'agence (sur lettres générées)</div>
             <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:0.5rem">
-              <div class="form-field"><label class="form-label">Nom (FR)</label><input id="param-da-hdr-nom-fr" class="form-input" placeholder="Cortoba Architecture Studio" /></div>
-              <div class="form-field"><label class="form-label">Nom (AR)</label><input id="param-da-hdr-nom-ar" class="form-input" placeholder="استوديو قرطبة للهندسة المعمارية" dir="rtl" /></div>
-              <div class="form-field"><label class="form-label">Adresse (FR)</label><input id="param-da-hdr-adr-fr" class="form-input" placeholder="Adresse, Djerba, Tunisie" /></div>
-              <div class="form-field"><label class="form-label">Adresse (AR)</label><input id="param-da-hdr-adr-ar" class="form-input" placeholder="العنوان، جربة، تونس" dir="rtl" /></div>
-              <div class="form-field"><label class="form-label">Téléphone</label><input id="param-da-hdr-tel" class="form-input" placeholder="+216 ..." /></div>
-              <div class="form-field"><label class="form-label">Email</label><input id="param-da-hdr-email" class="form-input" placeholder="contact@..." /></div>
+              <div class="form-field"><label class="form-label">Nom (FR)</label><input id="param-da-hdr-nom-fr" class="form-input" placeholder="Cortoba Architecture Studio" oninput="previewDAHeader()" /></div>
+              <div class="form-field"><label class="form-label">Nom (AR)</label><input id="param-da-hdr-nom-ar" class="form-input" placeholder="استوديو قرطبة للهندسة المعمارية" dir="rtl" oninput="previewDAHeader()" /></div>
+              <div class="form-field"><label class="form-label">Adresse (FR)</label><input id="param-da-hdr-adr-fr" class="form-input" placeholder="Adresse, Djerba, Tunisie" oninput="previewDAHeader()" /></div>
+              <div class="form-field"><label class="form-label">Adresse (AR)</label><input id="param-da-hdr-adr-ar" class="form-input" placeholder="العنوان، جربة، تونس" dir="rtl" oninput="previewDAHeader()" /></div>
+              <div class="form-field"><label class="form-label">Téléphone</label><input id="param-da-hdr-tel" class="form-input" placeholder="+216 ..." oninput="previewDAHeader()" /></div>
+              <div class="form-field"><label class="form-label">Email</label><input id="param-da-hdr-email" class="form-input" placeholder="contact@..." oninput="previewDAHeader()" /></div>
             </div>
             <div style="display:flex;align-items:center;gap:0.6rem;margin-top:0.5rem;flex-wrap:wrap">
               <label class="form-label" style="margin:0">Logo</label>
@@ -2072,6 +2127,77 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- ══ TIMESHEET (saisie du temps) ══ -->
+      <div class="page" id="page-timesheet">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">ERP · Suivi du temps</div>
+            <h1 class="page-title">Timesheet</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openTimesheetModal()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Saisir du temps
+            </button>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+          <select id="ts-filter-user" class="form-select" style="width:auto;min-width:180px" onchange="renderTimesheetPage()">
+            <option value="">Tous les collaborateurs</option>
+          </select>
+          <select id="ts-filter-projet" class="form-select" style="width:auto;min-width:180px" onchange="renderTimesheetPage()">
+            <option value="">Tous les projets</option>
+          </select>
+          <input type="date" id="ts-filter-from" class="form-input" style="width:auto" onchange="renderTimesheetPage()" />
+          <input type="date" id="ts-filter-to"   class="form-input" style="width:auto" onchange="renderTimesheetPage()" />
+          <span id="ts-summary" style="font-size:0.78rem;color:var(--text-3);margin-left:auto"></span>
+        </div>
+        <div class="card"><div id="ts-table-wrap"><div style="color:var(--text-3);font-size:0.82rem;padding:1rem">Chargement…</div></div></div>
+      </div>
+
+      <!-- ══ GANTT ══ -->
+      <div class="page" id="page-gantt">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">ERP · Planning visuel</div>
+            <h1 class="page-title">Gantt</h1>
+          </div>
+          <div class="page-actions">
+            <select id="gantt-projet" class="form-select" style="width:auto;min-width:200px" onchange="renderGanttPage()">
+              <option value="">Tous les projets</option>
+            </select>
+            <select id="gantt-scale" class="form-select" style="width:auto" onchange="if(window._ganttInstance){window._ganttInstance.change_view_mode(this.value);}">
+              <option value="Day">Jour</option>
+              <option value="Week" selected>Semaine</option>
+              <option value="Month">Mois</option>
+            </select>
+          </div>
+        </div>
+        <div class="card" style="padding:0.5rem">
+          <div id="gantt-container" style="min-height:400px;overflow:auto">
+            <div style="color:var(--text-3);font-size:0.82rem;padding:2rem;text-align:center">Chargement du planning…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ CHARGE DE TRAVAIL ══ -->
+      <div class="page" id="page-charge">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">ERP · Planification des ressources</div>
+            <h1 class="page-title">Charge de travail</h1>
+          </div>
+          <div class="page-actions">
+            <input type="date" id="charge-from" class="form-input" style="width:auto" onchange="renderChargePage()" />
+            <input type="date" id="charge-to"   class="form-input" style="width:auto" onchange="renderChargePage()" />
+          </div>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+          Charge estimée (heures planifiées) par collaborateur vs disponibilité hebdomadaire (heures_mois ÷ 4).
+        </div>
+        <div class="card"><div id="charge-wrap" style="padding:1rem"><div style="color:var(--text-3);font-size:0.82rem">Chargement…</div></div></div>
       </div>
 
     </main>
@@ -2840,6 +2966,89 @@
 </div>
 
 <!-- ═══ Modal aperçu fiche de paie (impression) ═══ -->
+<!-- ══ Modal Timesheet — saisie rapide ══ -->
+<div class="modal-overlay" id="modal-timesheet">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2 class="modal-title">Saisir du temps</h2>
+      <button class="modal-close" onclick="closeModal('modal-timesheet')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:0.8rem">
+      <input type="hidden" id="ts-id" />
+      <input type="hidden" id="ts-tache-id" />
+      <div class="form-field">
+        <label class="form-label">Projet</label>
+        <select id="ts-projet" class="form-select"></select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Tâche (optionnel)</label>
+        <select id="ts-tache" class="form-select"><option value="">— Aucune —</option></select>
+      </div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="form-label">Date</label>
+          <input id="ts-date" class="form-input" type="date" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Heures</label>
+          <input id="ts-hours" class="form-input" type="number" step="0.25" min="0" placeholder="2.5" />
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer">
+        <input type="checkbox" id="ts-billable" checked /> <span>Facturable au client</span>
+      </label>
+      <div class="form-field">
+        <label class="form-label">Commentaire</label>
+        <input id="ts-commentaire" class="form-input" placeholder="Détail optionnel…" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-timesheet')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveTimesheet()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Deadlines — popup login ══ -->
+<div class="modal-overlay" id="modal-deadlines">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h2 class="modal-title">⚠ Échéances à surveiller</h2>
+      <button class="modal-close" onclick="closeModal('modal-deadlines')">&times;</button>
+    </div>
+    <div class="modal-body" style="max-height:60vh;overflow:auto">
+      <div id="deadlines-list" style="display:flex;flex-direction:column;gap:0.5rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-deadlines');showPage('suivi')">Voir le suivi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal ajout rapide tâche-type (inline) ══ -->
+<div class="modal-overlay" id="modal-add-tachetype">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title">Nouvelle tâche-type</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-tachetype')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:0.7rem">
+      <div class="form-field">
+        <label class="form-label">Mission parente</label>
+        <select id="add-tt-mission" class="form-select"></select>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Nom de la tâche-type</label>
+        <input id="add-tt-nom" class="form-input" placeholder="Ex: Vérification des plans" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-add-tachetype')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmAddTacheTypeInline()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-fiche-paie">
   <div class="modal-box" style="max-width:920px;width:98%;max-height:92vh;display:flex;flex-direction:column">
     <div class="modal-header">
@@ -3630,6 +3839,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.umd.js"></script>
 <script src="plateforme-nas.js?t=20260328u"></script>
 <script src="ergonomie.js?t=20260328e"></script>
 <script>

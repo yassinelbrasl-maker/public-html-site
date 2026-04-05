@@ -3903,7 +3903,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -4028,7 +4028,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   var _allowed = getAllowedModules();
@@ -4049,6 +4049,9 @@ function showPage(id){
   if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }).catch(function(e){ console.error('[suivi] init error', e); }); },80);
   if(id==='journal')    setTimeout(function(){ var dEl=document.getElementById('journal-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().split('T')[0]; renderJournalPage(); },80);
   if(id==='rendement')  setTimeout(renderRendementPage,80);
+  if(id==='timesheet')  setTimeout(function(){ if(typeof renderTimesheetPage==='function') renderTimesheetPage(); },80);
+  if(id==='gantt')      setTimeout(function(){ if(typeof renderGanttPage==='function') renderGanttPage(); },80);
+  if(id==='charge')     setTimeout(function(){ if(typeof renderChargePage==='function') renderChargePage(); },80);
   if(id==='demandes-admin') setTimeout(renderDemandesAdminPage,80);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
@@ -7306,6 +7309,12 @@ function openSuiviModal(niveau, parentId, projetId) {
   document.getElementById('tache-prog-val').textContent = '0%';
   document.getElementById('tache-date-debut').value = '';
   document.getElementById('tache-date-echeance').value = '';
+  var _r;
+  _r = document.getElementById('tache-location-type');       if (_r) _r.value = 'Bureau';
+  _r = document.getElementById('tache-location-zone');       if (_r) _r.value = '';
+  _r = document.getElementById('tache-heures-estimees');     if (_r) _r.value = '';
+  _r = document.getElementById('tache-order-index');         if (_r) _r.value = '';
+  _r = document.getElementById('tache-progression-manuelle'); if (_r) _r.checked = false;
   var errEl = document.getElementById('tache-err');
   if (errEl) errEl.style.display = 'none';
 
@@ -7434,6 +7443,13 @@ function editTache(id) {
   // Populate assignee select with team members
   _populateAssigneeSelect(t.assignee || '');
 
+  // v3 : localisation / heures / ordre / manuelle
+  var elLoc  = document.getElementById('tache-location-type');  if (elLoc) elLoc.value = t.location_type || 'Bureau';
+  var elZone = document.getElementById('tache-location-zone');  if (elZone) elZone.value = t.location_zone || '';
+  var elHE   = document.getElementById('tache-heures-estimees'); if (elHE) elHE.value = (t.heures_estimees != null ? t.heures_estimees : '');
+  var elOrd  = document.getElementById('tache-order-index');    if (elOrd) elOrd.value = (t.ordre != null ? t.ordre : '');
+  var elMan  = document.getElementById('tache-progression-manuelle'); if (elMan) elMan.checked = !!(+t.progression_manuelle);
+
   openModal('modal-tache');
 }
 
@@ -7453,6 +7469,16 @@ function saveTache() {
   if (!titre) { errEl.textContent = errMsg; errEl.style.display = 'block'; return; }
   if (!projetId) { errEl.textContent = 'Veuillez choisir un projet.'; errEl.style.display = 'block'; return; }
 
+  // v3 : heures estimées obligatoires
+  var heuresEstInput = document.getElementById('tache-heures-estimees');
+  var heuresEst = heuresEstInput ? parseFloat(heuresEstInput.value) : 0;
+  if (!heuresEst || heuresEst <= 0) {
+    errEl.textContent = 'Heures estimées requises (pour Gantt & Charge de travail).';
+    errEl.style.display = 'block';
+    if (heuresEstInput) heuresEstInput.focus();
+    return;
+  }
+
   var body = {
     projet_id:     projetId,
     parent_id:     document.getElementById('tache-parent-id').value || null,
@@ -7464,8 +7490,14 @@ function saveTache() {
     assignee:      document.getElementById('tache-assignee').value.trim(),
     progression:   parseInt(document.getElementById('tache-progression').value) || 0,
     date_debut:    document.getElementById('tache-date-debut').value || null,
-    date_echeance: document.getElementById('tache-date-echeance').value || null
+    date_echeance: document.getElementById('tache-date-echeance').value || null,
+    location_type: (document.getElementById('tache-location-type')||{}).value || 'Bureau',
+    location_zone: ((document.getElementById('tache-location-zone')||{}).value || '').trim(),
+    heures_estimees: heuresEst,
+    progression_manuelle: (document.getElementById('tache-progression-manuelle')||{}).checked ? 1 : 0
   };
+  var ordV = (document.getElementById('tache-order-index')||{}).value;
+  if (ordV !== '' && ordV != null) body.ordre = parseInt(ordV, 10) || 0;
 
   var isEdit = !!id;
   var url    = isEdit ? 'api/taches.php?id=' + id : 'api/taches.php';
@@ -8314,15 +8346,19 @@ function getDAHeaderStyle() {
 }
 
 // Génère le HTML de l'en-tête (partagé preview + impression)
-function _daBuildHeaderHtml(lang, style) {
+// textOverride (optionnel) : {nomFr,nomAr,adrFr,adrAr,tel,email,logo} pour aperçu live
+function _daBuildHeaderHtml(lang, style, textOverride) {
   var isAr = (lang === 'ar');
-  var logo = getSetting('cortoba_agence_logo', '');
-  var nom  = isAr ? (getSetting('cortoba_agence_raison_ar','') || getSetting('cortoba_agence_raison','Cortoba Architecture Studio'))
-                  : getSetting('cortoba_agence_raison','Cortoba Architecture Studio');
-  var adr  = isAr ? (getSetting('cortoba_agence_adresse_ar','') || getSetting('cortoba_agence_adresse',''))
-                  : getSetting('cortoba_agence_adresse','');
-  var tel  = getSetting('cortoba_agence_tel','');
-  var email = getSetting('cortoba_agence_email','');
+  var o = textOverride || {};
+  var logo = (o.logo !== undefined) ? o.logo : getSetting('cortoba_agence_logo', '');
+  var nomFr = (o.nomFr !== undefined) ? o.nomFr : getSetting('cortoba_agence_raison','Cortoba Architecture Studio');
+  var nomAr = (o.nomAr !== undefined) ? o.nomAr : getSetting('cortoba_agence_raison_ar','');
+  var adrFr = (o.adrFr !== undefined) ? o.adrFr : getSetting('cortoba_agence_adresse','');
+  var adrAr = (o.adrAr !== undefined) ? o.adrAr : getSetting('cortoba_agence_adresse_ar','');
+  var nom  = isAr ? (nomAr || nomFr) : nomFr;
+  var adr  = isAr ? (adrAr || adrFr) : adrFr;
+  var tel  = (o.tel !== undefined) ? o.tel : getSetting('cortoba_agence_tel','');
+  var email = (o.email !== undefined) ? o.email : getSetting('cortoba_agence_email','');
 
   var dir = isAr ? 'rtl' : 'ltr';
   var contact = [];
@@ -8365,7 +8401,18 @@ function previewDAHeader() {
   if (!wrap) return;
   var style = _daReadHeaderStyleFromForm();
   var lang = (document.getElementById('param-da-hdr-prev-lang') || {}).value || 'fr';
-  wrap.innerHTML = _daBuildHeaderHtml(lang, style);
+  var val = function(id) { var e = document.getElementById(id); return e ? (e.value || '') : ''; };
+  var logoImg = document.getElementById('param-da-hdr-logo-preview');
+  var override = {
+    nomFr: val('param-da-hdr-nom-fr'),
+    nomAr: val('param-da-hdr-nom-ar'),
+    adrFr: val('param-da-hdr-adr-fr'),
+    adrAr: val('param-da-hdr-adr-ar'),
+    tel:   val('param-da-hdr-tel'),
+    email: val('param-da-hdr-email'),
+    logo:  (logoImg && logoImg.src && logoImg.style.display !== 'none') ? logoImg.src : getSetting('cortoba_agence_logo','')
+  };
+  wrap.innerHTML = _daBuildHeaderHtml(lang, style, override);
 }
 
 function _daReadHeaderStyleFromForm() {
