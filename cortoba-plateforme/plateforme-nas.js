@@ -2938,6 +2938,39 @@ function calcDepTotal(){
   var ttcEl = document.getElementById('dep-total-ttc');  if(ttcEl) ttcEl.textContent = fmt(ttc);
 }
 
+// ── Dépense récurrente : helpers UI ──
+function toggleRecurrenceSection() {
+  var toggle = document.getElementById('dep-recurrent-toggle');
+  var section = document.getElementById('dep-recurrence-section');
+  if (!toggle || !section) return;
+  section.style.display = toggle.checked ? '' : 'none';
+}
+function toggleRecurrenceEndDate() {
+  var cb  = document.getElementById('dep-rec-no-end');
+  var inp = document.getElementById('dep-rec-end-date');
+  if (!cb || !inp) return;
+  inp.disabled = cb.checked;
+  if (cb.checked) inp.value = '';
+}
+
+// Ajoute une durée (en jours/semaines) à une date YYYY-MM-DD et renvoie YYYY-MM-DD
+function advanceDateClient(dateStr, frequency) {
+  var d = new Date(dateStr);
+  if (isNaN(d)) d = new Date();
+  switch (frequency) {
+    case 'weekly':     d.setDate(d.getDate() + 7); break;
+    case 'monthly':    d.setMonth(d.getMonth() + 1); break;
+    case 'quarterly':  d.setMonth(d.getMonth() + 3); break;
+    case 'semiannual': d.setMonth(d.getMonth() + 6); break;
+    case 'yearly':     d.setFullYear(d.getFullYear() + 1); break;
+    default:           d.setMonth(d.getMonth() + 1);
+  }
+  return d.toISOString().split('T')[0];
+}
+
+// Etat : si on est en train de valider depuis une notification
+var _depFromTemplateId = null;
+
 function saveDepense(){
   var cat      = (document.getElementById('dep-categorie')||{value:''}).value;
   var libelle  = (document.getElementById('dep-libelle').value||'').trim();
@@ -2952,13 +2985,15 @@ function saveDepense(){
   // Collecter les lignes
   var lignes = [];
   var totalHT=0, totalTVA=0;
-  document.querySelectorAll('#dep-lignes-wrap > div').forEach(function(div){
+  var firstVatRate = 19;
+  document.querySelectorAll('#dep-lignes-wrap > div').forEach(function(div, idx){
     var htEl  = div.querySelector('.dep-l-ht');
     var tvaEl = div.querySelector('.dep-l-tva');
     var dEl   = div.querySelector('.dep-l-desc');
     if(!htEl) return;
     var ht  = parseFloat(htEl.value)||0;
     var tva = parseFloat((tvaEl?tvaEl.value:'0').replace('%',''))||0;
+    if (idx === 0) firstVatRate = tva;
     totalHT  += ht;
     totalTVA += ht * tva/100;
     lignes.push({desc:(dEl?dEl.value.trim():''), ht:ht, tva:tva});
@@ -2973,28 +3008,109 @@ function saveDepense(){
   saveDepLibelle(libelle);
   if (fourn) saveDepFournisseur(fourn);
 
-  var body = {
-    description: libelle, montant: ttc, dateDep: date||null,
-    categorie: cat, reference: ref||null,
-    fournisseur: fourn||null, codeTvaFournisseur: codeTva||null,
-    montantHT: totalHT, montantTVA: totalTVA, timbre: timbre,
-    montantTTC: ttc, lignes: lignes
-  };
-  var method = 'POST';
-  var url    = 'api/data.php?table=depenses';
-  if (_editingDepenseId) {
-    method = 'PUT';
-    url    = 'api/data.php?table=depenses&id=' + _editingDepenseId;
-    body.id = _editingDepenseId;
+  // ── Lecture des champs de récurrence ──
+  var recToggle = document.getElementById('dep-recurrent-toggle');
+  var isRecurrent = recToggle && recToggle.checked;
+
+  var today   = new Date().toISOString().split('T')[0];
+  var depDate = date || today;
+  // On insère une dépense réelle uniquement si la date est <= aujourd'hui
+  var insertImmediateExpense = (!isRecurrent) || (depDate <= today);
+
+  // Promesse principale
+  var p = Promise.resolve();
+
+  // ── Étape A : insérer la dépense immédiate (si applicable) ──
+  if (insertImmediateExpense) {
+    var body = {
+      description: libelle, montant: ttc, dateDep: depDate,
+      categorie: cat, reference: ref||null,
+      fournisseur: fourn||null, codeTvaFournisseur: codeTva||null,
+      montantHt: totalHT, montantTva: totalTVA, timbre: timbre,
+      montantTtc: ttc, lignesJson: lignes,
+      templateId: _depFromTemplateId || null
+    };
+    var method = 'POST';
+    var url    = 'api/data.php?table=depenses';
+    if (_editingDepenseId) {
+      method = 'PUT';
+      url    = 'api/data.php?table=depenses&id=' + _editingDepenseId;
+      body.id = _editingDepenseId;
+    }
+    p = p.then(function(){ return apiFetch(url, {method:method, body:body}); });
   }
-  apiFetch(url, {method:method, body:body})
-    .then(function(){ loadData().then(function(){renderDepenses();}); closeModal('modal-depense'); resetDepenseForm(); })
-    .catch(function(e){ alert(e.message||'Erreur'); });
+
+  // ── Étape B : si récurrent ET pas une édition → créer/mettre à jour le template ──
+  if (isRecurrent && !_editingDepenseId && !_depFromTemplateId) {
+    var freq       = (document.getElementById('dep-rec-frequency')||{value:'monthly'}).value;
+    var amountType = (document.getElementById('dep-rec-amount-type')||{value:'fixed'}).value;
+    var notifyN    = parseInt((document.getElementById('dep-rec-notify-n')||{value:5}).value, 10) || 5;
+    var notifyUnit = (document.getElementById('dep-rec-notify-unit')||{value:'days'}).value;
+    var noEnd      = document.getElementById('dep-rec-no-end');
+    var endDateInp = document.getElementById('dep-rec-end-date');
+    var endDate    = (noEnd && noEnd.checked) ? null : (endDateInp ? endDateInp.value : null);
+
+    var notifyDays = notifyUnit === 'weeks' ? notifyN * 7 : notifyN;
+
+    // Prochaine échéance = date saisie + une période
+    var nextDue = advanceDateClient(depDate, freq);
+
+    var tplBody = {
+      label:              libelle,
+      categorie:          cat,
+      fournisseur:        fourn || null,
+      code_tva:           codeTva || null,
+      frequency:          freq,
+      amount_type:        amountType,
+      base_amount_ht:     totalHT,
+      vat_rate:           firstVatRate,
+      stamp_duty:         timbre,
+      base_amount_ttc:    ttc,
+      lignes:             lignes,
+      next_due_date:      nextDue,
+      notify_days_before: notifyDays,
+      end_date:           endDate || null
+    };
+    p = p.then(function(){ return apiFetch('api/depenses_templates.php', {method:'POST', body:tplBody}); });
+  }
+
+  // ── Étape C : si validation depuis une notification → avancer le template ──
+  if (_depFromTemplateId) {
+    var idAdv = _depFromTemplateId;
+    p = p.then(function(){
+      return apiFetch('api/depenses_templates.php?action=advance&id=' + encodeURIComponent(idAdv), {method:'POST', body:{}});
+    });
+  }
+
+  // ── Finalisation ──
+  p.then(function(){
+    return loadData();
+  })
+  .then(function(){
+    if (typeof renderDepenses === 'function') renderDepenses();
+    refreshNotifBadge(); // rafraîchir la cloche
+    closeModal('modal-depense');
+    resetDepenseForm();
+    showToast(isRecurrent ? 'Dépense + modèle récurrent enregistrés ✓' : 'Dépense enregistrée ✓');
+  })
+  .catch(function(e){ alert(e.message||'Erreur'); });
 }
 
 function resetDepenseForm(){
   _depLigneCount = 0;
   _editingDepenseId = null;
+  _depFromTemplateId = null;
+  // Réinitialiser la section récurrence
+  var recToggle = document.getElementById('dep-recurrent-toggle');
+  if (recToggle) recToggle.checked = false;
+  var recSec = document.getElementById('dep-recurrence-section');
+  if (recSec) recSec.style.display = 'none';
+  var recFreq = document.getElementById('dep-rec-frequency'); if (recFreq) recFreq.value = 'monthly';
+  var recAmt  = document.getElementById('dep-rec-amount-type'); if (recAmt) recAmt.value = 'fixed';
+  var recN    = document.getElementById('dep-rec-notify-n'); if (recN) recN.value = '5';
+  var recUnit = document.getElementById('dep-rec-notify-unit'); if (recUnit) recUnit.value = 'days';
+  var recEnd  = document.getElementById('dep-rec-end-date'); if (recEnd) recEnd.value = '';
+  var recNoEnd= document.getElementById('dep-rec-no-end'); if (recNoEnd) recNoEnd.checked = true;
   var title = document.querySelector('#modal-depense .modal-title');
   if (title) title.textContent = 'Ajouter une dépense';
   var saveBtn = document.querySelector('#modal-depense .modal-footer .btn-primary');
@@ -3321,6 +3437,99 @@ function renderDepenses(){
 // ══════════════════════════════════════════════════════════
 
 // ── Notifications ──
+var _dueTemplatesCache = [];
+
+function refreshNotifBadge(){
+  // Compte : factures en retard + devis en attente + dépenses récurrentes due
+  var factures = getFactures();
+  var now = new Date();
+  var retards = factures.filter(function(f){
+    if (f.statut === 'Payée') return false;
+    var ech = new Date(f.echeance||f.dateEcheance||f.date_echeance||'');
+    return !isNaN(ech) && ech < now;
+  });
+  var devisAtt = getDevis().filter(function(d){ return d.statut === 'En attente'; });
+
+  apiFetch('api/depenses_templates.php?action=due')
+    .then(function(r){
+      _dueTemplatesCache = (r && r.data) ? r.data : (r || []);
+      var total = retards.length + devisAtt.length + _dueTemplatesCache.length;
+      var badge = document.getElementById('notif-badge');
+      if (badge) {
+        badge.textContent = String(total);
+        badge.style.display = total > 0 ? '' : 'none';
+      }
+    })
+    .catch(function(){
+      _dueTemplatesCache = [];
+      var total = retards.length + devisAtt.length;
+      var badge = document.getElementById('notif-badge');
+      if (badge) {
+        badge.textContent = String(total);
+        badge.style.display = total > 0 ? '' : 'none';
+      }
+    });
+}
+
+function _fmtTndShort(n){
+  n = parseFloat(n)||0;
+  return n.toFixed(3).replace('.',',') + ' TND';
+}
+function _fmtDateFR(d){
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('fr-FR'); } catch(e){ return String(d); }
+}
+
+function openDepenseFromTemplate(templateId){
+  // Récupérer le template
+  apiFetch('api/depenses_templates.php?id=' + encodeURIComponent(templateId))
+    .then(function(r){
+      var tpl = (r && r.data) ? r.data : r;
+      if (!tpl || !tpl.id) { alert('Template introuvable'); return; }
+      resetDepenseForm();
+      _depFromTemplateId = tpl.id;
+      // Pré-remplissage champs principaux
+      var byId = function(id){ return document.getElementById(id); };
+      if (byId('dep-libelle'))     byId('dep-libelle').value     = tpl.label || '';
+      if (byId('dep-fournisseur')) byId('dep-fournisseur').value = tpl.fournisseur || '';
+      if (byId('dep-code-tva'))    byId('dep-code-tva').value    = tpl.code_tva || '';
+      if (byId('dep-categorie'))   byId('dep-categorie').value   = tpl.categorie || '';
+      if (byId('dep-date'))        byId('dep-date').value        = tpl.next_due_date || new Date().toISOString().split('T')[0];
+
+      // Lignes
+      var wrap = byId('dep-lignes-wrap'); if (wrap) wrap.innerHTML = '';
+      _depLigneCount = 0;
+      var lignes = [];
+      if (tpl.lignes_json) {
+        try { lignes = (typeof tpl.lignes_json === 'string') ? JSON.parse(tpl.lignes_json) : tpl.lignes_json; }
+        catch(e){ lignes = []; }
+      }
+      if (lignes && lignes.length && typeof addDepenseLigne === 'function') {
+        lignes.forEach(function(l){ addDepenseLigne(l); });
+      } else if (typeof addDepenseLigne === 'function') {
+        addDepenseLigne({ desc: tpl.label||'', ht: tpl.base_amount_ht||0, tva: tpl.vat_rate||19 });
+      }
+      if (typeof calcDepTotal === 'function') calcDepTotal();
+
+      // Titre modale + badge type (fixe/estimé)
+      var title = document.querySelector('#modal-depense .modal-title');
+      if (title) {
+        title.textContent = (tpl.amount_type === 'estimated')
+          ? 'Dépense récurrente — montant à confirmer'
+          : 'Dépense récurrente — validation';
+      }
+
+      // Pour un template on n'affiche pas le switch récurrence (déjà un template)
+      var recToggle = byId('dep-recurrent-toggle');
+      if (recToggle) recToggle.checked = false;
+      var recSec = byId('dep-recurrence-section');
+      if (recSec) recSec.style.display = 'none';
+
+      openModal('modal-depense');
+    })
+    .catch(function(e){ alert('Erreur : ' + (e.message||'Impossible de charger le template')); });
+}
+
 function showNotifications(){
   var factures = getFactures();
   var now = new Date();
@@ -3330,28 +3539,71 @@ function showNotifications(){
     return !isNaN(ech) && ech < now;
   });
   var devis = getDevis().filter(function(d){ return d.statut === 'En attente'; });
-  var lines2 = [];
-  if (retards.length) lines2.push('\ud83d\udd34 ' + retards.length + ' facture(s) implay\u00e9e(s) en retard');
-  if (devis.length)   lines2.push('\ud83d\udfe1 ' + devis.length + ' devis en attente de r\u00e9ponse');
-  if (!lines2.length) lines2.push('\u2705 Aucune notification en attente');
+
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:flex-start;justify-content:flex-end;padding:4rem 1.5rem 0';
   var box = document.createElement('div');
-  box.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.5rem;min-width:280px;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+  box.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.5rem;min-width:320px;max-width:420px;max-height:80vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.5)';
   var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">'
     + '<div style="font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3)">Notifications</div>'
     + '<button id="notif-close" style="background:none;border:none;color:var(--text-3);font-size:1.1rem;cursor:pointer;line-height:1">\u2715</button>'
     + '</div>';
-  var items = lines2.map(function(l){ return '<div style="font-size:0.85rem;padding:0.5rem 0;border-bottom:1px solid var(--border)">'+l+'</div>'; }).join('');
-  box.innerHTML = header + items;
-  if (retards.length) {
-    var btn = document.createElement('button');
-    btn.className = 'btn btn-sm';
-    btn.style.cssText = 'margin-top:0.8rem;width:100%';
-    btn.textContent = 'Voir les factures \u2192';
-    btn.addEventListener('click', function(){ showPage('facturation'); ov.remove(); });
-    box.appendChild(btn);
-  }
+  box.innerHTML = header;
+
+  // Fetch due templates (fresh)
+  apiFetch('api/depenses_templates.php?action=due')
+    .then(function(r){ return (r && r.data) ? r.data : (r || []); })
+    .catch(function(){ return []; })
+    .then(function(dueList){
+      _dueTemplatesCache = dueList || [];
+      var hasAny = retards.length || devis.length || dueList.length;
+
+      if (retards.length) {
+        var li = document.createElement('div');
+        li.style.cssText = 'font-size:0.85rem;padding:0.55rem 0;border-bottom:1px solid var(--border);cursor:pointer';
+        li.innerHTML = '\ud83d\udd34 ' + retards.length + ' facture(s) impayée(s) en retard';
+        li.addEventListener('click', function(){ showPage('facturation'); ov.remove(); });
+        box.appendChild(li);
+      }
+      if (devis.length) {
+        var ld = document.createElement('div');
+        ld.style.cssText = 'font-size:0.85rem;padding:0.55rem 0;border-bottom:1px solid var(--border);cursor:pointer';
+        ld.innerHTML = '\ud83d\udfe1 ' + devis.length + ' devis en attente de réponse';
+        ld.addEventListener('click', function(){ showPage('devis'); ov.remove(); });
+        box.appendChild(ld);
+      }
+
+      // Dépenses récurrentes prévisionnelles
+      dueList.forEach(function(tpl){
+        var entry = document.createElement('div');
+        entry.style.cssText = 'font-size:0.82rem;padding:0.6rem 0.5rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;margin:0 -0.5rem;transition:background 0.15s';
+        entry.onmouseover = function(){ entry.style.background = 'rgba(255,255,255,0.04)'; };
+        entry.onmouseout  = function(){ entry.style.background = 'transparent'; };
+        var icon = tpl.amount_type === 'estimated' ? '📊' : '🔄';
+        entry.innerHTML =
+            '<div style="display:flex;justify-content:space-between;gap:0.5rem">'
+          +   '<strong style="color:var(--accent)">'+icon+' '+(tpl.label||'—')+'</strong>'
+          +   '<span style="font-family:var(--font-mono);font-size:0.75rem">'+_fmtTndShort(tpl.base_amount_ttc)+'</span>'
+          + '</div>'
+          + '<div style="color:var(--text-3);font-size:0.72rem;margin-top:0.2rem">'
+          +   'Échéance : '+_fmtDateFR(tpl.next_due_date)
+          +   (tpl.amount_type === 'estimated' ? ' — <em>montant à confirmer</em>' : '')
+          + '</div>';
+        entry.addEventListener('click', function(){
+          ov.remove();
+          openDepenseFromTemplate(tpl.id);
+        });
+        box.appendChild(entry);
+      });
+
+      if (!hasAny) {
+        var empty = document.createElement('div');
+        empty.style.cssText = 'font-size:0.85rem;padding:0.5rem 0;color:var(--text-3)';
+        empty.innerHTML = '\u2705 Aucune notification en attente';
+        box.appendChild(empty);
+      }
+    });
+
   box.querySelector('#notif-close').addEventListener('click', function(){ ov.remove(); });
   ov.appendChild(box);
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
@@ -3723,7 +3975,7 @@ function doLogin(){
       if (ap) ap.style.display = 'block';
       applyModuleAccess();
       loadModulesFromAPI(); // peupler la liste des modules dès la connexion
-      loadData().then(function(){ renderAll(); showPage('dashboard'); });
+      loadData().then(function(){ renderAll(); showPage('dashboard'); refreshNotifBadge(); });
     })
     .catch(function(e){
       var msg = e.message || '';
@@ -3921,7 +4173,7 @@ document.addEventListener('DOMContentLoaded',function(){
         if (appEl)       appEl.style.display       = 'block';
         applyModuleAccess();
         loadModulesFromAPI();
-        loadData().then(function(){ renderAll(); showPage('dashboard'); });
+        loadData().then(function(){ renderAll(); showPage('dashboard'); refreshNotifBadge(); });
       })
       .catch(function(){
         // Token invalide ou API inaccessible → retour au login sans bloquer

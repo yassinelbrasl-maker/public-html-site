@@ -72,7 +72,7 @@
     <div class="app-header-right">
       <button class="header-notif" title="Notifications" onclick="showNotifications()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <span class="notif-badge">3</span>
+        <span class="notif-badge" id="notif-badge">0</span>
       </button>
       <div class="header-user" id="user-display">
         <div class="header-user-dot"></div>
@@ -2498,6 +2498,68 @@
           <input id="dep-code-tva" class="form-input" placeholder="XXXXXXX/X/X/XXX" />
         </div>
 
+      </div>
+
+      <!-- ── Switch : Dépense périodique / récurrente ── -->
+      <div style="margin-top:1.2rem;padding:0.9rem 1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+        <label style="display:flex;align-items:center;gap:0.8rem;cursor:pointer">
+          <div class="dep-switch" id="dep-switch-wrap">
+            <input type="checkbox" id="dep-recurrent-toggle" onchange="toggleRecurrenceSection()" style="display:none">
+            <div class="dep-switch-track"><div class="dep-switch-thumb"></div></div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:0.85rem;color:var(--text);font-weight:500">🔄 Dépense périodique / récurrente</div>
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:2px">Abonnement, loyer, facture STEG/SONEDE estimée…</div>
+          </div>
+        </label>
+
+        <!-- Sous-section révélée -->
+        <div id="dep-recurrence-section" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Fréquence de répétition</label>
+              <select id="dep-rec-frequency" class="form-select">
+                <option value="weekly">Hebdomadaire</option>
+                <option value="monthly" selected>Mensuelle</option>
+                <option value="quarterly">Trimestrielle</option>
+                <option value="semiannual">Semestrielle</option>
+                <option value="yearly">Annuelle</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Type de montant</label>
+              <select id="dep-rec-amount-type" class="form-select">
+                <option value="fixed">Fixe (loyer, abonnement…)</option>
+                <option value="estimated">Estimatif / variable (STEG, carburant…)</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Me notifier</label>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <input id="dep-rec-notify-n" class="form-input" type="number" min="1" max="60" value="5" style="flex:0 0 70px" />
+                <select id="dep-rec-notify-unit" class="form-select" style="flex:1">
+                  <option value="days" selected>jours avant</option>
+                  <option value="weeks">semaines avant</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Fin de la récurrence</label>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <input id="dep-rec-end-date" class="form-input" type="date" style="flex:1" />
+                <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--text-3);white-space:nowrap">
+                  <input type="checkbox" id="dep-rec-no-end" onchange="toggleRecurrenceEndDate()" checked style="accent-color:var(--accent)">
+                  Jusqu'à annulation
+                </label>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:0.8rem;padding:0.65rem 0.9rem;background:rgba(0,180,120,0.06);border-left:2px solid rgba(0,180,120,0.4);border-radius:4px;font-size:0.72rem;color:var(--text-3);line-height:1.5">
+            <strong style="color:var(--green)">Fonctionnement :</strong>
+            La dépense sera enregistrée immédiatement (si la date est ≤ aujourd'hui) <em>et</em> un modèle sera créé pour les prochaines échéances.
+            Une notification apparaîtra dans la cloche <strong>N</strong> jours avant chaque échéance future.
+          </div>
+        </div>
       </div>
 
       <!-- Lignes de montant (HT + TVA, plusieurs possibles) -->

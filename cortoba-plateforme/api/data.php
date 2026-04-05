@@ -52,7 +52,9 @@ $TABLES = array(
     ),
     'depenses' => array(
         'table'    => 'CA_depenses',
-        'cols'     => array('description','montant','categorie','projet_id','date_dep','justificatif'),
+        'cols'     => array('description','montant','categorie','projet_id','date_dep','justificatif',
+                            'fournisseur','reference','code_tva_fournisseur',
+                            'montant_ht','montant_tva','timbre','montant_ttc','lignes_json','template_id'),
         'cree_par' => true,
     ),
 );
@@ -182,7 +184,7 @@ function mapValue($body, $col) {
     if (in_array($col, $dateCols) && ($val === '' || $val === null)) { return null; }
 
     // Champs numériques → float
-    $numCols = array('montant_ht','tva','montant_ttc','montant',
+    $numCols = array('montant_ht','tva','montant_ttc','montant','montant_tva',
                      'fodec','timbre','ras_taux','ras_amt','net_payer');
     if (in_array($col, $numCols)) { return ($val !== null && $val !== '') ? floatval($val) : 0; }
 

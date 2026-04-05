@@ -255,6 +255,7 @@ CREATE TABLE IF NOT EXISTS `CA_journal` (
 CREATE TABLE IF NOT EXISTS `CA_demandes_admin` (
   `id` varchar(32) NOT NULL,
   `projet_id` varchar(32) DEFAULT NULL,
+  `client_id` varchar(32) DEFAULT NULL,
   `type_demande` varchar(120) NOT NULL COMMENT 'demande d''avis, demande de devis, etc.',
   `langue` enum('fr','ar') NOT NULL DEFAULT 'fr',
   `administration` varchar(200) NOT NULL,
@@ -275,10 +276,15 @@ CREATE TABLE IF NOT EXISTS `CA_demandes_admin` (
   `modifie_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `projet_id` (`projet_id`),
+  KEY `client_id` (`client_id`),
   KEY `statut` (`statut`),
   KEY `administration` (`administration`),
   KEY `date_demande` (`date_demande`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Migration si table existe déjà :
+-- ALTER TABLE `CA_demandes_admin` ADD COLUMN IF NOT EXISTS `client_id` varchar(32) DEFAULT NULL AFTER `projet_id`;
+-- ALTER TABLE `CA_demandes_admin` ADD KEY IF NOT EXISTS `client_id` (`client_id`);
 
 SET FOREIGN_KEY_CHECKS = 1;
 
