@@ -7356,6 +7356,13 @@ function openSuiviModal(niveau, parentId, projetId) {
   // Disable projet select if adding child to a specific project
   sel.disabled = !!projetId && niveau > 0;
 
+  // Réinitialiser la barre de recherche projet
+  var _sProj = document.getElementById('tache-projet-search');
+  if (_sProj) { _sProj.value = ''; filterTacheProjetSelect(''); }
+
+  // Re-populer les missions après que le projet soit défini pour avoir le bon contexte
+  if (niveau === 0) _populateMissionsSelect('');
+
   // Populate assignee select with team members
   _populateAssigneeSelect('');
 
@@ -7427,40 +7434,107 @@ function _populateMissionsSelect(selectedValue) {
       affectees = _normalizeProjetMissions(raw);
     }
   }
+  var hasContext = !!affectees;
   var isAffectee = function(nom){
-    if (!affectees) return true; // pas de contexte projet → toutes normales
+    if (!hasContext) return true;
     return affectees.indexOf(nom) !== -1;
   };
-  var makeOpt = function(m){
+
+  // Libellé catégorie pour préfixer
+  var catLabel = function(catId){
+    var c = cats.find(function(x){ return x.id === catId; });
+    return c ? c.label : '';
+  };
+
+  var makeOpt = function(m, unaffected){
     var opt = document.createElement('option');
     opt.value = m.nom;
-    opt.textContent = (isAffectee(m.nom) ? '' : '◌ ') + m.nom;
-    if (!isAffectee(m.nom)) {
-      opt.style.color = 'var(--text-3)';
-      opt.style.opacity = '0.55';
-      opt.title = 'Non affectée — cliquer pour ajouter au projet';
+    var cl = catLabel(m.cat);
+    opt.textContent = (unaffected ? '◌ ' : '') + (cl ? '['+cl+'] ' : '') + m.nom;
+    if (unaffected) {
       opt.setAttribute('data-unaffected', '1');
+      opt.title = 'Non affectée — la sélectionner l\'ajoutera à la fiche projet';
     }
     return opt;
   };
 
-  cats.forEach(function(cat) {
-    var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
-    if (catMissions.length === 0) return;
-    // Trier : affectées d'abord
-    catMissions.sort(function(a,b){ return (isAffectee(a.nom)?0:1) - (isAffectee(b.nom)?0:1); });
-    var optgroup = document.createElement('optgroup');
-    optgroup.label = cat.label;
-    catMissions.forEach(function(m) { optgroup.appendChild(makeOpt(m)); });
-    sel.appendChild(optgroup);
-  });
+  if (!hasContext) {
+    // Pas de projet sélectionné → groupement classique par catégorie
+    cats.forEach(function(cat) {
+      var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
+      if (catMissions.length === 0) return;
+      var og = document.createElement('optgroup');
+      og.label = cat.label;
+      catMissions.forEach(function(m){ og.appendChild(makeOpt(m, false)); });
+      sel.appendChild(og);
+    });
+    var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
+    if (orphans.length) {
+      var og2 = document.createElement('optgroup');
+      og2.label = 'Autres';
+      orphans.forEach(function(m){ og2.appendChild(makeOpt(m, false)); });
+      sel.appendChild(og2);
+    }
+  } else {
+    // Contexte projet → 2 groupes : affectées / autres
+    var aff = missions.filter(function(m){ return isAffectee(m.nom); });
+    var other = missions.filter(function(m){ return !isAffectee(m.nom); });
 
-  var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
-  orphans.sort(function(a,b){ return (isAffectee(a.nom)?0:1) - (isAffectee(b.nom)?0:1); });
-  orphans.forEach(function(m) { sel.appendChild(makeOpt(m)); });
+    if (aff.length) {
+      var ogA = document.createElement('optgroup');
+      ogA.label = '✓ Affectées à ce projet';
+      aff.forEach(function(m){ ogA.appendChild(makeOpt(m, false)); });
+      sel.appendChild(ogA);
+    } else {
+      var ogEmpty = document.createElement('optgroup');
+      ogEmpty.label = '✓ Affectées à ce projet (aucune pour l\'instant)';
+      sel.appendChild(ogEmpty);
+    }
+    if (other.length) {
+      var ogB = document.createElement('optgroup');
+      ogB.label = '◌ Autres missions disponibles';
+      other.forEach(function(m){ ogB.appendChild(makeOpt(m, true)); });
+      sel.appendChild(ogB);
+    }
+  }
 
   if (selectedValue) sel.value = selectedValue;
 }
+
+// ── Recherche dans le select projet (filtre les <option>) ──
+function filterTacheProjetSelect(query) {
+  var sel = document.getElementById('tache-projet');
+  if (!sel) return;
+  var q = (query || '').trim().toLowerCase();
+  var opts = sel.querySelectorAll('option');
+  var firstVisible = null;
+  for (var i = 0; i < opts.length; i++) {
+    var o = opts[i];
+    if (!o.value) { o.hidden = false; continue; }
+    var txt = (o.textContent || '').toLowerCase();
+    var match = !q || txt.indexOf(q) !== -1;
+    o.hidden = !match;
+    if (match && !firstVisible) firstVisible = o;
+  }
+  // Si la sélection courante est masquée, basculer sur le premier visible
+  var cur = sel.options[sel.selectedIndex];
+  if (cur && cur.hidden && firstVisible) {
+    sel.value = firstVisible.value;
+    onTacheProjetChange();
+  }
+}
+window.filterTacheProjetSelect = filterTacheProjetSelect;
+
+// ── Changement de projet → recharger la liste des missions (demi-teinte à jour) ──
+function onTacheProjetChange() {
+  var niveau = parseInt((document.getElementById('tache-niveau')||{}).value || '0', 10);
+  if (niveau === 0) {
+    var sel = document.getElementById('tache-titre-select');
+    var cur = sel ? sel.value : '';
+    _populateMissionsSelect(cur);
+  }
+}
+window.onTacheProjetChange = onTacheProjetChange;
 
 // ── Remplir le select assigné avec les membres de l'équipe ──
 function _populateAssigneeSelect(selectedValue) {

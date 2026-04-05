@@ -1258,14 +1258,15 @@
             <input type="hidden" id="tache-niveau" value="0" />
             <div class="form-field">
               <label class="form-label">Projet *</label>
-              <select id="tache-projet" class="form-select"></select>
+              <input type="text" id="tache-projet-search" class="form-input" placeholder="🔍 Rechercher un projet…" style="margin-bottom:0.35rem" oninput="filterTacheProjetSelect(this.value)" />
+              <select id="tache-projet" class="form-select" onchange="onTacheProjetChange()"></select>
             </div>
             <div class="form-field" id="tache-titre-field-select">
               <label class="form-label">Mission *</label>
               <select id="tache-titre-select" class="form-select" onchange="onTacheTitreSelectChange(this)">
                 <option value="">— Choisir une mission —</option>
               </select>
-              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Les missions <span style="color:var(--text-3);opacity:0.5">grisées</span> ne sont pas affectées à ce projet — cliquer pour les ajouter à la fiche projet.</div>
+              <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Les missions du groupe « <em>Autres missions</em> » ne sont pas affectées à ce projet — les choisir les ajoutera automatiquement à la fiche projet.</div>
             </div>
             <div class="form-field" id="tache-titre-field-input" style="display:none">
               <label class="form-label">Titre *</label>
