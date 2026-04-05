@@ -3851,7 +3851,15 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+<script>
+// Fallback : si le CDN principal a échoué, charger depuis unpkg
+if (typeof Gantt === 'undefined') {
+  var _fg = document.createElement('script');
+  _fg.src = 'https://unpkg.com/frappe-gantt@0.6.1/dist/frappe-gantt.min.js';
+  document.head.appendChild(_fg);
+}
+</script>
 <script src="plateforme-nas.js?t=20260328u"></script>
 <script src="ergonomie.js?t=20260328e"></script>
 <script>
