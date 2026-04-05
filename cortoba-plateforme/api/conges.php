@@ -13,6 +13,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/notifications.php'; // expose notifCreate()
 
 $user   = requireAuth();
 $action = $_GET['action'] ?? 'list';
@@ -292,6 +293,34 @@ try {
 
             // Détection de conflits
             $conflicts = detectConflicts($db, $user['id'], $dateDebut, $dateFin);
+
+            // Notifier les gérants / admins de la nouvelle demande
+            if (function_exists('notifCreate')) {
+                try {
+                    $admins = [];
+                    // Membres avec rôle gérant
+                    try {
+                        $q = $db->query("SELECT id FROM cortoba_users WHERE LOWER(role) IN ('admin','gerant','gérant','manager','directeur') AND statut <> 'Inactif'");
+                        foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $aid) $admins[$aid] = true;
+                    } catch (\Throwable $e) {}
+                    // Comptes CA_accounts admin
+                    try {
+                        $q2 = $db->query("SELECT id FROM CA_accounts WHERE role = 'admin' AND approved = 1");
+                        foreach ($q2->fetchAll(PDO::FETCH_COLUMN) as $aid) $admins[$aid] = true;
+                    } catch (\Throwable $e) {}
+                    $periode = date('d/m/Y', strtotime($dateDebut)) . ' → ' . date('d/m/Y', strtotime($dateFin));
+                    $title = '🗓 Nouvelle demande de congé — ' . ($user['name'] ?? '');
+                    $msg   = $type . ' · ' . $periode . ' (' . $jours . ' j)'
+                           . ($motif ? "\nMotif : " . $motif : '')
+                           . "\nDélégation : " . $delegation;
+                    foreach (array_keys($admins) as $aid) {
+                        if ($aid === $user['id']) continue; // ne pas se notifier soi-même
+                        try { notifCreate($db, $aid, 'conge_pending', $title, $msg, 'conges', $id, $user['name'] ?? null); }
+                        catch (\Throwable $e) { /* */ }
+                    }
+                } catch (\Throwable $e) { /* */ }
+            }
+
             jsonOk(['id'=>$id, 'jours'=>$jours, 'conflicts'=>$conflicts]);
             break;
         }
@@ -330,6 +359,21 @@ try {
                        ->execute([$req['jours'], $req['user_id'], $annee]);
                 }
             }
+
+            // Notifier le collaborateur
+            if (function_exists('notifCreate')) {
+                $periode = date('d/m/Y', strtotime($req['date_debut'])) . ' → ' . date('d/m/Y', strtotime($req['date_fin']));
+                $title = $decision === 'approve'
+                    ? '✅ Votre demande de congé a été approuvée'
+                    : '❌ Votre demande de congé a été refusée';
+                $msg = $req['type'] . ' — ' . $periode
+                     . ' (' . rtrim(rtrim(number_format(floatval($req['jours']),1,'.',''),'0'),'.') . ' j)'
+                     . ($commentaire ? "\n\nCommentaire : " . $commentaire : '');
+                try {
+                    notifCreate($db, $req['user_id'], 'conge_' . $decision, $title, $msg, 'conges', $id, $user['name'] ?? null);
+                } catch (\Throwable $e) { /* silencieux : ne pas bloquer la décision */ }
+            }
+
             jsonOk(['id'=>$id,'statut'=>$newStatut]);
             break;
         }

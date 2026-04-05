@@ -3455,8 +3455,10 @@ function renderDepenses(){
 // ── Notifications ──
 var _dueTemplatesCache = [];
 
+var _personalNotifCache = [];
+
 function refreshNotifBadge(){
-  // Compte : factures en retard + devis en attente + dépenses récurrentes due
+  // Compte : notifications personnelles non lues + (pour les admins) factures en retard + devis en attente + dépenses récurrentes due
   var factures = getFactures();
   var now = new Date();
   var retards = factures.filter(function(f){
@@ -3466,25 +3468,23 @@ function refreshNotifBadge(){
   });
   var devisAtt = getDevis().filter(function(d){ return d.statut === 'En attente'; });
 
-  apiFetch('api/depenses_templates.php?action=due')
-    .then(function(r){
-      _dueTemplatesCache = (r && r.data) ? r.data : (r || []);
-      var total = retards.length + devisAtt.length + _dueTemplatesCache.length;
-      var badge = document.getElementById('notif-badge');
-      if (badge) {
-        badge.textContent = String(total);
-        badge.style.display = total > 0 ? '' : 'none';
-      }
-    })
-    .catch(function(){
-      _dueTemplatesCache = [];
-      var total = retards.length + devisAtt.length;
-      var badge = document.getElementById('notif-badge');
-      if (badge) {
-        badge.textContent = String(total);
-        badge.style.display = total > 0 ? '' : 'none';
-      }
-    });
+  // Récupérer en parallèle : notifications personnelles + dépenses dues
+  var pNotifs = apiFetch('api/notifications.php?action=list&limit=30')
+    .then(function(r){ _personalNotifCache = (r && r.data) ? r.data : (r || []); return _personalNotifCache; })
+    .catch(function(){ _personalNotifCache = []; return []; });
+  var pDue = apiFetch('api/depenses_templates.php?action=due')
+    .then(function(r){ _dueTemplatesCache = (r && r.data) ? r.data : (r || []); return _dueTemplatesCache; })
+    .catch(function(){ _dueTemplatesCache = []; return []; });
+
+  Promise.all([pNotifs, pDue]).then(function(){
+    var unread = _personalNotifCache.filter(function(n){ return !parseInt(n.is_read||0,10); }).length;
+    var total = unread + retards.length + devisAtt.length + _dueTemplatesCache.length;
+    var badge = document.getElementById('notif-badge');
+    if (badge) {
+      badge.textContent = String(total);
+      badge.style.display = total > 0 ? '' : 'none';
+    }
+  });
 }
 
 function _fmtTndShort(n){
@@ -3559,71 +3559,136 @@ function showNotifications(){
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:flex-start;justify-content:flex-end;padding:4rem 1.5rem 0';
   var box = document.createElement('div');
-  box.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.5rem;min-width:320px;max-width:420px;max-height:80vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+  box.style.cssText = 'background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.5rem;min-width:340px;max-width:440px;max-height:80vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.5)';
   var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">'
     + '<div style="font-size:0.72rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3)">Notifications</div>'
-    + '<button id="notif-close" style="background:none;border:none;color:var(--text-3);font-size:1.1rem;cursor:pointer;line-height:1">\u2715</button>'
-    + '</div>';
+    + '<div style="display:flex;gap:0.5rem;align-items:center">'
+    +   '<button id="notif-mark-all" style="background:none;border:none;color:var(--accent);font-size:0.72rem;cursor:pointer;text-decoration:underline">Tout marquer lu</button>'
+    +   '<button id="notif-close" style="background:none;border:none;color:var(--text-3);font-size:1.1rem;cursor:pointer;line-height:1">\u2715</button>'
+    + '</div></div>';
   box.innerHTML = header;
 
-  // Fetch due templates (fresh)
-  apiFetch('api/depenses_templates.php?action=due')
+  // Parallel : personal notifications + dépenses dues
+  var pNotifs = apiFetch('api/notifications.php?action=list&limit=30')
     .then(function(r){ return (r && r.data) ? r.data : (r || []); })
-    .catch(function(){ return []; })
-    .then(function(dueList){
-      _dueTemplatesCache = dueList || [];
-      var hasAny = retards.length || devis.length || dueList.length;
+    .catch(function(){ return []; });
+  var pDue = apiFetch('api/depenses_templates.php?action=due')
+    .then(function(r){ return (r && r.data) ? r.data : (r || []); })
+    .catch(function(){ return []; });
 
-      if (retards.length) {
-        var li = document.createElement('div');
-        li.style.cssText = 'font-size:0.85rem;padding:0.55rem 0;border-bottom:1px solid var(--border);cursor:pointer';
-        li.innerHTML = '\ud83d\udd34 ' + retards.length + ' facture(s) impayée(s) en retard';
-        li.addEventListener('click', function(){ showPage('facturation'); ov.remove(); });
-        box.appendChild(li);
-      }
-      if (devis.length) {
-        var ld = document.createElement('div');
-        ld.style.cssText = 'font-size:0.85rem;padding:0.55rem 0;border-bottom:1px solid var(--border);cursor:pointer';
-        ld.innerHTML = '\ud83d\udfe1 ' + devis.length + ' devis en attente de réponse';
-        ld.addEventListener('click', function(){ showPage('devis'); ov.remove(); });
-        box.appendChild(ld);
-      }
+  Promise.all([pNotifs, pDue]).then(function(results){
+    var notifs  = results[0] || [];
+    var dueList = results[1] || [];
+    _personalNotifCache = notifs;
+    _dueTemplatesCache  = dueList;
 
-      // Dépenses récurrentes prévisionnelles
-      dueList.forEach(function(tpl){
+    var hasAny = notifs.length || retards.length || devis.length || dueList.length;
+
+    // ── Notifications personnelles (priorité) ──
+    if (notifs.length) {
+      var sectionTitle = document.createElement('div');
+      sectionTitle.style.cssText = 'font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);margin:0.4rem 0 0.3rem';
+      sectionTitle.textContent = 'Personnelles';
+      box.appendChild(sectionTitle);
+
+      notifs.forEach(function(n){
         var entry = document.createElement('div');
-        entry.style.cssText = 'font-size:0.82rem;padding:0.6rem 0.5rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;margin:0 -0.5rem;transition:background 0.15s';
-        entry.onmouseover = function(){ entry.style.background = 'rgba(255,255,255,0.04)'; };
-        entry.onmouseout  = function(){ entry.style.background = 'transparent'; };
-        var icon = tpl.amount_type === 'estimated' ? '📊' : '🔄';
+        var unread = !parseInt(n.is_read||0, 10);
+        entry.style.cssText = 'font-size:0.82rem;padding:0.6rem 0.6rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;margin:0 -0.3rem;transition:background 0.15s;'
+          + (unread ? 'background:rgba(200,169,110,0.06);border-left:2px solid var(--accent)' : 'opacity:0.72');
+        entry.onmouseover = function(){ entry.style.background = unread ? 'rgba(200,169,110,0.1)' : 'rgba(255,255,255,0.04)'; };
+        entry.onmouseout  = function(){ entry.style.background = unread ? 'rgba(200,169,110,0.06)' : 'transparent'; };
+        var when = n.cree_at ? _cgRelativeTime(n.cree_at) : '';
         entry.innerHTML =
-            '<div style="display:flex;justify-content:space-between;gap:0.5rem">'
-          +   '<strong style="color:var(--accent)">'+icon+' '+(tpl.label||'—')+'</strong>'
-          +   '<span style="font-family:var(--font-mono);font-size:0.75rem">'+_fmtTndShort(tpl.base_amount_ttc)+'</span>'
-          + '</div>'
-          + '<div style="color:var(--text-3);font-size:0.72rem;margin-top:0.2rem">'
-          +   'Échéance : '+_fmtDateFR(tpl.next_due_date)
-          +   (tpl.amount_type === 'estimated' ? ' — <em>montant à confirmer</em>' : '')
-          + '</div>';
+            '<div style="font-weight:' + (unread ? '600' : '400') + ';margin-bottom:0.2rem">' + _cgEscape(n.title) + '</div>'
+          + (n.message ? '<div style="color:var(--text-3);font-size:0.74rem;white-space:pre-wrap">' + _cgEscape(n.message) + '</div>' : '')
+          + '<div style="color:var(--text-3);font-size:0.68rem;margin-top:0.25rem">' + when + (n.cree_par ? ' · ' + _cgEscape(n.cree_par) : '') + '</div>';
         entry.addEventListener('click', function(){
+          // Marquer comme lue + naviguer
+          apiFetch('api/notifications.php?action=mark_read&id=' + encodeURIComponent(n.id), { method:'POST', body:{} })
+            .catch(function(){});
           ov.remove();
-          openDepenseFromTemplate(tpl.id);
+          if (n.link_page) setTimeout(function(){ showPage(n.link_page); }, 50);
+          setTimeout(refreshNotifBadge, 300);
         });
         box.appendChild(entry);
       });
+    }
 
-      if (!hasAny) {
-        var empty = document.createElement('div');
-        empty.style.cssText = 'font-size:0.85rem;padding:0.5rem 0;color:var(--text-3)';
-        empty.innerHTML = '\u2705 Aucune notification en attente';
-        box.appendChild(empty);
-      }
+    // ── Alertes business (admin) ──
+    if (retards.length || devis.length || dueList.length) {
+      var sectionBiz = document.createElement('div');
+      sectionBiz.style.cssText = 'font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);margin:0.8rem 0 0.3rem';
+      sectionBiz.textContent = 'Activité';
+      box.appendChild(sectionBiz);
+    }
+
+    if (retards.length) {
+      var li = document.createElement('div');
+      li.style.cssText = 'font-size:0.85rem;padding:0.55rem 0;border-bottom:1px solid var(--border);cursor:pointer';
+      li.innerHTML = '\ud83d\udd34 ' + retards.length + ' facture(s) impayée(s) en retard';
+      li.addEventListener('click', function(){ showPage('facturation'); ov.remove(); });
+      box.appendChild(li);
+    }
+    if (devis.length) {
+      var ld = document.createElement('div');
+      ld.style.cssText = 'font-size:0.85rem;padding:0.55rem 0;border-bottom:1px solid var(--border);cursor:pointer';
+      ld.innerHTML = '\ud83d\udfe1 ' + devis.length + ' devis en attente de réponse';
+      ld.addEventListener('click', function(){ showPage('devis'); ov.remove(); });
+      box.appendChild(ld);
+    }
+    dueList.forEach(function(tpl){
+      var entry = document.createElement('div');
+      entry.style.cssText = 'font-size:0.82rem;padding:0.6rem 0.5rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;margin:0 -0.5rem;transition:background 0.15s';
+      entry.onmouseover = function(){ entry.style.background = 'rgba(255,255,255,0.04)'; };
+      entry.onmouseout  = function(){ entry.style.background = 'transparent'; };
+      var icon = tpl.amount_type === 'estimated' ? '📊' : '🔄';
+      entry.innerHTML =
+          '<div style="display:flex;justify-content:space-between;gap:0.5rem">'
+        +   '<strong style="color:var(--accent)">'+icon+' '+_cgEscape(tpl.label||'—')+'</strong>'
+        +   '<span style="font-family:var(--font-mono);font-size:0.75rem">'+_fmtTndShort(tpl.base_amount_ttc)+'</span>'
+        + '</div>'
+        + '<div style="color:var(--text-3);font-size:0.72rem;margin-top:0.2rem">'
+        +   'Échéance : '+_fmtDateFR(tpl.next_due_date)
+        +   (tpl.amount_type === 'estimated' ? ' — <em>montant à confirmer</em>' : '')
+        + '</div>';
+      entry.addEventListener('click', function(){
+        ov.remove();
+        openDepenseFromTemplate(tpl.id);
+      });
+      box.appendChild(entry);
     });
 
+    if (!hasAny) {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'font-size:0.85rem;padding:0.5rem 0;color:var(--text-3)';
+      empty.innerHTML = '\u2705 Aucune notification en attente';
+      box.appendChild(empty);
+    }
+  });
+
   box.querySelector('#notif-close').addEventListener('click', function(){ ov.remove(); });
+  box.querySelector('#notif-mark-all').addEventListener('click', function(){
+    apiFetch('api/notifications.php?action=mark_all_read', { method:'POST', body:{} })
+      .then(function(){ ov.remove(); refreshNotifBadge(); })
+      .catch(function(e){ alert('Erreur : ' + e.message); });
+  });
   ov.appendChild(box);
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
+}
+
+// Helper : format relatif (il y a X min / h / jours)
+function _cgRelativeTime(iso){
+  try {
+    var d = new Date(iso.replace(' ', 'T'));
+    var diff = (Date.now() - d.getTime()) / 1000;
+    if (diff < 60)     return 'à l\'instant';
+    if (diff < 3600)   return 'il y a ' + Math.floor(diff/60) + ' min';
+    if (diff < 86400)  return 'il y a ' + Math.floor(diff/3600) + ' h';
+    if (diff < 604800) return 'il y a ' + Math.floor(diff/86400) + ' j';
+    return d.toLocaleDateString('fr-FR');
+  } catch(e) { return ''; }
 }
 
 // ── Changer mot de passe ──
