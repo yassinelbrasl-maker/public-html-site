@@ -4046,6 +4046,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <div id="cg-warning" style="display:none;margin-top:1rem;padding:0.8rem 1rem;background:rgba(212,86,86,0.08);border:1px solid rgba(212,86,86,0.3);border-radius:4px;font-size:0.78rem;color:#d45656"></div>
 
+      <!-- Mini-heatmap : sélection visuelle des dates -->
+      <div style="margin-top:1.2rem">
+        <div style="font-size:0.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem">Calendrier de charge — cliquez pour sélectionner</div>
+        <div style="display:flex;gap:0.6rem;font-size:0.66rem;color:var(--text-3);margin-bottom:0.6rem;flex-wrap:wrap">
+          <span><span style="display:inline-block;width:10px;height:10px;background:#3fa66a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Faible</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#d4a64a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Moyenne</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#d45656;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Forte (charrette)</span>
+          <span style="margin-left:auto;font-style:italic">1er clic = début · 2e clic = fin</span>
+        </div>
+        <div id="cg-modal-heatmap" style="font-size:0.7rem"></div>
+      </div>
+
       <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1.2rem">
         <button class="btn" onclick="closeModal('modal-conge')">Annuler</button>
         <button class="btn btn-primary" onclick="submitCongeRequest()">Soumettre la demande</button>
@@ -4061,8 +4073,15 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="modal-title" id="cg-decide-title">Décision</div>
       <button class="modal-close" onclick="closeModal('modal-conge-decide')">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="max-height:78vh;overflow-y:auto;padding-right:0.5rem">
       <div id="cg-decide-info" style="font-size:0.82rem;color:var(--text-2);margin-bottom:1rem"></div>
+
+      <!-- Travail restant du collaborateur pendant la période demandée -->
+      <div style="margin-bottom:1rem">
+        <div style="font-size:0.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem">Travail en cours / deadlines pendant la période</div>
+        <div id="cg-decide-workload" style="font-size:0.78rem;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:4px;padding:0.7rem"></div>
+      </div>
+
       <div class="form-field">
         <label class="form-label">Commentaire (optionnel)</label>
         <textarea id="cg-decide-comment" class="form-input" rows="3" placeholder="Ex: Refusé car rendu APD prévu le même jour"></textarea>

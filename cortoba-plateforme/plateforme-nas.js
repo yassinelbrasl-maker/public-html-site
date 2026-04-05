@@ -10765,6 +10765,60 @@ function openCongeForm(){
   document.getElementById('cg-delegation').value = '';
   document.getElementById('cg-warning').style.display = 'none';
   openModal('modal-conge');
+
+  // Charger la heatmap dans le modal et la rendre cliquable
+  var today = new Date();
+  var from = today.toISOString().slice(0,10);
+  var end = new Date(today.getFullYear(), today.getMonth()+3, 0);
+  var to = end.toISOString().slice(0,10);
+  var wrap = document.getElementById('cg-modal-heatmap');
+  if (wrap) wrap.innerHTML = '<div style="color:var(--text-3);padding:0.5rem">Chargement du calendrier de charge…</div>';
+  var useCached = _congesState.heatmap && Object.keys(_congesState.heatmap).length;
+  var loader = useCached
+    ? Promise.resolve({ data: { days: _congesState.heatmap } })
+    : apiFetch('api/conges.php?action=heatmap&from=' + from + '&to=' + to);
+  loader.then(function(r){
+    var d = r.data || r;
+    _congesState.heatmap = d.days || _congesState.heatmap || {};
+    renderHeatmap('cg-modal-heatmap', _congesState.heatmap, from, to);
+    // Rendre les cases cliquables pour sélectionner début / fin
+    var cells = document.querySelectorAll('#cg-modal-heatmap .cg-hm-cell');
+    cells.forEach(function(cell){
+      cell.style.cursor = 'pointer';
+      cell.addEventListener('click', function(){
+        var key = cell.getAttribute('data-key');
+        if (!key) return;
+        var d1 = document.getElementById('cg-date-debut');
+        var d2 = document.getElementById('cg-date-fin');
+        if (!d1.value || (d1.value && d2.value)) {
+          d1.value = key; d2.value = '';
+        } else if (key < d1.value) {
+          d1.value = key;
+        } else {
+          d2.value = key;
+        }
+        onCongeDatesChange();
+        highlightModalHeatmapSelection();
+      });
+    });
+    highlightModalHeatmapSelection();
+  }).catch(function(e){
+    if (wrap) wrap.innerHTML = '<div style="color:var(--red);padding:0.5rem;font-size:0.75rem">Erreur : ' + _cgEscape(e.message) + '</div>';
+  });
+}
+
+function highlightModalHeatmapSelection(){
+  var d1 = document.getElementById('cg-date-debut').value;
+  var d2 = document.getElementById('cg-date-fin').value;
+  document.querySelectorAll('#cg-modal-heatmap .cg-hm-cell').forEach(function(c){
+    c.style.outline = '';
+    c.style.transform = '';
+    c.style.boxShadow = '';
+    var k = c.getAttribute('data-key');
+    if (!k) return;
+    if (d1 && !d2 && k === d1) { c.style.outline = '2px solid #fff'; c.style.transform = 'scale(1.08)'; }
+    else if (d1 && d2 && k >= d1 && k <= d2) { c.style.outline = '2px solid #fff'; c.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.3)'; }
+  });
 }
 
 function onCongeDatesChange(){
@@ -10933,6 +10987,90 @@ function openCongeDecide(id){
       + (req.motif ? '<br><em>Motif :</em> ' + _cgEscape(req.motif) : '')
       + '<br><em>Délégation :</em> ' + _cgEscape(req.delegation);
     document.getElementById('cg-decide-comment').value = '';
+
+    // Charger le travail restant du collaborateur pendant la période demandée
+    var wl = document.getElementById('cg-decide-workload');
+    wl.innerHTML = '<div style="color:var(--text-3)">Analyse de la charge en cours…</div>';
+    // Fenêtre élargie : 7 jours avant début → 7 jours après fin (période charrette)
+    var from = new Date(req.date_debut); from.setDate(from.getDate() - 7);
+    var to   = new Date(req.date_fin);   to.setDate(to.getDate() + 7);
+    var fromStr = from.toISOString().slice(0,10);
+    var toStr   = to.toISOString().slice(0,10);
+    apiFetch('api/conges.php?action=heatmap&user_id=' + encodeURIComponent(req.user_id)
+             + '&from=' + fromStr + '&to=' + toStr)
+      .then(function(rr){
+        var dd = rr.data || rr;
+        var days = dd.days || {};
+        // Agréger les tâches uniques (par titre+projet)
+        var seen = {};
+        var tasks = [];
+        var redDays = 0, yellowDays = 0;
+        Object.keys(days).forEach(function(k){
+          if (k < req.date_debut || k > req.date_fin) {
+            // Compté uniquement pour le listing, pas pour le decompte
+          } else {
+            if (days[k].level === 'red') redDays++;
+            else if (days[k].level === 'yellow') yellowDays++;
+          }
+          (days[k].items || []).forEach(function(it){
+            var key = (it.titre || '') + '|' + (it.projet || '') + '|' + (it.date_echeance || '');
+            if (seen[key]) return;
+            seen[key] = true;
+            tasks.push(it);
+          });
+        });
+
+        // Trier par date d'échéance croissante
+        tasks.sort(function(a,b){
+          return (a.date_echeance || '') > (b.date_echeance || '') ? 1 : -1;
+        });
+
+        // Séparer critiques / normales
+        var critical = tasks.filter(function(t){ return t.critical; });
+        var normal   = tasks.filter(function(t){ return !t.critical; });
+
+        var html = '';
+        // Résumé global
+        var summary = [];
+        if (redDays > 0)    summary.push('<span style="color:#d45656;font-weight:600">' + redDays + ' jour(s) rouge(s)</span>');
+        if (yellowDays > 0) summary.push('<span style="color:#d4a64a;font-weight:600">' + yellowDays + ' jour(s) orange</span>');
+        if (!summary.length) summary.push('<span style="color:#3fa66a;font-weight:600">Aucune deadline critique sur la période</span>');
+        html += '<div style="margin-bottom:0.6rem">' + summary.join(' · ') + '</div>';
+
+        if (!tasks.length) {
+          html += '<div style="color:var(--text-3);font-style:italic">Aucune tâche en cours avec deadline dans cette fenêtre.</div>';
+        } else {
+          if (critical.length) {
+            html += '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#d45656;margin:0.4rem 0 0.3rem">⚠ Livrables critiques</div>';
+            html += '<ul style="list-style:none;padding:0;margin:0">';
+            critical.forEach(function(t){
+              html += '<li style="padding:0.35rem 0.5rem;margin-bottom:0.25rem;background:rgba(212,86,86,0.08);border-left:2px solid #d45656;border-radius:2px">'
+                + '<strong>' + _cgEscape(t.titre) + '</strong>'
+                + (t.projet ? ' <span style="color:var(--text-3)">— ' + _cgEscape(t.projet) + '</span>' : '')
+                + '<br><span style="font-size:0.7rem;color:var(--text-3)">Échéance : ' + _cgFmtDate(t.date_echeance) + ' · ' + _cgEscape(t.priorite || 'Normale') + '</span>'
+                + '</li>';
+            });
+            html += '</ul>';
+          }
+          if (normal.length) {
+            html += '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);margin:0.6rem 0 0.3rem">Autres tâches en cours</div>';
+            html += '<ul style="list-style:none;padding:0;margin:0">';
+            normal.forEach(function(t){
+              html += '<li style="padding:0.3rem 0.5rem;margin-bottom:0.2rem;background:rgba(255,255,255,0.03);border-left:2px solid var(--border);border-radius:2px">'
+                + _cgEscape(t.titre)
+                + (t.projet ? ' <span style="color:var(--text-3)">— ' + _cgEscape(t.projet) + '</span>' : '')
+                + ' <span style="color:var(--text-3);font-size:0.7rem">(' + _cgFmtDate(t.date_echeance) + ')</span>'
+                + '</li>';
+            });
+            html += '</ul>';
+          }
+        }
+        wl.innerHTML = html;
+      })
+      .catch(function(e){
+        wl.innerHTML = '<div style="color:var(--red)">Erreur chargement charge : ' + _cgEscape(e.message) + '</div>';
+      });
+
     openModal('modal-conge-decide');
   });
 }
