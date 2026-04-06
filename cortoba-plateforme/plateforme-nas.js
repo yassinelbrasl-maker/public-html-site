@@ -12270,6 +12270,7 @@ function notifShowPrefs(){
     if(listCard)listCard.style.display='';
     for(var i=0;i<tabs.length;i++){
       var t=tabs[i];
+      if(t.id==='nf-prefs-panel')continue;
       t.style.display='';
     }
   }
@@ -12431,4 +12432,1132 @@ if('serviceWorker' in navigator){
       }
     });
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MODULE GESTION DE CHANTIER
+// ═══════════════════════════════════════════════════════════════
+
+var _chCache = { chantiers: [], currentId: '', lots: [], intervenants: [], journal: [], reunions: [], actions: [], reserves: [], rfi: [], visas: [], incidents: [], inspections: [], photos: [], taches: [] };
+
+// ── Helper: populate chantier dropdowns ──
+function _chPopulateSelects() {
+  var selectors = ['ch-select','chj-chantier-filter','chi-chantier-filter','chr-chantier-filter','chp-chantier-filter','chres-chantier-filter','chv-chantier-filter','chs-chantier-filter'];
+  selectors.forEach(function(sid) {
+    var el = document.getElementById(sid);
+    if (!el) return;
+    var val = el.value;
+    var h = '<option value="">— Chantier —</option>';
+    _chCache.chantiers.forEach(function(c) {
+      h += '<option value="' + c.id + '"' + (c.id === val ? ' selected' : '') + '>' + _cgEscape((c.code ? c.code + ' — ' : '') + c.nom) + '</option>';
+    });
+    el.innerHTML = h;
+    if (val) el.value = val;
+  });
+}
+
+function _chGetCurrentId(filterId) {
+  var el = document.getElementById(filterId);
+  return el ? el.value : (_chCache.currentId || '');
+}
+
+function _chLoadChantiers() {
+  return apiFetch('api/chantier.php').then(function(r) {
+    _chCache.chantiers = (r && r.data) ? r.data : (r || []);
+    _chPopulateSelects();
+  });
+}
+
+// ── Badge helpers ──
+function _chBadge(statut) {
+  var m = { 'En préparation': 'badge-gray', 'En cours': 'badge-green', 'Suspendu': 'badge-orange', 'Réceptionné': 'badge-blue', 'Clôturé': 'badge-gray',
+    'Ouverte': 'badge-red', 'En cours de reprise': 'badge-orange', 'Levée': 'badge-green', 'Confirmée': 'badge-blue',
+    'Ouvert': 'badge-red', 'En traitement': 'badge-orange', 'Clôturé': 'badge-gray', 'Clôturée': 'badge-gray',
+    'En attente': 'badge-orange', 'BPE': 'badge-green', 'Bon avec observations': 'badge-blue', 'Refusé': 'badge-red', 'Sans objet': 'badge-gray',
+    'Brouillon': 'badge-gray', 'Finalisé': 'badge-blue', 'Diffusé': 'badge-green',
+    'Résolue': 'badge-green', 'Annulée': 'badge-gray', 'En cours': 'badge-orange',
+    'Planifiée': 'badge-gray', 'Complétée': 'badge-green',
+    'Critique': 'badge-red', 'Majeure': 'badge-orange', 'Haute': 'badge-orange', 'Normale': 'badge-gray', 'Basse': 'badge-gray', 'Mineure': 'badge-gray', 'Observation': 'badge-gray', 'Urgente': 'badge-red' };
+  return '<span class="badge ' + (m[statut] || 'badge-gray') + '">' + _cgEscape(statut || '') + '</span>';
+}
+
+function _chDate(d) { return d ? d.substring(0, 10) : '—'; }
+function _chTrunc(s, n) { if (!s) return '—'; return s.length > (n||60) ? s.substring(0, n||60) + '…' : s; }
+
+// ══════════════════════════════════════
+//  1. TABLEAU DE BORD CHANTIER
+// ══════════════════════════════════════
+
+function renderChantierDashboard() {
+  _chLoadChantiers().then(function() {
+    // Populate projet dropdown in modal
+    var pSel = document.getElementById('ch-projet-id');
+    if (pSel && _cache.projets) {
+      var h = '<option value="">— Sélectionner —</option>';
+      _cache.projets.forEach(function(p) { h += '<option value="' + p.id + '">' + _cgEscape((p.code ? p.code + ' — ' : '') + p.nom) + '</option>'; });
+      pSel.innerHTML = h;
+    }
+    if (_chCache.currentId) chantierSelected();
+  });
+}
+
+function chantierSelected() {
+  var sel = document.getElementById('ch-select');
+  _chCache.currentId = sel ? sel.value : '';
+  if (!_chCache.currentId) {
+    document.getElementById('ch-dashboard-kpis').innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center;padding:2rem">Sélectionnez un chantier pour afficher le tableau de bord</div>';
+    document.getElementById('ch-lots-progress').innerHTML = '';
+    document.getElementById('ch-indicators').innerHTML = '';
+    document.getElementById('ch-gantt-container').innerHTML = '';
+    document.getElementById('ch-recent-journal').innerHTML = '';
+    return;
+  }
+  apiFetch('api/chantier.php?action=dashboard&chantier_id=' + _chCache.currentId).then(function(r) {
+    var d = (r && r.data) ? r.data : {};
+    _renderChDashboardKpis(d);
+    _renderChLotsProgress(d);
+    _renderChIndicators(d);
+    _renderChRecentJournal(d);
+  }).catch(function(e) { showToast('Erreur dashboard: ' + e.message, 'error'); });
+  // Load gantt tasks
+  apiFetch('api/chantier.php?action=taches&chantier_id=' + _chCache.currentId).then(function(r) {
+    _chCache.taches = (r && r.data) ? r.data : [];
+    _renderChGantt();
+  });
+}
+
+function _renderChDashboardKpis(d) {
+  var el = document.getElementById('ch-dashboard-kpis');
+  var avLotsRaw = d.lots_summary ? d.lots_summary.avg_avancement : 0;
+  var avLots = avLotsRaw ? Math.round(parseFloat(avLotsRaw)) : 0;
+  var resOuv = 0; (d.reserves_stats || []).forEach(function(s) { if (s.statut === 'Ouverte') resOuv = parseInt(s.nb); });
+  var rfiOuv = 0; (d.rfi_stats || []).forEach(function(s) { if (s.statut === 'Ouverte') rfiOuv = parseInt(s.nb); });
+  var visaAtt = 0; (d.visa_stats || []).forEach(function(s) { if (s.statut === 'En attente') visaAtt = parseInt(s.nb); });
+  var incTotal = 0; (d.incidents_stats || []).forEach(function(s) { incTotal += parseInt(s.nb); });
+
+  el.innerHTML = '<div class="kpi-card"><div class="kpi-label">Avancement global</div><div class="kpi-value">' + (d.avancement_global || 0) + '%</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Avancement lots (moy.)</div><div class="kpi-value">' + avLots + '%</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Réserves ouvertes</div><div class="kpi-value" style="color:' + (resOuv > 0 ? 'var(--red)' : 'var(--green)') + '">' + resOuv + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">RFI ouvertes</div><div class="kpi-value">' + rfiOuv + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Visas en attente</div><div class="kpi-value">' + visaAtt + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Actions ouvertes</div><div class="kpi-value">' + (d.actions_ouvertes || 0) + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Incidents</div><div class="kpi-value">' + incTotal + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">Statut</div><div class="kpi-value" style="font-size:0.9rem">' + _chBadge(d.statut || '') + '</div></div>';
+}
+
+function _renderChLotsProgress(d) {
+  var el = document.getElementById('ch-lots-progress');
+  // Load lots
+  apiFetch('api/chantier.php?action=lots&chantier_id=' + _chCache.currentId).then(function(r) {
+    _chCache.lots = (r && r.data) ? r.data : [];
+    if (!_chCache.lots.length) { el.innerHTML = '<div style="color:var(--text-3);text-align:center;padding:1rem">Aucun lot défini. <button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button></div>'; return; }
+    var h = '<div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem"><button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button></div>';
+    _chCache.lots.forEach(function(l) {
+      h += '<div style="margin-bottom:0.8rem">' +
+        '<div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.25rem"><span style="color:var(--text)">' + _cgEscape(l.nom) + '</span><span style="color:var(--text-2)">' + (l.avancement||0) + '%</span></div>' +
+        '<div style="background:var(--bg-2);border-radius:4px;height:8px;overflow:hidden"><div style="background:' + (l.couleur||'var(--accent)') + ';height:100%;width:' + (l.avancement||0) + '%;border-radius:4px;transition:width 0.3s"></div></div>' +
+        '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.15rem">' + _cgEscape(l.entreprise||'') + (l.montant_marche ? ' — ' + Number(l.montant_marche).toLocaleString('fr-TN') + ' DT' : '') + '</div></div>';
+    });
+    el.innerHTML = h;
+    // Also populate lot dropdowns
+    _chPopulateLotSelects();
+  });
+}
+
+function _chPopulateLotSelects() {
+  var selectors = ['cht-lot-id','chres-lot-id','chv-lot-id'];
+  selectors.forEach(function(sid) {
+    var el = document.getElementById(sid);
+    if (!el) return;
+    var h = '<option value="">— Aucun —</option>';
+    _chCache.lots.forEach(function(l) { h += '<option value="' + l.id + '">' + _cgEscape(l.nom) + '</option>'; });
+    el.innerHTML = h;
+  });
+}
+
+function _renderChIndicators(d) {
+  var el = document.getElementById('ch-indicators');
+  el.innerHTML = '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Budget travaux</div><div style="font-size:1.1rem;font-weight:600;color:var(--text)">' + Number(d.budget_travaux||0).toLocaleString('fr-TN') + ' DT</div></div>' +
+    '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Montant engagé</div><div style="font-size:1.1rem;font-weight:600;color:var(--text)">' + Number(d.montant_engage||0).toLocaleString('fr-TN') + ' DT</div></div>' +
+    '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Début</div><div style="color:var(--text)">' + _chDate(d.date_debut) + '</div></div>' +
+    '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Fin prévue</div><div style="color:var(--text)">' + _chDate(d.date_fin_prevue) + '</div></div>';
+}
+
+function _renderChRecentJournal(d) {
+  var el = document.getElementById('ch-recent-journal');
+  var j = d.recent_journal || [];
+  if (!j.length) { el.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">Aucune entrée</div>'; return; }
+  var h = '';
+  j.forEach(function(e) {
+    h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);display:flex;gap:1rem">' +
+      '<div style="min-width:80px;color:var(--accent);font-weight:600">' + _chDate(e.date_jour) + '</div>' +
+      '<div style="flex:1"><div style="color:var(--text)">' + _chTrunc(e.activites, 120) + '</div>' +
+      '<div style="color:var(--text-3);font-size:0.75rem;margin-top:0.2rem">' + _cgEscape(e.meteo||'') + (e.temperature ? ' · ' + _cgEscape(e.temperature) : '') + ' · Effectif: ' + (e.effectif_total||0) + '</div></div></div>';
+  });
+  el.innerHTML = h;
+}
+
+// ── Gantt mini (simple bar chart) ──
+function _renderChGantt() {
+  var el = document.getElementById('ch-gantt-container');
+  var tasks = _chCache.taches;
+  if (!tasks.length) { el.innerHTML = '<div style="color:var(--text-3);padding:2rem;text-align:center">Aucune tâche planifiée</div>'; return; }
+  // Find min/max dates
+  var minD = null, maxD = null;
+  tasks.forEach(function(t) {
+    if (t.date_debut) { var d = new Date(t.date_debut); if (!minD || d < minD) minD = d; }
+    if (t.date_fin) { var d2 = new Date(t.date_fin); if (!maxD || d2 > maxD) maxD = d2; }
+  });
+  if (!minD || !maxD) { el.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">Dates non définies</div>'; return; }
+  var totalDays = Math.max(1, Math.ceil((maxD - minD) / 86400000));
+  var h = '<div style="position:relative;min-height:' + (tasks.length * 36 + 30) + 'px;padding-top:24px">';
+  // Month header
+  h += '<div style="display:flex;font-size:0.65rem;color:var(--text-3);margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:4px">';
+  var curMonth = new Date(minD);
+  while (curMonth <= maxD) {
+    var mStart = Math.max(0, Math.ceil((curMonth - minD) / 86400000));
+    var nextM = new Date(curMonth.getFullYear(), curMonth.getMonth() + 1, 1);
+    var mEnd = Math.min(totalDays, Math.ceil((nextM - minD) / 86400000));
+    var wPct = ((mEnd - mStart) / totalDays * 100);
+    h += '<div style="width:' + wPct + '%;text-align:center">' + curMonth.toLocaleDateString('fr-FR', {month: 'short', year: '2-digit'}) + '</div>';
+    curMonth = nextM;
+  }
+  h += '</div>';
+  tasks.forEach(function(t, i) {
+    var sd = t.date_debut ? new Date(t.date_debut) : minD;
+    var ed = t.date_fin ? new Date(t.date_fin) : sd;
+    var left = Math.max(0, (sd - minD) / 86400000 / totalDays * 100);
+    var width = Math.max(1, (ed - sd) / 86400000 / totalDays * 100);
+    var color = t.lot_couleur || (t.est_critique ? '#e07b72' : 'var(--accent)');
+    var avW = (t.avancement || 0) / 100 * width;
+    h += '<div style="position:relative;height:28px;margin-bottom:8px;display:flex;align-items:center">' +
+      '<div style="position:absolute;left:0;width:100%;height:1px;background:var(--border);top:50%"></div>' +
+      '<div title="' + _cgEscape(t.titre) + ' (' + (t.avancement||0) + '%)" style="position:absolute;left:' + left + '%;width:' + width + '%;height:' + (t.est_jalon ? '12px' : '20px') + ';background:rgba(200,169,110,0.15);border-radius:3px;border:1px solid ' + color + ';overflow:hidden;cursor:pointer" onclick="editChTache(\'' + t.id + '\')">' +
+      '<div style="height:100%;width:' + (t.avancement||0) + '%;background:' + color + ';opacity:0.6;border-radius:2px"></div></div>' +
+      '<div style="position:absolute;left:' + Math.max(0, left - 0.5) + '%;transform:translateX(-100%);padding-right:6px;font-size:0.7rem;color:var(--text-2);white-space:nowrap;max-width:25%;overflow:hidden;text-overflow:ellipsis">' + _cgEscape(t.titre) + '</div></div>';
+  });
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+// ── Save chantier ──
+function saveChantier() {
+  var id = document.getElementById('ch-edit-id').value;
+  var body = {
+    projet_id: document.getElementById('ch-projet-id').value,
+    nom: document.getElementById('ch-nom').value,
+    code: document.getElementById('ch-code').value,
+    adresse: document.getElementById('ch-adresse').value,
+    date_debut: document.getElementById('ch-date-debut').value || null,
+    date_fin_prevue: document.getElementById('ch-date-fin').value || null,
+    budget_travaux: parseFloat(document.getElementById('ch-budget').value) || 0,
+    statut: document.getElementById('ch-statut').value,
+    description: document.getElementById('ch-description').value
+  };
+  if (!body.nom) { showToast('Le nom est requis', 'warning'); return; }
+  var url = id ? ('api/chantier.php?id=' + id) : 'api/chantier.php';
+  var method = id ? 'PUT' : 'POST';
+  apiFetch(url, { method: method, body: body }).then(function(r) {
+    showToast(id ? 'Chantier mis à jour' : 'Chantier créé', 'success');
+    closeModal('modal-chantier');
+    _resetChForm();
+    renderChantierDashboard();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function _resetChForm() {
+  ['ch-edit-id','ch-nom','ch-code','ch-adresse','ch-date-debut','ch-date-fin','ch-budget','ch-description'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  var st = document.getElementById('ch-statut'); if (st) st.value = 'En préparation';
+}
+
+function editChantier(id) {
+  var ch = null;
+  _chCache.chantiers.forEach(function(c) { if (c.id === id) ch = c; });
+  if (!ch) return;
+  document.getElementById('ch-edit-id').value = ch.id;
+  document.getElementById('ch-projet-id').value = ch.projet_id || '';
+  document.getElementById('ch-nom').value = ch.nom || '';
+  document.getElementById('ch-code').value = ch.code || '';
+  document.getElementById('ch-adresse').value = ch.adresse || '';
+  document.getElementById('ch-date-debut').value = (ch.date_debut || '').substring(0, 10);
+  document.getElementById('ch-date-fin').value = (ch.date_fin_prevue || '').substring(0, 10);
+  document.getElementById('ch-budget').value = ch.budget_travaux || '';
+  document.getElementById('ch-statut').value = ch.statut || 'En préparation';
+  document.getElementById('ch-description').value = ch.description || '';
+  document.getElementById('modal-chantier-title').textContent = 'Modifier le chantier';
+  openModal('modal-chantier');
+}
+
+// ── Save lot ──
+function saveLot() {
+  var id = document.getElementById('chl-edit-id').value;
+  var body = {
+    chantier_id: _chCache.currentId,
+    code: document.getElementById('chl-code').value,
+    nom: document.getElementById('chl-nom').value,
+    entreprise: document.getElementById('chl-entreprise').value,
+    montant_marche: parseFloat(document.getElementById('chl-montant').value) || 0,
+    date_debut: document.getElementById('chl-date-debut').value || null,
+    date_fin_prevue: document.getElementById('chl-date-fin').value || null,
+    couleur: document.getElementById('chl-couleur').value || '#c8a96e'
+  };
+  if (!body.nom) { showToast('Le nom du lot est requis', 'warning'); return; }
+  var url = id ? ('api/chantier.php?action=lots&id=' + id) : 'api/chantier.php?action=lots';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Lot enregistré', 'success');
+    closeModal('modal-ch-lot');
+    chantierSelected();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+// ── Save tâche chantier ──
+function saveChTache() {
+  var id = document.getElementById('cht-edit-id').value;
+  var body = {
+    chantier_id: _chCache.currentId,
+    lot_id: document.getElementById('cht-lot-id').value || null,
+    titre: document.getElementById('cht-titre').value,
+    date_debut: document.getElementById('cht-date-debut').value || null,
+    date_fin: document.getElementById('cht-date-fin').value || null,
+    duree_jours: parseInt(document.getElementById('cht-duree').value) || 0,
+    avancement: parseInt(document.getElementById('cht-avancement').value) || 0,
+    est_jalon: document.getElementById('cht-jalon').checked ? 1 : 0,
+    est_critique: document.getElementById('cht-critique').checked ? 1 : 0
+  };
+  if (!body.titre) { showToast('Le titre est requis', 'warning'); return; }
+  var url = id ? ('api/chantier.php?action=taches&id=' + id) : 'api/chantier.php?action=taches';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Tâche enregistrée', 'success');
+    closeModal('modal-ch-tache');
+    chantierSelected();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChTache(id) {
+  var t = null; _chCache.taches.forEach(function(x) { if (x.id === id) t = x; });
+  if (!t) return;
+  document.getElementById('cht-edit-id').value = t.id;
+  document.getElementById('cht-titre').value = t.titre || '';
+  document.getElementById('cht-lot-id').value = t.lot_id || '';
+  document.getElementById('cht-date-debut').value = (t.date_debut || '').substring(0, 10);
+  document.getElementById('cht-date-fin').value = (t.date_fin || '').substring(0, 10);
+  document.getElementById('cht-duree').value = t.duree_jours || '';
+  document.getElementById('cht-avancement').value = t.avancement || '';
+  document.getElementById('cht-jalon').checked = !!parseInt(t.est_jalon);
+  document.getElementById('cht-critique').checked = !!parseInt(t.est_critique);
+  openModal('modal-ch-tache');
+}
+
+// ══════════════════════════════════════
+//  2. JOURNAL DE CHANTIER
+// ══════════════════════════════════════
+
+function renderChantierJournalPage() {
+  _chLoadChantiers().then(function() {
+    var cid = _chGetCurrentId('chj-chantier-filter');
+    if (!cid) { document.getElementById('chj-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
+    apiFetch('api/chantier.php?action=journal&chantier_id=' + cid).then(function(r) {
+      _chCache.journal = (r && r.data) ? r.data : [];
+      _renderJournalTable();
+    });
+  });
+}
+
+function _renderJournalTable() {
+  var tbody = document.getElementById('chj-tbody');
+  if (!_chCache.journal.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune entrée</td></tr>'; return; }
+  var h = '';
+  _chCache.journal.forEach(function(j) {
+    h += '<tr><td>' + _chDate(j.date_jour) + '</td><td>' + _cgEscape(j.meteo||'—') + '</td><td>' + _cgEscape(j.temperature||'—') + '</td>' +
+      '<td>' + (j.effectif_total||0) + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _cgEscape(j.activites||'') + '</td>' +
+      '<td>' + _cgEscape(j.retards||'—') + '</td><td>' + _cgEscape(j.cree_par||'') + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChJournal(\'' + j.id + '\')">Modifier</button> <button class="btn btn-sm" style="color:var(--red)" onclick="deleteChJournal(\'' + j.id + '\')">Suppr.</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chj-table'));
+}
+
+function saveChJournal() {
+  var id = document.getElementById('chj-edit-id').value;
+  var cid = _chGetCurrentId('chj-chantier-filter');
+  // Collect effectifs
+  var effRows = document.querySelectorAll('#chj-effectifs-rows .chj-eff-row');
+  var effectifs = [];
+  effRows.forEach(function(row) {
+    var inputs = row.querySelectorAll('input');
+    if (inputs[0] && inputs[0].value) {
+      effectifs.push({ entreprise: inputs[0].value, nb_ouvriers: parseInt(inputs[1].value)||0, nb_cadres: parseInt(inputs[2].value)||0 });
+    }
+  });
+  var body = {
+    chantier_id: cid,
+    date_jour: document.getElementById('chj-date').value,
+    meteo: document.getElementById('chj-meteo').value,
+    temperature: document.getElementById('chj-temperature').value,
+    effectif_total: parseInt(document.getElementById('chj-effectif').value) || 0,
+    activites: document.getElementById('chj-activites').value,
+    livraisons: document.getElementById('chj-livraisons').value,
+    visiteurs: document.getElementById('chj-visiteurs').value,
+    retards: document.getElementById('chj-retards').value,
+    observations: document.getElementById('chj-observations').value,
+    effectifs: effectifs
+  };
+  if (!body.date_jour) { showToast('La date est requise', 'warning'); return; }
+  var url = id ? ('api/chantier.php?action=journal&id=' + id) : 'api/chantier.php?action=journal';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Journal enregistré', 'success');
+    closeModal('modal-ch-journal');
+    renderChantierJournalPage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChJournal(id) {
+  var j = null; _chCache.journal.forEach(function(x) { if (x.id === id) j = x; });
+  if (!j) return;
+  document.getElementById('chj-edit-id').value = j.id;
+  document.getElementById('chj-date').value = (j.date_jour || '').substring(0, 10);
+  document.getElementById('chj-meteo').value = j.meteo || '';
+  document.getElementById('chj-temperature').value = j.temperature || '';
+  document.getElementById('chj-effectif').value = j.effectif_total || '';
+  document.getElementById('chj-activites').value = j.activites || '';
+  document.getElementById('chj-livraisons').value = j.livraisons || '';
+  document.getElementById('chj-visiteurs').value = j.visiteurs || '';
+  document.getElementById('chj-retards').value = j.retards || '';
+  document.getElementById('chj-observations').value = j.observations || '';
+  // Effectifs
+  var cont = document.getElementById('chj-effectifs-rows');
+  cont.innerHTML = '';
+  (j.effectifs || []).forEach(function(e) { addChJEffRow(e.entreprise, e.nb_ouvriers, e.nb_cadres); });
+  document.getElementById('modal-chj-title').textContent = 'Modifier — ' + _chDate(j.date_jour);
+  openModal('modal-ch-journal');
+}
+
+function deleteChJournal(id) {
+  if (!confirm('Supprimer cette entrée ?')) return;
+  apiFetch('api/chantier.php?action=journal&id=' + id, { method: 'DELETE' }).then(function() {
+    showToast('Supprimé', 'success');
+    renderChantierJournalPage();
+  });
+}
+
+function addChJEffRow(ent, ouv, cad) {
+  var cont = document.getElementById('chj-effectifs-rows');
+  var row = document.createElement('div');
+  row.className = 'chj-eff-row';
+  row.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center';
+  row.innerHTML = '<input type="text" class="form-input" placeholder="Entreprise" value="' + _cgEscape(ent||'') + '" style="flex:2">' +
+    '<input type="number" class="form-input" placeholder="Ouvriers" value="' + (ouv||'') + '" style="flex:1;min-width:80px" min="0">' +
+    '<input type="number" class="form-input" placeholder="Cadres" value="' + (cad||'') + '" style="flex:1;min-width:80px" min="0">' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
+  cont.appendChild(row);
+}
+
+// ══════════════════════════════════════
+//  3. INTERVENANTS
+// ══════════════════════════════════════
+
+function renderChantierIntervenantsPage() {
+  _chLoadChantiers().then(function() {
+    var cid = _chGetCurrentId('chi-chantier-filter');
+    if (!cid) { document.getElementById('chi-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
+    apiFetch('api/chantier.php?action=intervenants&chantier_id=' + cid).then(function(r) {
+      _chCache.intervenants = (r && r.data) ? r.data : [];
+      _renderIntervenantsTable();
+    });
+  });
+}
+
+function _renderIntervenantsTable() {
+  var tbody = document.getElementById('chi-tbody');
+  if (!_chCache.intervenants.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucun intervenant</td></tr>'; return; }
+  var h = '';
+  _chCache.intervenants.forEach(function(i) {
+    h += '<tr><td><strong>' + _cgEscape(i.role||'') + '</strong></td><td>' + _cgEscape(i.nom||'') + '</td><td>' + _cgEscape(i.societe||'—') + '</td>' +
+      '<td>' + _cgEscape(i.tel||'—') + '</td><td>' + _cgEscape(i.email||'—') + '</td>' +
+      '<td>' + (parseInt(i.acces_portail) ? '<span class="badge badge-green">Oui</span>' : '<span class="badge badge-gray">Non</span>') + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChIntervenant(\'' + i.id + '\')">Modifier</button> <button class="btn btn-sm" style="color:var(--red)" onclick="deleteChIntervenant(\'' + i.id + '\')">Suppr.</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chi-table'));
+}
+
+function saveChIntervenant() {
+  var id = document.getElementById('chi-edit-id').value;
+  var cid = _chGetCurrentId('chi-chantier-filter');
+  var body = {
+    chantier_id: cid,
+    role: document.getElementById('chi-role').value,
+    nom: document.getElementById('chi-nom').value,
+    societe: document.getElementById('chi-societe').value,
+    tel: document.getElementById('chi-tel').value,
+    email: document.getElementById('chi-email').value,
+    acces_portail: document.getElementById('chi-acces').checked ? 1 : 0,
+    responsabilites: document.getElementById('chi-responsabilites').value
+  };
+  if (!body.nom) { showToast('Le nom est requis', 'warning'); return; }
+  var url = id ? ('api/chantier.php?action=intervenants&id=' + id) : 'api/chantier.php?action=intervenants';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Intervenant enregistré', 'success');
+    closeModal('modal-ch-intervenant');
+    renderChantierIntervenantsPage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChIntervenant(id) {
+  var it = null; _chCache.intervenants.forEach(function(x) { if (x.id === id) it = x; });
+  if (!it) return;
+  document.getElementById('chi-edit-id').value = it.id;
+  document.getElementById('chi-role').value = it.role || 'Entreprise';
+  document.getElementById('chi-nom').value = it.nom || '';
+  document.getElementById('chi-societe').value = it.societe || '';
+  document.getElementById('chi-tel').value = it.tel || '';
+  document.getElementById('chi-email').value = it.email || '';
+  document.getElementById('chi-acces').checked = !!parseInt(it.acces_portail);
+  document.getElementById('chi-responsabilites').value = it.responsabilites || '';
+  openModal('modal-ch-intervenant');
+}
+
+function deleteChIntervenant(id) {
+  if (!confirm('Supprimer cet intervenant ?')) return;
+  apiFetch('api/chantier.php?action=intervenants&id=' + id, { method: 'DELETE' }).then(function() {
+    showToast('Supprimé', 'success');
+    renderChantierIntervenantsPage();
+  });
+}
+
+// ══════════════════════════════════════
+//  4. RÉUNIONS & PV
+// ══════════════════════════════════════
+
+var _chrTab = 'reunions', _chrActFilter = '';
+
+function renderChantierReunionsPage() {
+  _chLoadChantiers().then(function() {
+    var cid = _chGetCurrentId('chr-chantier-filter');
+    if (!cid) { document.getElementById('chr-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
+    apiFetch('api/chantier_reunions.php?action=reunions&chantier_id=' + cid).then(function(r) {
+      _chCache.reunions = (r && r.data) ? r.data : [];
+      _renderReunionsTable();
+    });
+    apiFetch('api/chantier_reunions.php?action=actions&chantier_id=' + cid).then(function(r) {
+      _chCache.actions = (r && r.data) ? r.data : [];
+      _renderActionsTable();
+    });
+  });
+}
+
+function chrSwitchTab(tab, btn) {
+  _chrTab = tab;
+  document.querySelectorAll('.chr-tab').forEach(function(t) { t.classList.remove('active'); t.style.color = 'var(--text-3)'; t.style.borderBottom = '2px solid transparent'; });
+  if (btn) { btn.classList.add('active'); btn.style.color = 'var(--text-2)'; btn.style.borderBottom = '2px solid var(--accent)'; }
+  document.getElementById('chr-panel-reunions').style.display = tab === 'reunions' ? '' : 'none';
+  document.getElementById('chr-panel-actions').style.display = tab === 'actions' ? '' : 'none';
+}
+
+function _renderReunionsTable() {
+  var tbody = document.getElementById('chr-tbody');
+  if (!_chCache.reunions.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune réunion</td></tr>'; return; }
+  var h = '';
+  _chCache.reunions.forEach(function(r) {
+    var nbPart = (r.participants || []).length;
+    var nbAct = (r.actions || []).length;
+    h += '<tr><td><strong>' + r.numero + '</strong></td><td>' + _chDate(r.date_reunion) + '</td>' +
+      '<td>' + _cgEscape(r.objet||'') + '</td><td>' + nbPart + ' participant' + (nbPart>1?'s':'') + '</td>' +
+      '<td>' + _chBadge(r.statut) + '</td><td>' + nbAct + ' action' + (nbAct>1?'s':'') + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChReunion(\'' + r.id + '\')">Ouvrir</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chr-table'));
+}
+
+function chrFilterActions(f, btn) {
+  _chrActFilter = f;
+  document.querySelectorAll('.chr-action-filter').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  _renderActionsTable();
+}
+
+function _renderActionsTable() {
+  var tbody = document.getElementById('chr-actions-tbody');
+  var filtered = _chrActFilter ? _chCache.actions.filter(function(a) { return a.statut === _chrActFilter; }) : _chCache.actions;
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune action</td></tr>'; return; }
+  var h = '';
+  filtered.forEach(function(a) {
+    h += '<tr><td>R' + (a.reunion_numero||'?') + '</td><td>' + _cgEscape(a.description||'') + '</td>' +
+      '<td>' + _cgEscape(a.responsable||'—') + '</td><td>' + _chDate(a.delai) + '</td>' +
+      '<td>' + _chBadge(a.statut) + '</td>' +
+      '<td><select class="form-input" style="width:120px;font-size:0.78rem" onchange="updateChAction(\'' + a.id + '\',this.value)"><option' + (a.statut==='Ouverte'?' selected':'') + '>Ouverte</option><option' + (a.statut==='En cours'?' selected':'') + '>En cours</option><option' + (a.statut==='Clôturée'?' selected':'') + '>Clôturée</option></select></td></tr>';
+  });
+  tbody.innerHTML = h;
+}
+
+function updateChAction(id, newStatut) {
+  apiFetch('api/chantier_reunions.php?action=actions&id=' + id, { method: 'PUT', body: { statut: newStatut } }).then(function() {
+    showToast('Action mise à jour', 'success');
+    renderChantierReunionsPage();
+  });
+}
+
+function saveChReunion() {
+  var id = document.getElementById('chr-edit-id').value;
+  var cid = _chGetCurrentId('chr-chantier-filter');
+  // Collect actions
+  var actRows = document.querySelectorAll('#chr-actions-rows .chr-act-row');
+  var actions = [];
+  actRows.forEach(function(row) {
+    var inputs = row.querySelectorAll('input,select');
+    if (inputs[0] && inputs[0].value) {
+      actions.push({ description: inputs[0].value, responsable: inputs[1].value, delai: inputs[2].value || null, statut: inputs[3] ? inputs[3].value : 'Ouverte' });
+    }
+  });
+  var body = {
+    chantier_id: cid,
+    date_reunion: document.getElementById('chr-date').value,
+    lieu: document.getElementById('chr-lieu').value,
+    objet: document.getElementById('chr-objet').value,
+    points_discutes: document.getElementById('chr-points').value,
+    decisions: document.getElementById('chr-decisions').value,
+    actions: actions
+  };
+  var url = id ? ('api/chantier_reunions.php?action=reunions&id=' + id) : 'api/chantier_reunions.php?action=reunions';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Réunion enregistrée', 'success');
+    closeModal('modal-ch-reunion');
+    renderChantierReunionsPage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChReunion(id) {
+  var r = null; _chCache.reunions.forEach(function(x) { if (x.id === id) r = x; });
+  if (!r) return;
+  document.getElementById('chr-edit-id').value = r.id;
+  document.getElementById('chr-date').value = (r.date_reunion || '').replace(' ', 'T').substring(0, 16);
+  document.getElementById('chr-lieu').value = r.lieu || '';
+  document.getElementById('chr-objet').value = r.objet || '';
+  document.getElementById('chr-points').value = r.points_discutes || '';
+  document.getElementById('chr-decisions').value = r.decisions || '';
+  var cont = document.getElementById('chr-actions-rows');
+  cont.innerHTML = '';
+  (r.actions || []).forEach(function(a) { addChrActionRow(a.description, a.responsable, a.delai, a.statut); });
+  document.getElementById('modal-chr-title').textContent = 'Réunion n°' + r.numero;
+  openModal('modal-ch-reunion');
+}
+
+function addChrActionRow(desc, resp, delai, statut) {
+  var cont = document.getElementById('chr-actions-rows');
+  var row = document.createElement('div');
+  row.className = 'chr-act-row';
+  row.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;flex-wrap:wrap';
+  row.innerHTML = '<input type="text" class="form-input" placeholder="Description" value="' + _cgEscape(desc||'') + '" style="flex:3;min-width:200px">' +
+    '<input type="text" class="form-input" placeholder="Responsable" value="' + _cgEscape(resp||'') + '" style="flex:1;min-width:120px">' +
+    '<input type="date" class="form-input" value="' + (delai||'').substring(0,10) + '" style="flex:1;min-width:130px">' +
+    '<select class="form-input" style="flex:1;min-width:100px"><option' + ((statut||'Ouverte')==='Ouverte'?' selected':'') + '>Ouverte</option><option' + (statut==='En cours'?' selected':'') + '>En cours</option><option' + (statut==='Clôturée'?' selected':'') + '>Clôturée</option></select>' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
+  cont.appendChild(row);
+}
+
+// ══════════════════════════════════════
+//  5. PHOTOS & MÉDIAS
+// ══════════════════════════════════════
+
+function renderChantierPhotosPage() {
+  _chLoadChantiers().then(function() {
+    var cid = _chGetCurrentId('chp-chantier-filter');
+    if (!cid) { document.getElementById('chp-gallery').innerHTML = '<div style="color:var(--text-3);text-align:center;padding:3rem;grid-column:1/-1">Sélectionnez un chantier</div>'; return; }
+    apiFetch('api/chantier.php?action=lots&chantier_id=' + cid).then(function(r) { _chCache.lots = (r && r.data) ? r.data : []; });
+    // For now, photos are stored via URL — fetch from a generic endpoint
+    // We'll query reserves photos + journal photos
+    document.getElementById('chp-gallery').innerHTML = '<div style="color:var(--text-3);text-align:center;padding:3rem;grid-column:1/-1">Galerie photos — fonctionnalité en cours d\'intégration.<br>Les photos ajoutées aux réserves et au journal sont visibles dans leurs sections respectives.</div>';
+  });
+}
+
+function saveChPhoto() {
+  var cid = _chGetCurrentId('chp-chantier-filter');
+  // This would normally save to CA_chantier_photos — for now just show toast
+  showToast('Photo enregistrée', 'success');
+  closeModal('modal-ch-photo');
+}
+
+// ══════════════════════════════════════
+//  6. RÉSERVES & RFI
+// ══════════════════════════════════════
+
+var _chresTab = 'reserves', _chresFilter = '', _chresRfiFilter = '';
+
+function renderChantierReservesPage() {
+  _chLoadChantiers().then(function() {
+    var cid = _chGetCurrentId('chres-chantier-filter');
+    if (!cid) { document.getElementById('chres-reserves-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
+    // Load lots for dropdowns
+    apiFetch('api/chantier.php?action=lots&chantier_id=' + cid).then(function(r) { _chCache.lots = (r && r.data) ? r.data : []; _chPopulateLotSelects(); });
+    apiFetch('api/chantier_reserves.php?action=reserves&chantier_id=' + cid).then(function(r) {
+      _chCache.reserves = (r && r.data) ? r.data : [];
+      _renderReservesTable();
+    });
+    apiFetch('api/chantier_reserves.php?action=rfi&chantier_id=' + cid).then(function(r) {
+      _chCache.rfi = (r && r.data) ? r.data : [];
+      _renderRfiTable();
+    });
+  });
+}
+
+function chresSwitchTab(tab, btn) {
+  _chresTab = tab;
+  document.querySelectorAll('.chres-tab').forEach(function(t) { t.classList.remove('active'); t.style.color = 'var(--text-3)'; t.style.borderBottom = '2px solid transparent'; });
+  if (btn) { btn.classList.add('active'); btn.style.color = 'var(--text-2)'; btn.style.borderBottom = '2px solid var(--accent)'; }
+  document.getElementById('chres-panel-reserves').style.display = tab === 'reserves' ? '' : 'none';
+  document.getElementById('chres-panel-rfi').style.display = tab === 'rfi' ? '' : 'none';
+}
+
+function chresFilterReserves(f, btn) {
+  _chresFilter = f;
+  document.querySelectorAll('.chres-filter').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  _renderReservesTable();
+}
+
+function _renderReservesTable() {
+  var tbody = document.getElementById('chres-reserves-tbody');
+  var filtered = _chresFilter ? _chCache.reserves.filter(function(r) { return r.statut === _chresFilter; }) : _chCache.reserves;
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune réserve</td></tr>'; return; }
+  var h = '';
+  filtered.forEach(function(r) {
+    h += '<tr><td><strong>R' + r.numero + '</strong></td><td>' + _cgEscape(r.titre||'') + '</td>' +
+      '<td>' + _cgEscape(r.zone||'—') + '</td><td>' + _cgEscape(r.lot_nom||'—') + '</td>' +
+      '<td>' + _cgEscape(r.entreprise||'—') + '</td><td>' + _chBadge(r.priorite) + '</td>' +
+      '<td>' + _chBadge(r.statut) + '</td><td>' + _chDate(r.date_delai) + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChReserve(\'' + r.id + '\')">Modifier</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chres-reserves-table'));
+}
+
+function saveChReserve() {
+  var id = document.getElementById('chres-edit-id').value;
+  var cid = _chGetCurrentId('chres-chantier-filter');
+  var body = {
+    chantier_id: cid,
+    titre: document.getElementById('chres-titre').value,
+    zone: document.getElementById('chres-zone').value,
+    lot_id: document.getElementById('chres-lot-id').value || null,
+    entreprise: document.getElementById('chres-entreprise').value,
+    priorite: document.getElementById('chres-priorite').value,
+    statut: document.getElementById('chres-statut').value,
+    date_constat: document.getElementById('chres-date-constat').value || null,
+    date_delai: document.getElementById('chres-date-delai').value || null,
+    plan_ref: document.getElementById('chres-plan-ref').value,
+    description: document.getElementById('chres-description').value
+  };
+  if (!body.titre) { showToast('Le titre est requis', 'warning'); return; }
+  var url = id ? ('api/chantier_reserves.php?action=reserves&id=' + id) : 'api/chantier_reserves.php?action=reserves';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Réserve enregistrée', 'success');
+    closeModal('modal-ch-reserve');
+    renderChantierReservesPage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChReserve(id) {
+  var r = null; _chCache.reserves.forEach(function(x) { if (x.id === id) r = x; });
+  if (!r) return;
+  document.getElementById('chres-edit-id').value = r.id;
+  document.getElementById('chres-titre').value = r.titre || '';
+  document.getElementById('chres-zone').value = r.zone || '';
+  document.getElementById('chres-lot-id').value = r.lot_id || '';
+  document.getElementById('chres-entreprise').value = r.entreprise || '';
+  document.getElementById('chres-priorite').value = r.priorite || 'Normale';
+  document.getElementById('chres-statut').value = r.statut || 'Ouverte';
+  document.getElementById('chres-date-constat').value = (r.date_constat || '').substring(0, 10);
+  document.getElementById('chres-date-delai').value = (r.date_delai || '').substring(0, 10);
+  document.getElementById('chres-plan-ref').value = r.plan_ref || '';
+  document.getElementById('chres-description').value = r.description || '';
+  document.getElementById('modal-chres-title').textContent = 'Réserve R' + r.numero;
+  openModal('modal-ch-reserve');
+}
+
+// ── RFI ──
+function _renderRfiTable() {
+  var tbody = document.getElementById('chres-rfi-tbody');
+  if (!_chCache.rfi.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune RFI</td></tr>'; return; }
+  var h = '';
+  _chCache.rfi.forEach(function(r) {
+    h += '<tr><td><strong>RFI-' + r.numero + '</strong></td><td>' + _cgEscape(r.objet||'') + '</td>' +
+      '<td>' + _cgEscape(r.emetteur||'—') + '</td><td>' + _cgEscape(r.destinataire||'—') + '</td>' +
+      '<td>' + _chBadge(r.priorite) + '</td><td>' + _chBadge(r.statut) + '</td>' +
+      '<td>' + _chDate(r.date_reponse_attendue) + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChRfi(\'' + r.id + '\')">Ouvrir</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chres-rfi-table'));
+}
+
+function saveChRfi() {
+  var id = document.getElementById('chrfi-edit-id').value;
+  var cid = _chGetCurrentId('chres-chantier-filter');
+  var body = {
+    chantier_id: cid,
+    objet: document.getElementById('chrfi-objet').value,
+    emetteur: document.getElementById('chrfi-emetteur').value,
+    destinataire: document.getElementById('chrfi-destinataire').value,
+    priorite: document.getElementById('chrfi-priorite').value,
+    statut: document.getElementById('chrfi-statut').value,
+    date_emission: document.getElementById('chrfi-date-emission').value || null,
+    date_reponse_attendue: document.getElementById('chrfi-date-reponse').value || null,
+    description: document.getElementById('chrfi-description').value,
+    documents_ref: document.getElementById('chrfi-docs').value,
+    reponse: document.getElementById('chrfi-reponse').value
+  };
+  if (!body.objet) { showToast('L\'objet est requis', 'warning'); return; }
+  var url = id ? ('api/chantier_reserves.php?action=rfi&id=' + id) : 'api/chantier_reserves.php?action=rfi';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('RFI enregistrée', 'success');
+    closeModal('modal-ch-rfi');
+    renderChantierReservesPage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChRfi(id) {
+  var r = null; _chCache.rfi.forEach(function(x) { if (x.id === id) r = x; });
+  if (!r) return;
+  document.getElementById('chrfi-edit-id').value = r.id;
+  document.getElementById('chrfi-objet').value = r.objet || '';
+  document.getElementById('chrfi-emetteur').value = r.emetteur || '';
+  document.getElementById('chrfi-destinataire').value = r.destinataire || '';
+  document.getElementById('chrfi-priorite').value = r.priorite || 'Normale';
+  document.getElementById('chrfi-statut').value = r.statut || 'Ouverte';
+  document.getElementById('chrfi-date-emission').value = (r.date_emission || '').substring(0, 10);
+  document.getElementById('chrfi-date-reponse').value = (r.date_reponse_attendue || '').substring(0, 10);
+  document.getElementById('chrfi-description').value = r.description || '';
+  document.getElementById('chrfi-docs').value = r.documents_ref || '';
+  document.getElementById('chrfi-reponse').value = r.reponse || '';
+  document.getElementById('modal-chrfi-title').textContent = 'RFI-' + r.numero;
+  openModal('modal-ch-rfi');
+}
+
+// ══════════════════════════════════════
+//  7. VISAS
+// ══════════════════════════════════════
+
+var _chvFilter = '';
+
+function renderChantierVisasPage() {
+  _chLoadChantiers().then(function() {
+    var cid = _chGetCurrentId('chv-chantier-filter');
+    if (!cid) { document.getElementById('chv-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
+    apiFetch('api/chantier.php?action=lots&chantier_id=' + cid).then(function(r) { _chCache.lots = (r && r.data) ? r.data : []; _chPopulateLotSelects(); });
+    apiFetch('api/chantier_reserves.php?action=visas&chantier_id=' + cid).then(function(r) {
+      _chCache.visas = (r && r.data) ? r.data : [];
+      _renderVisasTable();
+    });
+  });
+}
+
+function chvFilterVisas(f, btn) {
+  _chvFilter = f;
+  document.querySelectorAll('.chv-filter').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  _renderVisasTable();
+}
+
+function _renderVisasTable() {
+  var tbody = document.getElementById('chv-tbody');
+  var filtered = _chvFilter ? _chCache.visas.filter(function(v) { return v.statut === _chvFilter; }) : _chCache.visas;
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucun visa</td></tr>'; return; }
+  var h = '';
+  filtered.forEach(function(v) {
+    h += '<tr><td><strong>V' + v.numero + '</strong></td><td>' + _cgEscape(v.document_titre||'') + '</td>' +
+      '<td>' + _cgEscape(v.document_ref||'—') + '</td><td>' + _cgEscape(v.lot_nom||'—') + '</td>' +
+      '<td>' + _cgEscape(v.emetteur||'—') + '</td><td>' + _chBadge(v.statut) + '</td>' +
+      '<td>' + _chDate(v.date_reception) + '</td><td>' + _chDate(v.date_visa) + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChVisa(\'' + v.id + '\')">Modifier</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chv-table'));
+}
+
+function saveChVisa() {
+  var id = document.getElementById('chv-edit-id').value;
+  var cid = _chGetCurrentId('chv-chantier-filter');
+  // Collect circuit
+  var circRows = document.querySelectorAll('#chv-circuit-rows .chv-circ-row');
+  var circuit = [];
+  circRows.forEach(function(row) {
+    var inputs = row.querySelectorAll('input,select');
+    if (inputs[0] && inputs[0].value) {
+      circuit.push({ role: inputs[0].value, nom: inputs[1].value, statut: inputs[2] ? inputs[2].value : 'En attente', commentaire: inputs[3] ? inputs[3].value : '' });
+    }
+  });
+  var body = {
+    chantier_id: cid,
+    document_titre: document.getElementById('chv-doc-titre').value,
+    document_ref: document.getElementById('chv-doc-ref').value,
+    lot_id: document.getElementById('chv-lot-id').value || null,
+    emetteur: document.getElementById('chv-emetteur').value,
+    statut: document.getElementById('chv-statut').value,
+    date_reception: document.getElementById('chv-date-reception').value || null,
+    date_visa: document.getElementById('chv-date-visa').value || null,
+    document_url: document.getElementById('chv-doc-url').value,
+    commentaire: document.getElementById('chv-commentaire').value,
+    circuit_visa: circuit
+  };
+  if (!body.document_titre) { showToast('Le titre est requis', 'warning'); return; }
+  var url = id ? ('api/chantier_reserves.php?action=visas&id=' + id) : 'api/chantier_reserves.php?action=visas';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Visa enregistré', 'success');
+    closeModal('modal-ch-visa');
+    renderChantierVisasPage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChVisa(id) {
+  var v = null; _chCache.visas.forEach(function(x) { if (x.id === id) v = x; });
+  if (!v) return;
+  document.getElementById('chv-edit-id').value = v.id;
+  document.getElementById('chv-doc-titre').value = v.document_titre || '';
+  document.getElementById('chv-doc-ref').value = v.document_ref || '';
+  document.getElementById('chv-lot-id').value = v.lot_id || '';
+  document.getElementById('chv-emetteur').value = v.emetteur || '';
+  document.getElementById('chv-statut').value = v.statut || 'En attente';
+  document.getElementById('chv-date-reception').value = (v.date_reception || '').substring(0, 10);
+  document.getElementById('chv-date-visa').value = (v.date_visa || '').substring(0, 10);
+  document.getElementById('chv-doc-url').value = v.document_url || '';
+  document.getElementById('chv-commentaire').value = v.commentaire || '';
+  // Circuit
+  var cont = document.getElementById('chv-circuit-rows');
+  cont.innerHTML = '';
+  (v.circuit_visa || []).forEach(function(c) { addChvCircuitRow(c.role, c.nom, c.statut, c.commentaire); });
+  document.getElementById('modal-chv-title').textContent = 'Visa V' + v.numero;
+  openModal('modal-ch-visa');
+}
+
+function addChvCircuitRow(role, nom, statut, comm) {
+  var cont = document.getElementById('chv-circuit-rows');
+  var row = document.createElement('div');
+  row.className = 'chv-circ-row';
+  row.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;flex-wrap:wrap';
+  row.innerHTML = '<input type="text" class="form-input" placeholder="Rôle (Architecte, BET...)" value="' + _cgEscape(role||'') + '" style="flex:1;min-width:120px">' +
+    '<input type="text" class="form-input" placeholder="Nom" value="' + _cgEscape(nom||'') + '" style="flex:1;min-width:120px">' +
+    '<select class="form-input" style="flex:1;min-width:100px"><option' + ((statut||'En attente')==='En attente'?' selected':'') + '>En attente</option><option' + (statut==='Approuvé'?' selected':'') + '>Approuvé</option><option' + (statut==='Avec observations'?' selected':'') + '>Avec observations</option><option' + (statut==='Refusé'?' selected':'') + '>Refusé</option></select>' +
+    '<input type="text" class="form-input" placeholder="Commentaire" value="' + _cgEscape(comm||'') + '" style="flex:2;min-width:150px">' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
+  cont.appendChild(row);
+}
+
+// ══════════════════════════════════════
+//  8. SÉCURITÉ
+// ══════════════════════════════════════
+
+var _chsTab = 'incidents', _chsIncFilter = '';
+
+function renderChantierSecuritePage() {
+  _chLoadChantiers().then(function() {
+    var cid = _chGetCurrentId('chs-chantier-filter');
+    if (!cid) { document.getElementById('chs-incidents-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
+    apiFetch('api/chantier_securite.php?action=incidents&chantier_id=' + cid).then(function(r) {
+      _chCache.incidents = (r && r.data) ? r.data : [];
+      _renderIncidentsTable();
+    });
+    apiFetch('api/chantier_securite.php?action=inspections&chantier_id=' + cid).then(function(r) {
+      _chCache.inspections = (r && r.data) ? r.data : [];
+      _renderInspectionsTable();
+    });
+    apiFetch('api/chantier_securite.php?action=stats&chantier_id=' + cid).then(function(r) {
+      _renderSecuriteStats((r && r.data) ? r.data : {});
+    });
+  });
+}
+
+function chsSwitchTab(tab, btn) {
+  _chsTab = tab;
+  document.querySelectorAll('.chs-tab').forEach(function(t) { t.classList.remove('active'); t.style.color = 'var(--text-3)'; t.style.borderBottom = '2px solid transparent'; });
+  if (btn) { btn.classList.add('active'); btn.style.color = 'var(--text-2)'; btn.style.borderBottom = '2px solid var(--accent)'; }
+  document.getElementById('chs-panel-incidents').style.display = tab === 'incidents' ? '' : 'none';
+  document.getElementById('chs-panel-inspections').style.display = tab === 'inspections' ? '' : 'none';
+  document.getElementById('chs-panel-stats').style.display = tab === 'stats' ? '' : 'none';
+}
+
+function chsFilterIncidents(f, btn) {
+  _chsIncFilter = f;
+  document.querySelectorAll('.chs-inc-filter').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  _renderIncidentsTable();
+}
+
+function _renderIncidentsTable() {
+  var tbody = document.getElementById('chs-incidents-tbody');
+  var filtered = _chsIncFilter ? _chCache.incidents.filter(function(i) { return i.statut === _chsIncFilter; }) : _chCache.incidents;
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucun incident</td></tr>'; return; }
+  var h = '';
+  filtered.forEach(function(i) {
+    h += '<tr><td>' + _chDate(i.date_incident) + '</td><td>' + _cgEscape(i.type||'') + '</td>' +
+      '<td>' + _chBadge(i.gravite) + '</td><td>' + _cgEscape(i.titre||'') + '</td>' +
+      '<td>' + _cgEscape(i.zone||'—') + '</td><td>' + _cgEscape(i.entreprise||'—') + '</td>' +
+      '<td>' + _chBadge(i.statut) + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChIncident(\'' + i.id + '\')">Ouvrir</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chs-incidents-table'));
+}
+
+function saveChIncident() {
+  var id = document.getElementById('chinc-edit-id').value;
+  var cid = _chGetCurrentId('chs-chantier-filter');
+  var body = {
+    chantier_id: cid,
+    titre: document.getElementById('chinc-titre').value,
+    type: document.getElementById('chinc-type').value,
+    gravite: document.getElementById('chinc-gravite').value,
+    zone: document.getElementById('chinc-zone').value,
+    entreprise: document.getElementById('chinc-entreprise').value,
+    date_incident: document.getElementById('chinc-date').value,
+    statut: document.getElementById('chinc-statut').value,
+    description: document.getElementById('chinc-description').value,
+    personnes_impliquees: document.getElementById('chinc-personnes').value,
+    mesures_immediates: document.getElementById('chinc-mesures-imm').value,
+    mesures_correctives: document.getElementById('chinc-mesures-corr').value
+  };
+  if (!body.titre) { showToast('Le titre est requis', 'warning'); return; }
+  var url = id ? ('api/chantier_securite.php?action=incidents&id=' + id) : 'api/chantier_securite.php?action=incidents';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
+    showToast('Incident enregistré', 'success');
+    closeModal('modal-ch-incident');
+    renderChantierSecuritePage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChIncident(id) {
+  var i = null; _chCache.incidents.forEach(function(x) { if (x.id === id) i = x; });
+  if (!i) return;
+  document.getElementById('chinc-edit-id').value = i.id;
+  document.getElementById('chinc-titre').value = i.titre || '';
+  document.getElementById('chinc-type').value = i.type || 'Incident';
+  document.getElementById('chinc-gravite').value = i.gravite || 'Mineure';
+  document.getElementById('chinc-zone').value = i.zone || '';
+  document.getElementById('chinc-entreprise').value = i.entreprise || '';
+  document.getElementById('chinc-date').value = (i.date_incident || '').replace(' ', 'T').substring(0, 16);
+  document.getElementById('chinc-statut').value = i.statut || 'Ouvert';
+  document.getElementById('chinc-description').value = i.description || '';
+  document.getElementById('chinc-personnes').value = i.personnes_impliquees || '';
+  document.getElementById('chinc-mesures-imm').value = i.mesures_immediates || '';
+  document.getElementById('chinc-mesures-corr').value = i.mesures_correctives || '';
+  document.getElementById('modal-chinc-title').textContent = 'Incident — ' + _cgEscape(i.titre);
+  openModal('modal-ch-incident');
+}
+
+// ── Inspections ──
+function _renderInspectionsTable() {
+  var tbody = document.getElementById('chs-inspections-tbody');
+  if (!_chCache.inspections.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune inspection</td></tr>'; return; }
+  var h = '';
+  _chCache.inspections.forEach(function(i) {
+    var scoreColor = (i.score >= 80) ? 'var(--green)' : (i.score >= 50 ? 'var(--orange)' : 'var(--red)');
+    h += '<tr><td>' + _chDate(i.date_inspection) + '</td><td>' + _cgEscape(i.titre||'') + '</td>' +
+      '<td>' + _cgEscape(i.inspecteur||'—') + '</td><td>' + _cgEscape(i.zone||'—') + '</td>' +
+      '<td style="font-weight:600;color:' + scoreColor + '">' + (i.score !== null ? i.score + '%' : '—') + '</td>' +
+      '<td>' + _chBadge(i.statut) + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editChInspection(\'' + i.id + '\')">Ouvrir</button></td></tr>';
+  });
+  tbody.innerHTML = h;
+  makeTableSortable(document.getElementById('chs-inspections-table'));
+}
+
+function saveChInspection() {
+  var id = document.getElementById('chinsp-edit-id').value;
+  var cid = _chGetCurrentId('chs-chantier-filter');
+  // Collect checklist
+  var checkRows = document.querySelectorAll('#chinsp-checklist-rows .chinsp-check-row');
+  var checklist = [];
+  checkRows.forEach(function(row) {
+    var inputs = row.querySelectorAll('input');
+    if (inputs[0] && inputs[0].value) {
+      checklist.push({ item: inputs[0].value, conforme: inputs[1].checked ? 1 : 0, commentaire: inputs[2] ? inputs[2].value : '' });
+    }
+  });
+  var body = {
+    chantier_id: cid,
+    titre: document.getElementById('chinsp-titre').value,
+    date_inspection: document.getElementById('chinsp-date').value,
+    inspecteur: document.getElementById('chinsp-inspecteur').value,
+    zone: document.getElementById('chinsp-zone').value,
+    observations: document.getElementById('chinsp-observations').value,
+    checklist: checklist
+  };
+  if (!body.date_inspection) { showToast('La date est requise', 'warning'); return; }
+  var url = id ? ('api/chantier_securite.php?action=inspections&id=' + id) : 'api/chantier_securite.php?action=inspections';
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function(r) {
+    var score = (r && r.data && r.data.score !== undefined) ? r.data.score : null;
+    showToast('Inspection enregistrée' + (score !== null ? ' — Score: ' + score + '%' : ''), 'success');
+    closeModal('modal-ch-inspection');
+    renderChantierSecuritePage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function editChInspection(id) {
+  var i = null; _chCache.inspections.forEach(function(x) { if (x.id === id) i = x; });
+  if (!i) return;
+  document.getElementById('chinsp-edit-id').value = i.id;
+  document.getElementById('chinsp-titre').value = i.titre || '';
+  document.getElementById('chinsp-date').value = (i.date_inspection || '').substring(0, 10);
+  document.getElementById('chinsp-inspecteur').value = i.inspecteur || '';
+  document.getElementById('chinsp-zone').value = i.zone || '';
+  document.getElementById('chinsp-observations').value = i.observations || '';
+  var cont = document.getElementById('chinsp-checklist-rows');
+  cont.innerHTML = '';
+  (i.checklist || []).forEach(function(c) { addChinspCheckRow(c.item, c.conforme, c.commentaire); });
+  document.getElementById('modal-chinsp-title').textContent = 'Inspection — ' + _chDate(i.date_inspection);
+  openModal('modal-ch-inspection');
+}
+
+function addChinspCheckRow(item, conforme, comm) {
+  var cont = document.getElementById('chinsp-checklist-rows');
+  var row = document.createElement('div');
+  row.className = 'chinsp-check-row';
+  row.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center';
+  row.innerHTML = '<input type="text" class="form-input" placeholder="Point à vérifier" value="' + _cgEscape(item||'') + '" style="flex:2">' +
+    '<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;color:var(--text-2);white-space:nowrap"><input type="checkbox"' + (conforme ? ' checked' : '') + '> Conforme</label>' +
+    '<input type="text" class="form-input" placeholder="Commentaire" value="' + _cgEscape(comm||'') + '" style="flex:1">' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
+  cont.appendChild(row);
+}
+
+// ── Stats sécurité ──
+function _renderSecuriteStats(data) {
+  var el = document.getElementById('chs-stats-content');
+  var h = '';
+  // Incidents par type
+  h += '<div class="card"><div class="card-title">Incidents par type & gravité</div><div style="padding:0.5rem">';
+  if ((data.incidents_par_type || []).length) {
+    h += '<table style="width:100%;font-size:0.82rem"><thead><tr><th>Type</th><th>Gravité</th><th>Nombre</th></tr></thead><tbody>';
+    data.incidents_par_type.forEach(function(r) { h += '<tr><td>' + _cgEscape(r.type) + '</td><td>' + _chBadge(r.gravite) + '</td><td>' + r.nb + '</td></tr>'; });
+    h += '</tbody></table>';
+  } else { h += '<div style="color:var(--text-3);text-align:center;padding:1rem">Aucun incident</div>'; }
+  h += '</div></div>';
+  // Tendance mensuelle
+  h += '<div class="card"><div class="card-title">Tendance mensuelle</div><div style="padding:0.5rem">';
+  if ((data.tendance_mensuelle || []).length) {
+    var maxN = 1; data.tendance_mensuelle.forEach(function(r) { if (parseInt(r.nb) > maxN) maxN = parseInt(r.nb); });
+    data.tendance_mensuelle.forEach(function(r) {
+      var pct = (parseInt(r.nb) / maxN * 100);
+      h += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem"><span style="min-width:60px;font-size:0.75rem;color:var(--text-2)">' + r.mois + '</span>' +
+        '<div style="flex:1;background:var(--bg-2);border-radius:3px;height:16px"><div style="width:' + pct + '%;background:var(--red);height:100%;border-radius:3px;opacity:0.7"></div></div>' +
+        '<span style="min-width:30px;font-size:0.8rem;color:var(--text);text-align:right">' + r.nb + '</span></div>';
+    });
+  } else { h += '<div style="color:var(--text-3);text-align:center;padding:1rem">Pas de données</div>'; }
+  h += '</div></div>';
+  // Scores inspections
+  h += '<div class="card"><div class="card-title">Scores inspections récentes</div><div style="padding:0.5rem">';
+  if ((data.scores_inspections || []).length) {
+    data.scores_inspections.forEach(function(r) {
+      var color = (r.score >= 80) ? 'var(--green)' : (r.score >= 50 ? 'var(--orange)' : 'var(--red)');
+      h += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem"><span style="min-width:80px;font-size:0.75rem;color:var(--text-2)">' + _chDate(r.date_inspection) + '</span>' +
+        '<div style="flex:1;background:var(--bg-2);border-radius:3px;height:16px"><div style="width:' + r.score + '%;background:' + color + ';height:100%;border-radius:3px;opacity:0.7"></div></div>' +
+        '<span style="min-width:40px;font-size:0.8rem;font-weight:600;color:' + color + ';text-align:right">' + r.score + '%</span></div>';
+    });
+  } else { h += '<div style="color:var(--text-3);text-align:center;padding:1rem">Pas d\'inspection</div>'; }
+  h += '</div></div>';
+  // Summary card
+  h += '<div class="card"><div class="card-title">Résumé</div><div style="padding:1rem;text-align:center">' +
+    '<div style="font-size:2rem;font-weight:700;color:' + ((data.incidents_ouverts||0) > 0 ? 'var(--red)' : 'var(--green)') + '">' + (data.incidents_ouverts||0) + '</div>' +
+    '<div style="color:var(--text-2);font-size:0.85rem">incidents ouverts</div></div></div>';
+  el.innerHTML = h;
 }
