@@ -11124,10 +11124,24 @@ function _ensureDecideExtras(){
 }
 
 function openCongeDecide(id){
+  try { console.log('[conges] openCongeDecide', id); } catch(e){}
+  // Ouvrir la modale immédiatement avec un état de chargement
+  openModal('modal-conge-decide');
+  var _tEl = document.getElementById('cg-decide-title');
+  var _iEl = document.getElementById('cg-decide-info');
+  var _wEl = document.getElementById('cg-decide-workload');
+  if (_tEl) _tEl.textContent = 'Chargement…';
+  if (_iEl) _iEl.innerHTML = '<div style="color:var(--text-3)">Chargement de la demande…</div>';
+  if (_wEl) _wEl.innerHTML = '';
+
   apiFetch('api/conges.php?action=list').then(function(r){
     var list = r.data || r || [];
-    var req = list.find(function(x){ return x.id === id; });
-    if (!req) return alert('Demande introuvable');
+    // Comparaison souple string ↔ number pour éviter le strict-equality mismatch
+    var req = list.find(function(x){ return String(x.id) === String(id); });
+    if (!req) {
+      if (_iEl) _iEl.innerHTML = '<div style="color:var(--red)">Demande introuvable (id=' + id + '). Veuillez réessayer.</div>';
+      return;
+    }
     _congesState.decideId = id;
     var isModif = (req.statut === 'Approuvé' || req.statut === 'Refusé');
     document.getElementById('cg-decide-title').textContent = (isModif ? 'Modifier la décision — ' : 'Demande de ') + req.user_name;
@@ -11237,8 +11251,10 @@ function openCongeDecide(id){
       .catch(function(e){
         wl.innerHTML = '<div style="color:var(--red)">Erreur chargement charge : ' + _cgEscape(e.message) + '</div>';
       });
-
-    openModal('modal-conge-decide');
+  }).catch(function(e){
+    try { console.error('[conges] openCongeDecide error', e); } catch(_){}
+    var _errEl = document.getElementById('cg-decide-info');
+    if (_errEl) _errEl.innerHTML = '<div style="color:var(--red)">Erreur chargement : ' + _cgEscape((e && e.message) || 'Inconnu') + '</div>';
   });
 }
 
