@@ -148,7 +148,8 @@ function chat_user_extra_cols() {
 
 // Crée un groupe de discussion pour un projet (idempotent)
 // $projet = row CA_projets (array). Retourne room_id ou null.
-function chat_create_project_room($db, array $projet, $createdByName = null) {
+// $createdByName = nom du créateur, $createdById = id du créateur (JWT)
+function chat_create_project_room($db, array $projet, $createdByName = null, $createdById = null) {
     chat_ensure_schema();
     if (empty($projet['id'])) return null;
 
@@ -167,14 +168,34 @@ function chat_create_project_room($db, array $projet, $createdByName = null) {
                   VALUES (?, 'projet', ?, ?, ?)")
        ->execute([$roomId, $label, $projet['id'], $createdByName]);
 
-    // Ajouter le créateur comme premier participant s'il est membre
-    if ($createdByName) {
+    // Ajouter le créateur comme participant (par ID si disponible, sinon par nom)
+    if ($createdById) {
+        $creatorName = $createdByName ?: 'Créateur';
+        // Essayer de récupérer le vrai nom
+        try {
+            $stU = $db->prepare("SELECT prenom, nom FROM cortoba_users WHERE id = ? LIMIT 1");
+            $stU->execute([$createdById]);
+            $uRow = $stU->fetch(PDO::FETCH_ASSOC);
+            if ($uRow) $creatorName = trim(($uRow['prenom'] ?? '') . ' ' . ($uRow['nom'] ?? ''));
+        } catch (\Throwable $e) {}
+        chat_add_participant_if_missing($db, $roomId, $createdById, $creatorName, null);
+    } elseif ($createdByName) {
         $member = chat_resolve_user_by_name($db, $createdByName);
         if ($member) {
             chat_add_participant_if_missing($db, $roomId, $member['id'],
                 trim(($member['prenom'] ?? '') . ' ' . ($member['nom'] ?? '')), null);
         }
     }
+
+    // Ajouter tous les membres actifs de l'équipe comme participants
+    try {
+        $stMembers = $db->query("SELECT id, prenom, nom FROM cortoba_users WHERE statut <> 'Inactif' ORDER BY prenom, nom");
+        $allMembers = $stMembers->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($allMembers as $m) {
+            $mName = trim(($m['prenom'] ?? '') . ' ' . ($m['nom'] ?? ''));
+            chat_add_participant_if_missing($db, $roomId, $m['id'], $mName, null);
+        }
+    } catch (\Throwable $e) { /* silencieux */ }
 
     // Message système d'ouverture
     chat_post_system_message($db, $roomId, '💬 Groupe de discussion créé pour le projet ' . $label);

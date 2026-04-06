@@ -157,7 +157,7 @@ function create(array $user) {
     // ── Création optionnelle du groupe de discussion (Lot 2) ──
     if (!empty($body['create_chat_room']) && $projet) {
         try {
-            $roomId = chat_create_project_room($db, $projet, $user['name'] ?? null);
+            $roomId = chat_create_project_room($db, $projet, $user['name'] ?? null, $user['id'] ?? null);
             $result['chat_room_id'] = $roomId;
         } catch (\Throwable $e) {
             $result['chat_room_error'] = $e->getMessage();
@@ -229,7 +229,7 @@ function update($id, array $user) {
             $st = $db->prepare('SELECT * FROM CA_projets WHERE id = ?');
             $st->execute([$id]);
             $proj = $st->fetch(PDO::FETCH_ASSOC);
-            if ($proj) chat_create_project_room($db, $proj, $user['name'] ?? null);
+            if ($proj) chat_create_project_room($db, $proj, $user['name'] ?? null, $user['id'] ?? null);
         } catch (\Throwable $e) { /* silencieux */ }
     }
 

@@ -567,7 +567,7 @@ function createProjectRoomAction($user) {
     $projet = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$projet) jsonError('Projet introuvable', 404);
 
-    $roomId = chat_create_project_room($db, $projet, $user['name'] ?? null);
+    $roomId = chat_create_project_room($db, $projet, $user['name'] ?? null, $user['id'] ?? null);
     jsonOk(['room_id' => $roomId]);
 }
 
