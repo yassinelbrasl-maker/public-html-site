@@ -105,6 +105,59 @@ try {
     }
 } catch (\Throwable $e) { /* silencieux */ }
 
+// ── Auto-rappel fériés : dernière semaine de décembre → notifier les gérants ──
+// Exécuté une seule fois par an (vérifie l'existence d'une notif déjà envoyée)
+function checkHolidayReminder(PDO $db): void {
+    $day   = (int)date('j');
+    $month = (int)date('n');
+    if ($month !== 12 || $day < 25) return; // hors dernière semaine de décembre
+
+    $nextYear = (int)date('Y') + 1;
+    $refId    = 'holiday_reminder_' . $nextYear;
+
+    // Vérifier si la notif a déjà été envoyée cette année
+    try {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM CA_notifications WHERE type = 'holiday_reminder' AND link_id = ?");
+        $stmt->execute([$refId]);
+        if ((int)$stmt->fetchColumn() > 0) return; // déjà envoyé
+    } catch (\Throwable $e) { return; }
+
+    // Compter les fériés existants pour l'année prochaine
+    $feriesCount = 0;
+    try {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM CA_jours_feries WHERE YEAR(date) = ?");
+        $stmt->execute([$nextYear]);
+        $feriesCount = (int)$stmt->fetchColumn();
+    } catch (\Throwable $e) {}
+
+    $title = "📅 Rappel : mise à jour des jours fériés $nextYear";
+    $msg   = "L'année $nextYear approche. Pensez à vérifier et mettre à jour le calendrier des jours fériés "
+           . "(notamment les fêtes religieuses dont les dates changent chaque année).\n\n"
+           . "Jours fériés actuellement définis pour $nextYear : $feriesCount."
+           . "\n\n→ Congés > Administration > Jours fériés & ponts";
+
+    // Envoyer à tous les gérants / admins
+    if (!function_exists('notifCreate')) return;
+    $admins = [];
+    try {
+        $q = $db->query("SELECT id FROM cortoba_users WHERE LOWER(role) IN ('admin','gerant','gérant','manager','directeur') AND statut <> 'Inactif'");
+        foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $aid) $admins[$aid] = true;
+    } catch (\Throwable $e) {}
+    try {
+        $q2 = $db->query("SELECT id FROM CA_accounts WHERE role = 'admin' AND approved = 1");
+        foreach ($q2->fetchAll(PDO::FETCH_COLUMN) as $aid) $admins[$aid] = true;
+    } catch (\Throwable $e) {}
+
+    foreach (array_keys($admins) as $aid) {
+        try {
+            notifCreate($db, $aid, 'holiday_reminder', $title, $msg, 'conges', $refId, 'Système');
+        } catch (\Throwable $e) { /* silencieux */ }
+    }
+}
+
+// Déclencher le check (léger — une seule requête SQL si hors période ou déjà envoyé)
+try { checkHolidayReminder($db); } catch (\Throwable $e) { /* silencieux */ }
+
 // ── Helper : est-ce un gérant / admin ? ──
 function isManager(array $u): bool {
     $role = strtolower($u['role'] ?? '');
