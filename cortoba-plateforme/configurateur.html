@@ -485,6 +485,7 @@ var _missions = [];
 var _missionCategories = [];
 var _roles = [];
 var _typesBatiment = [];
+var _nasConfig = {};
 
 var CFG_TYPES_BATIMENT_DEFAULT = [
   { id:'logement', label:'Logement', icon:'🏠', subtypes:[
@@ -573,6 +574,14 @@ function loadInitialData() {
       if (typeof tb === 'string') { try { tb = JSON.parse(tb); } catch(e) { tb = null; } }
       _typesBatiment = (Array.isArray(tb) && tb.length > 0) ? tb : CFG_TYPES_BATIMENT_DEFAULT;
       populateCfgTypeBatSelect();
+      // NAS config
+      _nasConfig = {
+        local:      settings['cortoba_nas_local'] || '',
+        user:       settings['cortoba_nas_user'] || '',
+        pass:       settings['cortoba_nas_pass'] || '',
+        webdavPort: settings['cortoba_nas_webdav_port'] || '5005',
+        projetsRoot: settings['cortoba_nas_projets_root'] || '',
+      };
     })
     .catch(function(e) {
       console.warn('Erreur chargement données:', e);
@@ -1037,14 +1046,25 @@ function saveProjet() {
       lat: parseFloat(v('cfg-lat')) || null,
       lng: parseFloat(v('cfg-lng')) || null,
       missions: getSelectedMissions(),
-      intervenants: getIntervenants(),
-      create_nas_folder: (document.getElementById('cfg-nas-create') || {}).checked || false
+      intervenants: getIntervenants()
     };
+    var wantNas = (document.getElementById('cfg-nas-create') || {}).checked || false;
     apiFetch('api/projets.php', { method: 'POST', body: body })
       .then(function(resp) {
         localStorage.removeItem('cortoba_cfg_draft');
         var projet = resp.data || resp || {};
-        showSuccess(v('cfg-nom'), projet.code || code);
+        var finalCode = projet.code || code;
+        // Création du dossier NAS côté navigateur via WebDAV
+        if (wantNas) {
+          createNasFolderWebDAV(finalCode, body.nom, annee)
+            .then(function() { showSuccess(v('cfg-nom'), finalCode); })
+            .catch(function(e) {
+              console.warn('NAS folder error:', e);
+              showSuccess(v('cfg-nom'), finalCode);
+            });
+        } else {
+          showSuccess(v('cfg-nom'), finalCode);
+        }
       })
       .catch(function(e) {
         showErr(6, 'Erreur : ' + (e.message || 'Erreur serveur'));
@@ -1089,6 +1109,54 @@ function saveProjet() {
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Créer le projet →'; }
       });
   }
+}
+
+// ── Créer un dossier projet sur le NAS via WebDAV (côté navigateur) ──
+function createNasFolderWebDAV(code, nom, annee) {
+  var cfg = _nasConfig || {};
+  // Extraire l'IP du chemin UNC \\192.168.1.165\Public\...
+  var ip = '';
+  var uncPath = cfg.local || '';
+  var match = uncPath.match(/\\\\([^\\]+)/);
+  if (match) ip = match[1];
+  if (!ip) {
+    console.warn('NAS: IP non configurée');
+    return Promise.resolve();
+  }
+  var port = cfg.webdavPort || '5005';
+  var user = cfg.user || '';
+  var pass = cfg.pass || '';
+  var rootPath = (cfg.projetsRoot || '/Public/CAS_PROJETS').replace(/\/+$/, '');
+
+  // Nom du dossier : CODE_NOM (nettoyé)
+  var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var baseUrl = 'http://' + ip + ':' + port;
+  var headers = {};
+  if (user) {
+    headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+  }
+
+  // Créer dossier année puis dossier projet (MKCOL WebDAV)
+  function mkcol(path) {
+    var url = baseUrl + path.split('/').map(encodeURIComponent).join('/');
+    return fetch(url, {
+      method: 'MKCOL',
+      headers: headers
+    }).then(function(r) {
+      // 201=créé, 405=existe déjà, les deux sont OK
+      if (r.status === 201 || r.status === 405 || r.status === 301) return true;
+      console.warn('NAS MKCOL ' + path + ' → HTTP ' + r.status);
+      return true; // ne pas bloquer
+    }).catch(function(e) {
+      console.warn('NAS MKCOL error for ' + path + ':', e);
+      return true; // ne pas bloquer la création du projet
+    });
+  }
+
+  return mkcol(rootPath + '/' + annee)
+    .then(function() {
+      return mkcol(rootPath + '/' + annee + '/' + folderName);
+    });
 }
 
 function showSuccess(nom, code) {

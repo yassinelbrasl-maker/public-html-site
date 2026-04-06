@@ -164,15 +164,8 @@ function create(array $user) {
         }
     }
 
-    // ── Création optionnelle du dossier NAS via WebDAV ──
-    if (!empty($body['create_nas_folder']) && $projet) {
-        try {
-            $nasResult = createNasProjectFolder($db, $projet);
-            $result['nas_folder'] = $nasResult;
-        } catch (\Throwable $e) {
-            $result['nas_folder_error'] = $e->getMessage();
-        }
-    }
+    // NB : La création du dossier NAS se fait côté navigateur (WebDAV)
+    // car le serveur distant ne peut pas atteindre le NAS local.
 
     jsonOk($result);
 }

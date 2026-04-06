@@ -2089,8 +2089,8 @@ function saveProjet(){
     missions:getSelectedMissions(),
     intervenants:getIntervenants(),
     create_chat_room: (document.getElementById('pj-chat-create') || {}).checked || false,
-    create_nas_folder: (document.getElementById('pj-nas-create') || {}).checked || false
   };
+  var wantNas = !_editingProjetId && ((document.getElementById('pj-nas-create') || {}).checked || false);
 
   var method, url;
   if (_editingProjetId) {
@@ -2105,6 +2105,13 @@ function saveProjet(){
 
   apiFetch(url, {method:method, body:body})
     .then(function(resp){
+      var projet = resp.data || resp || {};
+      var finalCode = projet.code || code;
+      // Création du dossier NAS côté navigateur via WebDAV
+      if (wantNas) {
+        createNasFolderWebDAV(finalCode, nom, annee)
+          .catch(function(e) { console.warn('NAS folder error:', e); });
+      }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
       resetProjetForm();
@@ -5949,6 +5956,32 @@ function saveNasProjectConfig() {
       showToast('Configuration dossiers projets NAS enregistrée');
     }
   });
+}
+
+// ── Créer un dossier projet sur le NAS via WebDAV (côté navigateur) ──
+function createNasFolderWebDAV(code, nom, annee) {
+  var cfg = getNasConfig();
+  var ip = cfg.local || '';
+  if (!ip) { console.warn('NAS: IP non configurée'); return Promise.resolve(); }
+  var port = cfg.webdavPort || '5005';
+  var user = cfg.user || '';
+  var pass = cfg.pass || '';
+  var rootPath = (getSetting('cortoba_nas_projets_root', '') || '/Public/CAS_PROJETS').replace(/\/+$/, '');
+
+  var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var baseUrl = 'http://' + ip + ':' + port;
+  var headers = {};
+  if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+
+  function mkcol(path) {
+    var url = baseUrl + path.split('/').map(encodeURIComponent).join('/');
+    return fetch(url, { method: 'MKCOL', headers: headers })
+      .then(function(r) { return true; })
+      .catch(function(e) { console.warn('NAS MKCOL error:', e); return true; });
+  }
+
+  return mkcol(rootPath + '/' + annee)
+    .then(function() { return mkcol(rootPath + '/' + annee + '/' + folderName); });
 }
 
 // ── Ping NAS local via Image trick (contourne CORS) ──
