@@ -1964,6 +1964,24 @@ function openEditProjet(id){
 
   document.getElementById('pj-code-preview').textContent = p.code||'—';
 
+  // Vérifier si une room chat existe déjà pour ce projet
+  var chatChk = document.getElementById('pj-chat-create');
+  var chatWrap = document.getElementById('pj-chat-create-wrap');
+  if (chatChk) {
+    chatChk.checked = false;
+    chatChk.disabled = false;
+    if (chatWrap) chatWrap.title = '';
+    apiFetch('api/chat.php?action=rooms').then(function(r) {
+      var rooms = (r.data || []);
+      var hasRoom = rooms.some(function(rm) { return rm.type === 'projet' && rm.projet_id === id; });
+      if (hasRoom) {
+        chatChk.checked = true;
+        chatChk.disabled = true;
+        if (chatWrap) chatWrap.title = 'Groupe de discussion déjà créé';
+      }
+    }).catch(function(){});
+  }
+
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
 }
@@ -2068,7 +2086,8 @@ function saveProjet(){
     cout_construction: parseFloat((document.getElementById('pj-cout-construction')||{}).value)||null,
     cout_m2: parseFloat((document.getElementById('pj-cout-m2')||{}).value)||null,
     missions:getSelectedMissions(),
-    intervenants:getIntervenants()
+    intervenants:getIntervenants(),
+    create_chat_room: (document.getElementById('pj-chat-create') || {}).checked || false
   };
 
   var method, url;
