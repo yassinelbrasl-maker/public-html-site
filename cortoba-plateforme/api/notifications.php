@@ -78,7 +78,7 @@ try {
             elseif ($status === 'read')      $where .= ' AND is_archived = 0 AND is_read = 1';
             elseif ($status === 'archived')  $where .= ' AND is_archived = 1';
             // 'all' = pas de filtre archivage
-            if ($type !== '') { $where .= ' AND type = ?'; $params[] = $type; }
+            if ($type !== '') { $where .= ' AND type LIKE ?'; $params[] = $type . '%'; }
             if ($q !== '')    { $where .= ' AND (title LIKE ? OR message LIKE ?)'; $params[] = "%$q%"; $params[] = "%$q%"; }
 
             $orderBy = 'cree_at DESC';
@@ -95,6 +95,13 @@ try {
             $stmt = $db->prepare("SELECT COUNT(*) FROM CA_notifications WHERE user_id = ? AND is_read = 0 AND is_archived = 0");
             $stmt->execute([$user['id']]);
             jsonOk(['unread' => intval($stmt->fetchColumn())]);
+            break;
+        }
+
+        case 'types': {
+            $stmt = $db->prepare("SELECT DISTINCT type FROM CA_notifications WHERE user_id = ? ORDER BY type");
+            $stmt->execute([$user['id']]);
+            jsonOk($stmt->fetchAll(PDO::FETCH_COLUMN));
             break;
         }
 
