@@ -15,7 +15,8 @@ require_once __DIR__ . '/../config/middleware.php';
 
 // Bootstrap idempotent de la table (toujours exécuté, même en mode lib)
 try {
-    getDB()->exec("CREATE TABLE IF NOT EXISTS `CA_notifications` (
+    $_db0 = getDB();
+    $_db0->exec("CREATE TABLE IF NOT EXISTS `CA_notifications` (
         `id`         VARCHAR(32)  NOT NULL PRIMARY KEY,
         `user_id`    VARCHAR(32)  NOT NULL,
         `type`       VARCHAR(40)  NOT NULL DEFAULT 'info',
@@ -24,11 +25,14 @@ try {
         `link_page`  VARCHAR(80)  DEFAULT NULL,
         `link_id`    VARCHAR(40)  DEFAULT NULL,
         `is_read`    TINYINT(1)   NOT NULL DEFAULT 0,
+        `is_archived` TINYINT(1)  NOT NULL DEFAULT 0,
         `cree_par`   VARCHAR(120) DEFAULT NULL,
         `cree_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
         KEY `idx_user_unread` (`user_id`,`is_read`),
         KEY `idx_cree_at`     (`cree_at`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    try { $_db0->exec("ALTER TABLE CA_notifications ADD COLUMN IF NOT EXISTS `is_archived` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_read`"); }
+    catch (\Throwable $e) { /* colonne déjà présente */ }
 } catch (\Throwable $e) { /* silencieux */ }
 
 /**
@@ -61,18 +65,34 @@ $action = $_GET['action'] ?? 'list';
 try {
     switch ($action) {
         case 'list': {
-            $limit = min(50, max(1, intval($_GET['limit'] ?? 20)));
-            $stmt = $db->prepare("SELECT * FROM CA_notifications
-                                  WHERE user_id = ?
-                                  ORDER BY is_read ASC, cree_at DESC
-                                  LIMIT $limit");
-            $stmt->execute([$user['id']]);
+            $limit  = min(200, max(1, intval($_GET['limit'] ?? 20)));
+            $status = $_GET['status'] ?? 'inbox'; // inbox | unread | read | archived | all
+            $type   = trim($_GET['type'] ?? '');
+            $q      = trim($_GET['q'] ?? '');
+            $sort   = $_GET['sort'] ?? 'recent';  // recent | old | unread_first
+
+            $where  = 'user_id = ?';
+            $params = [$user['id']];
+            if ($status === 'inbox')         $where .= ' AND is_archived = 0';
+            elseif ($status === 'unread')    $where .= ' AND is_archived = 0 AND is_read = 0';
+            elseif ($status === 'read')      $where .= ' AND is_archived = 0 AND is_read = 1';
+            elseif ($status === 'archived')  $where .= ' AND is_archived = 1';
+            // 'all' = pas de filtre archivage
+            if ($type !== '') { $where .= ' AND type = ?'; $params[] = $type; }
+            if ($q !== '')    { $where .= ' AND (title LIKE ? OR message LIKE ?)'; $params[] = "%$q%"; $params[] = "%$q%"; }
+
+            $orderBy = 'cree_at DESC';
+            if ($sort === 'old')          $orderBy = 'cree_at ASC';
+            if ($sort === 'unread_first') $orderBy = 'is_read ASC, cree_at DESC';
+
+            $stmt = $db->prepare("SELECT * FROM CA_notifications WHERE $where ORDER BY $orderBy LIMIT $limit");
+            $stmt->execute($params);
             jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
             break;
         }
 
         case 'count': {
-            $stmt = $db->prepare("SELECT COUNT(*) FROM CA_notifications WHERE user_id = ? AND is_read = 0");
+            $stmt = $db->prepare("SELECT COUNT(*) FROM CA_notifications WHERE user_id = ? AND is_read = 0 AND is_archived = 0");
             $stmt->execute([$user['id']]);
             jsonOk(['unread' => intval($stmt->fetchColumn())]);
             break;
@@ -87,10 +107,46 @@ try {
             break;
         }
 
+        case 'mark_unread': {
+            $id = $_GET['id'] ?? '';
+            if (!$id) jsonError('ID requis');
+            $db->prepare("UPDATE CA_notifications SET is_read = 0 WHERE id = ? AND user_id = ?")
+               ->execute([$id, $user['id']]);
+            jsonOk(['id' => $id]);
+            break;
+        }
+
         case 'mark_all_read': {
-            $db->prepare("UPDATE CA_notifications SET is_read = 1 WHERE user_id = ?")
+            $db->prepare("UPDATE CA_notifications SET is_read = 1 WHERE user_id = ? AND is_archived = 0")
                ->execute([$user['id']]);
             jsonOk(['ok' => true]);
+            break;
+        }
+
+        case 'archive': {
+            $id = $_GET['id'] ?? '';
+            if (!$id) jsonError('ID requis');
+            $db->prepare("UPDATE CA_notifications SET is_archived = 1 WHERE id = ? AND user_id = ?")
+               ->execute([$id, $user['id']]);
+            jsonOk(['id' => $id]);
+            break;
+        }
+
+        case 'unarchive': {
+            $id = $_GET['id'] ?? '';
+            if (!$id) jsonError('ID requis');
+            $db->prepare("UPDATE CA_notifications SET is_archived = 0 WHERE id = ? AND user_id = ?")
+               ->execute([$id, $user['id']]);
+            jsonOk(['id' => $id]);
+            break;
+        }
+
+        case 'delete': {
+            $id = $_GET['id'] ?? '';
+            if (!$id) jsonError('ID requis');
+            $db->prepare("DELETE FROM CA_notifications WHERE id = ? AND user_id = ?")
+               ->execute([$id, $user['id']]);
+            jsonOk(['id' => $id]);
             break;
         }
 
