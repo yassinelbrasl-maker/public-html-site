@@ -11357,32 +11357,35 @@ function renderParametresLivrables() {
   if (cat.length === 0) {
     html = '<div style="color:var(--text-3);font-size:0.85rem;padding:0.5rem 0">Aucun livrable au catalogue. Ajoutez-en ci-dessus.</div>';
   } else {
+    function _renderGroup(title, list) {
+      html += '<div style="margin-top:0.8rem"><div style="font-weight:600;font-size:0.82rem;color:var(--accent);margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:0.03em">'+escHtml(title)+'</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:0.2rem">';
+      list.forEach(function(e){ html += _paramLivrableRow(e, tachesTypes); });
+      html += '</div></div>';
+    }
     missions.forEach(function(m){
       var list = byMission[m.id] || [];
       if (!list.length) return;
-      html += '<div style="margin-top:0.6rem"><div style="font-weight:600;font-size:0.82rem;color:var(--text-2);margin-bottom:0.25rem">'+escHtml(m.nom||'')+'</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
-      list.forEach(function(e){ html += _paramLivrableBadge(e, tachesTypes); });
-      html += '</div></div>';
+      _renderGroup(m.nom||'', list);
     });
     if (byMission['']) {
-      html += '<div style="margin-top:0.6rem"><div style="font-weight:600;font-size:0.82rem;color:var(--text-2);margin-bottom:0.25rem">(Sans mission)</div><div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
-      byMission[''].forEach(function(e){ html += _paramLivrableBadge(e, tachesTypes); });
-      html += '</div></div>';
+      _renderGroup('(Sans mission)', byMission['']);
     }
   }
   wrap.innerHTML = html;
 }
 
-function _paramLivrableBadge(e, tachesTypes) {
+function _paramLivrableRow(e, tachesTypes) {
   var tt = (tachesTypes || []).find(function(x){ return x.id === e.tache_type_id; });
   var ctx = [];
   if (tt) ctx.push(tt.nom);
   if (e.sous_tache) ctx.push(e.sous_tache);
-  var ctxTxt = ctx.length ? ' <span style="color:var(--text-3);font-size:0.7rem">('+escHtml(ctx.join(' › '))+')</span>' : '';
-  return '<span style="display:inline-flex;align-items:center;gap:0.35rem;background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:0.2rem 0.55rem;font-size:0.78rem">'+
-    escHtml(e.nom||'') + ctxTxt +
-    ' <button type="button" onclick="removeParamLivrable(\''+escHtml(e.id||'')+'\')" style="background:none;border:none;color:var(--text-3);cursor:pointer;padding:0;font-size:0.9rem" title="Supprimer">✕</button></span>';
+  var ctxTxt = ctx.length ? ' <span style="color:var(--text-3);font-size:0.72rem;font-style:italic">'+escHtml(ctx.join(' › '))+'</span>' : '';
+  return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.6rem;background:var(--bg-2);border-radius:6px;cursor:default;font-size:0.82rem">' +
+    '<input type="checkbox" disabled style="accent-color:var(--accent);pointer-events:none" />' +
+    '<span style="flex:1">' + escHtml(e.nom||'') + ctxTxt + '</span>' +
+    '<button type="button" onclick="removeParamLivrable(\''+escHtml(e.id||'')+'\')" style="background:none;border:none;color:var(--text-3);cursor:pointer;padding:0 0.2rem;font-size:0.85rem;opacity:0.6" title="Supprimer">✕</button>' +
+    '</label>';
 }
 
 function onParamLivrableMissionChange() { renderParametresLivrables(); }
