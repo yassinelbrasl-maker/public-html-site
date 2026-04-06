@@ -1454,6 +1454,7 @@
           <button class="param-tab"        data-param-tab="equipe"   onclick="switchParamTab('equipe',this)"   style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Équipe &amp; Paie</button>
           <button class="param-tab"        data-param-tab="projets"  onclick="switchParamTab('projets',this)"  style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Projets &amp; Listes</button>
           <button class="param-tab"        data-param-tab="da"       onclick="switchParamTab('da',this)"       style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Demandes admin</button>
+          <button class="param-tab"        data-param-tab="nas"      onclick="switchParamTab('nas',this)"      style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Serveur NAS</button>
         </div>
 
         <div class="card" data-param-tab="agence">
@@ -2030,6 +2031,101 @@
               <button class="btn btn-sm btn-primary" onclick="addParamDAItem('objets_demandes_admin','param-da-objet-input','param-da-objet-list')">Ajouter</button>
             </div>
             <div id="param-da-objet-list" class="param-tag-list"></div>
+          </div>
+        </div>
+
+        <!-- ══ Onglet NAS — Configuration du serveur ══ -->
+        <div class="card" data-param-tab="nas" style="margin-bottom:1.5rem">
+          <div class="card-title">Connexion au serveur NAS</div>
+          <div class="form-grid">
+            <div class="form-field full">
+              <label class="form-label">Chemin UNC local (réseau)</label>
+              <input id="param-nas-local" class="form-input" placeholder="\\192.168.1.165\Public\CAS_PROJETS" />
+              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">Chemin complet vers le partage réseau du NAS (ex: \\192.168.1.165\Public\CAS_PROJETS)</div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Adresse IP publique</label>
+              <input id="param-nas-public-ip" class="form-input" placeholder="IP publique ou domaine DDNS" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Port interface web</label>
+              <input id="param-nas-port" class="form-input" type="number" placeholder="8080" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Utilisateur NAS</label>
+              <input id="param-nas-user" class="form-input" placeholder="admin" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Mot de passe NAS</label>
+              <input id="param-nas-pass" class="form-input" type="password" placeholder="********" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Modèle / Marque</label>
+              <input id="param-nas-model" class="form-input" placeholder="QNAP NAS" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Clé API (optionnel)</label>
+              <input id="param-nas-apikey" class="form-input" placeholder="Clé API QNAP (si disponible)" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">MyQNAPCloud URL</label>
+              <input id="param-nas-cloud" class="form-input" placeholder="https://xxx.myqnapcloud.com" />
+            </div>
+          </div>
+          <div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:0.5rem">
+            <button class="btn btn-sm" onclick="nasTestConnection()">Tester la connexion</button>
+            <button class="btn btn-primary btn-sm" onclick="saveNasConfig()">Enregistrer</button>
+          </div>
+        </div>
+
+        <div class="card" data-param-tab="nas" style="margin-bottom:1.5rem">
+          <div class="card-title">WebDAV</div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Port WebDAV (HTTP)</label>
+              <input id="param-nas-webdav-port" class="form-input" type="number" placeholder="5005" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Chemin WebDAV racine</label>
+              <input id="param-nas-webdav" class="form-input" placeholder="/Public/CAS_PROJETS" />
+              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">Chemin sur le NAS accessible via WebDAV</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" data-param-tab="nas" style="margin-bottom:1.5rem">
+          <div class="card-title">Stockage</div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Capacité totale (Go)</label>
+              <input id="param-nas-capacity" class="form-input" type="number" step="0.1" placeholder="0" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Espace utilisé (Go)</label>
+              <input id="param-nas-used" class="form-input" type="number" step="0.1" placeholder="0" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card" data-param-tab="nas" style="margin-bottom:1.5rem">
+          <div class="card-title">Création automatique de dossiers projets</div>
+          <div style="font-size:0.82rem;color:var(--text-2);margin-bottom:0.8rem">
+            Lorsqu'un nouveau projet est créé avec la case "Créer un dossier NAS" cochée, un dossier sera automatiquement créé sur le NAS via WebDAV.
+          </div>
+          <div class="form-grid">
+            <div class="form-field full">
+              <label class="form-label">Chemin racine des projets par année</label>
+              <input id="param-nas-projets-root" class="form-input" placeholder="/Public/CAS_PROJETS" />
+              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">Le dossier de l'année (ex: /2026) sera ajouté automatiquement. Le dossier du projet sera créé à l'intérieur.</div>
+            </div>
+            <div class="form-field full">
+              <label class="form-label">Dossier modèle (template)</label>
+              <input id="param-nas-template-folder" class="form-input" placeholder="00-Dossier Type" />
+              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">Si un dossier modèle existe, sa structure sera copiée dans le nouveau dossier projet.</div>
+            </div>
+          </div>
+          <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+            <button class="btn btn-primary btn-sm" onclick="saveNasProjectConfig()">Enregistrer</button>
           </div>
         </div>
 
@@ -2617,10 +2713,16 @@
       </div>
     </div>
     <div class="modal-footer" style="flex-wrap:wrap;gap:0.6rem">
-      <label id="pj-chat-create-wrap" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2);margin-right:auto">
-        <input type="checkbox" id="pj-chat-create" style="accent-color:var(--accent)" />
-        💬 Créer un groupe de discussion pour ce projet
-      </label>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;margin-right:auto">
+        <label id="pj-chat-create-wrap" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2)">
+          <input type="checkbox" id="pj-chat-create" style="accent-color:var(--accent)" />
+          💬 Créer un groupe de discussion pour ce projet
+        </label>
+        <label id="pj-nas-create-wrap" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2)">
+          <input type="checkbox" id="pj-nas-create" style="accent-color:var(--accent)" />
+          📁 Créer un dossier sur le serveur NAS
+        </label>
+      </div>
       <button class="btn" onclick="closeModal('modal-projet')">Annuler</button>
       <button class="btn btn-primary" id="pj-save-btn" onclick="saveProjet()">Créer le projet →</button>
     </div>
@@ -3884,7 +3986,7 @@ if (typeof Gantt === 'undefined') {
 </script>
 <script src="plateforme-nas.js?t=20260406d"></script>
 <script src="ergonomie.js?t=20260328e"></script>
-<script src="chat.js?t=20260406b"></script>
+<script src="chat.js?t=20260406c"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {

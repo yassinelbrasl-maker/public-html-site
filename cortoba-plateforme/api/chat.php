@@ -138,8 +138,8 @@ function listRooms($user) {
                 $r['name'] = $other['user_name'] ?: 'Membre';
             }
         }
-        // Participants (pour les rooms projet)
-        if ($r['type'] === 'projet') {
+        // Participants (pour les rooms projet et canal)
+        if ($r['type'] === 'projet' || $r['type'] === 'canal') {
             try {
                 $st3 = $db->prepare("SELECT cp.user_id, cp.user_name, u.color, u.profile_picture_url
                                      FROM CA_chat_participants cp
