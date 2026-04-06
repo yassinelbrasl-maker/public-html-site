@@ -7829,20 +7829,32 @@ function journalNextDay() {
 
 function renderJournalPage() {
   var dateJour = getJournalDate();
-  var membreFilter = document.getElementById('journal-membre').value;
+  var me = window._currentUser || {};
+  var isGerant = !!(me.isAdmin || me.role === 'Architecte gérant');
 
-  // Populate membre select (une seule fois)
   var selMembre = document.getElementById('journal-membre');
-  if (selMembre.options.length <= 1) {
-    getMembres().forEach(function(m) {
-      var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
-      if (!fullName) return;
-      var opt = document.createElement('option');
-      opt.value = fullName;
-      opt.textContent = fullName + (m.role ? ' (' + m.role + ')' : '');
-      selMembre.appendChild(opt);
-    });
+
+  if (!isGerant) {
+    // Non-gérant : forcer sur son propre nom, cacher le filtre
+    var myName = (me.name || '').trim();
+    selMembre.value = myName;
+    selMembre.style.display = 'none';
+  } else {
+    selMembre.style.display = '';
+    // Populate membre select (une seule fois)
+    if (selMembre.options.length <= 1) {
+      getMembres().forEach(function(m) {
+        var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
+        if (!fullName) return;
+        var opt = document.createElement('option');
+        opt.value = fullName;
+        opt.textContent = fullName + (m.role ? ' (' + m.role + ')' : '');
+        selMembre.appendChild(opt);
+      });
+    }
   }
+
+  var membreFilter = selMembre.value;
 
   // Charger les tâches et le journal du jour en parallèle
   Promise.all([

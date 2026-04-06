@@ -21,15 +21,26 @@ try {
 }
 
 function getAll() {
+    global $user;
     $db = getDB();
     $where  = ['1=1'];
     $params = [];
+
+    // Seuls les admins et Architecte gérant voient tout le journal.
+    // Les autres membres ne voient que leurs propres entrées.
+    $role = $user['role'] ?? '';
+    $isPrivileged = ($role === 'admin') || (!empty($user['isMember']) && $role === 'Architecte gérant');
+
+    if (!$isPrivileged && !empty($user['name'])) {
+        $where[]  = 'j.membre = ?';
+        $params[] = $user['name'];
+    }
 
     if (!empty($_GET['date'])) {
         $where[]  = 'j.date_jour = ?';
         $params[] = $_GET['date'];
     }
-    if (!empty($_GET['membre'])) {
+    if (!empty($_GET['membre']) && $isPrivileged) {
         $where[]  = 'j.membre = ?';
         $params[] = $_GET['membre'];
     }
