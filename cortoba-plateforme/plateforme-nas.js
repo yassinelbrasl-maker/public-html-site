@@ -4241,6 +4241,9 @@ function openModal(id){
   if(id==='modal-devis'){
     populateDevisMissions([]);
   }
+  if(id==='modal-chantier'){
+    if(typeof _chPopulateProjetSelect==='function') _chPopulateProjetSelect();
+  }
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
@@ -12488,15 +12491,20 @@ function _chTrunc(s, n) { if (!s) return '—'; return s.length > (n||60) ? s.su
 //  1. TABLEAU DE BORD CHANTIER
 // ══════════════════════════════════════
 
+function _chPopulateProjetSelect() {
+  var pSel = document.getElementById('ch-projet-id');
+  if (!pSel) return;
+  var projets = getProjets() || [];
+  var val = pSel.value;
+  var h = '<option value="">— Sélectionner —</option>';
+  projets.forEach(function(p) { h += '<option value="' + p.id + '"' + (p.id === val ? ' selected' : '') + '>' + _cgEscape((p.code ? p.code + ' — ' : '') + (p.nom || '')) + '</option>'; });
+  pSel.innerHTML = h;
+  if (val) pSel.value = val;
+}
+
 function renderChantierDashboard() {
   _chLoadChantiers().then(function() {
-    // Populate projet dropdown in modal
-    var pSel = document.getElementById('ch-projet-id');
-    if (pSel && _cache.projets) {
-      var h = '<option value="">— Sélectionner —</option>';
-      _cache.projets.forEach(function(p) { h += '<option value="' + p.id + '">' + _cgEscape((p.code ? p.code + ' — ' : '') + p.nom) + '</option>'; });
-      pSel.innerHTML = h;
-    }
+    _chPopulateProjetSelect();
     if (_chCache.currentId) chantierSelected();
   });
 }
