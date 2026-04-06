@@ -7,7 +7,7 @@
 
 require_once __DIR__ . '/../config/middleware.php';
 require_once __DIR__ . '/chat_helpers.php';
-require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/notification_dispatch.php';
 
 // ── Lot 7 : actions publiques (token client) sans auth JWT ──
 $publicAction = $_GET['action'] ?? '';
@@ -350,7 +350,7 @@ function sendMessage($user) {
                        ->execute([$title, $preview ?: '📎 Pièce jointe', $type, $senderName, $existing['id']]);
                 } catch (\Throwable $e2) {}
             } else {
-                notifCreate($db, $rid, $type, $title, $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
+                dispatchNotification($db, $rid, $type, $title, $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
             }
         }
 
@@ -358,7 +358,7 @@ function sendMessage($user) {
         foreach ($mentionedUserIds as $muid => $muname) {
             if ($muid === ($user['id'] ?? '')) continue;
             if (in_array($muid, $recipients)) continue;
-            notifCreate($db, $muid, 'chat_mention',
+            dispatchNotification($db, $muid, 'chat_mention',
                 '🔔 ' . $senderName . ' vous a mentionné — ' . $roomName,
                 $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
         }

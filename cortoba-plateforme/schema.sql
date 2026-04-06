@@ -81,7 +81,6 @@ CREATE TABLE IF NOT EXISTS `CA_projets` (
   `adresse` text,
   `lat` decimal(10,7) DEFAULT NULL,
   `lng` decimal(10,7) DEFAULT NULL,
-  `nas_path` varchar(500) DEFAULT NULL,
   `surface_shon` decimal(12,2) DEFAULT NULL,
   `surface_shob` decimal(12,2) DEFAULT NULL,
   `surface_terrain` decimal(12,2) DEFAULT NULL,
@@ -502,4 +501,347 @@ CREATE TABLE IF NOT EXISTS `CA_leave_balances` (
   `recuperation`     DECIMAL(5,1)  NOT NULL DEFAULT 0,
   `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`,`annee`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ════════════════════════════════════════════════════════════
+-- MODULE GESTION DE CHANTIER
+-- ════════════════════════════════════════════════════════════
+
+-- Chantiers (lié à un projet existant)
+CREATE TABLE IF NOT EXISTS `CA_chantiers` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `projet_id`        VARCHAR(32)   NOT NULL,
+  `nom`              VARCHAR(200)  NOT NULL,
+  `code`             VARCHAR(30)   DEFAULT NULL,
+  `adresse`          TEXT          DEFAULT NULL,
+  `lat`              DECIMAL(10,7) DEFAULT NULL,
+  `lng`              DECIMAL(10,7) DEFAULT NULL,
+  `date_debut`       DATE          DEFAULT NULL,
+  `date_fin_prevue`  DATE          DEFAULT NULL,
+  `date_fin_reelle`  DATE          DEFAULT NULL,
+  `statut`           VARCHAR(40)   NOT NULL DEFAULT 'En préparation'
+                     COMMENT 'En préparation | En cours | Suspendu | Réceptionné | Clôturé',
+  `avancement_global` INT          NOT NULL DEFAULT 0 COMMENT '% global 0-100',
+  `budget_travaux`   DECIMAL(14,2) DEFAULT 0,
+  `montant_engage`   DECIMAL(14,2) DEFAULT 0,
+  `description`      TEXT          DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_projet`   (`projet_id`),
+  KEY `idx_statut`   (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Lots / Corps d'état d'un chantier
+CREATE TABLE IF NOT EXISTS `CA_chantier_lots` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `code`             VARCHAR(20)   DEFAULT NULL,
+  `nom`              VARCHAR(200)  NOT NULL
+                     COMMENT 'Ex: Gros œuvre, Second œuvre, CVC, Électricité, Plomberie, etc.',
+  `entreprise`       VARCHAR(200)  DEFAULT NULL,
+  `montant_marche`   DECIMAL(14,2) DEFAULT 0,
+  `avancement`       INT           NOT NULL DEFAULT 0,
+  `date_debut`       DATE          DEFAULT NULL,
+  `date_fin_prevue`  DATE          DEFAULT NULL,
+  `ordre`            INT           NOT NULL DEFAULT 0,
+  `couleur`          VARCHAR(9)    DEFAULT '#c8a96e',
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tâches de planification chantier (Gantt)
+CREATE TABLE IF NOT EXISTS `CA_chantier_taches` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `lot_id`           VARCHAR(32)   DEFAULT NULL,
+  `parent_id`        VARCHAR(32)   DEFAULT NULL,
+  `titre`            VARCHAR(200)  NOT NULL,
+  `date_debut`       DATE          DEFAULT NULL,
+  `date_fin`         DATE          DEFAULT NULL,
+  `duree_jours`      INT           DEFAULT 0,
+  `avancement`       INT           NOT NULL DEFAULT 0,
+  `est_jalon`        TINYINT(1)    NOT NULL DEFAULT 0,
+  `est_critique`     TINYINT(1)    NOT NULL DEFAULT 0 COMMENT 'Chemin critique',
+  `ordre`            INT           NOT NULL DEFAULT 0,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_lot`       (`lot_id`),
+  KEY `idx_parent`    (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Dépendances entre tâches chantier
+CREATE TABLE IF NOT EXISTS `CA_chantier_tache_deps` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `task_id`          VARCHAR(32)   NOT NULL,
+  `depends_on`       VARCHAR(32)   NOT NULL,
+  `type`             VARCHAR(10)   NOT NULL DEFAULT 'FS' COMMENT 'FS, FF, SS, SF',
+  `lag_days`         INT           NOT NULL DEFAULT 0,
+  UNIQUE KEY `uq_dep` (`task_id`, `depends_on`),
+  KEY `idx_task`      (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Journal de chantier quotidien
+CREATE TABLE IF NOT EXISTS `CA_chantier_journal` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `date_jour`        DATE          NOT NULL,
+  `meteo`            VARCHAR(40)   DEFAULT NULL COMMENT 'Ensoleillé | Nuageux | Pluie | Vent fort | Neige',
+  `temperature`      VARCHAR(20)   DEFAULT NULL,
+  `effectif_total`   INT           DEFAULT 0,
+  `activites`        LONGTEXT      DEFAULT NULL COMMENT 'Description des activités réalisées',
+  `livraisons`       TEXT          DEFAULT NULL,
+  `visiteurs`        TEXT          DEFAULT NULL,
+  `retards`          TEXT          DEFAULT NULL,
+  `observations`     TEXT          DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `uq_chantier_date` (`chantier_id`, `date_jour`),
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_date`      (`date_jour`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Effectifs journaliers par entreprise
+CREATE TABLE IF NOT EXISTS `CA_chantier_effectifs` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `journal_id`       VARCHAR(32)   NOT NULL,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `entreprise`       VARCHAR(200)  NOT NULL,
+  `nb_ouvriers`      INT           NOT NULL DEFAULT 0,
+  `nb_cadres`        INT           NOT NULL DEFAULT 0,
+  `commentaire`      VARCHAR(300)  DEFAULT NULL,
+  KEY `idx_journal`   (`journal_id`),
+  KEY `idx_chantier`  (`chantier_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Intervenants chantier
+CREATE TABLE IF NOT EXISTS `CA_chantier_intervenants` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `role`             VARCHAR(80)   NOT NULL
+                     COMMENT 'Maître d''ouvrage | OPC | BET Structure | BET Fluides | Entreprise | Sous-traitant | SPS | Contrôleur technique | Architecte',
+  `nom`              VARCHAR(200)  NOT NULL,
+  `societe`          VARCHAR(200)  DEFAULT NULL,
+  `tel`              VARCHAR(40)   DEFAULT NULL,
+  `email`            VARCHAR(180)  DEFAULT NULL,
+  `responsabilites`  TEXT          DEFAULT NULL,
+  `acces_portail`    TINYINT(1)    NOT NULL DEFAULT 0,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Réunions de chantier
+CREATE TABLE IF NOT EXISTS `CA_chantier_reunions` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `numero`           INT           NOT NULL DEFAULT 1 COMMENT 'Numéro auto-incrémenté par chantier',
+  `date_reunion`     DATETIME      NOT NULL,
+  `lieu`             VARCHAR(200)  DEFAULT NULL,
+  `objet`            VARCHAR(300)  DEFAULT 'Réunion de chantier',
+  `participants`     LONGTEXT      DEFAULT NULL COMMENT 'JSON: [{nom, role, present}]',
+  `points_discutes`  LONGTEXT      DEFAULT NULL COMMENT 'Texte ou JSON structuré',
+  `decisions`        LONGTEXT      DEFAULT NULL,
+  `pv_contenu`       LONGTEXT      DEFAULT NULL COMMENT 'Contenu complet du PV',
+  `statut`           VARCHAR(30)   NOT NULL DEFAULT 'Brouillon' COMMENT 'Brouillon | Finalisé | Diffusé',
+  `diffuse_at`       DATETIME      DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_date`      (`date_reunion`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Actions issues des réunions
+CREATE TABLE IF NOT EXISTS `CA_chantier_reunion_actions` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `reunion_id`       VARCHAR(32)   NOT NULL,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `description`      TEXT          NOT NULL,
+  `responsable`      VARCHAR(200)  DEFAULT NULL,
+  `delai`            DATE          DEFAULT NULL,
+  `statut`           VARCHAR(30)   NOT NULL DEFAULT 'Ouverte'
+                     COMMENT 'Ouverte | En cours | Clôturée',
+  `reunion_cloture_id` VARCHAR(32) DEFAULT NULL COMMENT 'Réunion lors de laquelle l''action a été clôturée',
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_reunion`   (`reunion_id`),
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_statut`    (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Photos et médias chantier
+CREATE TABLE IF NOT EXISTS `CA_chantier_photos` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `journal_id`       VARCHAR(32)   DEFAULT NULL,
+  `reserve_id`       VARCHAR(32)   DEFAULT NULL,
+  `url`              VARCHAR(500)  NOT NULL,
+  `thumbnail_url`    VARCHAR(500)  DEFAULT NULL,
+  `type_media`       VARCHAR(20)   NOT NULL DEFAULT 'photo' COMMENT 'photo | video | timelapse',
+  `titre`            VARCHAR(200)  DEFAULT NULL,
+  `description`      TEXT          DEFAULT NULL,
+  `zone`             VARCHAR(120)  DEFAULT NULL,
+  `lot`              VARCHAR(120)  DEFAULT NULL,
+  `tags`             VARCHAR(500)  DEFAULT NULL COMMENT 'Tags séparés par virgule',
+  `lat`              DECIMAL(10,7) DEFAULT NULL,
+  `lng`              DECIMAL(10,7) DEFAULT NULL,
+  `date_prise`       DATETIME      DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_journal`   (`journal_id`),
+  KEY `idx_zone`      (`zone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Réserves / Punch list
+CREATE TABLE IF NOT EXISTS `CA_chantier_reserves` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `lot_id`           VARCHAR(32)   DEFAULT NULL,
+  `numero`           INT           NOT NULL DEFAULT 1,
+  `titre`            VARCHAR(300)  NOT NULL,
+  `description`      TEXT          DEFAULT NULL,
+  `zone`             VARCHAR(120)  DEFAULT NULL,
+  `localisation_x`   DECIMAL(8,2)  DEFAULT NULL COMMENT 'Position X sur plan (% largeur)',
+  `localisation_y`   DECIMAL(8,2)  DEFAULT NULL COMMENT 'Position Y sur plan (%  hauteur)',
+  `plan_ref`         VARCHAR(200)  DEFAULT NULL COMMENT 'Référence du plan concerné',
+  `entreprise`       VARCHAR(200)  DEFAULT NULL,
+  `priorite`         VARCHAR(20)   NOT NULL DEFAULT 'Normale' COMMENT 'Critique | Haute | Normale | Basse',
+  `statut`           VARCHAR(30)   NOT NULL DEFAULT 'Ouverte'
+                     COMMENT 'Ouverte | En cours de reprise | Levée | Confirmée',
+  `date_constat`     DATE          DEFAULT NULL,
+  `date_delai`       DATE          DEFAULT NULL COMMENT 'Délai de levée',
+  `date_levee`       DATE          DEFAULT NULL,
+  `levee_par`        VARCHAR(120)  DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_lot`       (`lot_id`),
+  KEY `idx_statut`    (`statut`),
+  KEY `idx_entreprise`(`entreprise`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- RFI — Demandes d'information
+CREATE TABLE IF NOT EXISTS `CA_chantier_rfi` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `numero`           INT           NOT NULL DEFAULT 1,
+  `objet`            VARCHAR(300)  NOT NULL,
+  `description`      TEXT          DEFAULT NULL,
+  `documents_ref`    TEXT          DEFAULT NULL COMMENT 'Références plans/documents concernés',
+  `emetteur`         VARCHAR(200)  DEFAULT NULL,
+  `destinataire`     VARCHAR(200)  DEFAULT NULL COMMENT 'Architecte, BET, etc.',
+  `statut`           VARCHAR(30)   NOT NULL DEFAULT 'Ouverte'
+                     COMMENT 'Ouverte | En attente | Résolue | Annulée',
+  `priorite`         VARCHAR(20)   NOT NULL DEFAULT 'Normale',
+  `date_emission`    DATE          DEFAULT NULL,
+  `date_reponse_attendue` DATE     DEFAULT NULL,
+  `date_reponse`     DATE          DEFAULT NULL,
+  `reponse`          LONGTEXT      DEFAULT NULL,
+  `repondu_par`      VARCHAR(200)  DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_statut`    (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Visas (approbation des documents d'exécution)
+CREATE TABLE IF NOT EXISTS `CA_chantier_visas` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `lot_id`           VARCHAR(32)   DEFAULT NULL,
+  `numero`           INT           NOT NULL DEFAULT 1,
+  `document_titre`   VARCHAR(300)  NOT NULL,
+  `document_ref`     VARCHAR(120)  DEFAULT NULL,
+  `document_url`     VARCHAR(500)  DEFAULT NULL,
+  `emetteur`         VARCHAR(200)  DEFAULT NULL COMMENT 'Entreprise émettrice',
+  `circuit_visa`     LONGTEXT      DEFAULT NULL COMMENT 'JSON: [{role, nom, statut, date, commentaire}]',
+  `statut`           VARCHAR(40)   NOT NULL DEFAULT 'En attente'
+                     COMMENT 'En attente | BPE | Bon avec observations | Refusé | Sans objet',
+  `date_reception`   DATE          DEFAULT NULL,
+  `date_visa`        DATE          DEFAULT NULL,
+  `commentaire`      TEXT          DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_lot`       (`lot_id`),
+  KEY `idx_statut`    (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Incidents et sécurité
+CREATE TABLE IF NOT EXISTS `CA_chantier_incidents` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `type`             VARCHAR(40)   NOT NULL DEFAULT 'Incident'
+                     COMMENT 'Incident | Quasi-accident | Accident | Observation sécurité',
+  `gravite`          VARCHAR(20)   NOT NULL DEFAULT 'Mineure'
+                     COMMENT 'Critique | Majeure | Mineure | Observation',
+  `titre`            VARCHAR(300)  NOT NULL,
+  `description`      TEXT          DEFAULT NULL,
+  `zone`             VARCHAR(120)  DEFAULT NULL,
+  `entreprise`       VARCHAR(200)  DEFAULT NULL,
+  `personnes_impliquees` TEXT      DEFAULT NULL,
+  `date_incident`    DATETIME      NOT NULL,
+  `mesures_immediates` TEXT        DEFAULT NULL,
+  `mesures_correctives` TEXT       DEFAULT NULL,
+  `statut`           VARCHAR(30)   NOT NULL DEFAULT 'Ouvert'
+                     COMMENT 'Ouvert | En traitement | Clôturé',
+  `date_cloture`     DATE          DEFAULT NULL,
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_type`      (`type`),
+  KEY `idx_statut`    (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Inspections sécurité (check-lists)
+CREATE TABLE IF NOT EXISTS `CA_chantier_inspections` (
+  `id`               VARCHAR(32)   NOT NULL PRIMARY KEY,
+  `chantier_id`      VARCHAR(32)   NOT NULL,
+  `titre`            VARCHAR(200)  NOT NULL DEFAULT 'Inspection sécurité',
+  `date_inspection`  DATE          NOT NULL,
+  `inspecteur`       VARCHAR(200)  DEFAULT NULL,
+  `zone`             VARCHAR(120)  DEFAULT NULL,
+  `checklist`        LONGTEXT      DEFAULT NULL COMMENT 'JSON: [{item, conforme, commentaire}]',
+  `score`            INT           DEFAULT NULL COMMENT 'Score conformité %',
+  `observations`     TEXT          DEFAULT NULL,
+  `actions_requises` LONGTEXT      DEFAULT NULL COMMENT 'JSON: [{action, responsable, delai}]',
+  `statut`           VARCHAR(30)   NOT NULL DEFAULT 'Complétée'
+                     COMMENT 'Planifiée | En cours | Complétée',
+  `cree_par`         VARCHAR(120)  DEFAULT NULL,
+  `cree_at`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `modifie_at`       DATETIME      DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_chantier`  (`chantier_id`),
+  KEY `idx_date`      (`date_inspection`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Préférences de notifications par utilisateur
+CREATE TABLE IF NOT EXISTS `CA_notification_prefs` (
+  `user_id`       VARCHAR(32)  NOT NULL,
+  `notif_type`    VARCHAR(60)  NOT NULL DEFAULT '_default',
+  `channel_inapp` TINYINT(1)   NOT NULL DEFAULT 1,
+  `channel_email` TINYINT(1)   NOT NULL DEFAULT 1,
+  `channel_push`  TINYINT(1)   NOT NULL DEFAULT 1,
+  `enabled`       TINYINT(1)   NOT NULL DEFAULT 1,
+  PRIMARY KEY (`user_id`, `notif_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Abonnements Push (Web Push API)
+CREATE TABLE IF NOT EXISTS `CA_push_subscriptions` (
+  `id`         VARCHAR(32)  NOT NULL PRIMARY KEY,
+  `user_id`    VARCHAR(32)  NOT NULL,
+  `endpoint`   TEXT         NOT NULL,
+  `p256dh`     TEXT         NOT NULL,
+  `auth`       TEXT         NOT NULL,
+  `user_agent` VARCHAR(300) DEFAULT NULL,
+  `cree_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -18,7 +18,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
-require_once __DIR__ . '/notifications.php'; // expose notifCreate()
+require_once __DIR__ . '/notification_dispatch.php'; // expose dispatchNotification() + notifCreate()
 
 $user   = requireAuth();
 $action = $_GET['action'] ?? 'list';
@@ -150,7 +150,7 @@ function checkHolidayReminder(PDO $db): void {
 
     foreach (array_keys($admins) as $aid) {
         try {
-            notifCreate($db, $aid, 'holiday_reminder', $title, $msg, 'conges', $refId, 'Système');
+            dispatchNotification($db, $aid, 'holiday_reminder', $title, $msg, 'conges', $refId, 'Système');
         } catch (\Throwable $e) { /* silencieux */ }
     }
 }
@@ -432,7 +432,7 @@ try {
                            . "\nDélégation : " . $delegation;
                     foreach (array_keys($admins) as $aid) {
                         if ($aid === $user['id']) continue; // ne pas se notifier soi-même
-                        try { notifCreate($db, $aid, 'conge_pending', $title, $msg, 'conges', $id, $user['name'] ?? null); }
+                        try { dispatchNotification($db, $aid, 'conge_pending', $title, $msg, 'conges', $id, $user['name'] ?? null); }
                         catch (\Throwable $e) { /* */ }
                     }
                 } catch (\Throwable $e) { /* */ }
@@ -513,7 +513,7 @@ try {
                          ? "\n\nVisibilité équipe : " . ($partage ? 'partagé (affiché dans le calendrier équipe)' : 'masqué (non visible dans le calendrier équipe)')
                          : '');
                 try {
-                    notifCreate($db, $req['user_id'], 'conge_' . $decision, $title, $msg, 'conges', $id, $user['name'] ?? null);
+                    dispatchNotification($db, $req['user_id'], 'conge_' . $decision, $title, $msg, 'conges', $id, $user['name'] ?? null);
                 } catch (\Throwable $e) { /* silencieux : ne pas bloquer la décision */ }
             }
 

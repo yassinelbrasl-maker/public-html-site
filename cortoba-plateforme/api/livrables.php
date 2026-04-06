@@ -14,6 +14,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/notification_dispatch.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
@@ -113,6 +114,27 @@ function updateItem($id, array $user) {
     if (empty($fields)) jsonError('Aucun champ à mettre à jour');
     $params[] = $id;
     $db->prepare('UPDATE CA_tache_livrables SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+
+    // Notifier si livrable validé
+    if (array_key_exists('done', $body) && !empty($body['done'])) {
+        try {
+            $livInfo = $db->prepare('SELECT l.label, l.tache_id, t.titre AS tache_titre, t.assignee, t.projet_id, p.nom AS projet_nom
+                FROM CA_tache_livrables l
+                LEFT JOIN CA_taches t ON t.id = l.tache_id
+                LEFT JOIN CA_projets p ON p.id = t.projet_id
+                WHERE l.id = ?');
+            $livInfo->execute([$id]);
+            $li = $livInfo->fetch();
+            if ($li) {
+                $title = 'Livrable validé : ' . $li['label'];
+                $msg = 'Tâche : ' . ($li['tache_titre'] ?: '—') . "\nProjet : " . ($li['projet_nom'] ?: '—') . "\nValidé par : " . ($user['name'] ?? '—');
+                // Notifier l'assigné de la tâche
+                if ($li['assignee'] && $li['assignee'] !== ($user['id'] ?? '')) {
+                    dispatchNotification($db, $li['assignee'], 'success', $title, $msg, 'suivi', $li['tache_id'], $user['name'] ?? null);
+                }
+            }
+        } catch (\Throwable $e) { /* silencieux */ }
+    }
 
     $row = $db->prepare('SELECT * FROM CA_tache_livrables WHERE id = ?');
     $row->execute([$id]);

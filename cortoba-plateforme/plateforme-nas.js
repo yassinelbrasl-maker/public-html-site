@@ -4129,7 +4129,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres',chantier:'Tableau de bord chantier','chantier-journal':'Journal de chantier','chantier-intervenants':'Intervenants','chantier-reunions':'Réunions & PV','chantier-photos':'Photos & Médias','chantier-reserves':'Réserves & RFI','chantier-visas':'Visas d\'exécution','chantier-securite':'Sécurité'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   // ('notifications' est toujours accessible : ouvert depuis la cloche)
@@ -4158,6 +4158,14 @@ function showPage(id){
   if(id==='conges')     setTimeout(function(){ if(typeof renderCongesPage==='function') renderCongesPage(); },80);
   if(id==='notifications') setTimeout(function(){ if(typeof renderNotificationsPage==='function') renderNotificationsPage(); },40);
   if(id==='nas')        setTimeout(renderNasPage,80);
+  if(id==='chantier')   setTimeout(function(){ if(typeof renderChantierDashboard==='function') renderChantierDashboard(); },80);
+  if(id==='chantier-journal')     setTimeout(function(){ if(typeof renderChantierJournalPage==='function') renderChantierJournalPage(); },80);
+  if(id==='chantier-intervenants') setTimeout(function(){ if(typeof renderChantierIntervenantsPage==='function') renderChantierIntervenantsPage(); },80);
+  if(id==='chantier-reunions')    setTimeout(function(){ if(typeof renderChantierReunionsPage==='function') renderChantierReunionsPage(); },80);
+  if(id==='chantier-photos')      setTimeout(function(){ if(typeof renderChantierPhotosPage==='function') renderChantierPhotosPage(); },80);
+  if(id==='chantier-reserves')    setTimeout(function(){ if(typeof renderChantierReservesPage==='function') renderChantierReservesPage(); },80);
+  if(id==='chantier-visas')       setTimeout(function(){ if(typeof renderChantierVisasPage==='function') renderChantierVisasPage(); },80);
+  if(id==='chantier-securite')    setTimeout(function(){ if(typeof renderChantierSecuritePage==='function') renderChantierSecuritePage(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
   if(id==='parametres') {
@@ -12239,3 +12247,188 @@ function notifRenderList(notifs){var el=document.getElementById('nf-list');if(!e
 function notifOpen(id){var n=null;for(var i=0;i<_nfCache.length;i++){if(_nfCache[i].id===id){n=_nfCache[i];break;}}apiFetch('api/notifications.php?action=mark_read&id='+encodeURIComponent(id),{method:'POST',body:{}}).catch(function(){});if(n&&n.link_page)setTimeout(function(){showPage(n.link_page);refreshNotifBadge();},100);else setTimeout(function(){notifLoadList();refreshNotifBadge();},150);}
 function notifAction(a,id){if(a==='delete'&&!confirm('Supprimer ?'))return;apiFetch('api/notifications.php?action='+a+'&id='+encodeURIComponent(id),{method:'POST',body:{}}).then(function(){notifLoadList();refreshNotifBadge();}).catch(function(){alert('Erreur');});}
 function notifMarkAllReadInbox(){apiFetch('api/notifications.php?action=mark_all_read',{method:'POST',body:{}}).then(function(){notifLoadList();refreshNotifBadge();}).catch(function(){alert('Erreur');});}
+
+// ═══ NOTIFICATION PREFERENCES & PUSH ═══
+var _nfPrefsData=null,_nfPrefsShown=false;
+function notifShowPrefs(){
+  _nfPrefsShown=!_nfPrefsShown;
+  var panel=document.getElementById('nf-prefs-panel');
+  var listCard=document.getElementById('nf-list-card');
+  var tabs=document.querySelectorAll('#page-notifications > div');
+  if(_nfPrefsShown){
+    if(panel)panel.style.display='block';
+    if(listCard)listCard.style.display='none';
+    // hide tabs and filter bar
+    for(var i=0;i<tabs.length;i++){
+      var t=tabs[i];
+      if(t.id==='nf-prefs-panel'||t.classList.contains('page-header'))continue;
+      if(t.id!=='nf-list-card'&&!t.id)t.style.display='none';
+    }
+    notifLoadPrefs();
+  }else{
+    if(panel)panel.style.display='none';
+    if(listCard)listCard.style.display='';
+    for(var i=0;i<tabs.length;i++){
+      var t=tabs[i];
+      t.style.display='';
+    }
+  }
+}
+function notifLoadPrefs(){
+  apiFetch('api/notification_prefs.php?action=get').then(function(r){
+    var d=(r&&r.data)?r.data:r;
+    _nfPrefsData=d;
+    var ea=document.getElementById('nf-email-addr');
+    if(ea)ea.textContent=d.user_email||'Aucun email configuré';
+    notifUpdatePushUI();
+    notifRenderPrefsTable(d);
+  }).catch(function(e){
+    showToast('Erreur chargement préférences: '+e.message,'error');
+  });
+}
+function notifRenderPrefsTable(d){
+  var tbody=document.getElementById('nf-prefs-tbody');
+  if(!tbody)return;
+  var types=d.types||{};
+  var prefs=d.prefs||{};
+  var h='';
+  var keys=Object.keys(types);
+  keys.forEach(function(k){
+    var p=prefs[k]||prefs['_default']||{inapp:1,email:1,push:1,enabled:1};
+    var label=types[k]||k;
+    var isDefault=(k==='_default');
+    h+='<tr style="border-bottom:1px solid var(--border);'+(isDefault?'background:rgba(200,169,110,0.04);':'')+'">';
+    h+='<td style="padding:0.5rem 0.8rem;color:var(--text-1);font-weight:'+(isDefault?'600':'400')+'">'+(isDefault?'<strong>'+label+'</strong>':label)+'</td>';
+    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="inapp" '+(p.inapp?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
+    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="email" '+(p.email?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
+    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="push" '+(p.push?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
+    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="enabled" '+(p.enabled?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
+    h+='</tr>';
+  });
+  tbody.innerHTML=h;
+}
+function notifSavePrefs(){
+  var tbody=document.getElementById('nf-prefs-tbody');
+  if(!tbody)return;
+  var checks=tbody.querySelectorAll('input[type="checkbox"]');
+  var prefs={};
+  checks.forEach(function(cb){
+    var t=cb.getAttribute('data-type');
+    var ch=cb.getAttribute('data-ch');
+    if(!prefs[t])prefs[t]={inapp:0,email:0,push:0,enabled:0};
+    prefs[t][ch]=cb.checked?1:0;
+  });
+  apiFetch('api/notification_prefs.php?action=save',{method:'POST',body:{prefs:prefs}}).then(function(){
+    showToast('Préférences enregistrées','success');
+  }).catch(function(e){
+    showToast('Erreur: '+e.message,'error');
+  });
+}
+
+// ═══ PUSH NOTIFICATIONS ═══
+function notifUpdatePushUI(){
+  var stateEl=document.getElementById('nf-push-state');
+  var btn=document.getElementById('nf-push-btn');
+  if(!stateEl||!btn)return;
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    stateEl.textContent='Non supporté par ce navigateur';
+    stateEl.style.color='#d45656';
+    btn.style.display='none';
+    return;
+  }
+  navigator.serviceWorker.getRegistration('/cortoba-plateforme/').then(function(reg){
+    if(!reg){
+      stateEl.textContent='Service worker non installé';
+      stateEl.style.color='var(--text-3)';
+      btn.textContent='Activer les push';
+      btn.style.display='inline-block';
+      btn.style.background='var(--accent)';
+      return;
+    }
+    return reg.pushManager.getSubscription();
+  }).then(function(sub){
+    if(sub){
+      stateEl.textContent='Activées';
+      stateEl.style.color='#5aab6e';
+      btn.textContent='Désactiver';
+      btn.style.display='inline-block';
+      btn.style.background='#d45656';
+    }else if(stateEl.textContent==='Vérification\u2026'||stateEl.textContent.indexOf('non install')>=0){
+      // already handled above
+    }else{
+      stateEl.textContent='Désactivées';
+      stateEl.style.color='var(--text-3)';
+      btn.textContent='Activer les push';
+      btn.style.display='inline-block';
+      btn.style.background='var(--accent)';
+    }
+  }).catch(function(){
+    stateEl.textContent='Erreur';
+    stateEl.style.color='#d45656';
+  });
+}
+function notifTogglePush(){
+  if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.getRegistration('/cortoba-plateforme/').then(function(reg){
+    if(!reg){
+      return navigator.serviceWorker.register('/cortoba-plateforme/sw.js',{scope:'/cortoba-plateforme/'}).then(function(newReg){
+        return _notifPushSubscribe(newReg);
+      });
+    }
+    return reg.pushManager.getSubscription().then(function(sub){
+      if(sub)return _notifPushUnsubscribe(sub);
+      return _notifPushSubscribe(reg);
+    });
+  }).catch(function(e){
+    showToast('Erreur push: '+e.message,'error');
+  });
+}
+function _notifPushSubscribe(reg){
+  return apiFetch('api/notification_prefs.php?action=get_vapid_key').then(function(r){
+    var key=(r&&r.data)?r.data.publicKey:null;
+    if(!key)throw new Error('Clé VAPID manquante');
+    var rawKey=_urlBase64ToUint8Array(key);
+    return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:rawKey});
+  }).then(function(sub){
+    var json=sub.toJSON();
+    return apiFetch('api/notification_prefs.php?action=push_subscribe',{method:'POST',body:{
+      endpoint:json.endpoint,
+      keys:{p256dh:json.keys.p256dh,auth:json.keys.auth}
+    }});
+  }).then(function(){
+    showToast('Notifications push activées','success');
+    notifUpdatePushUI();
+  });
+}
+function _notifPushUnsubscribe(sub){
+  var endpoint=sub.endpoint;
+  return sub.unsubscribe().then(function(){
+    return apiFetch('api/notification_prefs.php?action=push_unsubscribe',{method:'POST',body:{endpoint:endpoint}});
+  }).then(function(){
+    showToast('Notifications push désactivées','info');
+    notifUpdatePushUI();
+  });
+}
+function _urlBase64ToUint8Array(base64String){
+  var padding='='.repeat((4-base64String.length%4)%4);
+  var base64=(base64String+padding).replace(/\-/g,'+').replace(/_/g,'/');
+  var rawData=window.atob(base64);
+  var outputArray=new Uint8Array(rawData.length);
+  for(var i=0;i<rawData.length;++i)outputArray[i]=rawData.charCodeAt(i);
+  return outputArray;
+}
+
+// ═══ SERVICE WORKER REGISTRATION ═══
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('/cortoba-plateforme/sw.js',{scope:'/cortoba-plateforme/'}).catch(function(e){
+      console.log('[SW] Registration failed:',e);
+    });
+    navigator.serviceWorker.addEventListener('message',function(event){
+      if(event.data&&event.data.type==='NOTIFICATION_CLICK'){
+        if(event.data.page)showPage(event.data.page);
+        refreshNotifBadge();
+      }
+    });
+  });
+}

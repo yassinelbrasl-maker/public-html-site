@@ -9,6 +9,7 @@
 
 require_once __DIR__ . '/../config/middleware.php';
 require_once __DIR__ . '/chat_helpers.php';
+require_once __DIR__ . '/notification_dispatch.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
@@ -161,6 +162,18 @@ function create(array $user) {
     // Hook chat : auto-adhésion de l'assignee au groupe projet (si existant)
     if (!empty($body['assignee'])) {
         chat_hook_task_assignment($projetId, $body['assignee'], $titre);
+        // Notifier l'assigné de la nouvelle tâche
+        if ($body['assignee'] !== ($user['id'] ?? '')) {
+            try {
+                $pNom = '';
+                try { $pSt = $db->prepare('SELECT nom FROM CA_projets WHERE id = ?'); $pSt->execute([$projetId]); $pRow = $pSt->fetch(); $pNom = $pRow['nom'] ?? ''; } catch (\Throwable $e) {}
+                dispatchNotification($db, $body['assignee'], 'tache_assigned',
+                    'Nouvelle tâche assignée : ' . $titre,
+                    'Projet : ' . ($pNom ?: $projetId) . "\nPriorité : " . ($body['priorite'] ?? 'Normale')
+                    . ($body['date_echeance'] ? "\nÉchéance : " . date('d/m/Y', strtotime($body['date_echeance'])) : ''),
+                    'suivi', $id, $user['name'] ?? null);
+            } catch (\Throwable $e) { /* silencieux */ }
+        }
     }
 
     $stmt = $db->prepare('SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
@@ -219,7 +232,40 @@ function update($id, array $user) {
             $st = $db->prepare('SELECT projet_id, titre FROM CA_taches WHERE id = ?');
             $st->execute([$id]);
             $tRow = $st->fetch();
-            if ($tRow) chat_hook_task_assignment($tRow['projet_id'], $body['assignee'], $tRow['titre']);
+            if ($tRow) {
+                chat_hook_task_assignment($tRow['projet_id'], $body['assignee'], $tRow['titre']);
+                // Notifier le nouvel assigné
+                if ($body['assignee'] !== ($user['id'] ?? '')) {
+                    $pNom = '';
+                    try { $pSt = $db->prepare('SELECT nom FROM CA_projets WHERE id = ?'); $pSt->execute([$tRow['projet_id']]); $pRow = $pSt->fetch(); $pNom = $pRow['nom'] ?? ''; } catch (\Throwable $e2) {}
+                    dispatchNotification($db, $body['assignee'], 'tache_assigned',
+                        'Tâche réassignée : ' . $tRow['titre'],
+                        'Projet : ' . ($pNom ?: $tRow['projet_id']),
+                        'suivi', $id, $user['name'] ?? null);
+                }
+            }
+        } catch (\Throwable $e) { /* silencieux */ }
+    }
+
+    // Notifier si tâche terminée (statut = Terminé/done)
+    if (array_key_exists('statut', $body) && in_array(strtolower($body['statut']), ['terminé','terminée','done'], true)) {
+        try {
+            $st2 = $db->prepare('SELECT projet_id, titre, assignee FROM CA_taches WHERE id = ?');
+            $st2->execute([$id]);
+            $tInfo = $st2->fetch();
+            if ($tInfo) {
+                $pNom2 = '';
+                try { $pSt2 = $db->prepare('SELECT nom FROM CA_projets WHERE id = ?'); $pSt2->execute([$tInfo['projet_id']]); $pRow2 = $pSt2->fetch(); $pNom2 = $pRow2['nom'] ?? ''; } catch (\Throwable $e2) {}
+                // Notifier les managers
+                $mgrs = $db->query("SELECT id FROM cortoba_users WHERE LOWER(role) IN ('admin','gerant','gérant','manager','directeur') AND statut <> 'Inactif'")->fetchAll();
+                foreach ($mgrs as $m) {
+                    if ($m['id'] === ($user['id'] ?? '')) continue;
+                    dispatchNotification($db, $m['id'], 'tache_completed',
+                        'Tâche terminée : ' . $tInfo['titre'],
+                        'Projet : ' . ($pNom2 ?: $tInfo['projet_id']) . "\nMarquée par : " . ($user['name'] ?? '—'),
+                        'suivi', $id, $user['name'] ?? null);
+                }
+            }
         } catch (\Throwable $e) { /* silencieux */ }
     }
 
