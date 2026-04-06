@@ -4144,6 +4144,8 @@ function showPage(id){
   document.getElementById('page-'+id).classList.add('active');
   var btn=document.querySelector('[onclick="showPage(\''+id+'\')"]');
   if(btn) btn.classList.add('active');
+  // Auto-développer la section sidebar contenant la page active
+  if (typeof _expandSidebarForPage === 'function') _expandSidebarForPage(id);
   var _secLabel = document.getElementById('section-label');
   if (_secLabel) _secLabel.textContent=pageLabels[id]||'';
   if(id==='demandes')   setTimeout(renderDemandes,80);
@@ -4190,6 +4192,7 @@ function showPage(id){
       var mentEl = document.getElementById('param-fa-mentions');
       if(mentEl) mentEl.value = getSetting('cortoba_fa_mentions', '');
       if (typeof loadPaieParams === 'function') loadPaieParams();
+      if (typeof loadParamPhases === 'function') loadParamPhases();
       // Activer l'onglet par défaut (Agence) à l'ouverture de la page
       if (typeof switchParamTab === 'function') {
         var defBtn = document.querySelector('#param-tabs-bar .param-tab[data-param-tab="agence"]');
@@ -4208,6 +4211,52 @@ function showPage(id){
 }
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-backdrop').classList.toggle('open'); }
 function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('open'); }
+
+// ── Sidebar sections collapsibles ──
+var _sidebarSectionState = {};
+try { _sidebarSectionState = JSON.parse(localStorage.getItem('sidebar_sections') || '{}'); } catch(e){}
+
+function toggleSidebarSection(labelEl) {
+  var section = labelEl.closest('.sidebar-section');
+  if (!section || !section.dataset.section) return;
+  section.classList.toggle('collapsed');
+  _sidebarSectionState[section.dataset.section] = section.classList.contains('collapsed');
+  try { localStorage.setItem('sidebar_sections', JSON.stringify(_sidebarSectionState)); } catch(e){}
+}
+window.toggleSidebarSection = toggleSidebarSection;
+
+function _initSidebarSections() {
+  var sections = document.querySelectorAll('.sidebar-section[data-section]');
+  for (var i = 0; i < sections.length; i++) {
+    var s = sections[i];
+    var key = s.dataset.section;
+    // Restaurer l'état sauvegardé (mais pas si la section contient la page active)
+    var hasActive = s.querySelector('.nav-item.active');
+    if (_sidebarSectionState[key] && !hasActive) {
+      s.classList.add('collapsed');
+    }
+  }
+}
+
+function _expandSidebarForPage(pageId) {
+  var sections = document.querySelectorAll('.sidebar-section[data-section]');
+  for (var i = 0; i < sections.length; i++) {
+    var s = sections[i];
+    var items = s.querySelectorAll('.nav-item');
+    for (var j = 0; j < items.length; j++) {
+      var onclick = items[j].getAttribute('onclick') || '';
+      if (onclick.indexOf("'" + pageId + "'") !== -1) {
+        s.classList.remove('collapsed');
+        _sidebarSectionState[s.dataset.section] = false;
+        try { localStorage.setItem('sidebar_sections', JSON.stringify(_sidebarSectionState)); } catch(e){}
+        return;
+      }
+    }
+  }
+}
+
+// Initialiser au chargement
+document.addEventListener('DOMContentLoaded', _initSidebarSections);
 
 // A1 — openModal: modal-projet ouvre correctement sans déclencher modal-client
 function openModal(id){
@@ -4243,6 +4292,14 @@ function openModal(id){
   }
   if(id==='modal-chantier'){
     if(typeof _chPopulateProjetSelect==='function') _chPopulateProjetSelect();
+  }
+  if(id==='modal-ch-journal'){
+    // Reset form if not editing
+    if(!document.getElementById('chj-edit-id').value) {
+      _chResetJournalForm();
+    }
+    // Populate phases
+    if(typeof _chLoadPhases==='function') _chLoadPhases().then(function(){ _chPopulatePhaseSelects(); });
   }
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -12851,11 +12908,41 @@ function editChTache(id) {
 //  2. JOURNAL DE CHANTIER
 // ══════════════════════════════════════
 
+// Phases cache
+var _chPhasesCache = [];
+function _chLoadPhases() {
+  return apiFetch('api/chantier.php?action=phases').then(function(r) {
+    _chPhasesCache = (r && r.data) ? r.data : [];
+    return _chPhasesCache;
+  }).catch(function() { return []; });
+}
+
+function _chPopulatePhaseSelects() {
+  var selectors = ['chj-phase', 'chj-filter-phase'];
+  selectors.forEach(function(sid) {
+    var sel = document.getElementById(sid);
+    if (!sel) return;
+    var val = sel.value;
+    var h = '<option value="">-- Phase --</option>';
+    _chPhasesCache.forEach(function(p) {
+      if (p.actif == 0) return;
+      h += '<option value="' + _cgEscape(p.nom) + '"' + (p.nom === val ? ' selected' : '') + '>' + _cgEscape(p.nom) + '</option>';
+    });
+    sel.innerHTML = h;
+    if (val) sel.value = val;
+  });
+}
+
 function renderChantierJournalPage() {
   _chLoadChantiers().then(function() {
+    _chLoadPhases().then(function() { _chPopulatePhaseSelects(); });
     var cid = _chGetCurrentId('chj-chantier-filter');
-    if (!cid) { document.getElementById('chj-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
-    apiFetch('api/chantier.php?action=journal&chantier_id=' + cid).then(function(r) {
+    if (!cid) { document.getElementById('chj-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:1.5rem">Selectionnez un chantier</td></tr>'; document.getElementById('chj-count').textContent = ''; return; }
+    var params = 'api/chantier.php?action=journal&chantier_id=' + cid;
+    var df = document.getElementById('chj-filter-from'); if (df && df.value) params += '&date_from=' + df.value;
+    var dt = document.getElementById('chj-filter-to'); if (dt && dt.value) params += '&date_to=' + dt.value;
+    var ph = document.getElementById('chj-filter-phase'); if (ph && ph.value) params += '&phase=' + encodeURIComponent(ph.value);
+    apiFetch(params).then(function(r) {
       _chCache.journal = (r && r.data) ? r.data : [];
       _renderJournalTable();
     });
@@ -12864,17 +12951,38 @@ function renderChantierJournalPage() {
 
 function _renderJournalTable() {
   var tbody = document.getElementById('chj-tbody');
-  if (!_chCache.journal.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune entrée</td></tr>'; return; }
+  var cnt = document.getElementById('chj-count');
+  if (!_chCache.journal.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune entree</td></tr>'; if(cnt) cnt.textContent = '0 entree'; return; }
+  if(cnt) cnt.textContent = _chCache.journal.length + ' entree' + (_chCache.journal.length > 1 ? 's' : '');
   var h = '';
   _chCache.journal.forEach(function(j) {
-    h += '<tr><td>' + _chDate(j.date_jour) + '</td><td>' + _cgEscape(j.meteo||'—') + '</td><td>' + _cgEscape(j.temperature||'—') + '</td>' +
-      '<td>' + (j.effectif_total||0) + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _cgEscape(j.activites||'') + '</td>' +
-      '<td>' + _cgEscape(j.retards||'—') + '</td><td>' + _cgEscape(j.cree_par||'') + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChJournal(\'' + j.id + '\')">Modifier</button> <button class="btn btn-sm" style="color:var(--red)" onclick="deleteChJournal(\'' + j.id + '\')">Suppr.</button></td></tr>';
+    var horaires = (j.heure_debut||'') + (j.heure_debut && j.heure_fin ? ' - ' : '') + (j.heure_fin||'');
+    var validBadge = j.valide_par ? '<span style="display:inline-block;padding:0.15rem 0.4rem;border-radius:4px;font-size:0.7rem;background:#1a3a1a;color:#4ade80">Valide</span>' : '<span style="display:inline-block;padding:0.15rem 0.4rem;border-radius:4px;font-size:0.7rem;background:#3a2a1a;color:var(--accent)">Brouillon</span>';
+    var hasIncident = j.incidents_securite ? ' <span title="Incident signale" style="color:var(--red)">&#9888;</span>' : '';
+    h += '<tr>' +
+      '<td style="font-weight:600;color:var(--accent)">#' + (j.numero||'') + '</td>' +
+      '<td>' + _chDate(j.date_jour) + '</td>' +
+      '<td style="font-size:0.78rem">' + _cgEscape(horaires||'--') + '</td>' +
+      '<td style="font-size:0.78rem">' + _cgEscape(j.phase_lot||'--') + '</td>' +
+      '<td>' + _cgEscape(j.meteo||'--') + '</td>' +
+      '<td>' + (j.effectif_total||0) + '</td>' +
+      '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _cgEscape(j.activites||'') + hasIncident + '</td>' +
+      '<td>' + validBadge + '</td>' +
+      '<td>' + _cgEscape(j.cree_par||'') + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="btn btn-sm" onclick="viewChJournal(\'' + j.id + '\')" title="Voir le detail">&#128065;</button> ' +
+        '<button class="btn btn-sm" onclick="editChJournal(\'' + j.id + '\')" title="Modifier">&#9998;</button> ' +
+        '<button class="btn btn-sm" onclick="exportChJournalPDF(\'' + j.id + '\')" title="Export PDF">&#128196;</button> ' +
+        (j.valide_par ? '' : '<button class="btn btn-sm" onclick="validerChJournal(\'' + j.id + '\')" title="Valider" style="color:var(--green)">&#10003;</button> ') +
+        '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteChJournal(\'' + j.id + '\')" title="Supprimer">&#128465;</button>' +
+      '</td></tr>';
   });
   tbody.innerHTML = h;
   makeTableSortable(document.getElementById('chj-table'));
 }
+
+// Journal photos state
+var _chJournalPhotos = [];
 
 function saveChJournal() {
   var id = document.getElementById('chj-edit-id').value;
@@ -12888,24 +12996,48 @@ function saveChJournal() {
       effectifs.push({ entreprise: inputs[0].value, nb_ouvriers: parseInt(inputs[1].value)||0, nb_cadres: parseInt(inputs[2].value)||0 });
     }
   });
+  // Collect intervenants presents
+  var intRows = document.querySelectorAll('#chj-intervenants-rows .chj-int-row');
+  var intervenants = [];
+  intRows.forEach(function(row) {
+    var inputs = row.querySelectorAll('input');
+    if (inputs[0] && inputs[0].value) {
+      intervenants.push({ nom: inputs[0].value, role: inputs[1] ? inputs[1].value : '' });
+    }
+  });
+  // Auto-calc effectif total
+  var effTotal = 0;
+  effectifs.forEach(function(e) { effTotal += (e.nb_ouvriers||0) + (e.nb_cadres||0); });
+
   var body = {
     chantier_id: cid,
     date_jour: document.getElementById('chj-date').value,
+    heure_debut: document.getElementById('chj-heure-debut').value || null,
+    heure_fin: document.getElementById('chj-heure-fin').value || null,
+    phase_lot: document.getElementById('chj-phase').value || null,
     meteo: document.getElementById('chj-meteo').value,
     temperature: document.getElementById('chj-temperature').value,
-    effectif_total: parseInt(document.getElementById('chj-effectif').value) || 0,
+    effectif_total: effTotal,
     activites: document.getElementById('chj-activites').value,
     livraisons: document.getElementById('chj-livraisons').value,
+    intervenants_presents: intervenants,
     visiteurs: document.getElementById('chj-visiteurs').value,
+    incidents_securite: document.getElementById('chj-incidents').value,
     retards: document.getElementById('chj-retards').value,
+    decisions: document.getElementById('chj-decisions').value,
     observations: document.getElementById('chj-observations').value,
+    prochaine_date: document.getElementById('chj-prochaine-date').value || null,
+    prochaine_desc: document.getElementById('chj-prochaine-desc').value,
+    photos: _chJournalPhotos,
     effectifs: effectifs
   };
   if (!body.date_jour) { showToast('La date est requise', 'warning'); return; }
+  if (!body.activites) { showToast('Les activites sont requises', 'warning'); return; }
   var url = id ? ('api/chantier.php?action=journal&id=' + id) : 'api/chantier.php?action=journal';
   apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Journal enregistré', 'success');
+    showToast('Journal enregistre', 'success');
     closeModal('modal-ch-journal');
+    _chJournalPhotos = [];
     renderChantierJournalPage();
   }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
@@ -12913,30 +13045,64 @@ function saveChJournal() {
 function editChJournal(id) {
   var j = null; _chCache.journal.forEach(function(x) { if (x.id === id) j = x; });
   if (!j) return;
-  document.getElementById('chj-edit-id').value = j.id;
-  document.getElementById('chj-date').value = (j.date_jour || '').substring(0, 10);
-  document.getElementById('chj-meteo').value = j.meteo || '';
-  document.getElementById('chj-temperature').value = j.temperature || '';
-  document.getElementById('chj-effectif').value = j.effectif_total || '';
-  document.getElementById('chj-activites').value = j.activites || '';
-  document.getElementById('chj-livraisons').value = j.livraisons || '';
-  document.getElementById('chj-visiteurs').value = j.visiteurs || '';
-  document.getElementById('chj-retards').value = j.retards || '';
-  document.getElementById('chj-observations').value = j.observations || '';
-  // Effectifs
-  var cont = document.getElementById('chj-effectifs-rows');
-  cont.innerHTML = '';
-  (j.effectifs || []).forEach(function(e) { addChJEffRow(e.entreprise, e.nb_ouvriers, e.nb_cadres); });
-  document.getElementById('modal-chj-title').textContent = 'Modifier — ' + _chDate(j.date_jour);
-  openModal('modal-ch-journal');
+  _chLoadPhases().then(function() {
+    _chPopulatePhaseSelects();
+    document.getElementById('chj-edit-id').value = j.id;
+    document.getElementById('chj-numero').value = j.numero || '';
+    document.getElementById('chj-numero-display').value = j.numero ? '#' + j.numero : '';
+    document.getElementById('chj-date').value = (j.date_jour || '').substring(0, 10);
+    document.getElementById('chj-heure-debut').value = j.heure_debut || '';
+    document.getElementById('chj-heure-fin').value = j.heure_fin || '';
+    document.getElementById('chj-phase').value = j.phase_lot || '';
+    document.getElementById('chj-meteo').value = j.meteo || '';
+    document.getElementById('chj-temperature').value = j.temperature || '';
+    document.getElementById('chj-effectif').value = j.effectif_total || '';
+    document.getElementById('chj-activites').value = j.activites || '';
+    document.getElementById('chj-livraisons').value = j.livraisons || '';
+    document.getElementById('chj-visiteurs').value = j.visiteurs || '';
+    document.getElementById('chj-incidents').value = j.incidents_securite || '';
+    document.getElementById('chj-retards').value = j.retards || '';
+    document.getElementById('chj-decisions').value = j.decisions || '';
+    document.getElementById('chj-observations').value = j.observations || '';
+    document.getElementById('chj-prochaine-date').value = (j.prochaine_date || '').substring(0, 10);
+    document.getElementById('chj-prochaine-desc').value = j.prochaine_desc || '';
+    // Effectifs
+    var cont = document.getElementById('chj-effectifs-rows');
+    cont.innerHTML = '';
+    (j.effectifs || []).forEach(function(e) { addChJEffRow(e.entreprise, e.nb_ouvriers, e.nb_cadres); });
+    // Intervenants presents
+    var icont = document.getElementById('chj-intervenants-rows');
+    icont.innerHTML = '';
+    (j.intervenants_presents || []).forEach(function(i) { addChJIntervenantRow(i.nom, i.role); });
+    // Photos
+    _chJournalPhotos = j.photos || [];
+    _renderChJournalPhotos();
+    document.getElementById('modal-chj-title').textContent = 'Modifier Journal #' + (j.numero||'') + ' — ' + _chDate(j.date_jour);
+    openModal('modal-ch-journal');
+  });
+}
+
+function viewChJournal(id) {
+  var j = null; _chCache.journal.forEach(function(x) { if (x.id === id) j = x; });
+  if (!j) return;
+  // Open a detail view in a simple modal-like alert (reuses the journal modal in readonly feel)
+  editChJournal(id);
 }
 
 function deleteChJournal(id) {
-  if (!confirm('Supprimer cette entrée ?')) return;
+  if (!confirm('Supprimer cette entree du journal ?')) return;
   apiFetch('api/chantier.php?action=journal&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Supprimé', 'success');
+    showToast('Supprime', 'success');
     renderChantierJournalPage();
   });
+}
+
+function validerChJournal(id) {
+  if (!confirm('Valider cette entree du journal ? Cette action est irreversible.')) return;
+  apiFetch('api/chantier.php?action=journal_valider&id=' + id, { method: 'POST', body: {} }).then(function() {
+    showToast('Journal valide', 'success');
+    renderChantierJournalPage();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
 
 function addChJEffRow(ent, ouv, cad) {
@@ -12945,10 +13111,216 @@ function addChJEffRow(ent, ouv, cad) {
   row.className = 'chj-eff-row';
   row.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center';
   row.innerHTML = '<input type="text" class="form-input" placeholder="Entreprise" value="' + _cgEscape(ent||'') + '" style="flex:2">' +
-    '<input type="number" class="form-input" placeholder="Ouvriers" value="' + (ouv||'') + '" style="flex:1;min-width:80px" min="0">' +
-    '<input type="number" class="form-input" placeholder="Cadres" value="' + (cad||'') + '" style="flex:1;min-width:80px" min="0">' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
+    '<input type="number" class="form-input" placeholder="Ouvriers" value="' + (ouv||'') + '" style="flex:1;min-width:80px" min="0" oninput="_chJRecalcEffectif()">' +
+    '<input type="number" class="form-input" placeholder="Cadres" value="' + (cad||'') + '" style="flex:1;min-width:80px" min="0" oninput="_chJRecalcEffectif()">' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove();_chJRecalcEffectif()">&#10005;</button>';
   cont.appendChild(row);
+  _chJRecalcEffectif();
+}
+
+function addChJIntervenantRow(nom, role) {
+  var cont = document.getElementById('chj-intervenants-rows');
+  var row = document.createElement('div');
+  row.className = 'chj-int-row';
+  row.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center';
+  row.innerHTML = '<input type="text" class="form-input" placeholder="Nom" value="' + _cgEscape(nom||'') + '" style="flex:1">' +
+    '<input type="text" class="form-input" placeholder="Role (MOE, BET, OPC...)" value="' + _cgEscape(role||'') + '" style="flex:1">' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">&#10005;</button>';
+  cont.appendChild(row);
+}
+
+function _chResetJournalForm() {
+  ['chj-edit-id','chj-numero','chj-date','chj-heure-debut','chj-heure-fin','chj-temperature',
+   'chj-activites','chj-livraisons','chj-visiteurs','chj-incidents','chj-retards','chj-decisions',
+   'chj-observations','chj-prochaine-date','chj-prochaine-desc'].forEach(function(fid) {
+    var el = document.getElementById(fid); if (el) el.value = '';
+  });
+  var ph = document.getElementById('chj-phase'); if (ph) ph.selectedIndex = 0;
+  var mt = document.getElementById('chj-meteo'); if (mt) mt.selectedIndex = 0;
+  var ef = document.getElementById('chj-effectif'); if (ef) ef.value = '';
+  var nd = document.getElementById('chj-numero-display'); if (nd) nd.value = 'Auto';
+  document.getElementById('chj-effectifs-rows').innerHTML = '';
+  document.getElementById('chj-intervenants-rows').innerHTML = '';
+  _chJournalPhotos = [];
+  _renderChJournalPhotos();
+  document.getElementById('modal-chj-title').textContent = 'Saisie journal de chantier';
+  // Set today's date by default
+  document.getElementById('chj-date').value = new Date().toISOString().substring(0, 10);
+}
+
+function _chJRecalcEffectif() {
+  var effRows = document.querySelectorAll('#chj-effectifs-rows .chj-eff-row');
+  var total = 0;
+  effRows.forEach(function(row) {
+    var inputs = row.querySelectorAll('input[type="number"]');
+    total += (parseInt(inputs[0].value)||0) + (parseInt(inputs[1].value)||0);
+  });
+  var el = document.getElementById('chj-effectif');
+  if (el) el.value = total;
+}
+
+// Photos handling
+function chJournalPhotosSelected(input) {
+  var files = input.files;
+  if (!files || !files.length) return;
+  Array.from(files).forEach(function(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      _chJournalPhotos.push({ data: e.target.result, nom: file.name, legende: '', timestamp: new Date().toISOString() });
+      _renderChJournalPhotos();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function _renderChJournalPhotos() {
+  var cont = document.getElementById('chj-photos-preview');
+  if (!cont) return;
+  if (!_chJournalPhotos.length) { cont.innerHTML = '<div style="color:var(--text-3);font-size:0.78rem">Aucune photo</div>'; return; }
+  var h = '';
+  _chJournalPhotos.forEach(function(p, i) {
+    h += '<div style="position:relative;width:120px">' +
+      '<img src="' + (p.data || p.url || '') + '" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">' +
+      '<input type="text" class="form-input" placeholder="Legende..." value="' + _cgEscape(p.legende||'') + '" style="font-size:0.7rem;margin-top:0.2rem;padding:0.2rem 0.4rem" onchange="_chJournalPhotos[' + i + '].legende=this.value">' +
+      '<button onclick="_chJournalPhotos.splice(' + i + ',1);_renderChJournalPhotos()" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.7rem;line-height:20px;text-align:center">&#10005;</button>' +
+      '</div>';
+  });
+  cont.innerHTML = h;
+}
+
+// PDF Export (client-side generation)
+function exportChJournalPDF(id) {
+  apiFetch('api/chantier.php?action=journal_pdf&id=' + id).then(function(r) {
+    if (!r || !r.data || !r.data.journal) { showToast('Erreur export', 'error'); return; }
+    var j = r.data.journal;
+    var ag = r.data.agence || {};
+    _generateJournalPDF(j, ag);
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function _generateJournalPDF(j, ag) {
+  // Build printable HTML and open in new window
+  var intervenants = j.intervenants_presents || [];
+  var effectifs = j.effectifs || [];
+  var photos = j.photos || [];
+  var effTotal = 0; effectifs.forEach(function(e) { effTotal += (e.nb_ouvriers||0) + (e.nb_cadres||0); });
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Journal de chantier #' + (j.numero||'') + '</title>' +
+    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#222;padding:20px}' +
+    '.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #c8a96e;padding-bottom:10px;margin-bottom:15px}' +
+    '.header h1{font-size:16px;color:#c8a96e}.header .agence{text-align:right;font-size:10px;color:#666}' +
+    '.info-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;border:1px solid #ddd;padding:10px;border-radius:4px}' +
+    '.info-grid .item{}.info-grid .label{font-size:9px;text-transform:uppercase;color:#888;margin-bottom:2px}.info-grid .value{font-weight:600}' +
+    '.section{margin-bottom:12px}.section-title{font-size:12px;font-weight:bold;color:#c8a96e;border-bottom:1px solid #eee;padding-bottom:3px;margin-bottom:6px}' +
+    '.section-body{white-space:pre-wrap;line-height:1.5}' +
+    'table.eff{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px}table.eff th,table.eff td{border:1px solid #ddd;padding:4px 6px;text-align:left}table.eff th{background:#f5f5f5}' +
+    '.photos{display:flex;flex-wrap:wrap;gap:8px}.photos img{width:140px;height:100px;object-fit:cover;border:1px solid #ddd;border-radius:3px}' +
+    '.footer{margin-top:20px;border-top:1px solid #ddd;padding-top:10px;display:flex;justify-content:space-between;font-size:10px;color:#888}' +
+    '.incident{color:#c00;font-weight:bold}' +
+    '@media print{body{padding:10px}}</style></head><body>' +
+    '<div class="header"><div><h1>JOURNAL DE CHANTIER N&#176;' + (j.numero||'') + '</h1>' +
+    '<div style="font-size:11px;margin-top:4px">' + _cgEscape(j.chantier_nom||'') + (j.chantier_code ? ' (' + _cgEscape(j.chantier_code) + ')' : '') + '</div>' +
+    '<div style="font-size:10px;color:#666">' + _cgEscape(j.projet_nom||'') + '</div></div>' +
+    '<div class="agence"><strong>' + _cgEscape(ag['agence_raison']||'Cortoba Architecture') + '</strong><br>' +
+    _cgEscape(ag['agence_adresse']||'') + '<br>' + _cgEscape(ag['agence_tel']||'') + '</div></div>';
+
+  html += '<div class="info-grid">' +
+    '<div class="item"><div class="label">Date</div><div class="value">' + _chDate(j.date_jour) + '</div></div>' +
+    '<div class="item"><div class="label">Horaires</div><div class="value">' + (j.heure_debut||'--') + ' - ' + (j.heure_fin||'--') + '</div></div>' +
+    '<div class="item"><div class="label">Phase</div><div class="value">' + _cgEscape(j.phase_lot||'--') + '</div></div>' +
+    '<div class="item"><div class="label">Meteo</div><div class="value">' + _cgEscape(j.meteo||'--') + ' ' + _cgEscape(j.temperature ? j.temperature + '&#176;C' : '') + '</div></div>' +
+    '<div class="item"><div class="label">Effectif total</div><div class="value">' + effTotal + '</div></div>' +
+    '<div class="item"><div class="label">Adresse</div><div class="value">' + _cgEscape(j.chantier_adresse||'--') + '</div></div>' +
+    '<div class="item"><div class="label">Redige par</div><div class="value">' + _cgEscape(j.cree_par||'') + '</div></div>' +
+    '<div class="item"><div class="label">Statut</div><div class="value">' + (j.valide_par ? 'Valide par ' + _cgEscape(j.valide_par) : 'Brouillon') + '</div></div>' +
+    '</div>';
+
+  // Activites
+  html += '<div class="section"><div class="section-title">Activites realisees</div><div class="section-body">' + _cgEscape(j.activites||'--') + '</div></div>';
+
+  // Effectifs table
+  if (effectifs.length) {
+    html += '<div class="section"><div class="section-title">Effectifs par entreprise</div><table class="eff"><tr><th>Entreprise</th><th>Ouvriers</th><th>Cadres</th><th>Total</th></tr>';
+    effectifs.forEach(function(e) { html += '<tr><td>' + _cgEscape(e.entreprise) + '</td><td>' + (e.nb_ouvriers||0) + '</td><td>' + (e.nb_cadres||0) + '</td><td>' + ((e.nb_ouvriers||0)+(e.nb_cadres||0)) + '</td></tr>'; });
+    html += '<tr style="font-weight:bold"><td>TOTAL</td><td></td><td></td><td>' + effTotal + '</td></tr></table></div>';
+  }
+
+  // Intervenants
+  if (intervenants.length) {
+    html += '<div class="section"><div class="section-title">Intervenants presents</div><div class="section-body">';
+    intervenants.forEach(function(i) { html += '&#8226; ' + _cgEscape(i.nom||'') + (i.role ? ' (' + _cgEscape(i.role) + ')' : '') + '<br>'; });
+    html += '</div></div>';
+  }
+
+  if (j.livraisons) html += '<div class="section"><div class="section-title">Livraisons</div><div class="section-body">' + _cgEscape(j.livraisons) + '</div></div>';
+  if (j.visiteurs) html += '<div class="section"><div class="section-title">Visiteurs</div><div class="section-body">' + _cgEscape(j.visiteurs) + '</div></div>';
+  if (j.incidents_securite) html += '<div class="section"><div class="section-title incident">Incidents / Securite</div><div class="section-body incident">' + _cgEscape(j.incidents_securite) + '</div></div>';
+  if (j.retards) html += '<div class="section"><div class="section-title">Retards / Difficultes</div><div class="section-body">' + _cgEscape(j.retards) + '</div></div>';
+  if (j.decisions) html += '<div class="section"><div class="section-title">Decisions prises sur site</div><div class="section-body">' + _cgEscape(j.decisions) + '</div></div>';
+  if (j.observations) html += '<div class="section"><div class="section-title">Observations</div><div class="section-body">' + _cgEscape(j.observations) + '</div></div>';
+  if (j.prochaine_date || j.prochaine_desc) html += '<div class="section"><div class="section-title">Prochaine intervention</div><div class="section-body">' + (j.prochaine_date ? _chDate(j.prochaine_date) + ' — ' : '') + _cgEscape(j.prochaine_desc||'') + '</div></div>';
+
+  // Photos
+  if (photos.length) {
+    html += '<div class="section"><div class="section-title">Photos du jour</div><div class="photos">';
+    photos.forEach(function(p) { html += '<div><img src="' + (p.data||p.url||'') + '"><div style="font-size:9px;color:#666;margin-top:2px">' + _cgEscape(p.legende||'') + '</div></div>'; });
+    html += '</div></div>';
+  }
+
+  html += '<div class="footer"><span>Imprime le ' + new Date().toLocaleDateString('fr-FR') + '</span><span>' + _cgEscape(ag['agence_raison']||'Cortoba Architecture') + '</span></div>';
+  html += '<script>window.onload=function(){window.print();}<\/script></body></html>';
+
+  var w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+  else { showToast('Popup bloquee — autorisez les popups', 'warning'); }
+}
+
+// Parametres — Phases CRUD
+function loadParamPhases() {
+  _chLoadPhases().then(function() {
+    var wrap = document.getElementById('param-phases-wrap');
+    if (!wrap) return;
+    if (!_chPhasesCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucune phase configuree</div>'; return; }
+    var h = '<div style="display:flex;flex-direction:column;gap:0.3rem">';
+    _chPhasesCache.forEach(function(p, i) {
+      h += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-radius:4px;border:1px solid var(--border)">' +
+        '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + (i+1) + '.</span>' +
+        '<span style="flex:1;font-size:0.82rem">' + _cgEscape(p.nom) + '</span>' +
+        (p.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3)">(inactif)</span>' : '') +
+        '<button class="btn btn-sm" onclick="toggleParamPhase(\'' + p.id + '\',' + (p.actif == 1 ? 0 : 1) + ')" title="' + (p.actif == 1 ? 'Desactiver' : 'Activer') + '">' + (p.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
+        '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteParamPhase(\'' + p.id + '\')">&#10005;</button>' +
+        '</div>';
+    });
+    h += '</div>';
+    wrap.innerHTML = h;
+  });
+}
+
+function addParamPhase() {
+  var nom = document.getElementById('param-phase-nom').value.trim();
+  if (!nom) { showToast('Nom requis', 'warning'); return; }
+  apiFetch('api/chantier.php?action=phases', { method: 'POST', body: { nom: nom } }).then(function() {
+    document.getElementById('param-phase-nom').value = '';
+    showToast('Phase ajoutee', 'success');
+    loadParamPhases();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function toggleParamPhase(id, actif) {
+  var ph = null; _chPhasesCache.forEach(function(p) { if (p.id === id) ph = p; });
+  if (!ph) return;
+  apiFetch('api/chantier.php?action=phases&id=' + id, { method: 'PUT', body: { nom: ph.nom, ordre: ph.ordre, actif: actif } }).then(function() {
+    loadParamPhases();
+  });
+}
+
+function deleteParamPhase(id) {
+  if (!confirm('Supprimer cette phase ?')) return;
+  apiFetch('api/chantier.php?action=phases&id=' + id, { method: 'DELETE' }).then(function() {
+    showToast('Phase supprimee', 'success');
+    loadParamPhases();
+  });
 }
 
 // ══════════════════════════════════════

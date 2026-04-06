@@ -93,14 +93,17 @@
 
       <div class="sidebar-section">
         <div class="sidebar-label">Principal</div>
+        <div class="sidebar-group">
         <button class="nav-item active" onclick="showPage('dashboard')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
           Tableau de bord
         </button>
+        </div>
       </div>
 
-      <div class="sidebar-section">
-        <div class="sidebar-label">Activité</div>
+      <div class="sidebar-section" data-section="activite">
+        <div class="sidebar-label" onclick="toggleSidebarSection(this)"><svg class="sidebar-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Activité</div>
+        <div class="sidebar-group">
         <button class="nav-item" onclick="showPage('demandes')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Demandes
@@ -146,10 +149,12 @@
           Facturation
           <span class="nav-badge" style="background:var(--red-bg);color:var(--red);border-color:rgba(224,123,114,0.25)">2</span>
         </button>
+        </div>
       </div>
 
-      <div class="sidebar-section">
-        <div class="sidebar-label">Finance</div>
+      <div class="sidebar-section" data-section="finance">
+        <div class="sidebar-label" onclick="toggleSidebarSection(this)"><svg class="sidebar-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Finance</div>
+        <div class="sidebar-group">
         <button class="nav-item" onclick="showPage('bilans')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Bilans
@@ -163,10 +168,12 @@
           Fiscalité
           <span class="nav-badge" id="fiscalite-badge" style="display:none;background:var(--red-bg);color:var(--red);border-color:rgba(224,123,114,0.25)"></span>
         </button>
+        </div>
       </div>
 
-      <div class="sidebar-section">
-        <div class="sidebar-label">Ressources</div>
+      <div class="sidebar-section" data-section="ressources">
+        <div class="sidebar-label" onclick="toggleSidebarSection(this)"><svg class="sidebar-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Ressources</div>
+        <div class="sidebar-group">
         <button class="nav-item" onclick="showPage('equipe')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Équipe
@@ -184,10 +191,12 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           Demandes admin
         </button>
+        </div>
       </div>
 
-      <div class="sidebar-section">
-        <div class="sidebar-label">Chantier</div>
+      <div class="sidebar-section" data-section="chantier">
+        <div class="sidebar-label" onclick="toggleSidebarSection(this)"><svg class="sidebar-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Chantier</div>
+        <div class="sidebar-group">
         <button class="nav-item" onclick="showPage('chantier')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-5h6v5"/></svg>
           Tableau de bord
@@ -220,14 +229,17 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Sécurité
         </button>
+        </div>
       </div>
 
       <div class="sidebar-section">
         <div class="sidebar-label">Paramètres</div>
+        <div class="sidebar-group">
         <button class="nav-item" onclick="showPage('parametres')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Paramètres
         </button>
+        </div>
       </div>
 
     </nav>
@@ -1505,6 +1517,7 @@
           <button class="param-tab"        data-param-tab="projets"  onclick="switchParamTab('projets',this)"  style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Projets &amp; Listes</button>
           <button class="param-tab"        data-param-tab="da"       onclick="switchParamTab('da',this)"       style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Demandes admin</button>
           <button class="param-tab"        data-param-tab="nas"      onclick="switchParamTab('nas',this)"      style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Serveur NAS</button>
+          <button class="param-tab"        data-param-tab="chantier" onclick="switchParamTab('chantier',this)" style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Chantier</button>
         </div>
 
         <div class="card" data-param-tab="agence">
@@ -2173,6 +2186,21 @@
           </div>
         </div>
 
+        <!-- ══ Parametres Chantier — Phases ══ -->
+        <div class="card" data-param-tab="chantier" style="margin-bottom:1.5rem">
+          <div class="card-title">Phases / Lots de travaux</div>
+          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+            Ces phases apparaissent dans le journal de chantier pour catégoriser les entrées quotidiennes.
+          </div>
+          <div id="param-phases-wrap">
+            <div style="color:var(--text-3);font-size:0.82rem">Chargement...</div>
+          </div>
+          <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center">
+            <input id="param-phase-nom" class="form-input" placeholder="Nom de la phase (ex: Gros oeuvre)" style="flex:1" />
+            <button class="btn btn-primary btn-sm" onclick="addParamPhase()">+ Ajouter</button>
+          </div>
+        </div>
+
       </div>
 
       <!-- ══ TIMESHEET (saisie du temps) ══ -->
@@ -2488,15 +2516,25 @@
             <h1 class="page-title">Journal de chantier</h1>
           </div>
           <div class="page-actions">
-            <select id="chj-chantier-filter" class="form-input" style="width:240px;font-size:0.82rem" onchange="renderChantierJournalPage()">
-              <option value="">— Chantier —</option>
+            <select id="chj-chantier-filter" class="form-input" style="width:220px;font-size:0.82rem" onchange="renderChantierJournalPage()">
+              <option value="">-- Chantier --</option>
             </select>
-            <button class="btn btn-primary" onclick="openModal('modal-ch-journal')">+ Saisie journalière</button>
+            <button class="btn btn-primary" onclick="openModal('modal-ch-journal')">+ Saisie journaliere</button>
           </div>
+        </div>
+        <!-- Filtres -->
+        <div style="display:flex;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+          <input type="date" id="chj-filter-from" class="form-input" style="width:150px;font-size:0.78rem" onchange="renderChantierJournalPage()" title="Date debut">
+          <input type="date" id="chj-filter-to" class="form-input" style="width:150px;font-size:0.78rem" onchange="renderChantierJournalPage()" title="Date fin">
+          <select id="chj-filter-phase" class="form-input" style="width:180px;font-size:0.78rem" onchange="renderChantierJournalPage()">
+            <option value="">-- Phase --</option>
+          </select>
+          <div style="flex:1"></div>
+          <span id="chj-count" style="font-size:0.78rem;color:var(--text-3)"></span>
         </div>
         <div class="table-wrap">
           <table id="chj-table">
-            <thead><tr><th>Date</th><th>Météo</th><th>Temp.</th><th>Effectif</th><th>Activités</th><th>Retards</th><th>Auteur</th><th></th></tr></thead>
+            <thead><tr><th>N.</th><th>Date</th><th>Horaires</th><th>Phase</th><th>Meteo</th><th>Effectif</th><th>Activites</th><th>Statut</th><th>Auteur</th><th></th></tr></thead>
             <tbody id="chj-tbody"></tbody>
           </table>
         </div>
@@ -4570,37 +4608,118 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Modal journal chantier -->
 <div class="modal-overlay" id="modal-ch-journal">
-  <div class="modal-box" style="max-width:780px;width:96%">
+  <div class="modal-box" style="max-width:860px;width:96%">
     <div class="modal-header">
       <div class="modal-title" id="modal-chj-title">Saisie journal de chantier</div>
       <button class="modal-close" onclick="closeModal('modal-ch-journal')">&#10005;</button>
     </div>
-    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+    <div class="modal-body" style="max-height:74vh;overflow-y:auto">
       <input type="hidden" id="chj-edit-id">
-      <div class="form-grid">
+      <input type="hidden" id="chj-numero">
+
+      <!-- Ligne 1 : Date, Horaires, Phase -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1.5fr;gap:0.8rem;margin-bottom:1rem">
         <div class="form-field"><label class="form-label">Date *</label><input type="date" id="chj-date" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Heure debut</label><input type="time" id="chj-heure-debut" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Heure fin</label><input type="time" id="chj-heure-fin" class="form-input"></div>
         <div class="form-field">
-          <label class="form-label">Météo</label>
-          <select id="chj-meteo" class="form-input">
-            <option value="">—</option><option>Ensoleillé</option><option>Nuageux</option><option>Pluie</option><option>Vent fort</option><option>Neige</option>
+          <label class="form-label">Phase / Lot *</label>
+          <select id="chj-phase" class="form-input">
+            <option value="">-- Selectionner --</option>
           </select>
         </div>
-        <div class="form-field"><label class="form-label">Température</label><input type="text" id="chj-temperature" class="form-input" placeholder="25°C"></div>
-        <div class="form-field"><label class="form-label">Effectif total</label><input type="number" id="chj-effectif" class="form-input" min="0"></div>
-        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Activités réalisées *</label><textarea id="chj-activites" class="form-input" rows="4" placeholder="Détaillez les travaux réalisés..."></textarea></div>
-        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Livraisons</label><textarea id="chj-livraisons" class="form-input" rows="2"></textarea></div>
-        <div class="form-field"><label class="form-label">Visiteurs</label><textarea id="chj-visiteurs" class="form-input" rows="2"></textarea></div>
-        <div class="form-field"><label class="form-label">Retards</label><textarea id="chj-retards" class="form-input" rows="2"></textarea></div>
-        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Observations</label><textarea id="chj-observations" class="form-input" rows="2"></textarea></div>
       </div>
+
+      <!-- Ligne 2 : Meteo -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.8rem;margin-bottom:1rem">
+        <div class="form-field">
+          <label class="form-label">Meteo</label>
+          <select id="chj-meteo" class="form-input">
+            <option value="">-- Conditions --</option>
+            <option value="Ensoleille">&#9728; Ensoleille</option>
+            <option value="Partiellement nuageux">&#9925; Partiellement nuageux</option>
+            <option value="Nuageux">&#9729; Nuageux</option>
+            <option value="Pluie legere">&#127782; Pluie legere</option>
+            <option value="Pluie forte">&#127783; Pluie forte</option>
+            <option value="Orage">&#9889; Orage</option>
+            <option value="Vent fort">&#127788; Vent fort</option>
+            <option value="Brouillard">&#127787; Brouillard</option>
+            <option value="Neige">&#10052; Neige</option>
+          </select>
+        </div>
+        <div class="form-field"><label class="form-label">Temperature</label><input type="text" id="chj-temperature" class="form-input" placeholder="Ex: 32"></div>
+        <div class="form-field">
+          <label class="form-label">Effectif total</label>
+          <input type="number" id="chj-effectif" class="form-input" min="0" readonly style="background:var(--bg-3);cursor:not-allowed" title="Calcule automatiquement depuis les effectifs par entreprise">
+          <div style="font-size:0.65rem;color:var(--text-3);margin-top:0.15rem">Auto-calcule</div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">N. Journal</label>
+          <input type="text" id="chj-numero-display" class="form-input" readonly style="background:var(--bg-3);cursor:not-allowed" placeholder="Auto">
+        </div>
+      </div>
+
+      <!-- Activites realisees -->
+      <div class="form-field" style="margin-bottom:1rem"><label class="form-label">Activites realisees *</label><textarea id="chj-activites" class="form-input" rows="4" placeholder="Detaillez les travaux realises..."></textarea></div>
+
+      <!-- Livraisons -->
+      <div class="form-field" style="margin-bottom:1rem"><label class="form-label">Livraisons</label><textarea id="chj-livraisons" class="form-input" rows="2" placeholder="Materiaux recus, equipements livres..."></textarea></div>
+
+      <!-- Intervenants presents -->
+      <div style="margin-bottom:1rem;border-top:1px solid var(--border);padding-top:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
+          <label class="form-label" style="margin:0">Intervenants presents</label>
+          <button class="btn btn-sm" onclick="addChJIntervenantRow()">+ Ajouter</button>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-3);margin-bottom:0.4rem">Maitre d'oeuvre, BET, controleur technique, OPC, etc.</div>
+        <div id="chj-intervenants-rows"></div>
+      </div>
+
+      <!-- Visiteurs -->
+      <div class="form-field" style="margin-bottom:1rem"><label class="form-label">Visiteurs</label><textarea id="chj-visiteurs" class="form-input" rows="2" placeholder="Noms et motifs des visites..."></textarea></div>
+
       <!-- Effectifs par entreprise -->
-      <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
+      <div style="margin-bottom:1rem;border-top:1px solid var(--border);padding-top:1rem">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
           <label class="form-label" style="margin:0">Effectifs par entreprise</label>
           <button class="btn btn-sm" onclick="addChJEffRow()">+ Ligne</button>
         </div>
         <div id="chj-effectifs-rows"></div>
       </div>
+
+      <!-- Incidents / Securite -->
+      <div class="form-field" style="margin-bottom:1rem">
+        <label class="form-label" style="color:var(--red)">Incidents / Securite</label>
+        <textarea id="chj-incidents" class="form-input" rows="2" placeholder="Incidents, presqu'accidents, non-conformites securite..." style="border-color:var(--red-dim,#4a2020)"></textarea>
+      </div>
+
+      <!-- Retards / Difficultes -->
+      <div class="form-field" style="margin-bottom:1rem"><label class="form-label">Retards / Difficultes</label><textarea id="chj-retards" class="form-input" rows="2" placeholder="Retards, contraintes, blocages..."></textarea></div>
+
+      <!-- Decisions prises sur site -->
+      <div class="form-field" style="margin-bottom:1rem"><label class="form-label">Decisions prises sur site</label><textarea id="chj-decisions" class="form-input" rows="2" placeholder="Decisions actees sur chantier..."></textarea></div>
+
+      <!-- Observations generales -->
+      <div class="form-field" style="margin-bottom:1rem"><label class="form-label">Observations generales</label><textarea id="chj-observations" class="form-input" rows="2"></textarea></div>
+
+      <!-- Prochaine intervention -->
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:0.8rem;margin-bottom:1rem;border-top:1px solid var(--border);padding-top:1rem">
+        <div class="form-field"><label class="form-label">Prochaine intervention</label><input type="date" id="chj-prochaine-date" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Description</label><input type="text" id="chj-prochaine-desc" class="form-input" placeholder="Travaux prevus pour la prochaine seance..."></div>
+      </div>
+
+      <!-- Photos du jour -->
+      <div style="border-top:1px solid var(--border);padding-top:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
+          <label class="form-label" style="margin:0">Photos du jour</label>
+          <label class="btn btn-sm" style="cursor:pointer">
+            + Photos
+            <input type="file" id="chj-photo-input" accept="image/*" multiple style="display:none" onchange="chJournalPhotosSelected(this)">
+          </label>
+        </div>
+        <div id="chj-photos-preview" style="display:flex;flex-wrap:wrap;gap:0.5rem"></div>
+      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-ch-journal')">Annuler</button>

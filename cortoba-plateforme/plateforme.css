@@ -168,11 +168,21 @@
       display: flex; flex-direction: column;
       transition: transform 0.3s ease;
     }
-    .sidebar-section { margin-bottom: 1.8rem; }
+    .sidebar-section { margin-bottom: 0.6rem; }
     .sidebar-label {
       font-size: 0.55rem; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--text-3); padding: 0 1.2rem; margin-bottom: 0.5rem;
+      color: var(--text-3); padding: 0.4rem 1.2rem; margin-bottom: 0;
+      cursor: default; display: flex; align-items: center; gap: 0.4rem;
+      user-select: none;
     }
+    .sidebar-section[data-section] .sidebar-label {
+      cursor: pointer; border-radius: 4px; transition: background 0.15s;
+    }
+    .sidebar-section[data-section] .sidebar-label:hover { background: rgba(255,255,255,0.04); }
+    .sidebar-chevron { transition: transform 0.2s; flex-shrink: 0; opacity: 0.5; }
+    .sidebar-section.collapsed .sidebar-chevron { transform: rotate(-90deg); }
+    .sidebar-group { overflow: hidden; transition: max-height 0.25s ease; }
+    .sidebar-section.collapsed .sidebar-group { max-height: 0 !important; overflow: hidden; }
     .nav-item {
       display: flex; align-items: center; gap: 0.7rem;
       padding: 0.62rem 1.2rem; color: var(--text-2); cursor: pointer;
