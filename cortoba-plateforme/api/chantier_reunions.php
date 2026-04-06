@@ -6,6 +6,46 @@
 require_once __DIR__ . '/../config/middleware.php';
 setCorsHeaders();
 
+function ensureReunionsTables() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_reunions` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `numero` INT NOT NULL DEFAULT 1,
+      `date_reunion` DATETIME NOT NULL,
+      `lieu` VARCHAR(200) DEFAULT NULL,
+      `objet` VARCHAR(300) DEFAULT 'Réunion de chantier',
+      `participants` LONGTEXT DEFAULT NULL,
+      `points_discutes` LONGTEXT DEFAULT NULL,
+      `decisions` LONGTEXT DEFAULT NULL,
+      `pv_contenu` LONGTEXT DEFAULT NULL,
+      `statut` VARCHAR(30) NOT NULL DEFAULT 'Brouillon',
+      `diffuse_at` DATETIME DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_date` (`date_reunion`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_reunion_actions` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `reunion_id` VARCHAR(32) NOT NULL,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `description` TEXT NOT NULL,
+      `responsable` VARCHAR(200) DEFAULT NULL,
+      `delai` DATE DEFAULT NULL,
+      `statut` VARCHAR(30) NOT NULL DEFAULT 'Ouverte',
+      `reunion_cloture_id` VARCHAR(32) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_reunion` (`reunion_id`),
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_statut` (`statut`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+}
+ensureReunionsTables();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : 'reunions';
 $id     = isset($_GET['id']) ? $_GET['id'] : null;

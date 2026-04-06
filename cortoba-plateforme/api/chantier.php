@@ -7,6 +7,128 @@
 require_once __DIR__ . '/../config/middleware.php';
 setCorsHeaders();
 
+// Auto-création des tables si elles n'existent pas
+function ensureChantierTables() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantiers` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `projet_id` VARCHAR(32) NOT NULL,
+      `nom` VARCHAR(200) NOT NULL,
+      `code` VARCHAR(30) DEFAULT NULL,
+      `adresse` TEXT DEFAULT NULL,
+      `lat` DECIMAL(10,7) DEFAULT NULL,
+      `lng` DECIMAL(10,7) DEFAULT NULL,
+      `date_debut` DATE DEFAULT NULL,
+      `date_fin_prevue` DATE DEFAULT NULL,
+      `date_fin_reelle` DATE DEFAULT NULL,
+      `statut` VARCHAR(40) NOT NULL DEFAULT 'En préparation',
+      `avancement_global` INT NOT NULL DEFAULT 0,
+      `budget_travaux` DECIMAL(14,2) DEFAULT 0,
+      `montant_engage` DECIMAL(14,2) DEFAULT 0,
+      `description` TEXT DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_projet` (`projet_id`),
+      KEY `idx_statut` (`statut`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_lots` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `code` VARCHAR(20) DEFAULT NULL,
+      `nom` VARCHAR(200) NOT NULL,
+      `entreprise` VARCHAR(200) DEFAULT NULL,
+      `montant_marche` DECIMAL(14,2) DEFAULT 0,
+      `avancement` INT NOT NULL DEFAULT 0,
+      `date_debut` DATE DEFAULT NULL,
+      `date_fin_prevue` DATE DEFAULT NULL,
+      `ordre` INT NOT NULL DEFAULT 0,
+      `couleur` VARCHAR(9) DEFAULT '#c8a96e',
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_taches` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `lot_id` VARCHAR(32) DEFAULT NULL,
+      `parent_id` VARCHAR(32) DEFAULT NULL,
+      `titre` VARCHAR(200) NOT NULL,
+      `date_debut` DATE DEFAULT NULL,
+      `date_fin` DATE DEFAULT NULL,
+      `duree_jours` INT DEFAULT 0,
+      `avancement` INT NOT NULL DEFAULT 0,
+      `est_jalon` TINYINT(1) NOT NULL DEFAULT 0,
+      `est_critique` TINYINT(1) NOT NULL DEFAULT 0,
+      `ordre` INT NOT NULL DEFAULT 0,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_lot` (`lot_id`),
+      KEY `idx_parent` (`parent_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_tache_deps` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `task_id` VARCHAR(32) NOT NULL,
+      `depends_on` VARCHAR(32) NOT NULL,
+      `type` VARCHAR(10) NOT NULL DEFAULT 'FS',
+      `lag_days` INT NOT NULL DEFAULT 0,
+      UNIQUE KEY `uq_dep` (`task_id`, `depends_on`),
+      KEY `idx_task` (`task_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_journal` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `date_jour` DATE NOT NULL,
+      `meteo` VARCHAR(40) DEFAULT NULL,
+      `temperature` VARCHAR(20) DEFAULT NULL,
+      `effectif_total` INT DEFAULT 0,
+      `activites` LONGTEXT DEFAULT NULL,
+      `livraisons` TEXT DEFAULT NULL,
+      `visiteurs` TEXT DEFAULT NULL,
+      `retards` TEXT DEFAULT NULL,
+      `observations` TEXT DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY `uq_chantier_date` (`chantier_id`, `date_jour`),
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_date` (`date_jour`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_effectifs` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `journal_id` VARCHAR(32) NOT NULL,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `entreprise` VARCHAR(200) NOT NULL,
+      `nb_ouvriers` INT NOT NULL DEFAULT 0,
+      `nb_cadres` INT NOT NULL DEFAULT 0,
+      `commentaire` VARCHAR(300) DEFAULT NULL,
+      KEY `idx_journal` (`journal_id`),
+      KEY `idx_chantier` (`chantier_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_intervenants` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `role` VARCHAR(80) NOT NULL,
+      `nom` VARCHAR(200) NOT NULL,
+      `societe` VARCHAR(200) DEFAULT NULL,
+      `tel` VARCHAR(40) DEFAULT NULL,
+      `email` VARCHAR(180) DEFAULT NULL,
+      `responsabilites` TEXT DEFAULT NULL,
+      `acces_portail` TINYINT(1) NOT NULL DEFAULT 0,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+}
+ensureChantierTables();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $id     = isset($_GET['id']) ? $_GET['id'] : null;

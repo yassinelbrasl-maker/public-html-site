@@ -6,6 +6,104 @@
 require_once __DIR__ . '/../config/middleware.php';
 setCorsHeaders();
 
+function ensureReservesTables() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_reserves` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `lot_id` VARCHAR(32) DEFAULT NULL,
+      `numero` INT NOT NULL DEFAULT 1,
+      `titre` VARCHAR(300) NOT NULL,
+      `description` TEXT DEFAULT NULL,
+      `zone` VARCHAR(120) DEFAULT NULL,
+      `localisation_x` DECIMAL(8,2) DEFAULT NULL,
+      `localisation_y` DECIMAL(8,2) DEFAULT NULL,
+      `plan_ref` VARCHAR(200) DEFAULT NULL,
+      `entreprise` VARCHAR(200) DEFAULT NULL,
+      `priorite` VARCHAR(20) NOT NULL DEFAULT 'Normale',
+      `statut` VARCHAR(30) NOT NULL DEFAULT 'Ouverte',
+      `date_constat` DATE DEFAULT NULL,
+      `date_delai` DATE DEFAULT NULL,
+      `date_levee` DATE DEFAULT NULL,
+      `levee_par` VARCHAR(120) DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_lot` (`lot_id`),
+      KEY `idx_statut` (`statut`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_rfi` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `numero` INT NOT NULL DEFAULT 1,
+      `objet` VARCHAR(300) NOT NULL,
+      `description` TEXT DEFAULT NULL,
+      `documents_ref` TEXT DEFAULT NULL,
+      `emetteur` VARCHAR(200) DEFAULT NULL,
+      `destinataire` VARCHAR(200) DEFAULT NULL,
+      `statut` VARCHAR(30) NOT NULL DEFAULT 'Ouverte',
+      `priorite` VARCHAR(20) NOT NULL DEFAULT 'Normale',
+      `date_emission` DATE DEFAULT NULL,
+      `date_reponse_attendue` DATE DEFAULT NULL,
+      `date_reponse` DATE DEFAULT NULL,
+      `reponse` LONGTEXT DEFAULT NULL,
+      `repondu_par` VARCHAR(200) DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_statut` (`statut`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_visas` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `lot_id` VARCHAR(32) DEFAULT NULL,
+      `numero` INT NOT NULL DEFAULT 1,
+      `document_titre` VARCHAR(300) NOT NULL,
+      `document_ref` VARCHAR(120) DEFAULT NULL,
+      `document_url` VARCHAR(500) DEFAULT NULL,
+      `emetteur` VARCHAR(200) DEFAULT NULL,
+      `circuit_visa` LONGTEXT DEFAULT NULL,
+      `statut` VARCHAR(40) NOT NULL DEFAULT 'En attente',
+      `date_reception` DATE DEFAULT NULL,
+      `date_visa` DATE DEFAULT NULL,
+      `commentaire` TEXT DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_lot` (`lot_id`),
+      KEY `idx_statut` (`statut`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_photos` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `journal_id` VARCHAR(32) DEFAULT NULL,
+      `reserve_id` VARCHAR(32) DEFAULT NULL,
+      `url` VARCHAR(500) NOT NULL,
+      `thumbnail_url` VARCHAR(500) DEFAULT NULL,
+      `type_media` VARCHAR(20) NOT NULL DEFAULT 'photo',
+      `titre` VARCHAR(200) DEFAULT NULL,
+      `description` TEXT DEFAULT NULL,
+      `zone` VARCHAR(120) DEFAULT NULL,
+      `lot` VARCHAR(120) DEFAULT NULL,
+      `tags` VARCHAR(500) DEFAULT NULL,
+      `lat` DECIMAL(10,7) DEFAULT NULL,
+      `lng` DECIMAL(10,7) DEFAULT NULL,
+      `date_prise` DATETIME DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_journal` (`journal_id`),
+      KEY `idx_zone` (`zone`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+}
+ensureReservesTables();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : 'reserves';
 $id     = isset($_GET['id']) ? $_GET['id'] : null;

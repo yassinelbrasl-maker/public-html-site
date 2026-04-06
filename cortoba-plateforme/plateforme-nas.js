@@ -12503,9 +12503,13 @@ function _chPopulateProjetSelect() {
 }
 
 function renderChantierDashboard() {
+  _chPopulateProjetSelect();
   _chLoadChantiers().then(function() {
     _chPopulateProjetSelect();
     if (_chCache.currentId) chantierSelected();
+  }).catch(function(e) {
+    console.warn('[chantier] load error:', e);
+    _chPopulateProjetSelect();
   });
 }
 

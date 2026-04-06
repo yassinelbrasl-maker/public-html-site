@@ -6,6 +6,52 @@
 require_once __DIR__ . '/../config/middleware.php';
 setCorsHeaders();
 
+function ensureSecuriteTables() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_incidents` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `type` VARCHAR(40) NOT NULL DEFAULT 'Incident',
+      `gravite` VARCHAR(20) NOT NULL DEFAULT 'Mineure',
+      `titre` VARCHAR(300) NOT NULL,
+      `description` TEXT DEFAULT NULL,
+      `zone` VARCHAR(120) DEFAULT NULL,
+      `entreprise` VARCHAR(200) DEFAULT NULL,
+      `personnes_impliquees` TEXT DEFAULT NULL,
+      `date_incident` DATETIME NOT NULL,
+      `mesures_immediates` TEXT DEFAULT NULL,
+      `mesures_correctives` TEXT DEFAULT NULL,
+      `statut` VARCHAR(30) NOT NULL DEFAULT 'Ouvert',
+      `date_cloture` DATE DEFAULT NULL,
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_type` (`type`),
+      KEY `idx_statut` (`statut`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_inspections` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `titre` VARCHAR(200) NOT NULL DEFAULT 'Inspection sécurité',
+      `date_inspection` DATE NOT NULL,
+      `inspecteur` VARCHAR(200) DEFAULT NULL,
+      `zone` VARCHAR(120) DEFAULT NULL,
+      `checklist` LONGTEXT DEFAULT NULL,
+      `score` INT DEFAULT NULL,
+      `observations` TEXT DEFAULT NULL,
+      `actions_requises` LONGTEXT DEFAULT NULL,
+      `statut` VARCHAR(30) NOT NULL DEFAULT 'Complétée',
+      `cree_par` VARCHAR(120) DEFAULT NULL,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_date` (`date_inspection`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+}
+ensureSecuriteTables();
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : 'incidents';
 $id     = isset($_GET['id']) ? $_GET['id'] : null;
