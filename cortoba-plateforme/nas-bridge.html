@@ -27,12 +27,12 @@ h2{font-size:1.1rem;margin-bottom:16px;color:#4ecdc4}
 </head>
 <body>
 <div class="card">
-  <h2>📁 Création dossier NAS</h2>
+  <h2>Création dossier NAS</h2>
   <div id="steps"></div>
   <div id="status">Initialisation...</div>
   <div id="path-box"></div>
   <div id="actions" style="display:none">
-    <button class="btn btn-copy" onclick="copyPath()">📋 Copier le chemin</button><br>
+    <button class="btn btn-copy" onclick="copyPath()">Copier le chemin</button><br>
     <button class="btn btn-close" onclick="window.close()">Fermer</button>
   </div>
 </div>
@@ -43,7 +43,7 @@ var statusEl = document.getElementById('status');
 var pathBox = document.getElementById('path-box');
 var actionsEl = document.getElementById('actions');
 
-// Lire les paramètres depuis le hash (pas envoyés au serveur)
+// Lire les parametres depuis le hash (pas envoyes au serveur)
 var hash = location.hash.substring(1);
 var params = {};
 hash.split('&').forEach(function(p){ var kv=p.split('='); if(kv[0]) params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||''); });
@@ -51,14 +51,14 @@ hash.split('&').forEach(function(p){ var kv=p.split('='); if(kv[0]) params[decod
 var ip = params.ip || '';
 var user = params.user || '';
 var pass = params.pass || '';
-var folders = params.folders || '';  // ex: Public/CAS_PROJETS/2026/24_26_XXX
-var nasPath = params.nasPath || '';  // chemin UNC pour affichage
+var port = params.port || '5005';
+var folders = params.folders || '';
+var nasPath = params.nasPath || '';
 
 function addStep(text, cls) {
   var d = document.createElement('div');
   d.className = 'step ' + (cls||'wait');
   d.textContent = text;
-  d.id = 'step-' + stepsEl.children.length;
   stepsEl.appendChild(d);
   return d;
 }
@@ -76,11 +76,11 @@ function showPath() {
 function copyPath() {
   var t = pathBox.textContent;
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(t).then(function(){ statusEl.textContent = '✓ Chemin copié !'; });
+    navigator.clipboard.writeText(t).then(function(){ statusEl.textContent = 'Chemin copie !'; });
   } else {
     var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
-    statusEl.textContent = '✓ Chemin copié !';
+    statusEl.textContent = 'Chemin copie !';
   }
 }
 
@@ -92,101 +92,151 @@ function notifyParent(success, msg) {
   } catch(e){}
 }
 
-function start() {
-  if (!ip || !user || !folders) {
-    statusEl.textContent = 'Paramètres manquants';
-    return;
+// ── Methode 1 : WebDAV MKCOL direct (fonctionne si page ouverte en HTTP) ──
+function tryWebDAV(baseUrl, parts) {
+  var s1 = addStep('WebDAV : connexion a ' + baseUrl + '...', 'wait');
+  var created = 0;
+  var idx = 0;
+
+  function mkNext() {
+    if (idx >= parts.length) {
+      updateStep(s1, 'WebDAV : ' + created + ' dossier(s) cree(s)', 'ok');
+      return Promise.resolve(created);
+    }
+    var path = '/' + parts.slice(0, idx + 1).join('/');
+    idx++;
+    var url = baseUrl + path.split('/').map(encodeURIComponent).join('/');
+    var headers = {};
+    if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+
+    return fetch(url, { method: 'MKCOL', headers: headers })
+      .then(function(r) {
+        if (r.status === 201) created++;
+        // 201=cree, 405=existe, 301=redirect — tous OK
+        return mkNext();
+      });
   }
+  return mkNext()
+    .then(function(c) { return { ok: true, created: c }; })
+    .catch(function(e) {
+      updateStep(s1, 'WebDAV : echec — ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
 
-  var parts = folders.split('/').filter(function(p){return p;});
-  var baseUrl = 'https://' + ip;
-
-  // Étape 1 : Login
-  var s1 = addStep('Connexion au NAS ' + ip + '...', 'wait');
-  statusEl.textContent = 'Connexion en cours...';
+// ── Methode 2 : QTS File Station API ──
+function tryQtsApi(baseUrl, parts) {
+  var s1 = addStep('QTS API : connexion a ' + baseUrl + '...', 'wait');
 
   var loginUrl = baseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
                + '&pwd=' + encodeURIComponent(btoa(pass));
 
-  fetch(loginUrl, {mode:'cors', credentials:'include'})
-    .then(function(r){ return r.text(); })
+  return fetch(loginUrl, { mode: 'cors', credentials: 'include' })
+    .then(function(r) { return r.text(); })
     .then(function(xml) {
-      // Extraire le SID
       var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
               xml.match(/<authSid>(.*?)<\/authSid>/);
-      if (!m || !m[1] || m[1].length < 5) {
-        throw new Error('Authentification échouée');
-      }
+      if (!m || !m[1] || m[1].length < 5) throw new Error('Auth echouee');
       var sid = m[1];
-      updateStep(s1, 'Connecté au NAS ✓', 'ok');
+      updateStep(s1, 'QTS API : connecte', 'ok');
 
-      // Étape 2 : Créer les dossiers
       var created = 0;
-      var i = 0;
+      var idx = 0;
 
       function mkNext() {
-        if (i >= parts.length) {
-          statusEl.textContent = created > 0
-            ? '✓ ' + created + ' dossier(s) créé(s) avec succès !'
-            : '✓ Le dossier existe déjà sur le NAS';
-          notifyParent(true, statusEl.textContent);
-          showPath();
-          setTimeout(function(){ try{window.close();}catch(e){} }, 4000);
-          return;
-        }
-        var parentPath = (i === 0) ? '/' : '/' + parts.slice(0, i).join('/');
-        var childName = parts[i];
-        i++;
-        var sN = addStep('Création: ' + childName + '...', 'wait');
-
+        if (idx >= parts.length) return Promise.resolve(created);
+        var parentPath = (idx === 0) ? '/' : '/' + parts.slice(0, idx).join('/');
+        var childName = parts[idx];
+        idx++;
+        var sN = addStep('Creation: ' + childName + '...', 'wait');
         var mkUrl = baseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
-        fetch(mkUrl, {
-          method: 'POST',
-          mode: 'cors',
-          credentials: 'include',
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        return fetch(mkUrl, {
+          method: 'POST', mode: 'cors', credentials: 'include',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'dest_folder=' + encodeURIComponent(parentPath) + '&dest_path=' + encodeURIComponent(childName)
         })
-          .then(function(r){ return r.text(); })
-          .then(function(t){
+          .then(function(r) { return r.text(); })
+          .then(function(t) {
             var ok = false;
             try {
               var j = JSON.parse(t);
-              // status 2 = already exists, 1 = created
               if (j && (j.status === 1 || j.status === 2 || j.success)) ok = true;
               if (j && j.status === 1) created++;
-            } catch(e){
-              // Non-JSON response - might still be OK
+            } catch(e) {
               if (t.indexOf('error') === -1) ok = true;
             }
-            updateStep(sN, childName + (ok ? ' ✓' : ' (existe)'), 'ok');
-            mkNext();
+            updateStep(sN, childName + (ok ? ' OK' : ' (existe)'), 'ok');
+            return mkNext();
           })
-          .catch(function(e){
+          .catch(function(e) {
             updateStep(sN, childName + ' — erreur: ' + e.message, 'fail');
-            mkNext(); // Continue with next folder
+            return mkNext();
           });
       }
-      mkNext();
+      return mkNext().then(function(c) { return { ok: true, created: c }; });
     })
     .catch(function(e) {
-      updateStep(s1, 'Connexion échouée: ' + e.message, 'fail');
-      statusEl.textContent = 'Impossible de se connecter au NAS automatiquement.';
+      updateStep(s1, 'QTS API : echec — ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
 
-      // Diagnostic
-      var diag = '';
-      if (e.message.indexOf('Failed to fetch') !== -1 || e.message.indexOf('NetworkError') !== -1) {
-        diag = 'Le navigateur bloque la connexion vers le NAS local.\n';
-        diag += 'Ouvrez d\'abord https://' + ip + ' dans un nouvel onglet et acceptez le certificat.';
-        var s2 = addStep('Ouvrez https://' + ip + ' dans un onglet et acceptez le certificat', 'fail');
+// ── Demarrage : essayer plusieurs methodes ──
+function start() {
+  if (!ip || !user || !folders) {
+    statusEl.textContent = 'Parametres manquants (ip, user, folders)';
+    return;
+  }
+
+  var parts = folders.split('/').filter(function(p) { return p; });
+  statusEl.textContent = 'Tentative de creation du dossier...';
+
+  // Essai 1 : WebDAV HTTP (port 5005)
+  tryWebDAV('http://' + ip + ':' + port, parts)
+    .then(function(r1) {
+      if (r1.ok) {
+        statusEl.textContent = r1.created > 0
+          ? 'Dossier cree avec succes ! (' + r1.created + ' dossier(s))'
+          : 'Le dossier existe deja sur le NAS';
+        statusEl.style.color = '#4ecdc4';
+        notifyParent(true, statusEl.textContent);
+        showPath();
+        setTimeout(function() { try { window.close(); } catch(e) {} }, 3000);
+        return;
       }
-      statusEl.textContent = diag || ('Erreur: ' + e.message);
-      statusEl.style.color = '#e74c3c';
-
-      // Afficher le chemin pour création manuelle
-      addStep('Créez le dossier manuellement :', 'fail');
-      showPath();
-      notifyParent(false, e.message);
+      // Essai 2 : QTS API HTTPS (port 443)
+      return tryQtsApi('https://' + ip, parts).then(function(r2) {
+        if (r2.ok) {
+          statusEl.textContent = r2.created > 0
+            ? 'Dossier cree avec succes ! (' + r2.created + ' dossier(s))'
+            : 'Le dossier existe deja sur le NAS';
+          statusEl.style.color = '#4ecdc4';
+          notifyParent(true, statusEl.textContent);
+          showPath();
+          setTimeout(function() { try { window.close(); } catch(e) {} }, 3000);
+          return;
+        }
+        // Essai 3 : QTS API HTTP (port 8080)
+        return tryQtsApi('http://' + ip + ':8080', parts).then(function(r3) {
+          if (r3.ok) {
+            statusEl.textContent = r3.created > 0
+              ? 'Dossier cree avec succes ! (' + r3.created + ' dossier(s))'
+              : 'Le dossier existe deja sur le NAS';
+            statusEl.style.color = '#4ecdc4';
+            notifyParent(true, statusEl.textContent);
+            showPath();
+            setTimeout(function() { try { window.close(); } catch(e) {} }, 3000);
+            return;
+          }
+          // Aucune methode n'a fonctionne
+          statusEl.innerHTML = 'Impossible de creer le dossier automatiquement.<br>' +
+            '<span style="font-size:0.78rem;color:var(--text-3)">Verifiez que vous etes sur le reseau local et que le NAS est allume.</span>';
+          statusEl.style.color = '#e74c3c';
+          addStep('Creez le dossier manuellement :', 'fail');
+          showPath();
+          notifyParent(false, 'Toutes les methodes ont echoue');
+        });
+      });
     });
 }
 

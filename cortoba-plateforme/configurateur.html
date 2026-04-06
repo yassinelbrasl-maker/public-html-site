@@ -1111,23 +1111,27 @@ function saveProjet() {
   }
 }
 
-// ── Créer un dossier projet sur le NAS via proxy API ──
+// ── Créer un dossier projet sur le NAS via bridge (réseau local) ──
 function createNasFolderWebDAV(code, nom, annee) {
+  var cfg = _nasConfig || {};
+  var uncPath = cfg.local || '';
+  var match = uncPath.match(/\\\\([^\\]+)/);
+  var ip = match ? match[1] : '192.168.1.165';
+  var user = cfg.user || 'CASNAS';
+  var pass = cfg.pass || 'Cortoba2026';
+
   var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-  return apiFetch('api/nas-mkdir.php', {
-    method: 'POST',
-    body: { folder: folderName, annee: annee }
-  }).then(function(resp) {
-    var d = resp.data || resp || {};
-    if (d.created) {
-      console.log('NAS: dossier créé → ' + d.path);
-    } else {
-      console.warn('NAS: échec création dossier', d);
-    }
-    return d;
-  }).catch(function(e) {
-    console.warn('NAS mkdir error:', e);
-  });
+  var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
+  var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+
+  var hash = 'ip=' + encodeURIComponent(ip)
+    + '&user=' + encodeURIComponent(user)
+    + '&pass=' + encodeURIComponent(pass)
+    + '&folders=' + encodeURIComponent(folders)
+    + '&nasPath=' + encodeURIComponent(nasPath);
+
+  window.open('nas-bridge.html#' + hash, '_blank', 'width=520,height=420');
+  return Promise.resolve();
 }
 
 function showSuccess(nom, code) {
