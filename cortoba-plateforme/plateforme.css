@@ -505,6 +505,11 @@
 
     /* ═══ SUIVI DES MISSIONS ═══ */
 
+    /* Boutons vue */
+    .btn-view { background: var(--bg-1); color: var(--text-2); font-size: 0.78rem; padding: 0.35rem 0.7rem; }
+    .btn-view:hover { background: var(--bg-2); }
+    .btn-view.active { background: var(--accent); color: #fff; }
+
     /* Projet group */
     .suivi-projet-group {
       background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px;

@@ -7490,23 +7490,52 @@ function _renderMembreColumn(nom, taches) {
 
 // ── Toggle vue liste / kanban / membres ──
 var _suiviViews = ['list', 'kanban', 'membres'];
-function suiviToggleView() {
-  var btn = document.getElementById('suivi-toggle-view');
-  var idx = _suiviViews.indexOf(_suiviView);
-  _suiviView = _suiviViews[(idx + 1) % _suiviViews.length];
+function suiviSetView(view) {
+  _suiviView = view;
 
-  document.getElementById('suivi-list-view').style.display    = _suiviView === 'list'    ? '' : 'none';
-  document.getElementById('suivi-kanban-view').style.display   = _suiviView === 'kanban'  ? '' : 'none';
-  document.getElementById('suivi-membres-view').style.display  = _suiviView === 'membres' ? '' : 'none';
+  document.getElementById('suivi-list-view').style.display    = view === 'list'    ? '' : 'none';
+  document.getElementById('suivi-kanban-view').style.display   = view === 'kanban'  ? '' : 'none';
+  document.getElementById('suivi-membres-view').style.display  = view === 'membres' ? '' : 'none';
 
-  var icons = {
-    list:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Vue Kanban',
-    kanban:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Vue Membres',
-    membres: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Vue Liste'
-  };
-  btn.innerHTML = icons[_suiviView] || icons.list;
+  // Mettre à jour l'état actif des boutons
+  _suiviViews.forEach(function(v){
+    var b = document.getElementById('suivi-view-' + v);
+    if (b) {
+      if (v === view) { b.classList.add('active'); }
+      else { b.classList.remove('active'); }
+    }
+  });
+
+  // Masquer le bouton tout développer/réduire si pas en vue liste
+  var expandBtn = document.getElementById('suivi-expand-toggle');
+  if (expandBtn) expandBtn.style.display = view === 'list' ? '' : 'none';
+
   renderSuiviPage();
 }
+window.suiviSetView = suiviSetView;
+
+// ── Tout développer / Tout réduire (vue liste) ──
+var _suiviExpanded = false;
+function suiviToggleExpand() {
+  _suiviExpanded = !_suiviExpanded;
+  var tree = document.getElementById('suivi-tree');
+  if (!tree) return;
+  var groups = tree.querySelectorAll('.suivi-projet-group, .suivi-mission-card, .suivi-tache-card');
+  for (var i = 0; i < groups.length; i++) {
+    if (_suiviExpanded) {
+      groups[i].classList.remove('collapsed');
+    } else {
+      groups[i].classList.add('collapsed');
+    }
+  }
+  var btn = document.getElementById('suivi-expand-toggle');
+  if (btn) {
+    btn.innerHTML = _suiviExpanded
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg> Tout réduire'
+      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg> Tout développer';
+  }
+}
+window.suiviToggleExpand = suiviToggleExpand;
 
 // ── Modal ouverture ──
 function openSuiviModal(niveau, parentId, projetId) {
@@ -12492,15 +12521,60 @@ function _chTrunc(s, n) { if (!s) return '—'; return s.length > (n||60) ? s.su
 // ══════════════════════════════════════
 
 function _chPopulateProjetSelect() {
-  var pSel = document.getElementById('ch-projet-id');
-  if (!pSel) return;
-  var projets = getProjets() || [];
-  var val = pSel.value;
-  var h = '<option value="">— Sélectionner —</option>';
-  projets.forEach(function(p) { h += '<option value="' + p.id + '"' + (p.id === val ? ' selected' : '') + '>' + _cgEscape((p.code ? p.code + ' — ' : '') + (p.nom || '')) + '</option>'; });
-  pSel.innerHTML = h;
-  if (val) pSel.value = val;
+  // With the searchable input, just ensure the search text matches the current value
+  var hidden = document.getElementById('ch-projet-id');
+  var search = document.getElementById('ch-projet-search');
+  if (!hidden || !search) return;
+  if (hidden.value) {
+    var projets = getProjets() || [];
+    for (var i = 0; i < projets.length; i++) {
+      if (projets[i].id === hidden.value) {
+        search.value = (projets[i].code ? projets[i].code + ' — ' : '') + (projets[i].nom || '');
+        break;
+      }
+    }
+  }
 }
+
+function chProjetSearch(query) {
+  var dropdown = document.getElementById('ch-projet-dropdown');
+  var projets = getProjets() || [];
+  var q = (query || '').toLowerCase().trim();
+  var filtered = projets.filter(function(p) {
+    if (!q) return true;
+    var text = ((p.code || '') + ' ' + (p.nom || '') + ' ' + (p.client_nom || '')).toLowerCase();
+    return text.indexOf(q) !== -1;
+  });
+  if (!filtered.length) {
+    dropdown.innerHTML = '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.82rem">Aucun projet trouvé</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+  var h = '';
+  filtered.slice(0, 30).forEach(function(p) {
+    var label = _cgEscape((p.code ? p.code + ' — ' : '') + (p.nom || ''));
+    var sub = p.client_nom ? '<span style="color:var(--text-3);font-size:0.75rem;margin-left:0.5rem">' + _cgEscape(p.client_nom) + '</span>' : '';
+    h += '<div class="ch-projet-option" data-id="' + p.id + '" data-label="' + _cgEscape((p.code ? p.code + ' — ' : '') + (p.nom || '')) + '" style="padding:0.5rem 0.8rem;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--border)" onmousedown="chProjetPick(this)" onmouseenter="this.style.background=\'var(--bg-3)\'" onmouseleave="this.style.background=\'\'">' + label + sub + '</div>';
+  });
+  dropdown.innerHTML = h;
+  dropdown.style.display = 'block';
+}
+
+function chProjetPick(el) {
+  var id = el.getAttribute('data-id');
+  var label = el.getAttribute('data-label');
+  document.getElementById('ch-projet-id').value = id;
+  document.getElementById('ch-projet-search').value = label;
+  document.getElementById('ch-projet-dropdown').style.display = 'none';
+}
+
+// Close dropdown on click outside
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('ch-projet-dropdown');
+  if (dd && !dd.contains(e.target) && e.target.id !== 'ch-projet-search') {
+    dd.style.display = 'none';
+  }
+});
 
 function renderChantierDashboard() {
   _chPopulateProjetSelect();
@@ -12678,8 +12752,9 @@ function saveChantier() {
 }
 
 function _resetChForm() {
-  ['ch-edit-id','ch-nom','ch-code','ch-adresse','ch-date-debut','ch-date-fin','ch-budget','ch-description'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  ['ch-edit-id','ch-projet-id','ch-projet-search','ch-nom','ch-code','ch-adresse','ch-date-debut','ch-date-fin','ch-budget','ch-description'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
   var st = document.getElementById('ch-statut'); if (st) st.value = 'En préparation';
+  var dd = document.getElementById('ch-projet-dropdown'); if (dd) dd.style.display = 'none';
 }
 
 function editChantier(id) {
@@ -12688,6 +12763,18 @@ function editChantier(id) {
   if (!ch) return;
   document.getElementById('ch-edit-id').value = ch.id;
   document.getElementById('ch-projet-id').value = ch.projet_id || '';
+  // Set search input text for the project
+  var projetSearch = document.getElementById('ch-projet-search');
+  if (projetSearch && ch.projet_id) {
+    var projets = getProjets() || [];
+    projetSearch.value = '';
+    for (var i = 0; i < projets.length; i++) {
+      if (projets[i].id === ch.projet_id) {
+        projetSearch.value = (projets[i].code ? projets[i].code + ' — ' : '') + (projets[i].nom || '');
+        break;
+      }
+    }
+  } else if (projetSearch) { projetSearch.value = ''; }
   document.getElementById('ch-nom').value = ch.nom || '';
   document.getElementById('ch-code').value = ch.code || '';
   document.getElementById('ch-adresse').value = ch.adresse || '';
