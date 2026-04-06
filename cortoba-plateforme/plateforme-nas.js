@@ -5958,30 +5958,23 @@ function saveNasProjectConfig() {
   });
 }
 
-// ── Créer un dossier projet sur le NAS via WebDAV (côté navigateur) ──
+// ── Créer un dossier projet sur le NAS via proxy API ──
 function createNasFolderWebDAV(code, nom, annee) {
-  var cfg = getNasConfig();
-  var ip = cfg.local || '';
-  if (!ip) { console.warn('NAS: IP non configurée'); return Promise.resolve(); }
-  var port = cfg.webdavPort || '5005';
-  var user = cfg.user || '';
-  var pass = cfg.pass || '';
-  var rootPath = (getSetting('cortoba_nas_projets_root', '') || '/Public/CAS_PROJETS').replace(/\/+$/, '');
-
   var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-  var baseUrl = 'http://' + ip + ':' + port;
-  var headers = {};
-  if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
-
-  function mkcol(path) {
-    var url = baseUrl + path.split('/').map(encodeURIComponent).join('/');
-    return fetch(url, { method: 'MKCOL', headers: headers })
-      .then(function(r) { return true; })
-      .catch(function(e) { console.warn('NAS MKCOL error:', e); return true; });
-  }
-
-  return mkcol(rootPath + '/' + annee)
-    .then(function() { return mkcol(rootPath + '/' + annee + '/' + folderName); });
+  return apiFetch('api/nas-mkdir.php', {
+    method: 'POST',
+    body: { folder: folderName, annee: annee }
+  }).then(function(resp) {
+    var d = resp.data || resp || {};
+    if (d.created) {
+      console.log('NAS: dossier créé → ' + d.path);
+    } else {
+      console.warn('NAS: échec création dossier', d);
+    }
+    return d;
+  }).catch(function(e) {
+    console.warn('NAS mkdir error:', e);
+  });
 }
 
 // ── Ping NAS local via Image trick (contourne CORS) ──

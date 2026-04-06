@@ -1111,52 +1111,23 @@ function saveProjet() {
   }
 }
 
-// ── Créer un dossier projet sur le NAS via WebDAV (côté navigateur) ──
+// ── Créer un dossier projet sur le NAS via proxy API ──
 function createNasFolderWebDAV(code, nom, annee) {
-  var cfg = _nasConfig || {};
-  // Extraire l'IP du chemin UNC \\192.168.1.165\Public\...
-  var ip = '';
-  var uncPath = cfg.local || '';
-  var match = uncPath.match(/\\\\([^\\]+)/);
-  if (match) ip = match[1];
-  if (!ip) {
-    console.warn('NAS: IP non configurée');
-    return Promise.resolve();
-  }
-  var port = cfg.webdavPort || '5005';
-  var user = cfg.user || '';
-  var pass = cfg.pass || '';
-  var rootPath = (cfg.projetsRoot || '/Public/CAS_PROJETS').replace(/\/+$/, '');
-
-  // Nom du dossier : CODE_NOM (nettoyé)
   var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-  var baseUrl = 'http://' + ip + ':' + port;
-  var headers = {};
-  if (user) {
-    headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
-  }
-
-  // Créer dossier année puis dossier projet (MKCOL WebDAV)
-  function mkcol(path) {
-    var url = baseUrl + path.split('/').map(encodeURIComponent).join('/');
-    return fetch(url, {
-      method: 'MKCOL',
-      headers: headers
-    }).then(function(r) {
-      // 201=créé, 405=existe déjà, les deux sont OK
-      if (r.status === 201 || r.status === 405 || r.status === 301) return true;
-      console.warn('NAS MKCOL ' + path + ' → HTTP ' + r.status);
-      return true; // ne pas bloquer
-    }).catch(function(e) {
-      console.warn('NAS MKCOL error for ' + path + ':', e);
-      return true; // ne pas bloquer la création du projet
-    });
-  }
-
-  return mkcol(rootPath + '/' + annee)
-    .then(function() {
-      return mkcol(rootPath + '/' + annee + '/' + folderName);
-    });
+  return apiFetch('api/nas-mkdir.php', {
+    method: 'POST',
+    body: { folder: folderName, annee: annee }
+  }).then(function(resp) {
+    var d = resp.data || resp || {};
+    if (d.created) {
+      console.log('NAS: dossier créé → ' + d.path);
+    } else {
+      console.warn('NAS: échec création dossier', d);
+    }
+    return d;
+  }).catch(function(e) {
+    console.warn('NAS mkdir error:', e);
+  });
 }
 
 function showSuccess(nom, code) {
