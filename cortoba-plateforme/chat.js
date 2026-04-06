@@ -436,7 +436,7 @@
         style: 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9600;display:flex;align-items:center;justify-content:center'
       });
       var box = h('div', { style: 'background:var(--bg-1);border:1px solid var(--border);border-radius:8px;min-width:300px;max-width:400px;width:90%;max-height:70vh;display:flex;flex-direction:column;overflow:hidden' });
-      box.appendChild(h('div', { style: 'padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-size:0.82rem;font-weight:600;color:var(--text-1)' }, 'Ajouter un membre'));
+      box.appendChild(h('div', { style: 'padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-size:0.82rem;font-weight:600;color:var(--text-1)' }, 'Gérer les membres'));
 
       // Barre de recherche
       var searchInput = h('input', {
@@ -461,26 +461,55 @@
         }
         filtered.forEach(function (u) {
           var alreadyIn = currentParticipants[u.id];
-          var row = h('div', {
-            style: 'display:flex;align-items:center;gap:0.6rem;padding:0.5rem 1rem;cursor:' + (alreadyIn ? 'default' : 'pointer') + ';opacity:' + (alreadyIn ? '0.45' : '1')
-          }, [
-            h('div', {
-              class: 'chat-room-avatar',
-              style: 'width:28px;height:28px;font-size:0.64rem;background:' + (u.color || 'var(--accent)')
-            }, u.profile_picture_url
-              ? h('img', { src: u.profile_picture_url, alt: '', style: 'width:100%;height:100%;object-fit:cover' })
-              : initials(u.name)),
-            h('div', { style: 'flex:1;min-width:0' }, [
-              h('div', { style: 'font-size:0.78rem;color:var(--text-1)' }, u.name),
-              h('div', { style: 'font-size:0.66rem;color:var(--text-3)' }, alreadyIn ? '✓ Déjà membre' : (u.role || ''))
-            ])
+          var avatar = h('div', {
+            class: 'chat-room-avatar',
+            style: 'width:28px;height:28px;font-size:0.64rem;background:' + (u.color || 'var(--accent)')
+          }, u.profile_picture_url
+            ? h('img', { src: u.profile_picture_url, alt: '', style: 'width:100%;height:100%;object-fit:cover' })
+            : initials(u.name));
+          var info = h('div', { style: 'flex:1;min-width:0' }, [
+            h('div', { style: 'font-size:0.78rem;color:var(--text-1)' }, u.name),
+            h('div', { style: 'font-size:0.66rem;color:var(--text-3)' }, alreadyIn ? '✓ Membre' : (u.role || ''))
           ]);
+          var children = [avatar, info];
+
+          // Bouton retirer (si déjà membre)
+          if (alreadyIn) {
+            var removeBtn = h('button', {
+              style: 'background:none;border:1px solid #d45656;color:#d45656;border-radius:4px;padding:0.2rem 0.5rem;font-size:0.66rem;cursor:pointer;white-space:nowrap'
+            }, 'Retirer');
+            removeBtn.onclick = function (ev) {
+              ev.stopPropagation();
+              if (!confirm('Retirer ' + u.name + ' de cette discussion ?')) return;
+              removeBtn.disabled = true;
+              removeBtn.textContent = '…';
+              api('remove_participant', 'POST', { room_id: STATE.currentRoomId, user_id: u.id }).then(function () {
+                delete currentParticipants[u.id];
+                renderMembers(searchInput.value);
+                refreshRooms();
+                loadMessages(true);
+              }).catch(function (e) {
+                alert(e.message || 'Erreur');
+                removeBtn.disabled = false;
+                removeBtn.textContent = 'Retirer';
+              });
+            };
+            children.push(removeBtn);
+          }
+
+          var row = h('div', {
+            style: 'display:flex;align-items:center;gap:0.6rem;padding:0.5rem 1rem;cursor:' + (alreadyIn ? 'default' : 'pointer')
+          }, children);
+
           if (!alreadyIn) {
-            row.onmouseenter = function () { row.style.background = 'rgba(255,255,255,0.04)'; };
-            row.onmouseleave = function () { row.style.background = ''; };
-            row.onclick = function () {
-              row.style.opacity = '0.5';
-              row.style.pointerEvents = 'none';
+            // Bouton ajouter
+            var addBtn = h('button', {
+              style: 'background:none;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:0.2rem 0.5rem;font-size:0.66rem;cursor:pointer;white-space:nowrap'
+            }, 'Ajouter');
+            addBtn.onclick = function (ev) {
+              ev.stopPropagation();
+              addBtn.disabled = true;
+              addBtn.textContent = '…';
               api('add_participant', 'POST', { room_id: STATE.currentRoomId, user_id: u.id }).then(function () {
                 currentParticipants[u.id] = true;
                 renderMembers(searchInput.value);
@@ -488,10 +517,13 @@
                 loadMessages(true);
               }).catch(function (e) {
                 alert(e.message || 'Erreur');
-                row.style.opacity = '1';
-                row.style.pointerEvents = '';
+                addBtn.disabled = false;
+                addBtn.textContent = 'Ajouter';
               });
             };
+            row.appendChild(addBtn);
+            row.onmouseenter = function () { row.style.background = 'rgba(255,255,255,0.04)'; };
+            row.onmouseleave = function () { row.style.background = ''; };
           }
           list.appendChild(row);
         });

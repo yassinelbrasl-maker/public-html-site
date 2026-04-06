@@ -37,6 +37,7 @@ try {
         case 'send':         sendMessage($user); break;
         case 'open_direct':  openDirect($user); break;
         case 'add_participant': addParticipant($user); break;
+        case 'remove_participant': removeParticipant($user); break;
         case 'mark_read':    markRead($user); break;
         case 'unread_count': unreadCount($user); break;
         case 'users':        listUsers($user); break;
@@ -443,6 +444,48 @@ function addParticipant($user) {
     $name = trim(($row['prenom'] ?? '') . ' ' . ($row['nom'] ?? ''));
     $added = chat_add_participant_if_missing($db, $roomId, $target, $name, 'un ajout manuel par ' . ($user['name'] ?? ''));
     jsonOk(['added' => $added]);
+}
+
+// ---------------------------------------------------------------
+// POST ?action=remove_participant  body: {room_id, user_id}
+// ---------------------------------------------------------------
+function removeParticipant($user) {
+    $db   = getDB();
+    $body = getBody();
+    $roomId = $body['room_id'] ?? '';
+    $target = $body['user_id'] ?? '';
+    if (!$roomId || !$target) jsonError('room_id et user_id requis');
+
+    $stmt = $db->prepare("SELECT * FROM CA_chat_rooms WHERE id = ?");
+    $stmt->execute([$roomId]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$room) jsonError('Room introuvable', 404);
+
+    // Pas de retrait sur les DM
+    if ($room['type'] === 'direct') jsonError('Impossible de retirer un membre d\'une discussion directe', 400);
+
+    // Seul un participant existant (ou gérant) peut retirer quelqu'un
+    $stmt = $db->prepare("SELECT 1 FROM CA_chat_participants WHERE room_id=? AND user_id=?");
+    $stmt->execute([$roomId, $user['id'] ?? '']);
+    if (!$stmt->fetch() && !chat_is_privileged($user)) jsonError('Accès refusé', 403);
+
+    // Récupérer le nom du membre retiré
+    $targetName = '';
+    try {
+        $st = $db->prepare("SELECT user_name FROM CA_chat_participants WHERE room_id = ? AND user_id = ?");
+        $st->execute([$roomId, $target]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        $targetName = $row['user_name'] ?? '';
+    } catch (\Throwable $e) {}
+
+    $db->prepare("DELETE FROM CA_chat_participants WHERE room_id = ? AND user_id = ?")
+       ->execute([$roomId, $target]);
+
+    if ($targetName) {
+        chat_post_system_message($db, $roomId, '@' . $targetName . ' a été retiré du groupe par ' . ($user['name'] ?? ''));
+    }
+
+    jsonOk(['removed' => true]);
 }
 
 // ---------------------------------------------------------------
