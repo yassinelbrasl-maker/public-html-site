@@ -118,7 +118,11 @@
       '    <div class="chat-empty">Sélectionnez une discussion à gauche.</div>',
       '  </div>',
       '  <div class="chat-composer" id="chat-composer" style="display:none">',
-      '    <textarea id="chat-input" placeholder="Écrivez un message… (Entrée pour envoyer, Maj+Entrée pour retour à la ligne)" rows="1"></textarea>',
+      '    <input type="file" id="chat-file-input" style="display:none">',
+      '    <button class="chat-btn-icon" id="chat-attach-btn" title="Joindre un fichier">',
+      '      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+      '    </button>',
+      '    <textarea id="chat-input" placeholder="Écrivez un message… (Entrée pour envoyer)" rows="1"></textarea>',
       '    <button id="chat-send-btn">Envoyer</button>',
       '  </div>',
       '</div>'
@@ -152,7 +156,19 @@
     input.addEventListener('input', function () {
       input.style.height = 'auto';
       input.style.height = Math.min(120, input.scrollHeight) + 'px';
+      handleMentionInput(input);
     });
+
+    // Bouton pièce jointe (trombone)
+    document.getElementById('chat-attach-btn').onclick = function () {
+      document.getElementById('chat-file-input').click();
+    };
+    document.getElementById('chat-file-input').onchange = function () {
+      var file = this.files && this.files[0];
+      if (!file) return;
+      handleFileUpload(file);
+      this.value = '';
+    };
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -197,10 +213,12 @@
 
     var favs    = STATE.rooms.filter(function (r) { return r.is_favorite; });
     var directs = STATE.rooms.filter(function (r) { return r.type === 'direct' && !r.is_favorite; });
+    var canaux  = STATE.rooms.filter(function (r) { return r.type === 'canal' && !r.is_archived; });
     var projets = STATE.rooms.filter(function (r) { return r.type === 'projet' && !r.is_archived; });
     var archive = STATE.rooms.filter(function (r) { return r.is_archived; });
 
     if (favs.length)    { list.appendChild(sectionHeader('Favoris / Gérants')); favs.forEach(function (r) { list.appendChild(roomItem(r)); }); }
+    if (canaux.length)  { list.appendChild(sectionHeader('Canaux'));            canaux.forEach(function (r) { list.appendChild(roomItem(r)); }); }
     if (directs.length) { list.appendChild(sectionHeader('Membres'));           directs.forEach(function (r) { list.appendChild(roomItem(r)); }); }
     if (projets.length) { list.appendChild(sectionHeader('Projets'));           projets.forEach(function (r) { list.appendChild(roomItem(r)); }); }
     if (archive.length) { list.appendChild(sectionHeader('Archives'));          archive.forEach(function (r) { list.appendChild(roomItem(r)); }); }
@@ -227,6 +245,10 @@
       }
     } else if (room.type === 'projet') {
       avatar.textContent = '#';
+    } else if (room.type === 'canal') {
+      avatar.style.background = '#5b6eae';
+      avatar.textContent = '📢';
+      avatar.style.fontSize = '0.9rem';
     } else {
       avatar.textContent = initials(name);
     }
@@ -267,6 +289,8 @@
       } else if (room.type === 'projet') {
         var count = (room.participants || []).length;
         subEl.textContent = count + ' participant' + (count > 1 ? 's' : '') + (room.supervision ? ' · accès supervision' : '');
+      } else if (room.type === 'canal') {
+        subEl.textContent = (room.topic || '') + (room.member_count ? ' · ' + room.member_count + ' membres' : '');
       } else {
         subEl.textContent = '';
       }
@@ -329,7 +353,10 @@
       if (!mine) bodyChildren.push(h('div', { class: 'chat-msg-sender' }, m.sender_name || ''));
       if (m.content) {
         var c = h('div', { class: 'chat-msg-content' });
-        c.innerHTML = esc(m.content).replace(/\n/g, '<br>');
+        var escaped = esc(m.content).replace(/\n/g, '<br>');
+        // Highlight @mentions
+        escaped = escaped.replace(/@([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+)*)/g, '<span class="chat-mention-tag">@$1</span>');
+        c.innerHTML = escaped;
         bodyChildren.push(c);
       }
       if (m.attachment_url) {
@@ -375,15 +402,130 @@
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Nouvelle conversation — picker (DM + Projet)
+  //  Upload fichier (trombone)
+  // ═══════════════════════════════════════════════════════════
+  function handleFileUpload(file) {
+    if (!STATE.currentRoomId) return;
+    if (file.size > 15 * 1024 * 1024) { alert('Fichier trop volumineux (max 15 Mo)'); return; }
+
+    var btn = document.getElementById('chat-send-btn');
+    var attachBtn = document.getElementById('chat-attach-btn');
+    btn.disabled = true;
+    attachBtn.disabled = true;
+
+    var formData = new FormData();
+    formData.append('file', file);
+
+    var token = sessionStorage.getItem('cortoba_token');
+    fetch('api/upload_chat_file.php', {
+      method: 'POST',
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+      body: formData
+    })
+    .then(function (resp) { return resp.json(); })
+    .then(function (r) {
+      if (!r.success && r.error) throw new Error(r.error);
+      var data = r.data || r;
+      // Envoyer le message avec pièce jointe
+      return api('send', 'POST', {
+        room_id: STATE.currentRoomId,
+        content: '',
+        attachment_url: data.url,
+        attachment_name: data.name || file.name
+      });
+    })
+    .then(function () {
+      loadMessages(false);
+      refreshRooms();
+    })
+    .catch(function (e) { alert('Erreur upload : ' + (e.message || e)); })
+    .then(function () { btn.disabled = false; attachBtn.disabled = false; });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  @mentions — autocomplete
+  // ═══════════════════════════════════════════════════════════
+  function handleMentionInput(input) {
+    var val = input.value;
+    var pos = input.selectionStart;
+    // Chercher un @ suivi de texte avant la position du curseur
+    var before = val.substring(0, pos);
+    var match = before.match(/@([A-Za-zÀ-ÖØ-öø-ÿ]{1,})$/);
+    if (!match) { closeMentionPopup(); return; }
+    var query = match[1].toLowerCase();
+    if (!STATE.users || !STATE.users.length) {
+      api('users').then(function (r) { STATE.users = r.data || []; showMentionPopup(query, match.index, input); });
+    } else {
+      showMentionPopup(query, match.index, input);
+    }
+  }
+
+  function showMentionPopup(query, atIndex, input) {
+    var filtered = STATE.users.filter(function (u) {
+      return u.name && u.name.toLowerCase().indexOf(query) !== -1;
+    }).slice(0, 6);
+    if (!filtered.length) { closeMentionPopup(); return; }
+
+    var popup = document.getElementById('chat-mention-popup');
+    if (!popup) {
+      popup = h('div', { id: 'chat-mention-popup', class: 'chat-mention-popup' });
+      document.body.appendChild(popup);
+    }
+    popup.innerHTML = '';
+    filtered.forEach(function (u) {
+      var row = h('div', { class: 'chat-mention-item' }, [
+        h('span', { class: 'chat-mention-avatar', style: 'background:' + (u.color || '#c8a96e') }, initials(u.name)),
+        h('span', null, u.name)
+      ]);
+      row.onclick = function () {
+        // Remplacer @query par @Prénom Nom
+        var before = input.value.substring(0, atIndex);
+        var after  = input.value.substring(input.selectionStart);
+        input.value = before + '@' + u.name + ' ' + after;
+        input.focus();
+        var newPos = atIndex + u.name.length + 2;
+        input.setSelectionRange(newPos, newPos);
+        closeMentionPopup();
+      };
+      popup.appendChild(row);
+    });
+
+    // Position : juste au-dessus du textarea
+    var rect = input.getBoundingClientRect();
+    popup.style.left = rect.left + 'px';
+    popup.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    popup.style.display = 'block';
+  }
+
+  function closeMentionPopup() {
+    var popup = document.getElementById('chat-mention-popup');
+    if (popup) popup.style.display = 'none';
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Créer un canal thématique
+  // ═══════════════════════════════════════════════════════════
+  function promptCreateCanal() {
+    var name = prompt('Nom du canal (ex: coordination-chantier, veille-technique) :');
+    if (!name || !name.trim()) return;
+    var topic = prompt('Sujet / description (optionnel) :') || '';
+    api('create_canal', 'POST', { name: name.trim(), topic: topic.trim() }).then(function (r) {
+      refreshRooms().then(function () { selectRoom(r.data.room_id); });
+    }).catch(function (e) { alert(e.message || 'Erreur'); });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Nouvelle conversation — picker (DM + Projet + Canal)
   // ═══════════════════════════════════════════════════════════
   function openNewConversationPicker() {
     // Charger utilisateurs et projets en parallèle (projets optionnel)
     var pUsers   = api('users');
     var pProjets = api('projects_for_chat').catch(function () { return { data: [] }; });
-    Promise.all([pUsers, pProjets]).then(function (results) {
+    var pCanaux  = api('list_canaux').catch(function () { return { data: [] }; });
+    Promise.all([pUsers, pProjets, pCanaux]).then(function (results) {
       STATE.users = results[0].data || [];
       var projets = results[1].data || [];
+      var canaux  = results[2].data || [];
 
       var overlay = document.getElementById('chat-dm-picker');
       if (overlay) overlay.remove();
@@ -394,6 +536,48 @@
       var box = h('div', { style: 'background:var(--bg-1);border:1px solid var(--border);border-radius:8px;min-width:320px;max-width:440px;width:92%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden' });
       box.appendChild(h('div', { style: 'padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-size:0.82rem;font-weight:600;color:var(--text-1)' }, 'Nouvelle conversation'));
       var list = h('div', { style: 'overflow-y:auto;flex:1;padding:0.4rem 0' });
+
+      // ── Section Canaux ──
+      list.appendChild(h('div', { class: 'chat-section' }, 'Canaux thématiques'));
+      // Bouton créer un canal
+      var createRow = h('div', {
+        style: 'display:flex;align-items:center;gap:0.6rem;padding:0.55rem 1rem;cursor:pointer'
+      }, [
+        h('div', { class: 'chat-room-avatar', style: 'background:#5b6eae;font-size:0.9rem' }, '+'),
+        h('div', { style: 'flex:1;min-width:0' }, [
+          h('div', { style: 'font-size:0.8rem;color:var(--accent);font-weight:600' }, 'Créer un canal'),
+          h('div', { style: 'font-size:0.68rem;color:var(--text-3)' }, 'Discussion thématique ouverte')
+        ])
+      ]);
+      createRow.onmouseenter = function () { createRow.style.background = 'rgba(255,255,255,0.04)'; };
+      createRow.onmouseleave = function () { createRow.style.background = ''; };
+      createRow.onclick = function () {
+        overlay.remove();
+        promptCreateCanal();
+      };
+      list.appendChild(createRow);
+
+      // Canaux existants (non-membre uniquement, pour rejoindre)
+      canaux.filter(function (c) { return !c.is_member && !c.is_archived; }).forEach(function (c) {
+        var row = h('div', {
+          style: 'display:flex;align-items:center;gap:0.6rem;padding:0.55rem 1rem;cursor:pointer'
+        }, [
+          h('div', { class: 'chat-room-avatar', style: 'background:#5b6eae;font-size:0.9rem' }, '📢'),
+          h('div', { style: 'flex:1;min-width:0' }, [
+            h('div', { style: 'font-size:0.8rem;color:var(--text-1)' }, c.name || 'Canal'),
+            h('div', { style: 'font-size:0.68rem;color:var(--text-3)' }, (c.topic || '') + ' · ' + (c.member_count || 0) + ' membres')
+          ])
+        ]);
+        row.onmouseenter = function () { row.style.background = 'rgba(255,255,255,0.04)'; };
+        row.onmouseleave = function () { row.style.background = ''; };
+        row.onclick = function () {
+          api('join_canal', 'POST', { room_id: c.id }).then(function () {
+            overlay.remove();
+            refreshRooms().then(function () { selectRoom(c.id); });
+          }).catch(function (e) { alert(e.message || 'Erreur'); });
+        };
+        list.appendChild(row);
+      });
 
       // ── Section Projets ──
       if (projets.length) {

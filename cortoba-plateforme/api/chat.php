@@ -42,6 +42,10 @@ try {
         case 'users':        listUsers($user); break;
         case 'projects_for_chat': listProjectsForChat($user); break;
         case 'create_project_room': createProjectRoomAction($user); break;
+        case 'create_canal': createCanal($user); break;
+        case 'join_canal':   joinCanal($user); break;
+        case 'leave_canal':  leaveCanal($user); break;
+        case 'list_canaux':  listCanaux($user); break;
         case 'pin_message':  pinMessage($user); break;
         case 'pinned':       listPinned($user); break;
         case 'response_times': responseTimes($user); break;
@@ -63,8 +67,8 @@ function canAccessRoom($db, $user, $room) {
     $stmt->execute([$room['id'], $user['id'] ?? '']);
     if ($stmt->fetch()) return true;
 
-    // Gérant / admin : lecture sur toutes les rooms projet (y compris archivées)
-    if (chat_is_privileged($user) && $room['type'] === 'projet') return true;
+    // Gérant / admin : lecture sur toutes les rooms projet/canal
+    if (chat_is_privileged($user) && in_array($room['type'], ['projet','canal'])) return true;
 
     return false;
 }
@@ -181,6 +185,25 @@ function listRooms($user) {
         $rooms = array_merge($rooms, $extras);
     }
 
+    // Ajouter topic pour les canaux
+    foreach ($rooms as &$r) {
+        if ($r['type'] === 'canal') {
+            try {
+                $stT = $db->prepare("SELECT topic FROM CA_chat_rooms WHERE id = ?");
+                $stT->execute([$r['id']]);
+                $topicRow = $stT->fetch(PDO::FETCH_ASSOC);
+                $r['topic'] = $topicRow['topic'] ?? null;
+            } catch (\Throwable $e) { $r['topic'] = null; }
+            // Participants count
+            try {
+                $stC = $db->prepare("SELECT COUNT(*) FROM CA_chat_participants WHERE room_id = ?");
+                $stC->execute([$r['id']]);
+                $r['member_count'] = intval($stC->fetchColumn());
+            } catch (\Throwable $e) { $r['member_count'] = 0; }
+        }
+    }
+    unset($r);
+
     jsonOk($rooms);
 }
 
@@ -259,6 +282,27 @@ function sendMessage($user) {
                   WHERE room_id = ? AND user_id = ?")
        ->execute([$roomId, $user['id'] ?? '']);
 
+    // @mentions : détecter les @Prénom Nom dans le contenu
+    $mentionedUserIds = [];
+    if ($content !== '') {
+        // Chercher tous les @Prénom Nom (au moins 2 mots après @)
+        if (preg_match_all('/@([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+)+)/u', $content, $matches)) {
+            foreach ($matches[1] as $mentionName) {
+                $resolved = chat_resolve_user_by_name($db, $mentionName);
+                if ($resolved) $mentionedUserIds[$resolved['id']] = trim(($resolved['prenom'] ?? '') . ' ' . ($resolved['nom'] ?? ''));
+            }
+        }
+        // Fallback : @Prénom seul (1 mot)
+        if (preg_match_all('/@([A-ZÀ-ÖØ-Ý][a-zà-öø-ÿ]+)(?=\s|$|[,;.!?])/u', $content, $matches2)) {
+            foreach ($matches2[1] as $mentionFirst) {
+                $resolved = chat_resolve_user_by_name($db, $mentionFirst);
+                if ($resolved && !isset($mentionedUserIds[$resolved['id']])) {
+                    $mentionedUserIds[$resolved['id']] = trim(($resolved['prenom'] ?? '') . ' ' . ($resolved['nom'] ?? ''));
+                }
+            }
+        }
+    }
+
     // Notification pour chaque participant (sauf l'expéditeur)
     try {
         $stPart = $db->prepare("SELECT user_id FROM CA_chat_participants WHERE room_id = ? AND user_id <> ?");
@@ -267,9 +311,23 @@ function sendMessage($user) {
         $roomName = $room['name'] ?? 'Discussion';
         $senderName = $user['name'] ?? 'Quelqu\'un';
         $preview = mb_strlen($content) > 80 ? mb_substr($content, 0, 80) . '…' : $content;
-        $title = $senderName . ' — ' . $roomName;
+
         foreach ($recipients as $rid) {
-            notifCreate($db, $rid, 'chat', $title, $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
+            $isMentioned = isset($mentionedUserIds[$rid]);
+            $type  = $isMentioned ? 'chat_mention' : 'chat';
+            $title = $isMentioned
+                ? '🔔 ' . $senderName . ' vous a mentionné — ' . $roomName
+                : $senderName . ' — ' . $roomName;
+            notifCreate($db, $rid, $type, $title, $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
+        }
+
+        // Si un @mentionné n'est pas participant (ex: canal public), notifier quand même
+        foreach ($mentionedUserIds as $muid => $muname) {
+            if ($muid === ($user['id'] ?? '')) continue;
+            if (in_array($muid, $recipients)) continue;
+            notifCreate($db, $muid, 'chat_mention',
+                '🔔 ' . $senderName . ' vous a mentionné — ' . $roomName,
+                $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
         }
     } catch (\Throwable $e) { /* silencieux — ne pas bloquer l'envoi */ }
 
@@ -479,6 +537,103 @@ function createProjectRoomAction($user) {
 
     $roomId = chat_create_project_room($db, $projet, $user['name'] ?? null);
     jsonOk(['room_id' => $roomId]);
+}
+
+// ---------------------------------------------------------------
+// POST ?action=create_canal  body: {name, topic?}
+//   Crée un canal thématique (type Slack)
+// ---------------------------------------------------------------
+function createCanal($user) {
+    $db   = getDB();
+    $body = getBody();
+    $name  = trim($body['name'] ?? '');
+    $topic = trim($body['topic'] ?? '');
+    if ($name === '') jsonError('Nom du canal requis');
+
+    $roomId = chat_genid();
+    $db->prepare("INSERT INTO CA_chat_rooms (id, type, name, topic, created_by) VALUES (?, 'canal', ?, ?, ?)")
+       ->execute([$roomId, $name, $topic ?: null, $user['name'] ?? '']);
+
+    // Le créateur est automatiquement participant
+    $db->prepare("INSERT INTO CA_chat_participants (room_id, user_id, user_name) VALUES (?,?,?)")
+       ->execute([$roomId, $user['id'] ?? '', $user['name'] ?? '']);
+
+    chat_post_system_message($db, $roomId, '📢 Canal « ' . $name . ' » créé par ' . ($user['name'] ?? '') . ($topic ? ' — ' . $topic : ''));
+
+    jsonOk(['room_id' => $roomId]);
+}
+
+// ---------------------------------------------------------------
+// POST ?action=join_canal  body: {room_id}
+// ---------------------------------------------------------------
+function joinCanal($user) {
+    $db   = getDB();
+    $body = getBody();
+    $roomId = $body['room_id'] ?? '';
+    if (!$roomId) jsonError('room_id requis');
+
+    $stmt = $db->prepare("SELECT * FROM CA_chat_rooms WHERE id = ? AND type = 'canal'");
+    $stmt->execute([$roomId]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$room) jsonError('Canal introuvable', 404);
+    if (!empty($room['is_archived'])) jsonError('Canal archivé', 403);
+
+    $name = $user['name'] ?? '';
+    $added = chat_add_participant_if_missing($db, $roomId, $user['id'] ?? '', $name, null);
+    if ($added) {
+        chat_post_system_message($db, $roomId, '@' . $name . ' a rejoint le canal.');
+    }
+    jsonOk(['joined' => $added]);
+}
+
+// ---------------------------------------------------------------
+// POST ?action=leave_canal  body: {room_id}
+// ---------------------------------------------------------------
+function leaveCanal($user) {
+    $db   = getDB();
+    $body = getBody();
+    $roomId = $body['room_id'] ?? '';
+    if (!$roomId) jsonError('room_id requis');
+
+    $db->prepare("DELETE FROM CA_chat_participants WHERE room_id = ? AND user_id = ?")
+       ->execute([$roomId, $user['id'] ?? '']);
+
+    $name = $user['name'] ?? '';
+    chat_post_system_message($db, $roomId, '@' . $name . ' a quitté le canal.');
+
+    jsonOk(['left' => true]);
+}
+
+// ---------------------------------------------------------------
+// GET ?action=list_canaux — tous les canaux (pour le picker)
+// ---------------------------------------------------------------
+function listCanaux($user) {
+    $db = getDB();
+    try {
+        $stmt = $db->query("SELECT r.id, r.name, r.topic, r.is_archived,
+                                   (SELECT COUNT(*) FROM CA_chat_participants WHERE room_id = r.id) AS member_count
+                            FROM CA_chat_rooms r
+                            WHERE r.type = 'canal'
+                            ORDER BY r.name ASC");
+    } catch (\Throwable $e) {
+        $stmt = $db->query("SELECT r.id, r.name, r.is_archived,
+                                   (SELECT COUNT(*) FROM CA_chat_participants WHERE room_id = r.id) AS member_count
+                            FROM CA_chat_rooms r
+                            WHERE r.type = 'canal'
+                            ORDER BY r.name ASC");
+    }
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Marquer si l'utilisateur est déjà membre
+    $uid = $user['id'] ?? '';
+    foreach ($rows as &$r) {
+        $st = $db->prepare("SELECT 1 FROM CA_chat_participants WHERE room_id = ? AND user_id = ?");
+        $st->execute([$r['id'], $uid]);
+        $r['is_member'] = (bool)$st->fetch();
+    }
+    unset($r);
+
+    jsonOk($rows);
 }
 
 // ---------------------------------------------------------------
