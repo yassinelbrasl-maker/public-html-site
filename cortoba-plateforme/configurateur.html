@@ -446,6 +446,10 @@
     <div id="cfg-footer-inner">
       <button id="btn-prev" onclick="goPrev()" class="btn" style="visibility:hidden">← Précédent</button>
       <div id="cfg-hint" style="font-size:0.7rem;color:var(--text-3);text-align:center;flex:1;min-width:0"></div>
+      <label id="cfg-nas-create-wrap" style="display:none;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2)">
+        <input type="checkbox" id="cfg-nas-create" checked style="accent-color:var(--accent)" />
+        Dossier NAS
+      </label>
       <div style="display:flex;gap:0.5rem">
         <button id="btn-next" onclick="goNext()" class="btn btn-primary">Suivant →</button>
         <button id="btn-save" onclick="saveProjet()" class="btn btn-primary" style="display:none">Créer le projet →</button>
@@ -713,9 +717,11 @@ function updateFooter() {
   var prev = document.getElementById('btn-prev');
   var next = document.getElementById('btn-next');
   var save = document.getElementById('btn-save');
+  var nasWrap = document.getElementById('cfg-nas-create-wrap');
   if (prev) prev.style.visibility = _step > 1 ? 'visible' : 'hidden';
   if (next) next.style.display = _step < TOTAL ? 'inline-flex' : 'none';
   if (save) save.style.display = _step === TOTAL ? 'inline-flex' : 'none';
+  if (nasWrap) nasWrap.style.display = _step === TOTAL ? 'flex' : 'none';
 }
 
 // ── Utilitaires ──
@@ -1031,7 +1037,8 @@ function saveProjet() {
       lat: parseFloat(v('cfg-lat')) || null,
       lng: parseFloat(v('cfg-lng')) || null,
       missions: getSelectedMissions(),
-      intervenants: getIntervenants()
+      intervenants: getIntervenants(),
+      create_nas_folder: (document.getElementById('cfg-nas-create') || {}).checked || false
     };
     apiFetch('api/projets.php', { method: 'POST', body: body })
       .then(function(resp) {
