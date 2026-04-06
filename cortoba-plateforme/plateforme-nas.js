@@ -10959,15 +10959,23 @@ function switchCongeTab(tab, btn){
   }
   document.getElementById('cg-panel-mine').style.display  = tab === 'mine'  ? '' : 'none';
   document.getElementById('cg-panel-admin').style.display = tab === 'admin' ? '' : 'none';
+  var tcPanel = document.getElementById('cg-panel-teamcal');
+  if (tcPanel) tcPanel.style.display = tab === 'teamcal' ? '' : 'none';
   if (tab === 'admin') renderCongesAdmin();
+  if (tab === 'teamcal') renderTeamCalendar();
 }
 
 function renderCongesPage(){
   _congesState.isManager = _cgIsManager();
   var tabAdmin = document.getElementById('cg-tab-admin');
   if (tabAdmin) tabAdmin.style.display = _congesState.isManager ? '' : 'none';
+  if (_congesState.isManager) {
+    _ensureTeamCalTab();
+    refreshCongesPendingBadge();
+  }
+  // Charger les fériés globalement
+  _cgLoadHolidays().catch(function(){});
   renderCongesMine();
-  if (_congesState.isManager) refreshCongesPendingBadge();
 }
 
 // ── Vue collaborateur ──
@@ -11008,6 +11016,9 @@ function renderCongesMine(){
         + '<td style="text-align:right">';
       if (r.statut === 'En attente'){
         html += '<button class="btn btn-sm" onclick="cancelConge(\'' + r.id + '\')" style="font-size:0.7rem">Annuler</button>';
+      }
+      if (r.justificatif_url){
+        html += ' <a href="' + _cgEscape(r.justificatif_url) + '" target="_blank" title="Voir le justificatif" style="color:var(--accent);text-decoration:none">📎</a>';
       }
       if (r.commentaire_admin){
         html += ' <span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3)">💬</span>';
@@ -11090,7 +11101,9 @@ function renderHeatmap(containerId, days, from, to, teamAbsences){
       var dayDate = new Date(y, m, d);
       var dow = dayDate.getDay();
       var isWeekend = (dow === 0 || dow === 6);
-      if (isWeekend){ bg = 'rgba(255,255,255,0.04)'; }
+      var hol = (_congesState.holidays || {})[key];
+      if (hol) { bg = parseInt(hol.pont||0,10) ? 'rgba(155,107,214,0.25)' : 'rgba(255,255,255,0.12)'; }
+      else if (isWeekend){ bg = 'rgba(255,255,255,0.04)'; }
       var items = info && info.items ? info.items : [];
       var tipLines = items.map(function(it){
         return '• ' + it.titre + (it.projet ? ' — ' + it.projet : '') + ' (échéance ' + _cgFmtDate(it.date_echeance) + ')';
@@ -11106,11 +11119,12 @@ function renderHeatmap(containerId, days, from, to, teamAbsences){
         tipLines.push('⚠ Sous-effectif : ' + absents.length + ' absent(s) — ' + names);
         absentBadge = '<div style="position:absolute;top:-4px;right:-4px;background:#9b6bd6;color:#fff;font-size:0.55rem;min-width:14px;height:14px;padding:0 3px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;border:1px solid var(--bg-1)">' + absents.length + '</div>';
       }
+      if (hol) { tipLines.unshift('🏷 ' + hol.libelle + (parseInt(hol.pont||0,10) ? ' (pont)' : ' (férié)')); }
       var tip = tipLines.length
         ? tipLines.join('\n')
         : (isWeekend ? 'Week-end' : 'Aucune deadline majeure — disponibilité normale');
       monthsHtml += '<div class="cg-hm-cell" data-key="' + key + '" title="' + _cgEscape(tip) + '" '
-        + 'style="position:relative;background:' + bg + ';color:#fff;font-size:0.65rem;text-align:center;padding:6px 2px;border-radius:3px;cursor:help;font-weight:500;opacity:' + (isWeekend?'0.4':'1') + extraBorder + '">'
+        + 'style="position:relative;background:' + bg + ';color:#fff;font-size:0.65rem;text-align:center;padding:6px 2px;border-radius:3px;cursor:help;font-weight:500;opacity:' + ((isWeekend||hol)?'0.5':'1') + extraBorder + '">'
         + d + absentBadge + '</div>';
     }
     monthsHtml += '</div></div>';
@@ -11128,6 +11142,9 @@ function openCongeForm(){
   document.getElementById('cg-motif').value = '';
   document.getElementById('cg-delegation').value = '';
   document.getElementById('cg-warning').style.display = 'none';
+  _ensureCongeJustifField();
+  var justifInput = document.getElementById('cg-justif-file');
+  if (justifInput) justifInput.value = '';
   openModal('modal-conge');
 
   // Charger la heatmap dans le modal et la rendre cliquable
@@ -11193,10 +11210,12 @@ function onCongeDatesChange(){
   var s = new Date(d1); var e = new Date(d2);
   if (e < s) { document.getElementById('cg-jours').value = '0'; return; }
   var count = 0;
+  var hols = _congesState.holidays || {};
   var cur = new Date(s);
   while (cur <= e){
     var dow = cur.getDay();
-    if (dow !== 0 && dow !== 6) count++;
+    var kk = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
+    if (dow !== 0 && dow !== 6 && !hols[kk]) count++;
     cur.setDate(cur.getDate()+1);
   }
   document.getElementById('cg-jours').value = count;
@@ -11247,6 +11266,13 @@ function submitCongeRequest(){
   apiFetch('api/conges.php?action=create', { method:'POST', body: body })
     .then(function(r){
       var d = r.data || r;
+      // Upload justificatif si fichier sélectionné
+      var uploadP = _uploadCongeJustif(d.id).catch(function(ue){
+        console.warn('[conges] upload justif error', ue);
+      });
+      return uploadP.then(function(){ return d; });
+    })
+    .then(function(d){
       var msg = 'Demande soumise (' + d.jours + ' jour(s) ouvrés). En attente de validation.';
       if (d.conflicts && d.conflicts.length){
         msg += '\n\n⚠ Conflits potentiels détectés :\n' + d.conflicts.map(function(c){
@@ -11270,6 +11296,7 @@ function cancelConge(id){
 
 // ── Vue admin ──
 function renderCongesAdmin(){
+  renderCongesHolidays();
   // Demandes en attente + historique
   apiFetch('api/conges.php?action=list').then(function(r){
     var list = r.data || r || [];
@@ -11332,6 +11359,9 @@ function renderCongesAdminTable(containerId, list, withActions){
     } else {
       if (r.statut === 'Approuvé' || r.statut === 'Refusé') {
         html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem" title="Modifier la décision">✎ Modifier</button> ';
+      }
+      if (r.justificatif_url){
+        html += ' <a href="' + _cgEscape(r.justificatif_url) + '" target="_blank" title="Justificatif" style="color:var(--accent);text-decoration:none;margin-left:4px">📎</a>';
       }
       if (r.commentaire_admin){
         html += '<span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3);margin-left:4px">💬</span>';
@@ -11399,7 +11429,8 @@ function openCongeDecide(id){
       '<strong>' + _cgEscape(req.type) + '</strong> · ' + _cgFmtDate(req.date_debut) + ' → ' + _cgFmtDate(req.date_fin)
       + ' (' + parseFloat(req.jours||0).toFixed(1).replace(/\.0$/,'') + ' j)'
       + (req.motif ? '<br><em>Motif :</em> ' + _cgEscape(req.motif) : '')
-      + '<br><em>Délégation :</em> ' + _cgEscape(req.delegation);
+      + '<br><em>Délégation :</em> ' + _cgEscape(req.delegation)
+      + (req.justificatif_url ? '<br><a href="' + _cgEscape(req.justificatif_url) + '" target="_blank" style="color:var(--accent)">📎 Voir le justificatif</a>' : '');
     document.getElementById('cg-decide-comment').value = req.commentaire_admin || '';
     // Case "partage" : pré-cocher selon l'état courant (défaut : coché)
     var partageCb = _ensureDecideExtras();
@@ -11533,8 +11564,322 @@ function refreshCongesPendingBadge(){
 // Lancer le badge au chargement
 setTimeout(function(){ try { refreshCongesPendingBadge(); } catch(e){} }, 2500);
 
+// ═══════════════════════════════════════════════════════════
+//  CONGÉS — Jours fériés (CRUD admin + overlay heatmap)
+// ═══════════════════════════════════════════════════════════
 
-// ════════════════════════════════════════════════════════════════
+// Cache global des jours fériés { 'YYYY-MM-DD': { id, libelle, pont } }
+_congesState.holidays = {};
+_congesState.holidaysList = [];
+_congesState.teamCalYear = new Date().getFullYear();
+_congesState.teamCalMonth = new Date().getMonth();
+
+function _cgLoadHolidays(annee){
+  annee = annee || new Date().getFullYear();
+  return apiFetch('api/conges.php?action=holidays_list&annee=' + annee).then(function(r){
+    var list = r.data || r || [];
+    _congesState.holidaysList = list;
+    _congesState.holidays = {};
+    list.forEach(function(h){ _congesState.holidays[h.date] = h; });
+    return list;
+  });
+}
+
+// Injecte le panneau "Jours fériés" dans l'admin
+function _ensureHolidaysPanel(){
+  if (document.getElementById('cg-admin-holidays')) return;
+  var hist = document.querySelector('#cg-panel-admin .card:last-child');
+  if (!hist) return;
+  var card = document.createElement('div');
+  card.className = 'card';
+  card.id = 'cg-admin-holidays';
+  card.style.marginTop = '1rem';
+  card.innerHTML = '<div class="card-title" style="display:flex;justify-content:space-between;align-items:center">'
+    + '<span>Jours fériés & ponts</span>'
+    + '<button class="btn btn-sm" onclick="openHolidayForm()" style="font-size:0.7rem">+ Ajouter</button>'
+    + '</div>'
+    + '<div id="cg-holidays-list" style="font-size:0.82rem"><div style="color:var(--text-3);padding:0.8rem;text-align:center">Chargement…</div></div>';
+  hist.parentNode.insertBefore(card, hist.nextSibling);
+}
+
+function renderCongesHolidays(){
+  _ensureHolidaysPanel();
+  _cgLoadHolidays().then(function(list){
+    var el = document.getElementById('cg-holidays-list');
+    if (!el) return;
+    if (!list.length){
+      el.innerHTML = '<div style="color:var(--text-3);padding:0.8rem;text-align:center">Aucun jour férié défini pour ' + new Date().getFullYear() + '.</div>';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">'
+      + '<th style="padding:0.4rem">Date</th><th>Libellé</th><th>Pont</th><th></th></tr></thead><tbody>';
+    list.forEach(function(h){
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
+        + '<td style="padding:0.45rem 0.4rem">' + _cgFmtDate(h.date) + '</td>'
+        + '<td>' + _cgEscape(h.libelle) + '</td>'
+        + '<td>' + (parseInt(h.pont,10) ? '<span style="color:#9b6bd6">Pont</span>' : '—') + '</td>'
+        + '<td style="text-align:right">'
+        + '<button class="btn btn-sm" onclick="openHolidayForm(' + h.id + ')" style="font-size:0.68rem" title="Modifier">✎</button> '
+        + '<button class="btn btn-sm" onclick="deleteHoliday(' + h.id + ')" style="font-size:0.68rem;color:var(--red)" title="Supprimer">✕</button>'
+        + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }).catch(function(e){
+    var el = document.getElementById('cg-holidays-list');
+    if (el) el.innerHTML = '<div style="color:var(--red);padding:0.8rem">' + _cgEscape(e.message) + '</div>';
+  });
+}
+
+function openHolidayForm(id){
+  var existing = id ? (_congesState.holidaysList||[]).find(function(h){ return String(h.id) === String(id); }) : null;
+  var html = '<div style="padding:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;margin-bottom:0.8rem">'
+    + '<div style="font-size:0.82rem;font-weight:600;margin-bottom:0.6rem">' + (existing ? 'Modifier le jour férié' : 'Nouveau jour férié') + '</div>'
+    + '<div class="form-grid" style="gap:0.6rem">'
+    + '<div class="form-field"><label class="form-label">Date</label><input id="hol-date" class="form-input" type="date" value="' + (existing ? existing.date : '') + '" /></div>'
+    + '<div class="form-field"><label class="form-label">Libellé</label><input id="hol-libelle" class="form-input" value="' + _cgEscape(existing ? existing.libelle : '') + '" /></div>'
+    + '</div>'
+    + '<div style="margin-top:0.5rem"><label style="font-size:0.78rem;cursor:pointer"><input type="checkbox" id="hol-pont"' + (existing && parseInt(existing.pont,10) ? ' checked' : '') + '> Jour de pont (facultatif)</label></div>'
+    + '<div style="display:flex;gap:0.5rem;margin-top:0.8rem;justify-content:flex-end">'
+    + '<button class="btn btn-sm" onclick="renderCongesHolidays()">Annuler</button>'
+    + '<button class="btn btn-sm btn-primary" onclick="saveHoliday(' + (id||'null') + ')">Enregistrer</button>'
+    + '</div></div>';
+  var el = document.getElementById('cg-holidays-list');
+  if (el) el.innerHTML = html;
+}
+
+function saveHoliday(id){
+  var body = {
+    date: document.getElementById('hol-date').value,
+    libelle: document.getElementById('hol-libelle').value.trim(),
+    pont: document.getElementById('hol-pont').checked ? 1 : 0
+  };
+  if (id) body.id = id;
+  if (!body.date || !body.libelle) return alert('Date et libellé requis');
+  apiFetch('api/conges.php?action=holidays_save', { method:'POST', body: body }).then(function(){
+    showToast('Jour férié enregistré');
+    renderCongesHolidays();
+  }).catch(function(e){ alert('Erreur : ' + e.message); });
+}
+
+function deleteHoliday(id){
+  if (!confirm('Supprimer ce jour férié ?')) return;
+  apiFetch('api/conges.php?action=holidays_delete&id=' + id, { method:'POST', body:{} }).then(function(){
+    showToast('Jour férié supprimé');
+    renderCongesHolidays();
+  }).catch(function(e){ alert('Erreur : ' + e.message); });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONGÉS — Justificatif (upload dans formulaire demande)
+// ═══════════════════════════════════════════════════════════
+
+function _ensureCongeJustifField(){
+  if (document.getElementById('cg-justif-wrap')) return;
+  var deleg = document.getElementById('cg-delegation');
+  if (!deleg) return;
+  var wrap = document.createElement('div');
+  wrap.id = 'cg-justif-wrap';
+  wrap.className = 'form-field full';
+  wrap.innerHTML = '<label class="form-label">Justificatif <span style="color:var(--text-3);font-weight:400">(optionnel — recommandé pour Maladie)</span></label>'
+    + '<input type="file" id="cg-justif-file" class="form-input" accept=".jpg,.jpeg,.png,.webp,.pdf" style="padding:0.4rem">'
+    + '<div style="font-size:0.66rem;color:var(--text-3);margin-top:0.25rem">Formats : JPG, PNG, WebP, PDF · Max 15 Mo</div>';
+  var delegBlock = deleg.closest('.form-field') || deleg.parentNode;
+  delegBlock.parentNode.insertBefore(wrap, delegBlock.nextSibling);
+}
+
+function _uploadCongeJustif(requestId){
+  var fileInput = document.getElementById('cg-justif-file');
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) return Promise.resolve(null);
+  var fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  fd.append('request_id', requestId);
+  var token = sessionStorage.getItem('cortoba_token');
+  return fetch('api/conges.php?action=upload_justif', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: fd
+  }).then(function(resp){ return resp.json(); });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONGÉS — Calendrier d'équipe (vue admin dédiée)
+// ═══════════════════════════════════════════════════════════
+
+function _ensureTeamCalTab(){
+  if (document.getElementById('cg-tab-teamcal')) return;
+  var adminTab = document.getElementById('cg-tab-admin');
+  if (!adminTab) return;
+  // Onglet
+  var btn = document.createElement('button');
+  btn.className = 'cg-tab';
+  btn.id = 'cg-tab-teamcal';
+  btn.setAttribute('data-cg-tab', 'teamcal');
+  btn.onclick = function(){ switchCongeTab('teamcal', btn); };
+  btn.style.cssText = 'padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent';
+  btn.textContent = 'Calendrier équipe';
+  adminTab.parentNode.insertBefore(btn, adminTab.nextSibling);
+  // Panel
+  var panel = document.createElement('div');
+  panel.className = 'cg-panel';
+  panel.id = 'cg-panel-teamcal';
+  panel.style.display = 'none';
+  var adminPanel = document.getElementById('cg-panel-admin');
+  if (adminPanel) adminPanel.parentNode.insertBefore(panel, adminPanel.nextSibling);
+}
+
+function renderTeamCalendar(year, month){
+  if (year == null) year = _congesState.teamCalYear;
+  if (month == null) month = _congesState.teamCalMonth;
+  // Clamp
+  if (month < 0) { month = 11; year--; }
+  if (month > 11) { month = 0; year++; }
+  _congesState.teamCalYear = year;
+  _congesState.teamCalMonth = month;
+
+  var panel = document.getElementById('cg-panel-teamcal');
+  if (!panel) return;
+  panel.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">Chargement du calendrier…</div>';
+
+  var first = new Date(year, month, 1);
+  var last  = new Date(year, month+1, 0);
+  var from = first.toISOString().slice(0,10);
+  var to   = last.toISOString().slice(0,10);
+
+  apiFetch('api/conges.php?action=team_calendar&from=' + from + '&to=' + to).then(function(r){
+    var data = r.data || r;
+    var leaves   = data.leaves   || [];
+    var holidays = data.holidays || [];
+    var members  = data.members  || [];
+
+    // Build holiday map
+    var holMap = {};
+    holidays.forEach(function(h){ holMap[h.date] = h; });
+
+    // Build member absence map: { memberId: { 'YYYY-MM-DD': status } }
+    var absMap = {};
+    leaves.forEach(function(lv){
+      var s = new Date(lv.date_debut);
+      var e = new Date(lv.date_fin);
+      var c = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      while (c <= e) {
+        var k = c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0');
+        if (!absMap[lv.user_id]) absMap[lv.user_id] = {};
+        // Approuvé > En attente (en cas de double entrée)
+        if (!absMap[lv.user_id][k] || lv.statut === 'Approuvé') {
+          absMap[lv.user_id][k] = { statut: lv.statut, type: lv.type, name: lv.user_name };
+        }
+        c.setDate(c.getDate() + 1);
+      }
+    });
+
+    var daysInMonth = last.getDate();
+    var monthLabel = first.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+    var todayStr = new Date().toISOString().slice(0,10);
+
+    var html = '<div class="card">';
+    // Nav header
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">';
+    html += '<button class="btn btn-sm" onclick="renderTeamCalendar(' + year + ',' + (month-1) + ')" style="font-size:0.75rem">◀ Préc.</button>';
+    html += '<div style="font-size:0.92rem;font-weight:600;text-transform:capitalize">' + monthLabel + '</div>';
+    html += '<button class="btn btn-sm" onclick="renderTeamCalendar(' + year + ',' + (month+1) + ')" style="font-size:0.75rem">Suiv. ▶</button>';
+    html += '</div>';
+
+    // Légende
+    html += '<div style="display:flex;gap:1rem;font-size:0.68rem;color:var(--text-3);margin-bottom:0.8rem;flex-wrap:wrap">';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:#3fa66a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Approuvé</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:#d4a64a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>En attente</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(255,255,255,0.08);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Férié</span>';
+    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(155,107,214,0.25);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Pont</span>';
+    html += '</div>';
+
+    // Table
+    html += '<div style="overflow-x:auto">';
+    html += '<table style="border-collapse:collapse;width:100%;min-width:' + (180 + daysInMonth * 32) + 'px;font-size:0.72rem">';
+    // Header: days
+    html += '<thead><tr style="border-bottom:1px solid var(--border)">';
+    html += '<th style="padding:0.4rem 0.5rem;text-align:left;position:sticky;left:0;background:var(--bg-1);z-index:2;min-width:140px">Collaborateur</th>';
+    for (var d = 1; d <= daysInMonth; d++){
+      var dayDate = new Date(year, month, d);
+      var dow = dayDate.getDay();
+      var isWE = (dow === 0 || dow === 6);
+      var dk = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      var isHol = !!holMap[dk];
+      var isToday = dk === todayStr;
+      var dayLbl = ['D','L','M','M','J','V','S'][dow];
+      var thBg = isHol ? 'rgba(255,255,255,0.08)' : isWE ? 'rgba(255,255,255,0.03)' : 'transparent';
+      var thBorder = isToday ? '2px solid var(--accent)' : 'none';
+      var holTip = isHol ? ' title="' + _cgEscape(holMap[dk].libelle) + '"' : '';
+      html += '<th style="padding:0.25rem 0;text-align:center;min-width:28px;background:' + thBg + ';border-bottom:' + thBorder + '"' + holTip + '>'
+        + '<div style="font-size:0.6rem;color:var(--text-3)">' + dayLbl + '</div>'
+        + '<div style="' + (isToday ? 'color:var(--accent);font-weight:700' : isWE ? 'color:var(--text-3);opacity:0.5' : '') + '">' + d + '</div></th>';
+    }
+    html += '</tr></thead><tbody>';
+
+    // Rows: each member
+    members.forEach(function(m){
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">';
+      html += '<td style="padding:0.4rem 0.5rem;white-space:nowrap;position:sticky;left:0;background:var(--bg-1);z-index:1;font-weight:500">' + _cgEscape(m.name) + '</td>';
+      for (var d2 = 1; d2 <= daysInMonth; d2++){
+        var dk2 = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d2).padStart(2,'0');
+        var dayDate2 = new Date(year, month, d2);
+        var dow2 = dayDate2.getDay();
+        var isWE2 = (dow2 === 0 || dow2 === 6);
+        var isHol2 = !!holMap[dk2];
+        var isPont = isHol2 && parseInt(holMap[dk2].pont||0,10);
+        var cell = absMap[m.id] && absMap[m.id][dk2];
+        var bg = 'transparent';
+        var tip = '';
+        if (cell) {
+          if (cell.statut === 'Approuvé') { bg = 'rgba(63,166,106,0.35)'; tip = cell.type + ' (Approuvé)'; }
+          else { bg = 'rgba(212,166,74,0.35)'; tip = cell.type + ' (En attente)'; }
+        }
+        if (isHol2) {
+          bg = isPont ? 'rgba(155,107,214,0.2)' : 'rgba(255,255,255,0.07)';
+          tip = holMap[dk2].libelle + (cell ? ' + ' + tip : '');
+        }
+        if (isWE2 && !cell) bg = 'rgba(255,255,255,0.02)';
+        html += '<td style="padding:0;text-align:center;background:' + bg + '"' + (tip ? ' title="' + _cgEscape(tip) + '"' : '') + '>'
+          + (cell ? '<div style="width:100%;height:24px;border-radius:2px;background:' + (cell.statut==='Approuvé'?'#3fa66a55':'#d4a64a55') + '"></div>' : '')
+          + '</td>';
+      }
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+
+    // Résumé sous-effectif
+    var underStaff = [];
+    for (var d3 = 1; d3 <= daysInMonth; d3++){
+      var dk3 = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d3).padStart(2,'0');
+      var dow3 = new Date(year, month, d3).getDay();
+      if (dow3 === 0 || dow3 === 6) continue;
+      var count = 0;
+      var names = [];
+      members.forEach(function(m2){
+        var c2 = absMap[m2.id] && absMap[m2.id][dk3];
+        if (c2 && c2.statut === 'Approuvé') { count++; names.push(m2.name); }
+      });
+      if (count >= 2) underStaff.push({ date: dk3, count: count, names: names });
+    }
+    if (underStaff.length) {
+      html += '<div style="margin-top:1rem;padding:0.8rem;background:rgba(155,107,214,0.08);border:1px solid rgba(155,107,214,0.25);border-radius:4px;font-size:0.78rem">'
+        + '<strong style="color:#9b6bd6">⚠ Jours sous-effectif (≥2 absents)</strong>';
+      underStaff.forEach(function(u){
+        html += '<div style="margin-top:0.3rem;color:var(--text-2)">' + _cgFmtDate(u.date) + ' — ' + u.count + ' absent(s) : ' + _cgEscape(u.names.join(', ')) + '</div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>'; // card close
+    panel.innerHTML = html;
+  }).catch(function(e){
+    panel.innerHTML = '<div style="color:var(--red);padding:1rem">' + _cgEscape(e.message) + '</div>';
+  });
+}
+
+
+// ═══════════════════════════════════════════��════════════════════
 //  LIVRABLES — Catalogue (paramètres) + checklist par tâche (suivi)
 // ════════════════════════════════════════════════════════════════
 

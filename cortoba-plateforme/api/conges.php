@@ -10,6 +10,11 @@
 //  POST   ?action=decide&id=…          → approuver / refuser (admin)
 //  POST   ?action=cancel&id=…          → annuler (demandeur, si en attente)
 //  POST   ?action=balance_set          → admin : ajuster solde d'un user
+//  GET    ?action=holidays_list        → jours fériés de l'année
+//  POST   ?action=holidays_save        → ajouter/modifier un jour férié (admin)
+//  POST   ?action=holidays_delete&id=… → supprimer un jour férié (admin)
+//  GET    ?action=team_calendar&from=…&to=… → calendrier équipe (admin)
+//  POST   ?action=upload_justif        → upload justificatif (multipart)
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
@@ -49,6 +54,39 @@ try {
         `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (`user_id`,`annee`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // ── Jours fériés ──
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_jours_feries` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `date` DATE NOT NULL,
+        `libelle` VARCHAR(200) NOT NULL,
+        `pont` TINYINT(1) NOT NULL DEFAULT 0,
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY `uq_date` (`date`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Pré-alimenter les jours fériés algériens de l'année courante (idempotent)
+    $yr = (int)date('Y');
+    $cnt = $db->query("SELECT COUNT(*) FROM CA_jours_feries WHERE YEAR(date) = $yr")->fetchColumn();
+    if (!$cnt) {
+        $feries = [
+            ["$yr-01-01", 'Nouvel An'],
+            ["$yr-01-12", 'Yennayer (Nouvel An amazigh)'],
+            ["$yr-02-18", "Anniversaire de l'indépendance provisoire"],
+            ["$yr-03-19", 'Fête de la Victoire (19 mars 1962)'],
+            ["$yr-05-01", 'Fête du Travail'],
+            ["$yr-07-05", "Fête de l'indépendance"],
+            ["$yr-11-01", 'Fête de la Révolution'],
+            // Fêtes religieuses : dates approximatives à ajuster chaque année
+            ["$yr-03-30", 'Aïd el-Fitr (à ajuster)'],
+            ["$yr-03-31", 'Aïd el-Fitr 2e jour (à ajuster)'],
+            ["$yr-06-07", 'Aïd el-Adha (à ajuster)'],
+            ["$yr-06-08", 'Aïd el-Adha 2e jour (à ajuster)'],
+            ["$yr-06-27", '1er Moharram (à ajuster)'],
+            ["$yr-09-05", 'Mawlid Ennabaoui (à ajuster)'],
+        ];
+        $ins = $db->prepare("INSERT IGNORE INTO CA_jours_feries (date, libelle) VALUES (?, ?)");
+        foreach ($feries as $f) $ins->execute($f);
+    }
 } catch (\Throwable $e) { /* silencieux */ }
 
 // Migration idempotente : ajouter la colonne `partage` si absente
@@ -56,6 +94,14 @@ try {
     $col = $db->query("SHOW COLUMNS FROM CA_leave_requests LIKE 'partage'")->fetch();
     if (!$col) {
         $db->exec("ALTER TABLE CA_leave_requests ADD COLUMN `partage` TINYINT(1) NOT NULL DEFAULT 1 AFTER `decision_at`");
+    }
+} catch (\Throwable $e) { /* silencieux */ }
+
+// Migration idempotente : colonne justificatif_url
+try {
+    $col = $db->query("SHOW COLUMNS FROM CA_leave_requests LIKE 'justificatif_url'")->fetch();
+    if (!$col) {
+        $db->exec("ALTER TABLE CA_leave_requests ADD COLUMN `justificatif_url` VARCHAR(500) DEFAULT NULL AFTER `partage`");
     }
 } catch (\Throwable $e) { /* silencieux */ }
 
@@ -67,8 +113,16 @@ function isManager(array $u): bool {
     return false;
 }
 
-// ── Helper : nombre de jours ouvrés entre deux dates (inclus, hors week-end) ──
-function workingDays(string $d1, string $d2): float {
+// ── Helper : nombre de jours ouvrés entre deux dates (inclus, hors week-end ET jours fériés) ──
+function workingDays(string $d1, string $d2, ?PDO $db = null): float {
+    $holidays = [];
+    if ($db) {
+        try {
+            $stmt = $db->prepare("SELECT date FROM CA_jours_feries WHERE date BETWEEN ? AND ?");
+            $stmt->execute([$d1, $d2]);
+            $holidays = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'date');
+        } catch (\Throwable $e) { /* table pas encore créée */ }
+    }
     $start = new DateTime($d1);
     $end   = new DateTime($d2);
     if ($end < $start) return 0;
@@ -76,7 +130,8 @@ function workingDays(string $d1, string $d2): float {
     $cur = clone $start;
     while ($cur <= $end) {
         $dow = (int)$cur->format('N'); // 1..7
-        if ($dow < 6) $days++;
+        $key = $cur->format('Y-m-d');
+        if ($dow < 6 && !in_array($key, $holidays)) $days++;
         $cur->modify('+1 day');
     }
     return $days;
@@ -289,7 +344,7 @@ try {
             if ($dateFin < $dateDebut)    jsonError('Date de fin avant le début');
             if (!$delegation)             jsonError('La délégation / passation est obligatoire');
 
-            $jours = workingDays($dateDebut, $dateFin);
+            $jours = workingDays($dateDebut, $dateFin, $db);
             $id    = bin2hex(random_bytes(16));
 
             $db->prepare("INSERT INTO CA_leave_requests
@@ -468,6 +523,94 @@ try {
             $db->prepare("UPDATE CA_leave_balances SET ".implode(',', $fields)." WHERE user_id = ? AND annee = ?")
                ->execute($params);
             jsonOk(['user_id'=>$uid,'annee'=>$annee]);
+            break;
+        }
+
+        // ────────────────────────────── HOLIDAYS LIST
+        case 'holidays_list': {
+            $annee = intval($_GET['annee'] ?? date('Y'));
+            $stmt = $db->prepare("SELECT * FROM CA_jours_feries WHERE YEAR(date) = ? ORDER BY date ASC");
+            $stmt->execute([$annee]);
+            jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+            break;
+        }
+
+        // ────────────────────────────── HOLIDAYS SAVE (admin)
+        case 'holidays_save': {
+            if (!isManager($user)) jsonError('Accès refusé', 403);
+            $body = getBody();
+            $date    = trim($body['date'] ?? '');
+            $libelle = trim($body['libelle'] ?? '');
+            $pont    = !empty($body['pont']) ? 1 : 0;
+            if (!$date || !$libelle) jsonError('Date et libellé requis');
+            $id = $body['id'] ?? null;
+            if ($id) {
+                $db->prepare("UPDATE CA_jours_feries SET date=?, libelle=?, pont=? WHERE id=?")
+                   ->execute([$date, $libelle, $pont, $id]);
+            } else {
+                $db->prepare("INSERT INTO CA_jours_feries (date, libelle, pont) VALUES (?,?,?) ON DUPLICATE KEY UPDATE libelle=VALUES(libelle), pont=VALUES(pont)")
+                   ->execute([$date, $libelle, $pont]);
+                $id = $db->lastInsertId();
+            }
+            jsonOk(['id' => $id]);
+            break;
+        }
+
+        // ────────────────────────────── HOLIDAYS DELETE (admin)
+        case 'holidays_delete': {
+            if (!isManager($user)) jsonError('Accès refusé', 403);
+            $id = $_GET['id'] ?? '';
+            if (!$id) jsonError('ID requis');
+            $db->prepare("DELETE FROM CA_jours_feries WHERE id = ?")->execute([$id]);
+            jsonOk(['deleted' => true]);
+            break;
+        }
+
+        // ────────────────────────────── TEAM CALENDAR (admin — vue calendrier équipe)
+        case 'team_calendar': {
+            if (!isManager($user)) jsonError('Accès refusé', 403);
+            $from = $_GET['from'] ?? date('Y-m-01');
+            $to   = $_GET['to']   ?? date('Y-m-t');
+            // Tous les congés (approuvés + en attente) chevauchant la période
+            $stmt = $db->prepare("SELECT id, user_id, user_name, type, date_debut, date_fin, statut, partage
+                                  FROM CA_leave_requests
+                                  WHERE statut IN ('Approuvé','En attente')
+                                    AND NOT (date_fin < ? OR date_debut > ?)
+                                  ORDER BY user_name ASC, date_debut ASC");
+            $stmt->execute([$from, $to]);
+            $leaves = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // Jours fériés
+            $hStmt = $db->prepare("SELECT id, date, libelle, pont FROM CA_jours_feries WHERE date BETWEEN ? AND ?");
+            $hStmt->execute([$from, $to]);
+            $holidays = $hStmt->fetchAll(PDO::FETCH_ASSOC);
+            // Membres actifs
+            $members = [];
+            try {
+                $members = $db->query("SELECT id, CONCAT(prenom,' ',nom) AS name FROM cortoba_users WHERE statut <> 'Inactif' ORDER BY prenom ASC")->fetchAll(PDO::FETCH_ASSOC);
+            } catch (\Throwable $e) {}
+            jsonOk(['leaves' => $leaves, 'holidays' => $holidays, 'members' => $members]);
+            break;
+        }
+
+        // ────────────────────────────── UPLOAD JUSTIFICATIF (multipart)
+        case 'upload_justif': {
+            if (empty($_FILES['file'])) jsonError('Aucun fichier reçu');
+            $file = $_FILES['file'];
+            $reqId = $_POST['request_id'] ?? '';
+            if (!$reqId) jsonError('request_id requis');
+            if ($file['error'] !== UPLOAD_ERR_OK) jsonError('Erreur upload: code ' . $file['error']);
+            if ($file['size'] > 15 * 1024 * 1024) jsonError('Fichier trop volumineux (max 15 Mo)');
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowed = ['jpg','jpeg','png','webp','pdf'];
+            if (!in_array($ext, $allowed)) jsonError('Format non supporté (jpg, png, webp, pdf)');
+            $dir = realpath(__DIR__ . '/../../') . '/img/conge_justifs/';
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            $filename = 'conge_' . $reqId . '_' . time() . '.' . $ext;
+            $dest = $dir . $filename;
+            if (!move_uploaded_file($file['tmp_name'], $dest)) jsonError("Erreur d'enregistrement");
+            $url = '/img/conge_justifs/' . $filename;
+            $db->prepare("UPDATE CA_leave_requests SET justificatif_url = ? WHERE id = ?")->execute([$url, $reqId]);
+            jsonOk(['url' => $url, 'filename' => $filename]);
             break;
         }
 
