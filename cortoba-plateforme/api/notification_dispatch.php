@@ -101,13 +101,31 @@ if (!function_exists('dispatchNotification')) {
      */
     function _sendNotifEmail(PDO $db, string $userId, string $type, string $title,
                              ?string $message, ?string $linkPage, ?string $linkId): void {
-        // Récupérer l'email de l'utilisateur
-        $stmt = $db->prepare("SELECT prenom, nom, email_pro, email_perso, email FROM cortoba_users WHERE id = ?");
-        $stmt->execute([$userId]);
-        $u = $stmt->fetch();
+        // Récupérer l'email de l'utilisateur (membre ou admin)
+        $u = null; $email = '';
+        try {
+            $stmt = $db->prepare("SELECT prenom, nom, email_pro, email_perso, email FROM cortoba_users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $u = $stmt->fetch();
+            if ($u) $email = $u['email_pro'] ?: ($u['email_perso'] ?: ($u['email'] ?: ''));
+        } catch (\Throwable $e) {
+            try {
+                $stmt2 = $db->prepare("SELECT prenom, nom, email FROM cortoba_users WHERE id = ?");
+                $stmt2->execute([$userId]);
+                $u = $stmt2->fetch();
+                if ($u) $email = $u['email'] ?? '';
+            } catch (\Throwable $e2) {}
+        }
+        // Fallback : chercher dans CA_accounts
+        if (!$email) {
+            try {
+                $stmt3 = $db->prepare("SELECT name, email FROM CA_accounts WHERE id = ?");
+                $stmt3->execute([$userId]);
+                $a = $stmt3->fetch();
+                if ($a) { $email = $a['email'] ?? ''; if (!$u) $u = ['prenom' => $a['name'] ?? '', 'nom' => '']; }
+            } catch (\Throwable $e) {}
+        }
         if (!$u) return;
-
-        $email = $u['email_pro'] ?: ($u['email_perso'] ?: ($u['email'] ?: ''));
         if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) return;
 
         $userName = trim(($u['prenom'] ?? '') . ' ' . ($u['nom'] ?? ''));

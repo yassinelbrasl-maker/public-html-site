@@ -103,11 +103,37 @@ try {
             $pushStmt->execute([$user['id']]);
             $hasPush = (int)$pushStmt->fetchColumn() > 0;
 
-            // Récupérer l'email de l'utilisateur
-            $emailStmt = $db->prepare("SELECT email_pro, email_perso, email FROM cortoba_users WHERE id = ?");
-            $emailStmt->execute([$user['id']]);
-            $emailRow = $emailStmt->fetch();
-            $userEmail = $emailRow['email_pro'] ?? $emailRow['email_perso'] ?? $emailRow['email'] ?? '';
+            // Récupérer l'email de l'utilisateur (membre ou admin)
+            $userEmail = '';
+            try {
+                $emailStmt = $db->prepare("SELECT email_pro, email_perso, email FROM cortoba_users WHERE id = ?");
+                $emailStmt->execute([$user['id']]);
+                $emailRow = $emailStmt->fetch();
+                if ($emailRow) {
+                    $userEmail = $emailRow['email_pro'] ?? $emailRow['email_perso'] ?? $emailRow['email'] ?? '';
+                }
+            } catch (\Throwable $e) {
+                // colonnes email_pro/email_perso absentes — essayer sans
+                try {
+                    $emailStmt2 = $db->prepare("SELECT email FROM cortoba_users WHERE id = ?");
+                    $emailStmt2->execute([$user['id']]);
+                    $emailRow2 = $emailStmt2->fetch();
+                    if ($emailRow2) $userEmail = $emailRow2['email'] ?? '';
+                } catch (\Throwable $e2) {}
+            }
+            // Fallback : chercher dans CA_accounts (pour les admins)
+            if (!$userEmail) {
+                try {
+                    $emailStmt3 = $db->prepare("SELECT email FROM CA_accounts WHERE id = ?");
+                    $emailStmt3->execute([$user['id']]);
+                    $emailRow3 = $emailStmt3->fetch();
+                    if ($emailRow3) $userEmail = $emailRow3['email'] ?? '';
+                } catch (\Throwable $e) {}
+            }
+            // Fallback : email dans le JWT
+            if (!$userEmail) {
+                $userEmail = $user['email'] ?? '';
+            }
 
             jsonOk([
                 'prefs'       => $prefs,

@@ -12426,32 +12426,19 @@ function notifUpdatePushUI(){
     btn.style.display='none';
     return;
   }
+  function _pushShowOff(){
+    stateEl.textContent='Désactivées';stateEl.style.color='var(--text-3)';
+    btn.textContent='Activer les push';btn.style.display='inline-block';btn.style.background='var(--accent)';
+  }
+  function _pushShowOn(){
+    stateEl.textContent='Activées';stateEl.style.color='#5aab6e';
+    btn.textContent='Désactiver';btn.style.display='inline-block';btn.style.background='#d45656';
+  }
   navigator.serviceWorker.getRegistration('/cortoba-plateforme/').then(function(reg){
-    if(!reg){
-      stateEl.textContent='Service worker non installé';
-      stateEl.style.color='var(--text-3)';
-      btn.textContent='Activer les push';
-      btn.style.display='inline-block';
-      btn.style.background='var(--accent)';
-      return;
-    }
-    return reg.pushManager.getSubscription();
-  }).then(function(sub){
-    if(sub){
-      stateEl.textContent='Activées';
-      stateEl.style.color='#5aab6e';
-      btn.textContent='Désactiver';
-      btn.style.display='inline-block';
-      btn.style.background='#d45656';
-    }else if(stateEl.textContent==='Vérification\u2026'||stateEl.textContent.indexOf('non install')>=0){
-      // already handled above
-    }else{
-      stateEl.textContent='Désactivées';
-      stateEl.style.color='var(--text-3)';
-      btn.textContent='Activer les push';
-      btn.style.display='inline-block';
-      btn.style.background='var(--accent)';
-    }
+    if(!reg){_pushShowOff();return;}
+    reg.pushManager.getSubscription().then(function(sub){
+      if(sub){_pushShowOn();}else{_pushShowOff();}
+    }).catch(function(){_pushShowOff();});
   }).catch(function(){
     stateEl.textContent='Erreur';
     stateEl.style.color='#d45656';
