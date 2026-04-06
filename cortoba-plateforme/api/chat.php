@@ -39,6 +39,7 @@ try {
         case 'mark_read':    markRead($user); break;
         case 'unread_count': unreadCount($user); break;
         case 'users':        listUsers($user); break;
+        case 'projects_for_chat': listProjectsForChat($user); break;
         case 'create_project_room': createProjectRoomAction($user); break;
         case 'pin_message':  pinMessage($user); break;
         case 'pinned':       listPinned($user); break;
@@ -114,12 +115,20 @@ function listRooms($user) {
             $r['projet_code'] = $projetInfos[$r['projet_id']]['code'];
         }
         if ($r['type'] === 'direct') {
-            $st2 = $db->prepare("SELECT cp.user_id, cp.user_name, u.profile_picture_url, u.color, u.role
-                                 FROM CA_chat_participants cp
-                                 LEFT JOIN cortoba_users u ON u.id = cp.user_id
-                                 WHERE cp.room_id = ? AND cp.user_id <> ? LIMIT 1");
-            $st2->execute([$r['id'], $uid]);
-            $other = $st2->fetch(PDO::FETCH_ASSOC);
+            try {
+                $st2 = $db->prepare("SELECT cp.user_id, cp.user_name, u.profile_picture_url, u.color, u.role
+                                     FROM CA_chat_participants cp
+                                     LEFT JOIN cortoba_users u ON u.id = cp.user_id
+                                     WHERE cp.room_id = ? AND cp.user_id <> ? LIMIT 1");
+                $st2->execute([$r['id'], $uid]);
+                $other = $st2->fetch(PDO::FETCH_ASSOC);
+            } catch (\Throwable $e) {
+                $st2 = $db->prepare("SELECT cp.user_id, cp.user_name
+                                     FROM CA_chat_participants cp
+                                     WHERE cp.room_id = ? AND cp.user_id <> ? LIMIT 1");
+                $st2->execute([$r['id'], $uid]);
+                $other = $st2->fetch(PDO::FETCH_ASSOC);
+            }
             $r['other_user'] = $other ?: null;
             if ($other) {
                 $r['name'] = $other['user_name'] ?: 'Membre';
@@ -127,11 +136,18 @@ function listRooms($user) {
         }
         // Participants (pour les rooms projet)
         if ($r['type'] === 'projet') {
-            $st3 = $db->prepare("SELECT cp.user_id, cp.user_name, u.color, u.profile_picture_url
-                                 FROM CA_chat_participants cp
-                                 LEFT JOIN cortoba_users u ON u.id = cp.user_id
-                                 WHERE cp.room_id = ? ORDER BY cp.joined_at ASC");
-            $st3->execute([$r['id']]);
+            try {
+                $st3 = $db->prepare("SELECT cp.user_id, cp.user_name, u.color, u.profile_picture_url
+                                     FROM CA_chat_participants cp
+                                     LEFT JOIN cortoba_users u ON u.id = cp.user_id
+                                     WHERE cp.room_id = ? ORDER BY cp.joined_at ASC");
+                $st3->execute([$r['id']]);
+            } catch (\Throwable $e) {
+                $st3 = $db->prepare("SELECT cp.user_id, cp.user_name
+                                     FROM CA_chat_participants cp
+                                     WHERE cp.room_id = ? ORDER BY cp.joined_at ASC");
+                $st3->execute([$r['id']]);
+            }
             $r['participants'] = $st3->fetchAll(PDO::FETCH_ASSOC);
         }
     }
@@ -191,11 +207,18 @@ function listMessages($user) {
         $where .= ' AND cree_at > ?';
         $params[] = $since;
     }
-    $stmt = $db->prepare("SELECT m.*, u.color, u.profile_picture_url
-                          FROM CA_chat_messages m
-                          LEFT JOIN cortoba_users u ON u.id = m.sender_id
-                          WHERE $where ORDER BY cree_at ASC LIMIT 500");
-    $stmt->execute($params);
+    try {
+        $stmt = $db->prepare("SELECT m.*, u.color, u.profile_picture_url
+                              FROM CA_chat_messages m
+                              LEFT JOIN cortoba_users u ON u.id = m.sender_id
+                              WHERE $where ORDER BY cree_at ASC LIMIT 500");
+        $stmt->execute($params);
+    } catch (\Throwable $e) {
+        $stmt = $db->prepare("SELECT m.*
+                              FROM CA_chat_messages m
+                              WHERE $where ORDER BY cree_at ASC LIMIT 500");
+        $stmt->execute($params);
+    }
     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     jsonOk(['room' => $room, 'messages' => $messages, 'server_time' => date('Y-m-d H:i:s')]);
@@ -239,10 +262,15 @@ function sendMessage($user) {
                   WHERE room_id = ? AND user_id = ?")
        ->execute([$roomId, $user['id'] ?? '']);
 
-    $stmt = $db->prepare("SELECT m.*, u.color, u.profile_picture_url
-                          FROM CA_chat_messages m LEFT JOIN cortoba_users u ON u.id = m.sender_id
-                          WHERE m.id = ?");
-    $stmt->execute([$mid]);
+    try {
+        $stmt = $db->prepare("SELECT m.*, u.color, u.profile_picture_url
+                              FROM CA_chat_messages m LEFT JOIN cortoba_users u ON u.id = m.sender_id
+                              WHERE m.id = ?");
+        $stmt->execute([$mid]);
+    } catch (\Throwable $e) {
+        $stmt = $db->prepare("SELECT m.* FROM CA_chat_messages m WHERE m.id = ?");
+        $stmt->execute([$mid]);
+    }
     jsonOk($stmt->fetch(PDO::FETCH_ASSOC));
 }
 
@@ -359,11 +387,20 @@ function unreadCount($user) {
 function listUsers($user) {
     $db = getDB();
     $me = $user['id'] ?? '';
-    $stmt = $db->query("SELECT id, prenom, nom, role, color, profile_picture_url
-                        FROM cortoba_users
-                        WHERE is_admin = 0 AND statut <> 'Inactif'
-                        ORDER BY prenom, nom");
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $db->query("SELECT id, prenom, nom, role, color, profile_picture_url
+                            FROM cortoba_users
+                            WHERE is_admin = 0 AND statut <> 'Inactif'
+                            ORDER BY prenom, nom");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) {
+        // Fallback si colonnes color/profile_picture_url absentes
+        $stmt = $db->query("SELECT id, prenom, nom, role
+                            FROM cortoba_users
+                            WHERE is_admin = 0 AND statut <> 'Inactif'
+                            ORDER BY prenom, nom");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
     $out = [];
     foreach ($rows as $r) {
         if ($r['id'] === $me) continue;
@@ -384,6 +421,29 @@ function listUsers($user) {
     } catch (\Throwable $e) {}
 
     jsonOk($out);
+}
+
+// ---------------------------------------------------------------
+// GET ?action=projects_for_chat
+//   Liste des projets actifs sans room existante (pour le picker)
+// ---------------------------------------------------------------
+function listProjectsForChat($user) {
+    $db = getDB();
+    // Projets actifs qui n'ont pas encore de room chat
+    $sql = "SELECT p.id, p.nom, p.code, p.statut
+            FROM CA_projets p
+            WHERE NOT EXISTS (
+                SELECT 1 FROM CA_chat_rooms r WHERE r.type='projet' AND r.projet_id = p.id
+            )
+            AND (p.statut IS NULL OR p.statut NOT IN ('Terminé','Archivé','Clôturé'))
+            ORDER BY p.code ASC, p.nom ASC";
+    try {
+        $stmt = $db->query($sql);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) {
+        $rows = [];
+    }
+    jsonOk($rows);
 }
 
 // ---------------------------------------------------------------

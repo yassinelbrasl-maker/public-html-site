@@ -103,6 +103,9 @@
       '</div>',
       '<div class="chat-main" id="chat-main">',
       '  <div class="chat-main-header">',
+      '    <button class="chat-btn-icon chat-back-btn" id="chat-back-btn" title="Retour">',
+      '      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"/></svg>',
+      '    </button>',
       '    <div class="chat-main-title">',
       '      <div class="chat-main-name" id="chat-main-name">Sélectionnez une discussion</div>',
       '      <div class="chat-main-sub"  id="chat-main-sub"></div>',
@@ -133,7 +136,11 @@
 
     // Event bindings
     document.getElementById('chat-close-btn').onclick  = closeChat;
-    document.getElementById('chat-new-dm-btn').onclick = openNewDmPicker;
+    document.getElementById('chat-back-btn').onclick   = function () {
+      var p = document.getElementById('chat-panel');
+      if (p) p.classList.remove('viewing-room');
+    };
+    document.getElementById('chat-new-dm-btn').onclick = openNewConversationPicker;
     document.getElementById('chat-send-btn').onclick   = sendCurrentMessage;
     var input = document.getElementById('chat-input');
     input.addEventListener('keydown', function (ev) {
@@ -244,6 +251,10 @@
     STATE.messages = [];
     STATE.lastMessageAt = null;
     renderRooms();
+
+    // Mobile : basculer vers la vue messages
+    var panel = document.getElementById('chat-panel');
+    if (panel) panel.classList.add('viewing-room');
 
     var room = STATE.rooms.find(function (r) { return r.id === roomId; });
     var nameEl = document.getElementById('chat-main-name');
@@ -364,20 +375,52 @@
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Nouvelle conversation directe — picker
+  //  Nouvelle conversation — picker (DM + Projet)
   // ═══════════════════════════════════════════════════════════
-  function openNewDmPicker() {
-    api('users').then(function (r) {
-      STATE.users = r.data || [];
+  function openNewConversationPicker() {
+    // Charger utilisateurs et projets en parallèle
+    Promise.all([api('users'), api('projects_for_chat')]).then(function (results) {
+      STATE.users = results[0].data || [];
+      var projets = results[1].data || [];
+
       var overlay = document.getElementById('chat-dm-picker');
       if (overlay) overlay.remove();
       overlay = h('div', {
         id: 'chat-dm-picker',
         style: 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9600;display:flex;align-items:center;justify-content:center'
       });
-      var box = h('div', { style: 'background:var(--bg-1);border:1px solid var(--border);border-radius:8px;min-width:320px;max-width:420px;width:92%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden' });
-      box.appendChild(h('div', { style: 'padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-size:0.82rem;font-weight:600;color:var(--text-1)' }, 'Démarrer une conversation'));
+      var box = h('div', { style: 'background:var(--bg-1);border:1px solid var(--border);border-radius:8px;min-width:320px;max-width:440px;width:92%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden' });
+      box.appendChild(h('div', { style: 'padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-size:0.82rem;font-weight:600;color:var(--text-1)' }, 'Nouvelle conversation'));
       var list = h('div', { style: 'overflow-y:auto;flex:1;padding:0.4rem 0' });
+
+      // ── Section Projets ──
+      if (projets.length) {
+        list.appendChild(h('div', { class: 'chat-section' }, 'Groupes projet'));
+        projets.forEach(function (p) {
+          var label = (p.code ? p.code + ' — ' : '') + (p.nom || 'Projet');
+          var row = h('div', {
+            style: 'display:flex;align-items:center;gap:0.6rem;padding:0.55rem 1rem;cursor:pointer'
+          }, [
+            h('div', { class: 'chat-room-avatar', style: 'background:var(--accent);font-size:0.8rem' }, '#'),
+            h('div', { style: 'flex:1;min-width:0' }, [
+              h('div', { style: 'font-size:0.8rem;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, label),
+              h('div', { style: 'font-size:0.68rem;color:var(--text-3)' }, p.statut || 'En cours')
+            ])
+          ]);
+          row.onmouseenter = function () { row.style.background = 'rgba(255,255,255,0.04)'; };
+          row.onmouseleave = function () { row.style.background = ''; };
+          row.onclick = function () {
+            api('create_project_room', 'POST', { projet_id: p.id }).then(function (r) {
+              overlay.remove();
+              refreshRooms().then(function () { selectRoom(r.data.room_id); });
+            }).catch(function (e) { alert(e.message || 'Erreur'); });
+          };
+          list.appendChild(row);
+        });
+      }
+
+      // ── Section Membres ──
+      list.appendChild(h('div', { class: 'chat-section' }, 'Message direct'));
       STATE.users.forEach(function (u) {
         var row = h('div', {
           style: 'display:flex;align-items:center;gap:0.6rem;padding:0.55rem 1rem;cursor:pointer'
@@ -398,18 +441,17 @@
         row.onclick = function () {
           api('open_direct', 'POST', { user_id: u.id }).then(function (r) {
             overlay.remove();
-            refreshRooms().then(function () {
-              selectRoom(r.data.room_id);
-            });
+            refreshRooms().then(function () { selectRoom(r.data.room_id); });
           }).catch(function (e) { alert(e.message || 'Erreur'); });
         };
         list.appendChild(row);
       });
-      box.appendChild(list);
+
       var footer = h('div', { style: 'padding:0.6rem;border-top:1px solid var(--border);text-align:right' });
       var cancel = h('button', { class: 'btn' }, 'Annuler');
       cancel.onclick = function () { overlay.remove(); };
       footer.appendChild(cancel);
+      box.appendChild(list);
       box.appendChild(footer);
       overlay.appendChild(box);
       overlay.onclick = function (ev) { if (ev.target === overlay) overlay.remove(); };

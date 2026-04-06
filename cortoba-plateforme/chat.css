@@ -336,6 +336,9 @@
 .chat-composer button:disabled { opacity: 0.5; cursor: not-allowed; }
 .chat-composer .chat-btn-icon { height: 38px; width: 38px; }
 
+/* Bouton retour — masqué sur desktop */
+.chat-back-btn { display: none !important; }
+
 /* Responsive mobile */
 @media (max-width: 720px) {
   #chat-panel {
@@ -347,6 +350,7 @@
   }
   #chat-panel.viewing-room .chat-sidebar { display: none; }
   #chat-panel:not(.viewing-room) .chat-main { display: none; }
+  .chat-back-btn { display: flex !important; }
 }
 
 /* Toast notification */
