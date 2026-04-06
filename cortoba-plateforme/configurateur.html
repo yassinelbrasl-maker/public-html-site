@@ -445,11 +445,6 @@
   <div id="cfg-footer">
     <div id="cfg-footer-inner">
       <button id="btn-prev" onclick="goPrev()" class="btn" style="visibility:hidden">← Précédent</button>
-      <label id="cfg-nas-wrap" style="display:none;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2)">
-        <input type="checkbox" id="cfg-nas-create" checked style="accent-color:var(--accent)" />
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        Créer le dossier NAS
-      </label>
       <div id="cfg-hint" style="font-size:0.7rem;color:var(--text-3);text-align:center;flex:1;min-width:0"></div>
       <div style="display:flex;gap:0.5rem">
         <button id="btn-next" onclick="goNext()" class="btn btn-primary">Suivant →</button>
@@ -483,6 +478,7 @@ var API_BASE = (function(){
 var _token = null;
 var _clients = [];
 var _missions = [];
+var _missionCategories = [];
 var _roles = [];
 var _typesBatiment = [];
 
@@ -556,10 +552,14 @@ function loadInitialData() {
     })
     .then(function(r) {
       var settings = r.data || r || {};
-      // Missions
+      // Missions (source unique : Paramètres)
       var m = settings['cortoba_missions'];
       if (typeof m === 'string') { try { m = JSON.parse(m); } catch(e) { m = null; } }
-      _missions = (Array.isArray(m) && m.length) ? m : DEFAULT_MISSIONS;
+      _missions = Array.isArray(m) ? m : [];
+      // Catégories de missions
+      var mc = settings['cortoba_mission_categories'];
+      if (typeof mc === 'string') { try { mc = JSON.parse(mc); } catch(e) { mc = null; } }
+      _missionCategories = Array.isArray(mc) ? mc : [];
       // Roles
       var ro = settings['cortoba_roles'];
       if (typeof ro === 'string') { try { ro = JSON.parse(ro); } catch(e) { ro = null; } }
@@ -572,7 +572,8 @@ function loadInitialData() {
     })
     .catch(function(e) {
       console.warn('Erreur chargement données:', e);
-      _missions = DEFAULT_MISSIONS;
+      _missions = [];
+      _missionCategories = [];
       _typesBatiment = CFG_TYPES_BATIMENT_DEFAULT;
       populateCfgTypeBatSelect();
     });
@@ -604,21 +605,6 @@ function populateCfgTypeBatSelect() {
 }
 
 // ── Données par défaut ──
-var DEFAULT_MISSIONS = [
-  {id:'m1',abbr:'EP',   nom:'Étude préliminaire'},
-  {id:'m2',abbr:'APS',  nom:'Avant-projet sommaire'},
-  {id:'m3',abbr:'APD',  nom:'Avant-projet définitif'},
-  {id:'m4',abbr:'PC',   nom:'Permis de construire'},
-  {id:'m5',abbr:'DCE',  nom:'Dossier consultation entreprises'},
-  {id:'m6',abbr:'ACT',  nom:'Assistance passation des marchés'},
-  {id:'m7',abbr:'EXE',  nom:"Études d'exécution"},
-  {id:'m8',abbr:'DET',  nom:'Direction exécution travaux'},
-  {id:'m9',abbr:'OPC',  nom:'Ordonnancement, pilotage, coordination'},
-  {id:'m10',abbr:'AOR', nom:'Assistance aux opérations de réception'},
-  {id:'m11',abbr:'DIAG',nom:'Diagnostic / Expertise'},
-  {id:'m12',abbr:'CONS',nom:'Conseil & expertise architecturale'},
-];
-
 var BENCH = {
   'Économique':    {min:700,  max:1100},
   'Standard':      {min:1100, max:1700},
@@ -730,8 +716,6 @@ function updateFooter() {
   if (prev) prev.style.visibility = _step > 1 ? 'visible' : 'hidden';
   if (next) next.style.display = _step < TOTAL ? 'inline-flex' : 'none';
   if (save) save.style.display = _step === TOTAL ? 'inline-flex' : 'none';
-  var nasWrap = document.getElementById('cfg-nas-wrap');
-  if (nasWrap) nasWrap.style.display = _step === TOTAL ? 'flex' : 'none';
 }
 
 // ── Utilitaires ──
@@ -817,12 +801,31 @@ function updateBenchmark() {
 function renderMissions() {
   var list = document.getElementById('cfg-missions-list'); if (!list) return;
   if (!_missions.length) { list.innerHTML = '<span style="font-size:0.82rem;color:var(--text-3)">Aucune mission configurée. Rendez-vous dans Paramètres.</span>'; return; }
-  list.innerHTML = _missions.map(function(m) {
-    var val = (m.abbr || m.id) + '_' + (m.nom || '');
+  function _mkLabel(m) {
+    var val = m.id + '_' + (m.nom || '');
     return '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.65rem;background:var(--bg-2);border-radius:6px;cursor:pointer;border:1px solid transparent;transition:border-color .15s" onchange="this.style.borderColor=this.querySelector(\'input\').checked?\'var(--accent)\':\'transparent\'">' +
       '<input type="checkbox" value="' + val + '" style="accent-color:var(--accent)">' +
-      '<span style="font-size:0.8rem"><strong style="color:var(--accent);margin-right:0.3rem">' + (m.abbr || '') + '</strong>' + (m.nom || m.abbr || '') + '</span></label>';
-  }).join('');
+      '<span style="font-size:0.8rem">' + (m.nom || m.id || '') + '</span></label>';
+  }
+  var html = '';
+  if (_missionCategories.length) {
+    _missionCategories.forEach(function(c) {
+      var mList = _missions.filter(function(m){ return m.cat === c.id; });
+      if (!mList.length) return;
+      html += '<div style="margin-bottom:0.5rem"><div style="font-size:0.75rem;font-weight:600;color:var(--text-2);margin-bottom:0.3rem;text-transform:uppercase">' + (c.label || '') + '</div>';
+      html += mList.map(_mkLabel).join('');
+      html += '</div>';
+    });
+    var orphans = _missions.filter(function(m){ return !m.cat || !_missionCategories.find(function(c){ return c.id === m.cat; }); });
+    if (orphans.length) {
+      html += '<div style="margin-bottom:0.5rem"><div style="font-size:0.75rem;font-weight:600;color:var(--text-2);margin-bottom:0.3rem;text-transform:uppercase">Autres</div>';
+      html += orphans.map(_mkLabel).join('');
+      html += '</div>';
+    }
+  } else {
+    html = _missions.map(_mkLabel).join('');
+  }
+  list.innerHTML = html;
 }
 
 function getSelectedMissions() {
@@ -941,14 +944,6 @@ function genProjetCode(annee, clientCode) {
   return seq + '_' + yy + '_' + (clientCode || 'XXX');
 }
 
-function genNasPath(code, clientNom) {
-  var yy = (code || '').split('_')[1] || String(new Date().getFullYear()).slice(-2);
-  var year = '20' + yy;
-  var suffix = (clientNom || '').trim().replace(/\s+/g, '_');
-  var folderName = code + (suffix ? '_' + suffix : '');
-  return '\\\\192.168.1.165\\Public\\CAS_PROJETS\\' + year + '\\' + folderName;
-}
-
 // ── Brouillon ──
 function saveDraft() {
   try {
@@ -1015,7 +1010,6 @@ function saveProjet() {
   function doCreate(clientId, clientNom, clientCode) {
     var annee = parseInt(v('cfg-annee')) || new Date().getFullYear();
     var code = genProjetCode(annee, clientCode);
-    var nasPath = genNasPath(code, clientNom);
     var body = {
       nom: (v('cfg-nom') || '').trim(),
       client: clientNom, clientId: clientId, clientCode: clientCode,
@@ -1036,7 +1030,6 @@ function saveProjet() {
       adresse: (v('cfg-adresse') || '').trim() || null,
       lat: parseFloat(v('cfg-lat')) || null,
       lng: parseFloat(v('cfg-lng')) || null,
-      nasPath: nasPath, nas_path: nasPath,
       missions: getSelectedMissions(),
       intervenants: getIntervenants()
     };
@@ -1044,20 +1037,7 @@ function saveProjet() {
       .then(function(resp) {
         localStorage.removeItem('cortoba_cfg_draft');
         var projet = resp.data || resp || {};
-        // Copier le chemin NAS si la case est cochée
-        var nasCheck = document.getElementById('cfg-nas-create');
-        if (nasCheck && nasCheck.checked && nasPath) {
-          // Tenter la création du dossier NAS via popup (réseau local)
-          _cfgCreateNasFolder(nasPath, function(result, msg) {
-            if (result === true) {
-              showSuccess(v('cfg-nom'), projet.code || code, 'nas_created', nasPath);
-            } else {
-              showSuccess(v('cfg-nom'), projet.code || code, null, nasPath);
-            }
-          });
-        } else {
-          showSuccess(v('cfg-nom'), projet.code || code);
-        }
+        showSuccess(v('cfg-nom'), projet.code || code);
       })
       .catch(function(e) {
         showErr(6, 'Erreur : ' + (e.message || 'Erreur serveur'));
@@ -1104,108 +1084,7 @@ function saveProjet() {
   }
 }
 
-// ── Création dossier NAS via popup (réseau local) ──
-var _cfgNasSettings = null;
-function _cfgGetNasSettings(cb) {
-  if (_cfgNasSettings) { cb(_cfgNasSettings); return; }
-  // Charger les settings depuis les deux sources possibles
-  apiFetch('api/settings.php').then(function(r) {
-    var d = r.data || r || {};
-    _cfgNasSettings = d;
-    // Si pas de user NAS dans CA_settings, essayer via nas.php status
-    if (!d.cortoba_nas_user) {
-      apiFetch('api/nas.php?action=diag').then(function(r2) {
-        // diag retourne la config NAS
-        var diag = r2.data || r2 || {};
-        if (diag.config) {
-          d.cortoba_nas_user = diag.config.user || d.cortoba_nas_user;
-          d.cortoba_nas_pass = diag.config.pass || d.cortoba_nas_pass;
-          d.cortoba_nas_local = diag.config.ip || d.cortoba_nas_local;
-        }
-        cb(d);
-      }).catch(function() { cb(d); });
-    } else {
-      cb(d);
-    }
-  }).catch(function() { cb({}); });
-}
-
-function _cfgCreateNasFolder(nasPath, callback) {
-  if (!nasPath || nasPath === '—') { if (callback) callback(false); return; }
-  _cfgGetNasSettings(function(settings) {
-    // Extraire l'IP du chemin NAS lui-même : \\192.168.1.165\Public\...
-    var nasIp = '';
-    var ipMatch = nasPath.match(/\\\\([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\\/);
-    if (ipMatch) nasIp = ipMatch[1];
-    if (!nasIp) nasIp = settings.cortoba_nas_local || '192.168.1.165';
-    // Nettoyer l'IP
-    nasIp = nasIp.replace(/\\/g, '/').replace(/^\/+/, '');
-    if (nasIp.indexOf('/') !== -1) { var m2 = nasIp.match(/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/); if (m2) nasIp = m2[1]; else nasIp = nasIp.split('/')[0]; }
-
-    var nasUser = settings.cortoba_nas_user || '';
-    var nasPass = settings.cortoba_nas_pass || '';
-
-    // Convertir le chemin UNC en chemin File Station
-    var foldersPath = nasPath.replace(/\\\\/g, '/').replace(/\\/g, '/');
-    foldersPath = foldersPath.replace(/^\/\/[^\/]+\//, '');
-
-    if (!nasUser || !nasIp) {
-      _cfgNasFallbackClipboard(nasPath);
-      if (callback) callback('clipboard', nasPath);
-      return;
-    }
-
-    var hash = 'user=' + encodeURIComponent(nasUser)
-             + '&pass=' + encodeURIComponent(nasPass)
-             + '&folders=' + encodeURIComponent(foldersPath)
-             + '&nasPath=' + encodeURIComponent(nasPath);
-    // Web Server QNAP = port 8081 (HTTPS) ou 80 (HTTP), pas 443 (QTS admin)
-    var url = 'https://' + nasIp + ':8081/nas-mkdir.html#' + hash;
-    console.log('[NAS] Ouverture popup NAS');
-
-    var handled = false;
-    function onMsg(evt) {
-      if (handled) return;
-      var d = evt.data;
-      if (!d || d.type !== 'nas-folder-result') return;
-      handled = true;
-      window.removeEventListener('message', onMsg);
-      if (d.success) {
-        console.log('[NAS] Dossier créé:', d.message);
-        if (callback) callback(true, d.message);
-      } else {
-        _cfgNasFallbackClipboard(nasPath);
-        if (callback) callback('clipboard', nasPath);
-      }
-    }
-    window.addEventListener('message', onMsg);
-
-    var popup = window.open(url, 'nas_mkdir', 'width=500,height=400,scrollbars=yes');
-    setTimeout(function() {
-      if (!handled) {
-        handled = true;
-        window.removeEventListener('message', onMsg);
-        _cfgNasFallbackClipboard(nasPath);
-        if (callback) callback('clipboard', nasPath);
-      }
-    }, 15000);
-
-    if (!popup || popup.closed) {
-      handled = true;
-      window.removeEventListener('message', onMsg);
-      _cfgNasFallbackClipboard(nasPath);
-      if (callback) callback('clipboard', nasPath);
-    }
-  });
-}
-
-function _cfgNasFallbackClipboard(nasPath) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(nasPath).catch(function(){});
-  }
-}
-
-function showSuccess(nom, code, nasMsg, nasPath) {
+function showSuccess(nom, code) {
   // Cacher le wizard
   for (var i = 1; i <= TOTAL; i++) {
     var s = document.getElementById('cfg-s' + i); if (s) s.classList.remove('active');
@@ -1217,43 +1096,6 @@ function showSuccess(nom, code, nasMsg, nasPath) {
     success.style.display = 'flex';
     var pn = document.getElementById('success-projet-name'); if (pn) pn.textContent = nom;
     var pc = document.getElementById('success-code'); if (pc) pc.textContent = code;
-    // Message NAS
-    var nasEl = document.getElementById('success-nas-msg');
-    if (!nasEl && nasPath) {
-      nasEl = document.createElement('div');
-      nasEl.id = 'success-nas-msg';
-      nasEl.style.cssText = 'margin-top:1rem;font-size:0.82rem;padding:0.8rem 1rem;border-radius:8px;' +
-        'background:rgba(78,205,196,.08);border:1px solid rgba(78,205,196,.25);color:#eee;text-align:left';
-      if (nasMsg === 'nas_created') {
-        // Dossier créé automatiquement sur le NAS
-        nasEl.innerHTML =
-          '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">' +
-            '<span style="font-size:1.1rem">✅</span>' +
-            '<span style="color:#4ecdc4;font-weight:600">Dossier créé sur le NAS</span>' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:0.5rem;background:rgba(0,0,0,.3);padding:0.5rem 0.7rem;border-radius:6px;font-family:var(--mono);font-size:0.72rem;word-break:break-all">' +
-            '<span style="flex:1;color:#f39c12">' + esc(nasPath) + '</span>' +
-            '<button onclick="navigator.clipboard.writeText(\'' + nasPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\');this.textContent=\'✓ Copié\'" ' +
-            'style="background:var(--accent);color:#111;border:none;border-radius:4px;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.72rem;white-space:nowrap;font-weight:600">Copier</button>' +
-          '</div>';
-      } else {
-        // Fallback clipboard
-        nasEl.innerHTML =
-          '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">' +
-            '<span style="font-size:1.1rem">📋</span>' +
-            '<span style="color:#4ecdc4;font-weight:600">Chemin NAS copié dans le presse-papier</span>' +
-          '</div>' +
-          '<div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">' +
-            'Ouvrez l\'Explorateur Windows → collez dans la barre d\'adresse (Ctrl+V) → créez le dossier' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:0.5rem;background:rgba(0,0,0,.3);padding:0.5rem 0.7rem;border-radius:6px;font-family:var(--mono);font-size:0.72rem;word-break:break-all">' +
-            '<span style="flex:1;color:#f39c12">' + esc(nasPath) + '</span>' +
-            '<button onclick="navigator.clipboard.writeText(\'' + nasPath.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\');this.textContent=\'✓ Copié\'" ' +
-            'style="background:var(--accent);color:#111;border:none;border-radius:4px;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.72rem;white-space:nowrap;font-weight:600">Copier</button>' +
-          '</div>';
-      }
-      success.querySelector('div').appendChild(nasEl);
-    }
   }
 }
 
