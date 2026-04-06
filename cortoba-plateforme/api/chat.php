@@ -180,6 +180,19 @@ function listRooms($user) {
                 $r['projet_nom']  = $projetInfos[$r['projet_id']]['nom'];
                 $r['projet_code'] = $projetInfos[$r['projet_id']]['code'];
             }
+            // Charger les participants pour les rooms supervision aussi
+            try {
+                $st3 = $db->prepare("SELECT cp.user_id, cp.user_name, u.color, u.profile_picture_url
+                                     FROM CA_chat_participants cp
+                                     LEFT JOIN cortoba_users u ON u.id = cp.user_id
+                                     WHERE cp.room_id = ? ORDER BY cp.joined_at ASC");
+                $st3->execute([$r['id']]);
+                $r['participants'] = $st3->fetchAll(PDO::FETCH_ASSOC);
+            } catch (\Throwable $e) {
+                $st3 = $db->prepare("SELECT cp.user_id, cp.user_name FROM CA_chat_participants cp WHERE cp.room_id = ? ORDER BY cp.joined_at ASC");
+                $st3->execute([$r['id']]);
+                $r['participants'] = $st3->fetchAll(PDO::FETCH_ASSOC);
+            }
         }
         unset($r);
         $rooms = array_merge($rooms, $extras);
@@ -304,6 +317,7 @@ function sendMessage($user) {
     }
 
     // Notification pour chaque participant (sauf l'expéditeur)
+    // Anti-doublon : vérifier s'il existe déjà une notif chat non lue pour cette room
     try {
         $stPart = $db->prepare("SELECT user_id FROM CA_chat_participants WHERE room_id = ? AND user_id <> ?");
         $stPart->execute([$roomId, $user['id'] ?? '']);
@@ -313,12 +327,30 @@ function sendMessage($user) {
         $preview = mb_strlen($content) > 80 ? mb_substr($content, 0, 80) . '…' : $content;
 
         foreach ($recipients as $rid) {
+            // Anti-doublon : ne pas créer de notif si une notif chat non lue existe déjà
+            // pour cette même room (link_id = room_id) — on met à jour le contenu à la place
+            $existing = null;
+            try {
+                $stEx = $db->prepare("SELECT id FROM CA_notifications WHERE user_id = ? AND type IN ('chat','chat_mention') AND link_id = ? AND is_read = 0 ORDER BY cree_at DESC LIMIT 1");
+                $stEx->execute([$rid, $roomId]);
+                $existing = $stEx->fetch(PDO::FETCH_ASSOC);
+            } catch (\Throwable $e2) {}
+
             $isMentioned = isset($mentionedUserIds[$rid]);
             $type  = $isMentioned ? 'chat_mention' : 'chat';
             $title = $isMentioned
                 ? '🔔 ' . $senderName . ' vous a mentionné — ' . $roomName
                 : $senderName . ' — ' . $roomName;
-            notifCreate($db, $rid, $type, $title, $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
+
+            if ($existing) {
+                // Mettre à jour la notification existante (nouveau contenu, nouveau timestamp)
+                try {
+                    $db->prepare("UPDATE CA_notifications SET title = ?, message = ?, type = ?, cree_par = ?, cree_at = NOW() WHERE id = ?")
+                       ->execute([$title, $preview ?: '📎 Pièce jointe', $type, $senderName, $existing['id']]);
+                } catch (\Throwable $e2) {}
+            } else {
+                notifCreate($db, $rid, $type, $title, $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
+            }
         }
 
         // Si un @mentionné n'est pas participant (ex: canal public), notifier quand même
