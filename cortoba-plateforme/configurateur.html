@@ -1049,24 +1049,24 @@ function saveProjet() {
       intervenants: getIntervenants()
     };
     var wantNas = (document.getElementById('cfg-nas-create') || {}).checked || false;
+    // Ouvrir la popup NAS AVANT l'appel async (sinon popup blocker)
+    var nasPopup = null;
+    if (wantNas) {
+      nasPopup = window.open('about:blank', 'nas-bridge', 'width=520,height=420');
+    }
     apiFetch('api/projets.php', { method: 'POST', body: body })
       .then(function(resp) {
         localStorage.removeItem('cortoba_cfg_draft');
         var projet = resp.data || resp || {};
         var finalCode = projet.code || code;
-        // Création du dossier NAS côté navigateur via WebDAV
-        if (wantNas) {
-          createNasFolderWebDAV(finalCode, body.nom, annee)
-            .then(function() { showSuccess(v('cfg-nom'), finalCode); })
-            .catch(function(e) {
-              console.warn('NAS folder error:', e);
-              showSuccess(v('cfg-nom'), finalCode);
-            });
-        } else {
-          showSuccess(v('cfg-nom'), finalCode);
+        // Rediriger la popup vers le bridge NAS avec les params
+        if (nasPopup) {
+          nasPopup.location.href = buildNasBridgeUrl(finalCode, body.nom, annee);
         }
+        showSuccess(v('cfg-nom'), finalCode);
       })
       .catch(function(e) {
+        if (nasPopup) try { nasPopup.close(); } catch(x) {}
         showErr(6, 'Erreur : ' + (e.message || 'Erreur serveur'));
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Créer le projet →'; }
       });
@@ -1111,14 +1111,15 @@ function saveProjet() {
   }
 }
 
-// ── Créer un dossier projet sur le NAS via bridge (réseau local) ──
-function createNasFolderWebDAV(code, nom, annee) {
+// ── Construire l'URL du bridge NAS (HTTP sur le NAS local) ──
+function buildNasBridgeUrl(code, nom, annee) {
   var cfg = _nasConfig || {};
   var uncPath = cfg.local || '';
   var match = uncPath.match(/\\\\([^\\]+)/);
   var ip = match ? match[1] : '192.168.1.165';
   var user = cfg.user || 'CASNAS';
   var pass = cfg.pass || 'Cortoba2026';
+  var port = cfg.webdavPort || '5005';
 
   var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
   var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
@@ -1127,13 +1128,11 @@ function createNasFolderWebDAV(code, nom, annee) {
   var hash = 'ip=' + encodeURIComponent(ip)
     + '&user=' + encodeURIComponent(user)
     + '&pass=' + encodeURIComponent(pass)
+    + '&port=' + port
     + '&folders=' + encodeURIComponent(folders)
     + '&nasPath=' + encodeURIComponent(nasPath);
 
-  // Ouvrir la page bridge en HTTP depuis le NAS (pas de mixed content)
-  var bridgeUrl = 'http://' + ip + ':' + (cfg.webdavPort || '5005') + '/Public/nas-tools/nas-bridge.html';
-  window.open(bridgeUrl + '#' + hash, '_blank', 'width=520,height=420');
-  return Promise.resolve();
+  return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge.html#' + hash;
 }
 
 function showSuccess(nom, code) {
