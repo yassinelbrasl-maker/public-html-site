@@ -1109,9 +1109,23 @@
             <h1 class="page-title">Suivi des missions</h1>
           </div>
           <div class="page-actions">
-            <button class="btn" id="suivi-toggle-view" onclick="suiviToggleView()">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-              Vue Kanban
+            <div class="btn-group" style="display:inline-flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+              <button class="btn btn-view active" id="suivi-view-list" onclick="suiviSetView('list')" title="Vue Liste" style="border:none;border-radius:0;border-right:1px solid var(--border)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Liste
+              </button>
+              <button class="btn btn-view" id="suivi-view-kanban" onclick="suiviSetView('kanban')" title="Vue Kanban" style="border:none;border-radius:0;border-right:1px solid var(--border)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                Kanban
+              </button>
+              <button class="btn btn-view" id="suivi-view-membres" onclick="suiviSetView('membres')" title="Vue Membres" style="border:none;border-radius:0">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Membres
+              </button>
+            </div>
+            <button class="btn" id="suivi-expand-toggle" onclick="suiviToggleExpand()" title="Tout développer / Tout réduire">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+              Tout développer
             </button>
             <button class="btn btn-primary" onclick="openSuiviModal()">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1514,12 +1528,6 @@
               <div class="form-field full"><label class="form-label">Identifiant admin</label><input class="form-input" value="amal.cortoba" /></div>
               <div class="form-field"><label class="form-label">Nouveau mot de passe</label><input class="form-input" type="password" placeholder="••••••••" /></div>
               <div class="form-field"><label class="form-label">Confirmer</label><input class="form-input" type="password" placeholder="••••••••" /></div>
-              <div class="form-field full"><label class="form-label">QR Code de connexion</label>
-                <div style="display:flex;gap:0.8rem;align-items:center;margin-top:0.4rem">
-                  <button class="btn btn-sm" onclick="alert('Génération de QR désactivée — connexion par email/mot de passe uniquement.')">Générer nouveau QR</button>
-                  <button class="btn btn-sm" onclick="alert('QR code non disponible dans cette version.')">Télécharger</button>
-                </div>
-              </div>
             </div>
             <div style="margin-top:1rem;display:flex;justify-content:flex-end">
               <button class="btn btn-primary btn-sm" onclick="changePassword()">Mettre à jour</button>
@@ -4471,7 +4479,11 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="form-grid">
         <div class="form-field" style="grid-column:1/-1">
           <label class="form-label">Projet lié *</label>
-          <select id="ch-projet-id" class="form-input"><option value="">— Sélectionner —</option></select>
+          <input type="hidden" id="ch-projet-id" value="">
+          <div style="position:relative">
+            <input type="text" id="ch-projet-search" class="form-input" placeholder="Rechercher un projet (code, nom, client)..." autocomplete="off" oninput="chProjetSearch(this.value)" onfocus="chProjetSearch(this.value)">
+            <div id="ch-projet-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:220px;overflow-y:auto;background:var(--bg-2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;z-index:50"></div>
+          </div>
         </div>
         <div class="form-field"><label class="form-label">Nom du chantier *</label><input type="text" id="ch-nom" class="form-input" placeholder="Ex: Résidence El Menzah"></div>
         <div class="form-field"><label class="form-label">Code</label><input type="text" id="ch-code" class="form-input" placeholder="CH-001"></div>
