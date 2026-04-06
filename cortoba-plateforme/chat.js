@@ -569,7 +569,17 @@
   // ═══════════════════════════════════════════════════════════
   //  Boot : attendre qu'il y ait une session
   // ═══════════════════════════════════════════════════════════
+  function isLoginVisible() {
+    var ls = document.getElementById('login-screen');
+    return ls && ls.style.display !== 'none';
+  }
+
   function boot() {
+    // Ne pas démarrer si la page de login est affichée
+    if (isLoginVisible()) {
+      setTimeout(boot, 2000);
+      return;
+    }
     var token = sessionStorage.getItem('cortoba_token');
     if (!token) {
       // Pas encore connecté → retenter
