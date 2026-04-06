@@ -1130,7 +1130,9 @@ function createNasFolderWebDAV(code, nom, annee) {
     + '&folders=' + encodeURIComponent(folders)
     + '&nasPath=' + encodeURIComponent(nasPath);
 
-  window.open('nas-bridge.html#' + hash, '_blank', 'width=520,height=420');
+  // Ouvrir la page bridge en HTTP depuis le NAS (pas de mixed content)
+  var bridgeUrl = 'http://' + ip + ':' + (cfg.webdavPort || '5005') + '/Public/nas-tools/nas-bridge.html';
+  window.open(bridgeUrl + '#' + hash, '_blank', 'width=520,height=420');
   return Promise.resolve();
 }
 
