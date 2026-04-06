@@ -3459,12 +3459,21 @@ function refreshNotifBadge(){
 
   Promise.all([pNotifs, pDue]).then(function(){
     var unread = _personalNotifCache.filter(function(n){ return !parseInt(n.is_read||0,10); }).length;
-    var total = unread + retards.length + devisAtt.length + _dueTemplatesCache.length;
+    var chatUnread = window.__chatUnread || 0;
+    var total = unread + retards.length + devisAtt.length + _dueTemplatesCache.length + chatUnread;
     var badge = document.getElementById('notif-badge');
     if (badge) {
       badge.textContent = String(total);
       badge.style.display = total > 0 ? '' : 'none';
     }
+  });
+}
+
+// Écouter les mises à jour du compteur chat pour rafraîchir le badge cloche
+if (!window.__chatBellWired) {
+  window.__chatBellWired = true;
+  document.addEventListener('chat-unread', function() {
+    refreshNotifBadge();
   });
 }
 
@@ -8346,9 +8355,14 @@ function switchRdmTab(tab) {
   document.querySelectorAll('.rdm-tab').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-rdm-tab') === tab);
   });
-  document.querySelectorAll('.rdm-tab-panel').forEach(function(p) {
-    p.classList.toggle('active', p.id === 'rdm-panel-' + tab);
+  document.querySelectorAll(".rdm-tab-panel").forEach(function(p) {
+    var isActive = p.id === "rdm-panel-" + tab;
+    p.classList.toggle("active", isActive);
+    p.style.display = isActive ? "block" : "none";
   });
+
+
+
 }
 
 function renderRendementPage() {

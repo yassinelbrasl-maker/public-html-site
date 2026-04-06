@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/../config/middleware.php';
 require_once __DIR__ . '/chat_helpers.php';
+require_once __DIR__ . '/notifications.php';
 
 // ── Lot 7 : actions publiques (token client) sans auth JWT ──
 $publicAction = $_GET['action'] ?? '';
@@ -261,6 +262,20 @@ function sendMessage($user) {
     $db->prepare("UPDATE CA_chat_participants SET last_read_at = NOW()
                   WHERE room_id = ? AND user_id = ?")
        ->execute([$roomId, $user['id'] ?? '']);
+
+    // Notification pour chaque participant (sauf l'expéditeur)
+    try {
+        $stPart = $db->prepare("SELECT user_id FROM CA_chat_participants WHERE room_id = ? AND user_id <> ?");
+        $stPart->execute([$roomId, $user['id'] ?? '']);
+        $recipients = $stPart->fetchAll(PDO::FETCH_COLUMN);
+        $roomName = $room['name'] ?? 'Discussion';
+        $senderName = $user['name'] ?? 'Quelqu\'un';
+        $preview = mb_strlen($content) > 80 ? mb_substr($content, 0, 80) . '…' : $content;
+        $title = $senderName . ' — ' . $roomName;
+        foreach ($recipients as $rid) {
+            notifCreate($db, $rid, 'chat', $title, $preview ?: '📎 Pièce jointe', null, $roomId, $senderName);
+        }
+    } catch (\Throwable $e) { /* silencieux — ne pas bloquer l'envoi */ }
 
     try {
         $stmt = $db->prepare("SELECT m.*, u.color, u.profile_picture_url
