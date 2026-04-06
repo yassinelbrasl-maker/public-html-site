@@ -434,19 +434,28 @@ function listUsers($user) {
 // ---------------------------------------------------------------
 function listProjectsForChat($user) {
     $db = getDB();
-    // Projets actifs qui n'ont pas encore de room chat
-    $sql = "SELECT p.id, p.nom, p.code, p.statut
-            FROM CA_projets p
-            WHERE NOT EXISTS (
-                SELECT 1 FROM CA_chat_rooms r WHERE r.type='projet' AND r.projet_id = p.id
-            )
-            AND (p.statut IS NULL OR p.statut NOT IN ('Terminé','Archivé','Clôturé'))
-            ORDER BY p.code ASC, p.nom ASC";
     try {
+        // Projets actifs qui n'ont pas encore de room chat
+        $sql = "SELECT p.id, p.nom, p.code, p.statut
+                FROM CA_projets p
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM CA_chat_rooms r WHERE r.type='projet' AND r.projet_id = p.id
+                )
+                AND (p.statut IS NULL OR p.statut NOT IN ('Terminé','Archivé','Clôturé'))
+                ORDER BY p.code ASC, p.nom ASC";
         $stmt = $db->query($sql);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (\Throwable $e) {
-        $rows = [];
+        // Fallback sans filtre statut
+        try {
+            $sql2 = "SELECT p.id, p.nom, p.code FROM CA_projets p
+                     WHERE NOT EXISTS (SELECT 1 FROM CA_chat_rooms r WHERE r.type='projet' AND r.projet_id = p.id)
+                     ORDER BY p.code ASC, p.nom ASC";
+            $stmt = $db->query($sql2);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e2) {
+            $rows = [];
+        }
     }
     jsonOk($rows);
 }

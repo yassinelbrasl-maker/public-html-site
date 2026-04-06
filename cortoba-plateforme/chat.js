@@ -378,8 +378,10 @@
   //  Nouvelle conversation — picker (DM + Projet)
   // ═══════════════════════════════════════════════════════════
   function openNewConversationPicker() {
-    // Charger utilisateurs et projets en parallèle
-    Promise.all([api('users'), api('projects_for_chat')]).then(function (results) {
+    // Charger utilisateurs et projets en parallèle (projets optionnel)
+    var pUsers   = api('users');
+    var pProjets = api('projects_for_chat').catch(function () { return { data: [] }; });
+    Promise.all([pUsers, pProjets]).then(function (results) {
       STATE.users = results[0].data || [];
       var projets = results[1].data || [];
 
