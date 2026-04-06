@@ -77,6 +77,11 @@ function chat_ensure_schema() {
         last_seen DATETIME   NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    // S'assurer que cortoba_users a les colonnes color + profile_picture_url
+    // (normalement créées par users.php, mais chat.php peut être appelé avant)
+    try { $db->exec("ALTER TABLE cortoba_users ADD COLUMN color VARCHAR(9) DEFAULT '#c8a96e'"); } catch (\Throwable $e) {}
+    try { $db->exec("ALTER TABLE cortoba_users ADD COLUMN profile_picture_url VARCHAR(400) DEFAULT NULL"); } catch (\Throwable $e) {}
+
     $done = true;
 }
 
