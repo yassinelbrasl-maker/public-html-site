@@ -120,6 +120,24 @@ function chat_genid() {
     return bin2hex(random_bytes(16));
 }
 
+// Vérifie si cortoba_users a les colonnes color + profile_picture_url
+// Résultat mis en cache statique pour la requête.
+function chat_user_extra_cols() {
+    static $cols = null;
+    if ($cols !== null) return $cols;
+    try {
+        $db = getDB();
+        $st = $db->query("SHOW COLUMNS FROM cortoba_users WHERE Field IN ('color','profile_picture_url')");
+        $found = array_column($st->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        $cols = '';
+        if (in_array('color', $found))             $cols .= ', u.color';
+        if (in_array('profile_picture_url', $found)) $cols .= ', u.profile_picture_url';
+    } catch (\Throwable $e) {
+        $cols = '';
+    }
+    return $cols;
+}
+
 // Crée un groupe de discussion pour un projet (idempotent)
 // $projet = row CA_projets (array). Retourne room_id ou null.
 function chat_create_project_room($db, array $projet, $createdByName = null) {

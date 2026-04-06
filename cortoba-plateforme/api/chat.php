@@ -116,20 +116,20 @@ function listRooms($user) {
             $r['projet_code'] = $projetInfos[$r['projet_id']]['code'];
         }
         if ($r['type'] === 'direct') {
-            try {
-                $st2 = $db->prepare("SELECT cp.user_id, cp.user_name, u.profile_picture_url, u.color, u.role
+            $eCols = chat_user_extra_cols();
+            $roleCol = $eCols ? ', u.role' : '';
+            if ($eCols) {
+                $st2 = $db->prepare("SELECT cp.user_id, cp.user_name $eCols $roleCol
                                      FROM CA_chat_participants cp
                                      LEFT JOIN cortoba_users u ON u.id = cp.user_id
                                      WHERE cp.room_id = ? AND cp.user_id <> ? LIMIT 1");
-                $st2->execute([$r['id'], $uid]);
-                $other = $st2->fetch(PDO::FETCH_ASSOC);
-            } catch (\Throwable $e) {
+            } else {
                 $st2 = $db->prepare("SELECT cp.user_id, cp.user_name
                                      FROM CA_chat_participants cp
                                      WHERE cp.room_id = ? AND cp.user_id <> ? LIMIT 1");
-                $st2->execute([$r['id'], $uid]);
-                $other = $st2->fetch(PDO::FETCH_ASSOC);
             }
+            $st2->execute([$r['id'], $uid]);
+            $other = $st2->fetch(PDO::FETCH_ASSOC);
             $r['other_user'] = $other ?: null;
             if ($other) {
                 $r['name'] = $other['user_name'] ?: 'Membre';
@@ -137,18 +137,18 @@ function listRooms($user) {
         }
         // Participants (pour les rooms projet)
         if ($r['type'] === 'projet') {
-            try {
-                $st3 = $db->prepare("SELECT cp.user_id, cp.user_name, u.color, u.profile_picture_url
+            $eCols = chat_user_extra_cols();
+            if ($eCols) {
+                $st3 = $db->prepare("SELECT cp.user_id, cp.user_name $eCols
                                      FROM CA_chat_participants cp
                                      LEFT JOIN cortoba_users u ON u.id = cp.user_id
                                      WHERE cp.room_id = ? ORDER BY cp.joined_at ASC");
-                $st3->execute([$r['id']]);
-            } catch (\Throwable $e) {
+            } else {
                 $st3 = $db->prepare("SELECT cp.user_id, cp.user_name
                                      FROM CA_chat_participants cp
                                      WHERE cp.room_id = ? ORDER BY cp.joined_at ASC");
-                $st3->execute([$r['id']]);
             }
+            $st3->execute([$r['id']]);
             $r['participants'] = $st3->fetchAll(PDO::FETCH_ASSOC);
         }
     }
@@ -208,18 +208,18 @@ function listMessages($user) {
         $where .= ' AND cree_at > ?';
         $params[] = $since;
     }
-    try {
-        $stmt = $db->prepare("SELECT m.*, u.color, u.profile_picture_url
+    $extra = chat_user_extra_cols();
+    if ($extra) {
+        $stmt = $db->prepare("SELECT m.* $extra
                               FROM CA_chat_messages m
                               LEFT JOIN cortoba_users u ON u.id = m.sender_id
                               WHERE $where ORDER BY cree_at ASC LIMIT 500");
-        $stmt->execute($params);
-    } catch (\Throwable $e) {
+    } else {
         $stmt = $db->prepare("SELECT m.*
                               FROM CA_chat_messages m
                               WHERE $where ORDER BY cree_at ASC LIMIT 500");
-        $stmt->execute($params);
     }
+    $stmt->execute($params);
     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     jsonOk(['room' => $room, 'messages' => $messages, 'server_time' => date('Y-m-d H:i:s')]);
@@ -277,15 +277,13 @@ function sendMessage($user) {
         }
     } catch (\Throwable $e) { /* silencieux — ne pas bloquer l'envoi */ }
 
-    try {
-        $stmt = $db->prepare("SELECT m.*, u.color, u.profile_picture_url
-                              FROM CA_chat_messages m LEFT JOIN cortoba_users u ON u.id = m.sender_id
-                              WHERE m.id = ?");
-        $stmt->execute([$mid]);
-    } catch (\Throwable $e) {
+    $extra = chat_user_extra_cols();
+    if ($extra) {
+        $stmt = $db->prepare("SELECT m.* $extra FROM CA_chat_messages m LEFT JOIN cortoba_users u ON u.id = m.sender_id WHERE m.id = ?");
+    } else {
         $stmt = $db->prepare("SELECT m.* FROM CA_chat_messages m WHERE m.id = ?");
-        $stmt->execute([$mid]);
     }
+    $stmt->execute([$mid]);
     jsonOk($stmt->fetch(PDO::FETCH_ASSOC));
 }
 
@@ -402,20 +400,12 @@ function unreadCount($user) {
 function listUsers($user) {
     $db = getDB();
     $me = $user['id'] ?? '';
-    try {
-        $stmt = $db->query("SELECT id, prenom, nom, role, color, profile_picture_url
-                            FROM cortoba_users
-                            WHERE is_admin = 0 AND statut <> 'Inactif'
-                            ORDER BY prenom, nom");
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (\Throwable $e) {
-        // Fallback si colonnes color/profile_picture_url absentes
-        $stmt = $db->query("SELECT id, prenom, nom, role
-                            FROM cortoba_users
-                            WHERE is_admin = 0 AND statut <> 'Inactif'
-                            ORDER BY prenom, nom");
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+    $eCols = chat_user_extra_cols();
+    $stmt = $db->query("SELECT id, prenom, nom, role" . str_replace(', u.', ', ', $eCols) . "
+                        FROM cortoba_users
+                        WHERE is_admin = 0 AND statut <> 'Inactif'
+                        ORDER BY prenom, nom");
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $out = [];
     foreach ($rows as $r) {
         if ($r['id'] === $me) continue;
