@@ -1867,6 +1867,7 @@ function resetProjetForm(){
   var eyebrow = document.getElementById('pj-modal-eyebrow');if(eyebrow) eyebrow.textContent='NOUVEAU PROJET';
   var saveBtn = document.getElementById('pj-save-btn');     if(saveBtn) saveBtn.textContent='Créer le projet →';
   var chatChk = document.getElementById('pj-chat-create');  if(chatChk) chatChk.checked = false;
+  var nasChk  = document.getElementById('pj-nas-create');   if(nasChk)  nasChk.checked = false;
 
   populateClientSelect();
   populateMissionsList([]);
@@ -2087,7 +2088,8 @@ function saveProjet(){
     cout_m2: parseFloat((document.getElementById('pj-cout-m2')||{}).value)||null,
     missions:getSelectedMissions(),
     intervenants:getIntervenants(),
-    create_chat_room: (document.getElementById('pj-chat-create') || {}).checked || false
+    create_chat_room: (document.getElementById('pj-chat-create') || {}).checked || false,
+    create_nas_folder: (document.getElementById('pj-nas-create') || {}).checked || false
   };
 
   var method, url;
@@ -5913,6 +5915,39 @@ function loadNasParams() {
   Object.keys(map).forEach(function(id) {
     var el = document.getElementById(id);
     if (el && map[id] !== undefined) el.value = map[id];
+  });
+  // Champs supplémentaires de la section Projets NAS
+  var rootEl = document.getElementById('param-nas-projets-root');
+  if (rootEl) rootEl.value = getSetting('cortoba_nas_projets_root', '');
+  var tplEl = document.getElementById('param-nas-template-folder');
+  if (tplEl) tplEl.value = getSetting('cortoba_nas_template_folder', '00-Dossier Type');
+}
+
+// ── Sauvegarder config dossiers projets NAS ──
+function saveNasProjectConfig() {
+  var fields = {
+    cortoba_nas_projets_root:    'param-nas-projets-root',
+    cortoba_nas_template_folder: 'param-nas-template-folder',
+  };
+  var promises = [];
+  Object.keys(fields).forEach(function(key) {
+    var el = document.getElementById(fields[key]);
+    if (!el) return;
+    var val = el.value;
+    _settingsCache[key] = val;
+    setLS(key, val);
+    promises.push(
+      apiFetch('api/settings.php', {method:'POST', body:{key:key, value:val}})
+        .catch(function(e) { console.error('NAS project config save error:', e); return {error:true}; })
+    );
+  });
+  Promise.all(promises).then(function(results) {
+    var errors = results.filter(function(r) { return r && r.error; });
+    if (errors.length > 0) {
+      showToast('Erreur lors de la sauvegarde', 'error');
+    } else {
+      showToast('Configuration dossiers projets NAS enregistrée');
+    }
   });
 }
 

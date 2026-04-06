@@ -164,6 +164,16 @@ function create(array $user) {
         }
     }
 
+    // ── Création optionnelle du dossier NAS via WebDAV ──
+    if (!empty($body['create_nas_folder']) && $projet) {
+        try {
+            $nasResult = createNasProjectFolder($db, $projet);
+            $result['nas_folder'] = $nasResult;
+        } catch (\Throwable $e) {
+            $result['nas_folder_error'] = $e->getMessage();
+        }
+    }
+
     jsonOk($result);
 }
 
@@ -263,6 +273,92 @@ function saveMissions(string $projetId, array $missions) {
     foreach ($missions as $m) {
         if (trim($m ?? '')) $stmt->execute([$projetId, trim($m)]);
     }
+}
+
+// ── Créer un dossier projet sur le NAS via WebDAV ──
+function createNasProjectFolder(PDO $db, array $projet): array {
+    // Lire la config NAS depuis CA_settings
+    $stmt = $db->prepare("SELECT setting_key, setting_value FROM CA_settings WHERE setting_key IN (
+        'cortoba_nas_local','cortoba_nas_user','cortoba_nas_pass',
+        'cortoba_nas_webdav_port','cortoba_nas_projets_root','cortoba_nas_template_folder'
+    )");
+    $stmt->execute();
+    $cfg = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $cfg[$row['setting_key']] = $row['setting_value'];
+    }
+
+    // Extraire l'IP du chemin UNC (\\192.168.1.165\Public\...)
+    $uncPath = $cfg['cortoba_nas_local'] ?? '';
+    $ip = '';
+    if (preg_match('/\\\\\\\\([^\\\\]+)/', $uncPath, $m)) {
+        $ip = $m[1];
+    }
+    if (!$ip) throw new \RuntimeException('IP du NAS non configurée');
+
+    $port      = $cfg['cortoba_nas_webdav_port'] ?? '5005';
+    $user      = $cfg['cortoba_nas_user'] ?? '';
+    $pass      = $cfg['cortoba_nas_pass'] ?? '';
+    $rootPath  = rtrim($cfg['cortoba_nas_projets_root'] ?? '/Public/CAS_PROJETS', '/');
+    $annee     = $projet['annee'] ?? date('Y');
+    $code      = $projet['code'] ?? '';
+    $nom       = $projet['nom'] ?? '';
+
+    // Nom du dossier : CODE - Nom du projet (nettoyé)
+    $folderName = trim($code . ' - ' . $nom);
+    $folderName = preg_replace('/[<>:"\/|?*]/', '_', $folderName); // caractères interdits
+
+    $baseUrl = 'http://' . $ip . ':' . $port;
+
+    // Créer le dossier année si nécessaire, puis le dossier projet
+    $paths = [
+        $rootPath . '/' . $annee,
+        $rootPath . '/' . $annee . '/' . $folderName,
+    ];
+
+    $results = [];
+    foreach ($paths as $path) {
+        $url = $baseUrl . '/' . rawurlencode_path($path);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST  => 'MKCOL',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/xml'],
+        ]);
+        if ($user) {
+            curl_setopt($ch, CURLOPT_USERPWD, $user . ':' . $pass);
+            curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        }
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error    = curl_error($ch);
+        curl_close($ch);
+
+        $results[] = [
+            'path'     => $path,
+            'http'     => $httpCode,
+            'ok'       => ($httpCode === 201 || $httpCode === 405), // 405 = déjà existant
+            'error'    => $error ?: null,
+        ];
+    }
+
+    $folderPath = $rootPath . '/' . $annee . '/' . $folderName;
+    $allOk = true;
+    foreach ($results as $r) {
+        if (!$r['ok'] && $r['error']) { $allOk = false; break; }
+    }
+
+    return [
+        'created' => $allOk,
+        'path'    => $folderPath,
+        'details' => $results,
+    ];
+}
+
+// Encode chaque segment du chemin WebDAV individuellement
+function rawurlencode_path(string $path): string {
+    return implode('/', array_map('rawurlencode', explode('/', $path)));
 }
 
 function saveIntervenants(string $projetId, array $intervenants) {
