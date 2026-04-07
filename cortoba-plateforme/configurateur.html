@@ -491,6 +491,7 @@ var API_BASE = (function(){
 
 var _token = null;
 var _clients = [];
+var _projets = [];
 var _missions = [];
 var _missionCategories = [];
 var _roles = [];
@@ -562,6 +563,11 @@ function loadInitialData() {
   return apiFetch('api/clients.php')
     .then(function(r) {
       _clients = (r.data || r || []);
+      setLoadMsg('Chargement des projets…');
+      return apiFetch('api/projets.php');
+    })
+    .then(function(r) {
+      _projets = (r.data || r || []);
       setLoadMsg('Chargement des paramètres…');
       return apiFetch('api/settings.php');
     })
@@ -1074,7 +1080,18 @@ function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt
 // ── Génération code projet ──
 function genProjetCode(annee, clientCode) {
   var yy = String(annee || new Date().getFullYear()).slice(-2);
-  var seq = '01'; // le serveur ajustera si collision
+  // Chercher le MAX séquentiel parmi les projets existants de la même année
+  var maxSeq = 0;
+  (_projets || []).forEach(function(p) {
+    if (p.annee == annee || (p.code && p.code.indexOf('_' + yy + '_') !== -1)) {
+      var match = (p.code || '').match(/^(\d+)_/);
+      if (match) {
+        var n = parseInt(match[1], 10);
+        if (n > maxSeq) maxSeq = n;
+      }
+    }
+  });
+  var seq = String(maxSeq + 1).padStart(2, '0');
   return seq + '_' + yy + '_' + (clientCode || 'XXX');
 }
 

@@ -1589,7 +1589,7 @@ function refreshGlobalMap(){
   if(!_globalMap){
     _globalMap = L.map('projets-global-map',{zoomControl:true}).setView([33.84,10.88],10);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Esri',maxZoom:19}).addTo(_globalMap);
-    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{attribution:'',maxZoom:19,opacity:0.8}).addTo(_globalMap);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:19,subdomains:'abcd',opacity:1}).addTo(_globalMap);
   }
   _globalMarkers.forEach(function(m){ try{_globalMap.removeLayer(m);}catch(e){} });
   _globalMarkers = [];
@@ -1673,12 +1673,20 @@ function switchPjTab(tab, btn){
 function genProjetCode(annee, clientDisplayNom, clientCode){
   var yy      = String(annee||new Date().getFullYear()).slice(-2);
   var projets = getProjets();
-  // Exclure le projet en cours d'édition du comptage
-  var sameYear = projets.filter(function(p){
-    if(_editingProjetId && p.id===_editingProjetId) return false;
-    return p.annee==annee || (p.code && p.code.indexOf('_'+yy+'_')!==-1);
+  // Trouver le numéro séquentiel MAX parmi les projets de la même année
+  var maxSeq = 0;
+  projets.forEach(function(p){
+    if(_editingProjetId && p.id===_editingProjetId) return;
+    if(p.annee==annee || (p.code && p.code.indexOf('_'+yy+'_')!==-1)){
+      // Extraire le numéro séquentiel du code (premier segment avant _)
+      var match = (p.code||'').match(/^(\d+)_/);
+      if(match){
+        var n = parseInt(match[1], 10);
+        if(n > maxSeq) maxSeq = n;
+      }
+    }
   });
-  var seq  = String(sameYear.length+1).padStart(2,'0');
+  var seq  = String(maxSeq+1).padStart(2,'0');
   var code = clientCode || '';
   if (!code && clientDisplayNom) {
     var c = getClients().find(function(x){ return x.displayNom===clientDisplayNom||x.display_nom===clientDisplayNom; });
@@ -1698,8 +1706,37 @@ function previewPjCode(){
   var clientNom = client ? (client.displayNom||client.display_nom||client.nom||'') : '';
   var clientCode= client ? client.code : '';
   if (!clientVal) { codeEl.textContent='—'; return; }
+  // Ne pas écraser si l'utilisateur a modifié manuellement
+  var codeInput = document.getElementById('pj-code-input');
+  if (codeInput && codeInput.style.display !== 'none' && codeInput.dataset.manual === '1') return;
   var code    = genProjetCode(annee, clientNom, clientCode);
   codeEl.textContent = code;
+}
+
+var _codeEditMode = false;
+function toggleCodeEdit() {
+  var preview = document.getElementById('pj-code-preview');
+  var input   = document.getElementById('pj-code-input');
+  var btn     = document.getElementById('pj-code-edit-btn');
+  if (!preview || !input) return;
+  _codeEditMode = !_codeEditMode;
+  if (_codeEditMode) {
+    input.value = preview.textContent === '—' ? '' : preview.textContent;
+    input.style.display = '';
+    preview.style.display = 'none';
+    input.dataset.manual = '1';
+    input.focus();
+    btn.textContent = '✓';
+    btn.title = 'Valider le code';
+  } else {
+    var val = input.value.trim();
+    if (val) preview.textContent = val;
+    input.style.display = 'none';
+    preview.style.display = '';
+    input.dataset.manual = '0';
+    btn.textContent = '✏️';
+    btn.title = 'Modifier le code';
+  }
 }
 
 function populateClientSelect(){
@@ -1998,8 +2035,8 @@ function initPjMap(){
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     {attribution:'Esri World Imagery', maxZoom:19}).addTo(_pjMap);
   // Couche étiquettes par-dessus
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-    {attribution:'', maxZoom:19, opacity:0.85}).addTo(_pjMap);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+    {attribution:'', maxZoom:19, subdomains:'abcd', opacity:1}).addTo(_pjMap);
 
   var markerIcon = L.divIcon({
     className:'',
@@ -2047,7 +2084,10 @@ function resetProjetForm(){
   clearTypeBatSearch();
 
   var err     = document.getElementById('pj-err');     if(err)    err.style.display='none';
-  var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) codeEl.textContent='—';
+  var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) { codeEl.textContent='—'; codeEl.style.display=''; }
+  var codeInput = document.getElementById('pj-code-input'); if(codeInput) { codeInput.style.display='none'; codeInput.dataset.manual='0'; codeInput.value=''; }
+  var codeBtn = document.getElementById('pj-code-edit-btn'); if(codeBtn) { codeBtn.textContent='✏️'; codeBtn.title='Modifier le code'; }
+  _codeEditMode = false;
   var latEl   = document.getElementById('pj-lat');      if(latEl)  latEl.value='';
   var lngEl   = document.getElementById('pj-lng');      if(lngEl)  lngEl.value='';
   var coordsD = document.getElementById('pj-coords-display'); if(coordsD) coordsD.style.display='none';
@@ -2061,6 +2101,8 @@ function resetProjetForm(){
   var nasChk  = document.getElementById('pj-nas-create');   if(nasChk)  nasChk.checked = false;
   var portalBtn = document.getElementById('pj-portal-btn'); if(portalBtn) portalBtn.style.display = 'none';
   var nasLinkBtn = document.getElementById('pj-nas-link-btn'); if(nasLinkBtn) nasLinkBtn.style.display = 'none';
+  var nasPathInput = document.getElementById('pj-nas-path-input'); if(nasPathInput) nasPathInput.value = '';
+  var nasEditPanel = document.getElementById('pj-nas-edit-panel'); if(nasEditPanel) nasEditPanel.style.display = 'none';
 
 
   populateClientSelect();
@@ -2216,17 +2258,54 @@ function openEditProjet(id){
 }
 
 // ── Ouvrir le dossier NAS depuis la modale d'édition ──
-function openNasFolder() {
+function buildCurrentNasPath() {
   var cfg = getNasConfig();
   var ip = cfg.local || '192.168.1.165';
   var code = (document.getElementById('pj-code-preview').textContent || '').trim();
-  var client = (document.getElementById('pj-client').value || '').trim();
+  var clientSel = document.getElementById('pj-client');
+  var clientObj = clientSel ? getClients().find(function(c){ return c.id === clientSel.value; }) : null;
+  var clientName = clientObj ? (clientObj.displayNom || clientObj.display_nom || clientObj.nom || clientObj.raison || '') : '';
   var annee = (document.getElementById('pj-annee').value || new Date().getFullYear());
   if (code === '—') code = '';
-  var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-  var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+}
+
+function openNasFolder() {
+  // Utiliser le chemin personnalisé s'il existe
+  var customInput = document.getElementById('pj-nas-path-input');
+  var nasPath = (customInput && customInput.value.trim()) ? customInput.value.trim() : buildCurrentNasPath();
   navigator.clipboard.writeText(nasPath).then(function() {
     showToast('Chemin NAS copié : ' + nasPath, 'success');
+  });
+}
+
+function toggleNasPathEdit() {
+  var panel = document.getElementById('pj-nas-edit-panel');
+  if (!panel) return;
+  var visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
+  if (!visible) {
+    var input = document.getElementById('pj-nas-path-input');
+    if (input && !input.value) input.value = buildCurrentNasPath();
+    input.focus();
+    input.select();
+  }
+}
+
+function resetNasPath() {
+  var input = document.getElementById('pj-nas-path-input');
+  if (input) { input.value = buildCurrentNasPath(); input.select(); }
+}
+
+function applyNasPath() {
+  var input = document.getElementById('pj-nas-path-input');
+  var path = input ? input.value.trim() : '';
+  if (!path) { showToast('Chemin vide', 'error'); return; }
+  navigator.clipboard.writeText(path).then(function() {
+    showToast('Chemin NAS copié : ' + path, 'success');
+    var panel = document.getElementById('pj-nas-edit-panel');
+    if (panel) panel.style.display = 'none';
   });
 }
 
@@ -2414,9 +2493,13 @@ function saveProjet(){
   var lat         = parseFloat(document.getElementById('pj-lat').value)||null;
   var lng         = parseFloat(document.getElementById('pj-lng').value)||null;
   var displayNom  = client.displayNom||client.display_nom||client.nom||client.raison||'';
-  var code        = _editingProjetId
-    ? (document.getElementById('pj-code-preview').textContent || genProjetCode(annee, displayNom, client.code))
-    : genProjetCode(annee, displayNom, client.code);
+  // Lire le code : priorité au champ manuel s'il est actif
+  var codeInputEl = document.getElementById('pj-code-input');
+  var codeManual  = (codeInputEl && codeInputEl.dataset.manual === '1') ? codeInputEl.value.trim() : '';
+  var code        = codeManual
+    || (_editingProjetId
+      ? (document.getElementById('pj-code-preview').textContent || genProjetCode(annee, displayNom, client.code))
+      : genProjetCode(annee, displayNom, client.code));
 
   var body = {
     nom:nom, client:displayNom, clientId:clientId,

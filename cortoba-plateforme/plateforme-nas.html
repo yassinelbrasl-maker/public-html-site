@@ -3243,9 +3243,13 @@
       <div id="pj-err" style="display:none;background:rgba(224,112,112,.1);border:1px solid #e07070;border-radius:6px;padding:0.6rem 0.8rem;font-size:0.82rem;color:#e07070;margin-bottom:1rem"></div>
       <div id="pj-panel-identite" class="pj-tab-panel">
         <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.8rem 1rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:1.5rem">
-          <div>
+          <div style="flex:1">
             <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Code dossier</div>
-            <div id="pj-code-preview" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.08em">—</div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <div id="pj-code-preview" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--accent);letter-spacing:0.08em">—</div>
+              <input id="pj-code-input" class="form-input" style="display:none;font-family:var(--mono);font-size:0.95rem;font-weight:700;color:var(--accent);letter-spacing:0.08em;padding:0.3rem 0.5rem;width:180px" />
+              <button type="button" id="pj-code-edit-btn" onclick="toggleCodeEdit()" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.75rem;padding:2px" title="Modifier le code">✏️</button>
+            </div>
           </div>
         </div>
         <div class="form-grid">
@@ -3388,8 +3392,19 @@
           📁 Créer un dossier sur le serveur NAS
         </label>
       </div>
-      <button class="btn" id="pj-nas-link-btn" onclick="openNasFolder()" style="display:none;background:none;border:1px solid var(--border);color:var(--text-1);border-radius:5px;padding:0.45rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Dossier NAS</button>
+      <div id="pj-nas-link-btn" style="display:none;position:relative">
+        <button class="btn" onclick="openNasFolder()" style="background:none;border:1px solid var(--border);color:var(--text-1);border-radius:5px;padding:0.45rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Dossier NAS</button>
+        <button class="btn" onclick="toggleNasPathEdit()" style="background:none;border:1px solid var(--border);color:var(--text-3);border-radius:5px;padding:0.45rem 0.4rem;font-size:0.7rem;cursor:pointer;font-family:var(--font);margin-left:-1px" title="Modifier le chemin NAS">✏️</button>
+        <div id="pj-nas-edit-panel" style="display:none;position:absolute;bottom:110%;left:0;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;padding:0.8rem;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:380px;z-index:400">
+          <div style="font-size:0.7rem;color:var(--text-3);margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.1em">Chemin NAS personnalisé</div>
+          <input id="pj-nas-path-input" class="form-input" style="font-family:var(--mono);font-size:0.78rem;margin-bottom:0.5rem" placeholder="\\192.168.1.165\Public\CAS_PROJETS\2026\..." />
+          <div style="display:flex;gap:0.4rem;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="resetNasPath()" style="font-size:0.7rem">Réinitialiser</button>
+            <button class="btn btn-sm btn-primary" onclick="applyNasPath()" style="font-size:0.7rem">Copier</button>
+          </div>
+        </div>
+      </div>
       <button class="btn" id="pj-portal-btn" onclick="openCreatePortalAccess(_editingProjetId, document.getElementById('pj-client')?.selectedOptions[0]?.text||'', document.getElementById('pj-client')?.value||'')" style="display:none;background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:0.45rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)">&#128279; Créer accès portail</button>
       <button class="btn" onclick="closeModal('modal-projet')">Annuler</button>
       <button class="btn btn-primary" id="pj-save-btn" onclick="saveProjet()">Créer le projet →</button>
@@ -4720,7 +4735,7 @@ if (typeof Gantt === 'undefined') {
   document.head.appendChild(_fg);
 }
 </script>
-<script src="plateforme-nas.js?t=20260407f"></script>
+<script src="plateforme-nas.js?t=20260408a"></script>
 <script src="ergonomie.js?t=20260328e"></script>
 <script src="chat.js?t=20260406d"></script>
 <script src="flotte.js?t=20260407a"></script>
