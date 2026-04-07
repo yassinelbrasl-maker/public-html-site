@@ -54,6 +54,7 @@ var pass = params.pass || '';
 var port = params.port || '5005';
 var folders = params.folders || '';
 var nasPath = params.nasPath || '';
+var templateFolder = params.template || '';
 
 function addStep(text, cls) {
   var d = document.createElement('div');
@@ -181,6 +182,62 @@ function tryQtsApi(baseUrl, parts) {
     });
 }
 
+// ── Copie du contenu du dossier modele via WebDAV ──
+function copyTemplate(baseUrl, destFolder) {
+  if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
+  var s = addStep('Copie du modele...', 'wait');
+  // Lister le contenu du dossier modele via PROPFIND
+  var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/');
+  var headers = { 'Content-Type': 'application/xml', 'Depth': '1' };
+  if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+  return fetch(baseUrl + templatePath, { method: 'PROPFIND', headers: headers })
+    .then(function(r) { return r.text(); })
+    .then(function(xml) {
+      // Extraire les hrefs des enfants (exclure le dossier parent)
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(xml, 'text/xml');
+      var responses = doc.querySelectorAll('response');
+      var children = [];
+      responses.forEach(function(resp) {
+        var href = resp.querySelector('href');
+        if (!href) return;
+        var h = decodeURIComponent(href.textContent).replace(/\/$/, '');
+        var name = h.split('/').pop();
+        if (!name || name === '00-Dossier Type') return;
+        children.push({ href: href.textContent, name: name });
+      });
+      if (children.length === 0) {
+        updateStep(s, 'Modele vide ou introuvable', 'ok');
+        return { ok: true, copied: 0 };
+      }
+      // Copier chaque enfant via COPY
+      var copied = 0;
+      var idx = 0;
+      function copyNext() {
+        if (idx >= children.length) return Promise.resolve();
+        var child = children[idx]; idx++;
+        var srcUrl = baseUrl + child.href;
+        var destPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(child.name);
+        var copyHeaders = { 'Destination': baseUrl + destPath, 'Depth': 'infinity', 'Overwrite': 'F' };
+        if (user) copyHeaders['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+        return fetch(srcUrl, { method: 'COPY', headers: copyHeaders })
+          .then(function(r) {
+            if (r.status === 201 || r.status === 204) copied++;
+            return copyNext();
+          })
+          .catch(function() { return copyNext(); });
+      }
+      return copyNext().then(function() {
+        updateStep(s, 'Modele copie (' + copied + '/' + children.length + ' elements)', 'ok');
+        return { ok: true, copied: copied };
+      });
+    })
+    .catch(function(e) {
+      updateStep(s, 'Copie modele echouee : ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
+
 // ── Demarrage : essayer plusieurs methodes ──
 function start() {
   if (!ip || !user || !folders) {
@@ -199,10 +256,12 @@ function start() {
           ? 'Dossier cree avec succes ! (' + r1.created + ' dossier(s))'
           : 'Le dossier existe deja sur le NAS';
         statusEl.style.color = '#4ecdc4';
-        notifyParent(true, statusEl.textContent);
-        showPath();
-        setTimeout(function() { try { window.close(); } catch(e) {} }, 3000);
-        return;
+        // Copier le modele si disponible
+        return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
+          notifyParent(true, statusEl.textContent);
+          showPath();
+          setTimeout(function() { try { window.close(); } catch(e) {} }, 4000);
+        });
       }
       // Essai 2 : QTS API HTTPS (port 443)
       return tryQtsApi('https://' + ip, parts).then(function(r2) {

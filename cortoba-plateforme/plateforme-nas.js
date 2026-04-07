@@ -654,12 +654,23 @@ function genClientCode(type, prenom, nomOuRaison) {
     codeBase = codNom + initPrenom;
   }
   var clients = getClients();
-  var existing = clients.filter(function(c){ return c.code && c.code.startsWith(codeBase); });
-  var num = existing.length + 1;
-  return codeBase + String(num).padStart(3,'0');
+  // Exclure le client en cours d'édition + trouver le MAX numéro séquentiel
+  var maxNum = 0;
+  clients.forEach(function(c){
+    if (_editingClientId && c.id === _editingClientId) return;
+    if (c.code && c.code.startsWith(codeBase)) {
+      var numPart = c.code.substring(codeBase.length);
+      var n = parseInt(numPart, 10);
+      if (!isNaN(n) && n > maxNum) maxNum = n;
+    }
+  });
+  return codeBase + String(maxNum + 1).padStart(3,'0');
 }
 
 function previewCode() {
+  // Ne pas écraser si l'utilisateur a modifié manuellement
+  var codeInput = document.getElementById('cl-code-input');
+  if (codeInput && codeInput.style.display !== 'none' && codeInput.dataset.manual === '1') return;
   var type = document.querySelector('input[name="cl-type"]:checked');
   if (!type) return;
   var code = '';
@@ -675,6 +686,32 @@ function previewCode() {
   var num = clients.length + 1;
   document.getElementById('cl-code-preview').textContent = code || '—';
   document.getElementById('cl-num-preview').textContent  = code ? '· N° '+String(num).padStart(4,'0') : '';
+}
+
+var _clCodeEditMode = false;
+function toggleClientCodeEdit() {
+  var preview = document.getElementById('cl-code-preview');
+  var input   = document.getElementById('cl-code-input');
+  var btn     = document.getElementById('cl-code-edit-btn');
+  if (!preview || !input) return;
+  _clCodeEditMode = !_clCodeEditMode;
+  if (_clCodeEditMode) {
+    input.value = preview.textContent === '—' ? '' : preview.textContent;
+    input.style.display = '';
+    preview.style.display = 'none';
+    input.dataset.manual = '1';
+    input.focus();
+    btn.textContent = '✓';
+    btn.title = 'Valider le code';
+  } else {
+    var val = input.value.trim().toUpperCase();
+    if (val) preview.textContent = val;
+    input.style.display = 'none';
+    preview.style.display = '';
+    input.dataset.manual = '0';
+    btn.textContent = '✏️';
+    btn.title = 'Modifier le code';
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -987,8 +1024,13 @@ function saveClient() {
     codeGenere = genClientCode(type, prenom, type==='morale' ? raison : nom);
   }
 
+  // Priorité : code manuel > code généré
+  var clCodeInput = document.getElementById('cl-code-input');
+  var manualCode  = (clCodeInput && clCodeInput.dataset.manual === '1') ? clCodeInput.value.trim().toUpperCase() : '';
   var finalCode;
-  if (_editingClientId) {
+  if (manualCode) {
+    finalCode = manualCode;
+  } else if (_editingClientId) {
     var origClient = clients.find(function(c){ return c.id===_editingClientId; }) || {};
     var nameChanged = false;
     if (type === 'morale') {
@@ -1047,6 +1089,10 @@ function resetClientForm() {
   document.getElementById('cl-contacts-aux-list').innerHTML = '';
   document.getElementById('cl-err').style.display           = 'none';
   document.getElementById('cl-code-preview').textContent    = '—';
+  document.getElementById('cl-code-preview').style.display  = '';
+  var clCodeInp = document.getElementById('cl-code-input'); if(clCodeInp) { clCodeInp.style.display='none'; clCodeInp.dataset.manual='0'; clCodeInp.value=''; }
+  var clCodeBtn = document.getElementById('cl-code-edit-btn'); if(clCodeBtn) { clCodeBtn.textContent='✏️'; clCodeBtn.title='Modifier le code'; }
+  _clCodeEditMode = false;
   document.getElementById('cl-num-preview').textContent     = '';
 
   // Reset groupe (nouveau système radio)
@@ -1100,32 +1146,95 @@ function getFilteredClients(){
   });
 }
 
+// ── Colonnes clients ──
+var ALL_CL_COLUMNS = [
+  {key:'code',     label:'Code',     default:true, locked:false,sortable:true, render:function(c){return'<span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent)">'+c.code+'</span>';}},
+  {key:'nom',      label:'Nom',      default:true, locked:true, sortable:true, render:function(c){return'<span style="font-weight:500">'+(c.displayNom||c.nom||c.raison)+'</span>';}},
+  {key:'whatsapp', label:'WhatsApp', default:true, locked:false,sortable:false,render:function(c){var wa=c.whatsapp||c.tel||'';return wa?'<a href="https://wa.me/'+wa.replace(/[^0-9]/g,'')+'" target="_blank" style="color:#25D366;text-decoration:none" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:3px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'+wa+'</a>':'—';}},
+  {key:'email',    label:'Email',    default:true, locked:false,sortable:true, render:function(c){return c.email?'<a href="mailto:'+c.email+'" style="color:var(--accent)">'+c.email+'</a>':'—';}},
+  {key:'source',   label:'Source',   default:true, locked:false,sortable:true, render:function(c){return c.source?'<span style="font-size:0.7rem;padding:0.15rem 0.4rem;background:var(--bg-2);border-radius:3px;color:var(--text-3)">'+c.source.split('/')[0].split('(')[0].trim()+'</span>':'—';}},
+  {key:'statut',   label:'Statut',   default:true, locked:false,sortable:true, render:function(c){return'<span class="'+badgeClass(c.statut)+'">'+c.statut+'</span>';}},
+  {key:'type',     label:'Type',     default:false,locked:false,sortable:true, render:function(c){return c.type==='morale'?'Morale':c.type==='groupe'?'Groupe':'Physique';}},
+  {key:'tel',      label:'Téléphone',default:false,locked:false,sortable:false,render:function(c){return c.tel||'—';}},
+  {key:'adresse',  label:'Adresse',  default:false,locked:false,sortable:true, render:function(c){return c.adresse||'—';}},
+  {key:'projets',  label:'Projets',  default:false,locked:false,sortable:true, render:function(c){return String(c.projets||0);}},
+  {key:'creeAt',   label:'Créé le',  default:false,locked:false,sortable:true, render:function(c){if(!c.creeAt&&!c.cree_at) return '—'; var d=new Date(c.creeAt||c.cree_at); return isNaN(d)?'—':d.toLocaleDateString('fr-FR');}},
+  {key:'creePar',  label:'Créé par', default:false,locked:false,sortable:true, render:function(c){return c.creePar||c.cree_par||'—';}}
+];
+var _clActiveColumns = null;
+
+function getClActiveColumns(){
+  if(_clActiveColumns) return _clActiveColumns;
+  var saved = getLS('cortoba_cl_col_order', null);
+  _clActiveColumns = (saved&&Array.isArray(saved)) ? saved : ALL_CL_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;});
+  return _clActiveColumns;
+}
+function saveClColumnPrefs(){ setLS('cortoba_cl_col_order', _clActiveColumns); }
+function toggleClColumn(key){
+  var col=ALL_CL_COLUMNS.find(function(c){return c.key===key;});
+  if(col&&col.locked) return;
+  var idx=_clActiveColumns.indexOf(key);
+  if(idx===-1){
+    // Insérer à la bonne position relative
+    var allKeys=ALL_CL_COLUMNS.map(function(c){return c.key;});
+    var pos=_clActiveColumns.length;
+    for(var i=0;i<_clActiveColumns.length;i++){
+      if(allKeys.indexOf(_clActiveColumns[i])>allKeys.indexOf(key)){pos=i;break;}
+    }
+    _clActiveColumns.splice(pos,0,key);
+  } else {
+    _clActiveColumns.splice(idx,1);
+  }
+  saveClColumnPrefs(); renderClients();
+}
+function resetClColumns(){ _clActiveColumns=ALL_CL_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;}); saveClColumnPrefs(); renderClients(); }
+
+function openClColumnSelector(){
+  var active = getClActiveColumns();
+  var html='<div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem;display:flex;justify-content:space-between;align-items:center"><span>Colonnes visibles</span><button class="btn btn-sm" onclick="resetClColumns();this.closest(\'.modal-overlay\').remove()" style="font-size:0.68rem">Réinitialiser</button></div>';
+  ALL_CL_COLUMNS.forEach(function(col){
+    var checked = active.indexOf(col.key)!==-1;
+    var disabled = col.locked;
+    html+='<label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;cursor:'+(disabled?'default':'pointer')+';opacity:'+(disabled?'0.5':'1')+'">'+
+      '<input type="checkbox" '+(checked?'checked':'')+' '+(disabled?'disabled':'')+' onchange="toggleClColumn(\''+col.key+'\')" style="accent-color:var(--accent)">'+
+      '<span style="font-size:0.82rem">'+col.label+'</span></label>';
+  });
+  var ov=document.createElement('div');
+  ov.className='modal-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.5rem;max-width:340px;width:90%">'+html+'</div>';
+  document.body.appendChild(ov);
+}
+
 // ── Render Clients ──
 function renderClients() {
   var tb = document.getElementById('clients-tbody'); if (!tb) return;
+  var th = document.getElementById('clients-thead');
   var allClients = getClients();
   var clients = getFilteredClients();
+  var active = getClActiveColumns();
   var ct = document.getElementById('clients-count');
   if(ct) ct.textContent = clients.length===allClients.length ? clients.length+' client'+(clients.length>1?'s':'') : clients.length+' / '+allClients.length+' clients';
+  // Header
+  if(th){
+    th.innerHTML = active.map(function(key){
+      var col=ALL_CL_COLUMNS.find(function(x){return x.key===key;});
+      return col ? '<th style="padding:0.45rem 0.8rem;font-size:0.7rem;white-space:nowrap">'+col.label+'</th>' : '';
+    }).join('') + '<th style="padding:0.45rem 0.8rem"></th>';
+  }
   tb.innerHTML = clients.length === 0
-    ? '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:2rem">'+(allClients.length?'Aucun résultat.':'Aucun client. Créez votre premier client.')+'</td></tr>'
+    ? '<tr><td colspan="'+(active.length+1)+'" style="text-align:center;color:var(--text-3);padding:2rem">'+(allClients.length?'Aucun résultat.':'Aucun client. Créez votre premier client.')+'</td></tr>'
     : clients.map(function(c) {
-        var wa = c.whatsapp || c.tel || '';
-        var waLink = wa
-          ? '<a href="https://wa.me/'+wa.replace(/[^0-9]/g,'')+'" target="_blank" style="color:#25D366;text-decoration:none" title="WhatsApp">'+
-            '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:3px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'+
-            wa+'</a>'
-          : '—';
-        var mailLink = c.email ? '<a href="mailto:'+c.email+'" style="color:var(--accent)">'+c.email+'</a>' : '—';
-        var srcBadge = c.source ? '<span style="font-size:0.7rem;padding:0.15rem 0.4rem;background:var(--bg-2);border-radius:3px;color:var(--text-3)">'+c.source.split('/')[0].split('(')[0].trim()+'</span>' : '—';
+        var cells = active.map(function(key){
+          var col=ALL_CL_COLUMNS.find(function(x){return x.key===key;});
+          if(!col) return '<td style="padding:0.35rem 0.8rem">—</td>';
+          var stopProp = (key==='whatsapp'||key==='email') ? ' onclick="event.stopPropagation()"' : '';
+          return '<td style="padding:0.35rem 0.8rem"'+stopProp+'>'+col.render(c)+'</td>';
+        }).join('');
         return '<tr onclick="openClientDetail(\''+c.id+'\')" style="cursor:pointer" title="Voir la fiche">'+
-          '<td><span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent)">'+c.code+'</span></td>'+
-          '<td style="font-weight:500">'+(c.displayNom||c.nom||c.raison)+'</td>'+
-          '<td onclick="event.stopPropagation()">'+waLink+'</td>'+
-          '<td onclick="event.stopPropagation()">'+mailLink+'</td>'+
-          '<td>'+srcBadge+'</td>'+
-          '<td><span class="'+badgeClass(c.statut)+'">'+c.statut+'</span></td>'+
-          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+
+          cells+
+          '<td onclick="event.stopPropagation()" style="white-space:nowrap;padding:0.35rem 0.8rem">'+
             '<button class="btn btn-sm" onclick="openEditClient(\''+c.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>'+
             (canDelete() ? '<button class="btn btn-sm" onclick="deleteRow(\'client\',\''+c.id+'\')" style="color:#e07070" title="Supprimer">✕</button>' : '')+
           '</td>'+
@@ -2567,6 +2676,7 @@ var ALL_PJ_COLUMNS = [
   {key:'zone',      label:'Zone',       default:false,locked:false,sortable:true, render:function(p){return p.zone||'—';}},
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
   {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
+  {key:'creeAt',    label:'Créé le',    default:false,locked:false,sortable:true, render:function(p){if(!p.cree_at) return '—'; var d=new Date(p.cree_at); return isNaN(d)?'—':d.toLocaleDateString('fr-FR');}},
   {key:'nasPath',   label:'Dossier NAS',default:false,locked:false,sortable:false,render:function(p){var cfg=getNasConfig();var ip=cfg.local||'192.168.1.165';var fn=(p.code||'')+'_'+(p.client||p.nom||'');var path='\\\\'+ip+'\\Public\\CAS_PROJETS\\'+(p.annee||'')+'\\'+fn;return'<span onclick="event.stopPropagation();navigator.clipboard.writeText(\''+path.replace(/'/g,"\\'")+'\');showToast(\'Chemin copié\',\'success\')" style="cursor:pointer;font-size:0.7rem;color:var(--text-3);text-decoration:underline dotted" title="Cliquer pour copier">'+fn.substring(0,20)+(fn.length>20?'…':'')+'</span>';}}
 ];
 var _pjActiveColumns = null;
@@ -6788,12 +6898,15 @@ function buildNasBridgeUrl(code, clientName, annee) {
   var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
 
+  var templateFolder = 'Public/CAS_PROJETS/' + annee + '/00-Dossier Type';
+
   var hash = 'ip=' + encodeURIComponent(ip)
     + '&user=' + encodeURIComponent(user)
     + '&pass=' + encodeURIComponent(pass)
     + '&port=' + port
     + '&folders=' + encodeURIComponent(folders)
-    + '&nasPath=' + encodeURIComponent(nasPath);
+    + '&nasPath=' + encodeURIComponent(nasPath)
+    + '&template=' + encodeURIComponent(templateFolder);
 
   return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge.html#' + hash;
 }

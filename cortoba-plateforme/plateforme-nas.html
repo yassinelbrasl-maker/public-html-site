@@ -1090,10 +1090,11 @@
             <option>Actif</option><option>Prospect</option><option>Client</option><option>Archivé</option>
           </select>
           <span id="clients-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
+          <button class="btn btn-sm" onclick="openClColumnSelector()" style="font-size:0.72rem;padding:0.3rem 0.6rem;border:1px solid var(--border);background:var(--bg-2);color:var(--text-2)" title="Colonnes visibles">⚙ Colonnes</button>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Nom / Raison sociale</th><th>WhatsApp</th><th>Email</th><th>Source</th><th>Statut</th><th></th></tr></thead>
+            <thead><tr id="clients-thead"></tr></thead>
             <tbody id="clients-tbody">
               <tr><td>Ben Salah, Karim</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8cefe3e2f8edeff8ccefe0e5e9e2f8a2f8e2">[email&#160;protected]</a></td><td>2</td><td class="inline-val">18 000 TND</td><td><span class="badge badge-green">Actif</span></td></tr>
               <tr><td>Mahjoub SCI</td><td><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="40232f2e3421233400232c29252e346e342e">[email&#160;protected]</a></td><td>1</td><td class="inline-val">55 000 TND</td><td><span class="badge badge-green">Actif</span></td></tr>
@@ -3081,6 +3082,8 @@
             <span style="font-size:0.72rem;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0">Code client</span>
             <!-- Affichage pour physique/morale (généré) -->
             <span id="cl-code-preview" style="font-family:var(--font-mono);color:var(--accent);font-size:0.9rem;letter-spacing:0.15em">—</span>
+            <input id="cl-code-input" class="form-input" style="display:none;font-family:var(--font-mono);font-size:0.9rem;color:var(--accent);letter-spacing:0.15em;padding:0.3rem 0.5rem;width:120px;text-transform:uppercase" />
+            <button type="button" id="cl-code-edit-btn" onclick="toggleClientCodeEdit()" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.75rem;padding:2px" title="Modifier le code">✏️</button>
             <span id="cl-num-preview" style="font-family:var(--font-mono);color:var(--text-3);font-size:0.8rem"></span>
             <!-- Saisie manuelle pour groupe -->
             <div id="cl-code-groupe-wrap" style="display:none;display:flex;align-items:center;gap:0.5rem">
@@ -4735,7 +4738,7 @@ if (typeof Gantt === 'undefined') {
   document.head.appendChild(_fg);
 }
 </script>
-<script src="plateforme-nas.js?t=20260408a"></script>
+<script src="plateforme-nas.js?t=20260408b"></script>
 <script src="ergonomie.js?t=20260328e"></script>
 <script src="chat.js?t=20260406d"></script>
 <script src="flotte.js?t=20260407a"></script>
