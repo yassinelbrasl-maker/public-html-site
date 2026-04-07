@@ -231,7 +231,6 @@ foreach ($projects as $p) {
 
     $yy         = substr((string)$p['year'], -2);
     $projetCode = str_pad($p['num'], 2, '0', STR_PAD_LEFT) . '_' . $yy . '_' . $p['code3'];
-    $nasPath    = '\\\\192.168.1.165\\Public\\CAS_PROJETS\\' . $p['year'] . '\\' . $p['folder'];
 
     // Vérifier si le projet existe déjà (par code)
     $stmt = $db->prepare('SELECT id FROM CA_projets WHERE code = ? LIMIT 1');
@@ -246,8 +245,8 @@ foreach ($projects as $p) {
     try {
         $db->prepare('
             INSERT INTO CA_projets
-                (id, code, nom, client, client_code, annee, phase, statut, nas_path, cree_par)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+                (id, code, nom, client, client_code, annee, phase, statut, cree_par)
+            VALUES (?,?,?,?,?,?,?,?,?)
         ')->execute([
             $projetId,
             $projetCode,
@@ -257,7 +256,6 @@ foreach ($projects as $p) {
             $p['year'],
             'APS',
             'Actif',
-            $nasPath,
             'seed_archives',
         ]);
 

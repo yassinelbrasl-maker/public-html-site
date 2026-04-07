@@ -3999,7 +3999,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','conges','parametres'];
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','conges','parametres','flotte','flotte-reservations','flotte-km','flotte-entretien','flotte-couts','flotte-conformite'];
 
 // Lire la session courante
 function getSession() {
@@ -4129,7 +4129,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres',chantier:'Tableau de bord chantier','chantier-journal':'Journal de chantier','chantier-intervenants':'Intervenants','chantier-reunions':'Réunions & PV','chantier-photos':'Photos & Médias','chantier-reserves':'Réserves & RFI','chantier-visas':'Visas d\'exécution','chantier-securite':'Sécurité'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres',chantier:'Tableau de bord chantier','chantier-journal':'Journal de chantier','chantier-intervenants':'Intervenants','chantier-reunions':'Réunions & PV','chantier-photos':'Photos & Médias','chantier-reserves':'Réserves & RFI','chantier-visas':'Visas d\'exécution','chantier-securite':'Sécurité',flotte:'Tableau de bord flotte','flotte-reservations':'Réservations & Attributions','flotte-km':'Kilométrage & Carburant','flotte-entretien':'Entretien & Maintenance','flotte-couts':'Coûts & TCO','flotte-conformite':'Conformité & Assurances'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   // ('notifications' est toujours accessible : ouvert depuis la cloche)
@@ -4148,6 +4148,7 @@ function showPage(id){
   if (typeof _expandSidebarForPage === 'function') _expandSidebarForPage(id);
   var _secLabel = document.getElementById('section-label');
   if (_secLabel) _secLabel.textContent=pageLabels[id]||'';
+  if(id==='dashboard')  setTimeout(renderDashboard,80);
   if(id==='demandes')   setTimeout(renderDemandes,80);
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
   if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }).catch(function(e){ console.error('[suivi] init error', e); }); },80);
@@ -4168,6 +4169,12 @@ function showPage(id){
   if(id==='chantier-reserves')    setTimeout(function(){ if(typeof renderChantierReservesPage==='function') renderChantierReservesPage(); },80);
   if(id==='chantier-visas')       setTimeout(function(){ if(typeof renderChantierVisasPage==='function') renderChantierVisasPage(); },80);
   if(id==='chantier-securite')    setTimeout(function(){ if(typeof renderChantierSecuritePage==='function') renderChantierSecuritePage(); },80);
+  if(id==='flotte')              setTimeout(function(){ if(typeof renderFlotteDashboard==='function') renderFlotteDashboard(); },80);
+  if(id==='flotte-reservations') setTimeout(function(){ if(typeof renderFlotteResaPage==='function') renderFlotteResaPage(); },80);
+  if(id==='flotte-km')           setTimeout(function(){ if(typeof renderFlotteKmPage==='function') renderFlotteKmPage(); },80);
+  if(id==='flotte-entretien')    setTimeout(function(){ if(typeof renderFlotteEntretienPage==='function') renderFlotteEntretienPage(); },80);
+  if(id==='flotte-couts')        setTimeout(function(){ if(typeof renderFlotteCoutsPage==='function') renderFlotteCoutsPage(); },80);
+  if(id==='flotte-conformite')   setTimeout(function(){ if(typeof renderFlotteConformitePage==='function') renderFlotteConformitePage(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
   if(id==='parametres') {
@@ -4311,7 +4318,8 @@ function nasConnect(){
 
 // ── Charts ──
 function renderCharts(){
-  // CA mensuel dynamique depuis les factures
+  renderDashboard();
+  // Trésorerie prévisionnelle (bilans page) — toujours depuis cache local
   var factures = getFactures();
   var now = new Date();
   var year = now.getFullYear();
@@ -4323,18 +4331,7 @@ function renderCharts(){
       caParMois[d.getMonth()] += (f.montantTtc||f.montant_ttc||f.montant||0)/1000;
     }
   });
-  // Afficher Jan→mois courant + 3 mois futurs
   var curMonth = now.getMonth();
-  var caData = [];
-  for (var i=0; i<=Math.min(curMonth+3, 11); i++){
-    var val = Math.round(caParMois[i]*10)/10;
-    var maxVal = Math.max.apply(null, caParMois.map(function(v){ return v||1; })) * 1.2;
-    caData.push({label:mois[i], val:val, max:maxVal, future: i > curMonth});
-  }
-  if (caData.length === 0) caData = [{label:'Jan',val:0,max:10}];
-  renderBarChart('ca-chart', caData, 'k');
-
-  // Trésorerie prévisionnelle (CA encaissé cumulé)
   var cumul = 0;
   var trData = [];
   for (var j=0; j<=Math.min(curMonth+3, 11); j++){
@@ -4344,6 +4341,248 @@ function renderCharts(){
   }
   renderBarChart('tresorerie-chart', trData, 'k', true);
 }
+
+// ═══════════════════════════════════════════════════════════
+//  DASHBOARD — Données réelles depuis api/dashboard.php
+// ═══════════════════════════════════════════════════════════
+var _dashData = null;
+
+function renderDashboard(){
+  apiFetch('api/dashboard.php').then(function(r){
+    _dashData = r.data;
+    _renderDashKpis(_dashData.kpis);
+    _renderDashCaChart(_dashData.ca_mensuel, _dashData.ca_mensuel_prev, _dashData.annee, _dashData.mois_courant);
+    _renderDashActivity(_dashData.activity);
+    _renderDashProjets(_dashData.projets_actifs);
+    _renderDashDepenses(_dashData.depenses_par_cat, _dashData.kpis.depenses_mois);
+    // Mettre à jour le label mois
+    var MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    var el = document.getElementById('dash-current-month');
+    if(el) el.textContent = MOIS_NOMS[_dashData.mois_courant-1]+' '+_dashData.annee;
+    var yEl = document.getElementById('dash-chart-year');
+    if(yEl) yEl.textContent = _dashData.annee;
+    var ypEl = document.getElementById('dash-chart-year-prev');
+    if(ypEl) ypEl.textContent = _dashData.annee - 1;
+    if(window.ergoHideSkeletons) window.ergoHideSkeletons();
+  }).catch(function(e){
+    console.warn('[dashboard] load error:', e);
+    // Fallback : afficher message vide
+    var kpiEl = document.getElementById('dash-kpis');
+    if(kpiEl) kpiEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-3);padding:2rem">Impossible de charger le tableau de bord</div>';
+  });
+}
+
+function _fmtMontant(v){
+  if(v>=1000000) return (Math.round(v/100000)/10)+'M';
+  if(v>=1000) return (Math.round(v/100)/10)+'k';
+  return Math.round(v)+'';
+}
+
+function _renderDashKpis(k){
+  var el = document.getElementById('dash-kpis');
+  if(!el) return;
+  var svgUp = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>';
+  var svgDown = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  var cards = [
+    {
+      label: "Chiffre d'affaires YTD",
+      value: _fmtMontant(k.ca_ytd),
+      unit: ' TND',
+      delta: (k.ca_delta>=0?'+':'')+k.ca_delta+'% vs '+(new Date().getFullYear()-1),
+      dir: k.ca_delta>=0?'up':'down',
+      icon: svgUp
+    },
+    {
+      label: 'Projets en cours',
+      value: k.projets_en_cours,
+      unit: '',
+      delta: k.phase_detail || '',
+      dir: 'neutral'
+    },
+    {
+      label: 'Devis en attente',
+      value: k.devis_en_attente,
+      unit: '',
+      delta: _fmtMontant(k.devis_total)+' TND',
+      dir: k.devis_en_attente>0?'up':'neutral',
+      icon: svgUp
+    },
+    {
+      label: 'Factures impayées',
+      value: k.factures_impayees,
+      unit: '',
+      delta: k.factures_impayees>0?_fmtMontant(k.factures_total)+' TND'+(k.jours_retard>0?' · '+k.jours_retard+'j retard':''):'Aucune',
+      dir: k.factures_impayees>0?'down':'neutral',
+      icon: k.factures_impayees>0?svgDown:''
+    },
+    {
+      label: 'Dépenses du mois',
+      value: _fmtMontant(k.depenses_mois),
+      unit: ' TND',
+      delta: k.dep_delta!==0?((k.dep_delta>0?'+':'')+k.dep_delta+'% vs mois préc.'):'Stable',
+      dir: k.dep_delta>0?'down':(k.dep_delta<0?'up':'neutral'),
+      icon: k.dep_delta>0?svgDown:(k.dep_delta<0?svgUp:'')
+    },
+    {
+      label: 'Taux occupation',
+      value: k.taux_occupation,
+      unit: '%',
+      delta: Math.round(k.heures_saisies)+'h / '+Math.round(k.heures_dispo)+'h',
+      dir: k.taux_occupation>=70?'up':(k.taux_occupation>=40?'neutral':'down'),
+      icon: k.taux_occupation>=70?svgUp:''
+    }
+  ];
+
+  el.innerHTML = cards.map(function(c){
+    return '<div class="kpi-card">' +
+      '<div class="kpi-label">'+c.label+'</div>' +
+      '<div class="kpi-value">'+c.value+(c.unit?'<span class="kpi-unit">'+c.unit+'</span>':'')+'</div>' +
+      '<div class="kpi-delta '+c.dir+'">'+(c.icon||'')+' '+c.delta+'</div>' +
+    '</div>';
+  }).join('');
+}
+
+function _renderDashCaChart(caMensuel, caPrev, annee, moisCourant){
+  var el = document.getElementById('ca-chart');
+  if(!el) return;
+  var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  var maxMonth = Math.min(moisCourant + 2, 12); // afficher jusqu'à mois courant + 2
+  var allVals = caMensuel.concat(caPrev);
+  var maxVal = Math.max.apply(null, allVals.map(function(v){return v||1;}))*1.15;
+  if(maxVal<=0) maxVal = 1000;
+
+  var html = '<div class="dash-ca-grid">';
+  // Y-axis labels
+  var steps = 4;
+  html += '<div class="dash-ca-yaxis">';
+  for(var s=steps; s>=0; s--){
+    var yVal = Math.round(maxVal/steps*s);
+    html += '<div class="dash-ca-ylabel">'+_fmtMontant(yVal)+'</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="dash-ca-bars">';
+  // Grid lines
+  for(var g=0; g<=steps; g++){
+    var pct = (g/steps)*100;
+    html += '<div class="dash-ca-gridline" style="bottom:'+pct+'%"></div>';
+  }
+
+  for(var i=0; i<maxMonth; i++){
+    var val = caMensuel[i]||0;
+    var prevVal = caPrev[i]||0;
+    var hCur = maxVal>0?Math.max(val>0?2:0,(val/maxVal)*100):0;
+    var hPrev = maxVal>0?Math.max(prevVal>0?2:0,(prevVal/maxVal)*100):0;
+    var isFuture = i >= moisCourant;
+    html += '<div class="dash-ca-col'+(isFuture?' dash-ca-future':'')+'">' +
+      '<div class="dash-ca-bar-group">' +
+        '<div class="dash-ca-bar dash-ca-bar-prev" style="height:'+hPrev+'%"'+(prevVal>0?' title="'+(annee-1)+': '+_fmtMontant(prevVal)+' TND"':'')+'></div>' +
+        '<div class="dash-ca-bar dash-ca-bar-cur" style="height:'+hCur+'%"'+(val>0?' title="'+annee+': '+_fmtMontant(val)+' TND"':'')+'>' +
+          (val>0?'<span class="dash-ca-val">'+_fmtMontant(val)+'</span>':'') +
+        '</div>' +
+      '</div>' +
+      '<div class="dash-ca-label">'+MOIS[i]+'</div>' +
+    '</div>';
+  }
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
+function _renderDashActivity(items){
+  var el = document.getElementById('dash-activity');
+  if(!el) return;
+  if(!items || !items.length){
+    el.innerHTML = '<div class="dash-empty">Aucune activité récente</div>';
+    return;
+  }
+  var colorMap = {green:'var(--green)',red:'var(--red)',blue:'var(--blue)',accent:'var(--accent)',orange:'var(--orange)'};
+  el.innerHTML = items.map(function(it){
+    var col = colorMap[it.color]||'var(--accent)';
+    var timeStr = _formatRelativeTime(it.time);
+    return '<div class="activity-item">' +
+      '<div class="activity-dot" style="background:'+col+'"></div>' +
+      '<div><div class="activity-text">'+it.text+'</div>' +
+      '<div class="activity-time">'+timeStr+'</div></div>' +
+    '</div>';
+  }).join('');
+}
+
+function _formatRelativeTime(dateStr){
+  if(!dateStr) return '';
+  var d = new Date(dateStr);
+  if(isNaN(d)) return dateStr;
+  var now = new Date();
+  var diff = Math.floor((now - d)/86400000);
+  var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  if(diff===0) return "Aujourd'hui";
+  if(diff===1) return 'Hier';
+  if(diff<7) return 'Il y a '+diff+' jours';
+  return d.getDate()+' '+MOIS[d.getMonth()]+' '+d.getFullYear();
+}
+
+function _renderDashProjets(projets){
+  var el = document.getElementById('dash-projets-actifs');
+  if(!el) return;
+  if(!projets || !projets.length){
+    el.innerHTML = '<div class="dash-empty">Aucun projet en cours</div>';
+    return;
+  }
+  var colors = ['','blue','green','','blue','green'];
+  el.innerHTML = projets.map(function(p, idx){
+    var av = p.avancement||0;
+    var fillColor = av>=80?'background:var(--green)':av>=50?'':'background:var(--blue)';
+    var phaseLabel = p.phase?' — Phase '+p.phase:'';
+    return '<div class="progress-bar-wrap'+(idx>0?' dash-progress-mt':'')+'">' +
+      '<div class="progress-info">' +
+        '<span class="progress-info-label">'+p.nom+phaseLabel+'</span>' +
+        '<span class="progress-info-val">'+av+'%</span>' +
+      '</div>' +
+      '<div class="progress-track"><div class="progress-fill" style="width:'+av+'%;'+fillColor+'"></div></div>' +
+      '<div class="dash-projet-tasks">'+p.taches_terminees+'/'+p.total_taches+' tâches</div>' +
+    '</div>';
+  }).join('');
+}
+
+function _renderDashDepenses(cats, totalMois){
+  var el = document.getElementById('dash-depenses-cat');
+  if(!el) return;
+  if(!cats || !cats.length){
+    el.innerHTML = '<div class="dash-empty">Aucune dépense ce mois</div>';
+    return;
+  }
+  var catColors = ['var(--accent)','var(--blue)','var(--green)','var(--orange)','var(--red)'];
+  var total = 0;
+  cats.forEach(function(c){ total += parseFloat(c.total)||0; });
+  if(total<=0) total = 1;
+
+  var html = '<div class="dash-dep-bars">';
+  // Barre horizontale empilée
+  html += '<div class="dash-dep-stacked">';
+  cats.forEach(function(c, i){
+    var pct = Math.round(parseFloat(c.total)/total*100);
+    html += '<div class="dash-dep-seg" style="width:'+pct+'%;background:'+catColors[i%catColors.length]+'" title="'+c.categorie+': '+_fmtMontant(parseFloat(c.total))+' TND ('+pct+'%)"></div>';
+  });
+  html += '</div>';
+
+  // Légende
+  html += '<div class="dash-dep-legend">';
+  cats.forEach(function(c, i){
+    html += '<div class="dash-dep-legend-item">' +
+      '<span class="dash-dep-legend-dot" style="background:'+catColors[i%catColors.length]+'"></span>' +
+      '<span class="dash-dep-legend-label">'+(c.categorie||'Autre')+'</span>' +
+      '<span class="dash-dep-legend-val">'+_fmtMontant(parseFloat(c.total))+' TND</span>' +
+    '</div>';
+  });
+  html += '</div>';
+
+  // Total
+  html += '<div class="dash-dep-total">Total : <strong>'+_fmtMontant(totalMois)+' TND</strong></div>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// Legacy bar chart fallback (used by trésorerie etc.)
 function renderBarChart(containerId,data,unit,isGreen){
   var el=document.getElementById(containerId); if(!el) return; el.innerHTML='';
   var maxVal=Math.max.apply(null,data.map(function(d){return d.max||d.val||1;}));
@@ -12932,6 +13171,9 @@ function renderChantierJournalPage() {
     apiFetch(params).then(function(r) {
       _chCache.journal = (r && r.data) ? r.data : [];
       _renderJournalTable();
+    }).catch(function(e) {
+      console.error('[journal] list error:', e);
+      document.getElementById('chj-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--red);padding:1.5rem">Erreur chargement: ' + _cgEscape(e.message||'') + '</td></tr>';
     });
   });
 }
@@ -13018,6 +13260,7 @@ function saveChJournal() {
     photos: _chJournalPhotos,
     effectifs: effectifs
   };
+  if (!cid) { showToast('Selectionnez un chantier dans le filtre', 'warning'); return; }
   if (!body.date_jour) { showToast('La date est requise', 'warning'); return; }
   if (!body.activites) { showToast('Les activites sont requises', 'warning'); return; }
   var url = id ? ('api/chantier.php?action=journal&id=' + id) : 'api/chantier.php?action=journal';

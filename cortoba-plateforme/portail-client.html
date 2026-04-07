@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Espace Client — Cortoba Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,200..600;1,200..600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portail-client.css">
+  <style>
+    /* Inline : garantir que le login s'affiche avant le CSS externe */
+    #app { display: none !important; }
+    #app.active { display: flex !important; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════ LOGIN SCREEN ════════════════ -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="logo-text">Cortoba Architecture</div>
+      <h2>Espace Client</h2>
+      <div class="sub">Suivez vos projets en temps reel</div>
+    </div>
+    <form id="login-form" autocomplete="on">
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="votre@email.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="login-pass">Mot de passe</label>
+        <input type="password" id="login-pass" placeholder="Mot de passe" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-primary" id="login-btn">Connexion</button>
+      <div class="login-error" id="login-error"></div>
+    </form>
+    <div class="login-footer">
+      <a href="#" id="forgot-link">Mot de passe oublie ?</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ APP SHELL ════════════════ -->
+<div id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <button class="header-toggle" id="sidebar-toggle">&#9776;</button>
+    <span class="header-brand">Cortoba Architecture</span>
+    <div class="header-sep"></div>
+    <select class="project-selector" id="project-select">
+      <option value="">Tous les projets</option>
+    </select>
+    <div class="header-spacer"></div>
+    <div class="header-user">
+      <div class="avatar" id="user-avatar"></div>
+      <span id="user-name"></span>
+      <button class="btn-logout" id="btn-logout">Deconnexion</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="nav-item active" data-page="dashboard">
+      <span class="icon">&#9635;</span> Tableau de bord
+    </div>
+    <div class="nav-item" data-page="documents">
+      <span class="icon">&#128196;</span> Documents
+    </div>
+    <div class="nav-item" data-page="communication">
+      <span class="icon">&#128172;</span> Messagerie
+      <span class="badge" id="badge-chat" style="display:none"></span>
+    </div>
+    <div class="nav-item" data-page="finance">
+      <span class="icon">&#128176;</span> Finance
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-item" data-page="validations">
+      <span class="icon">&#9989;</span> Validations
+      <span class="badge" id="badge-val" style="display:none"></span>
+    </div>
+    <div class="nav-item" data-page="chantier">
+      <span class="icon">&#127959;</span> Suivi chantier
+    </div>
+    <div class="nav-item" data-page="projet-info">
+      <span class="icon">&#8505;</span> Infos projet
+    </div>
+  </nav>
+
+  <!-- Content area -->
+  <main class="content">
+
+    <!-- ──── DASHBOARD ──── -->
+    <section class="page active" id="page-dashboard">
+      <h1 class="page-title">Tableau de bord</h1>
+      <p class="page-sub">Vue d'ensemble de vos projets</p>
+      <div class="stats-grid" id="dash-stats"></div>
+      <div class="card">
+        <div class="card-title">Jalons et missions</div>
+        <div id="dash-milestones"><div class="loading-block"><span class="spinner"></span></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Documents recents</div>
+        <div id="dash-recent-docs"><div class="loading-block"><span class="spinner"></span></div></div>
+      </div>
+    </section>
+
+    <!-- ──── DOCUMENTS ──── -->
+    <section class="page" id="page-documents">
+      <h1 class="page-title">Documents &amp; Livrables</h1>
+      <p class="page-sub">Plans, rendus et documents de votre projet</p>
+      <div class="filters-bar">
+        <select class="filter-select" id="doc-filter-cat">
+          <option value="">Toutes categories</option>
+          <option value="livrable">Livrables</option>
+          <option value="plan">Plans</option>
+          <option value="rendu">Rendus</option>
+          <option value="administratif">Administratif</option>
+          <option value="upload_client">Mes envois</option>
+        </select>
+        <select class="filter-select" id="doc-filter-statut">
+          <option value="">Tous statuts</option>
+          <option value="Nouveau">Nouveau</option>
+          <option value="En attente validation">En attente</option>
+          <option value="Valide">Valide</option>
+          <option value="Refuse">Refuse</option>
+        </select>
+      </div>
+      <div id="doc-list"><div class="loading-block"><span class="spinner"></span></div></div>
+      <div class="card" style="margin-top:1rem">
+        <div class="card-title">Envoyer un document</div>
+        <div class="upload-zone" id="upload-zone">
+          <div style="font-size:1.5rem;margin-bottom:0.5rem">&#128228;</div>
+          <div>Cliquez ou glissez un fichier ici</div>
+          <div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">PDF, JPG, PNG, DOCX, DWG, ZIP — max 20 Mo</div>
+          <input type="file" id="upload-input">
+        </div>
+        <div id="upload-form-fields" style="display:none;margin-top:0.75rem">
+          <div class="form-group">
+            <label>Titre du document</label>
+            <input type="text" id="upload-titre" placeholder="Ex: Releve foncier">
+          </div>
+          <div class="form-group">
+            <label>Description (optionnel)</label>
+            <input type="text" id="upload-desc" placeholder="Description...">
+          </div>
+          <button class="btn-sm accent" id="upload-submit">Envoyer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ──── COMMUNICATION ──── -->
+    <section class="page" id="page-communication">
+      <h1 class="page-title">Messagerie</h1>
+      <p class="page-sub">Echangez avec l'equipe Cortoba</p>
+      <div id="chat-rooms-list" style="margin-bottom:1rem"></div>
+      <div class="chat-container" id="chat-box" style="display:none">
+        <div class="chat-header" id="chat-room-name"></div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-composer">
+          <textarea id="chat-input" placeholder="Votre message..." rows="1"></textarea>
+          <button id="chat-send-btn">Envoyer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ──── FINANCE ──── -->
+    <section class="page" id="page-finance">
+      <h1 class="page-title">Finance &amp; Facturation</h1>
+      <p class="page-sub">Devis, factures et historique des paiements</p>
+      <div class="finance-summary" id="finance-summary"></div>
+      <div class="tabs">
+        <div class="tab active" data-tab="devis">Devis</div>
+        <div class="tab" data-tab="factures">Factures</div>
+      </div>
+      <div id="finance-devis"></div>
+      <div id="finance-factures" style="display:none"></div>
+    </section>
+
+    <!-- ──── VALIDATIONS ──── -->
+    <section class="page" id="page-validations">
+      <h1 class="page-title">Validations &amp; Approbations</h1>
+      <p class="page-sub">Documents en attente de votre validation</p>
+      <div class="tabs">
+        <div class="tab active" data-tab="pending">En attente</div>
+        <div class="tab" data-tab="history">Historique</div>
+      </div>
+      <div id="val-pending"></div>
+      <div id="val-history" style="display:none"></div>
+    </section>
+
+    <!-- ──── CHANTIER ──── -->
+    <section class="page" id="page-chantier">
+      <h1 class="page-title">Suivi de chantier</h1>
+      <p class="page-sub">Photos, reunions et reserves</p>
+      <div class="tabs">
+        <div class="tab active" data-tab="photos">Photos</div>
+        <div class="tab" data-tab="reunions">Reunions</div>
+        <div class="tab" data-tab="reserves">Reserves</div>
+      </div>
+      <div id="chantier-photos"></div>
+      <div id="chantier-reunions" style="display:none"></div>
+      <div id="chantier-reserves" style="display:none"></div>
+    </section>
+
+    <!-- ──── INFOS PROJET ──── -->
+    <section class="page" id="page-projet-info">
+      <h1 class="page-title">Informations du projet</h1>
+      <p class="page-sub">Fiche recapitulative et contacts</p>
+      <div id="projet-info-content"><div class="loading-block"><span class="spinner"></span></div></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightbox-close">&times;</button>
+  <button class="lightbox-nav prev" id="lightbox-prev">&#8249;</button>
+  <img id="lightbox-img" src="" alt="">
+  <button class="lightbox-nav next" id="lightbox-next">&#8250;</button>
+</div>
+
+<!-- Validation modal -->
+<div class="modal-overlay" id="modal-validation">
+  <div class="modal">
+    <h3 id="modal-val-title">Validation</h3>
+    <div id="modal-val-body"></div>
+    <div class="form-group">
+      <label>Commentaire</label>
+      <textarea id="modal-val-comment" style="width:100%;min-height:60px;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:0.5rem;font-family:var(--font);font-size:0.85rem;resize:vertical;outline:none"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Signature (optionnel)</label>
+      <div class="signature-pad-wrap">
+        <canvas id="signature-canvas" width="400" height="150"></canvas>
+      </div>
+      <div class="signature-controls">
+        <button class="btn-sm" id="sig-clear">Effacer</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" id="modal-val-cancel">Annuler</button>
+      <button class="btn-refuse" id="modal-val-refuse">Refuser</button>
+      <button class="btn-reserve" id="modal-val-reserve">Avec reserves</button>
+      <button class="btn-approve" id="modal-val-approve">Approuver</button>
+    </div>
+  </div>
+</div>
+
+<script src="portail-client.js"></script>
+</body>
+</html>

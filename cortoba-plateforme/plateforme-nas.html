@@ -233,6 +233,36 @@
       </div>
 
       <div class="sidebar-section">
+        <div class="sidebar-label">Flotte véhicules</div>
+        <div class="sidebar-group">
+        <button class="nav-item" onclick="showPage('flotte')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2.7-3.4A2 2 0 0 0 13.7 6H10c-1.1 0-2 .9-2 2v9"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M5 11V6a2 2 0 0 1 2-2h1"/></svg>
+          Tableau de bord
+        </button>
+        <button class="nav-item" onclick="showPage('flotte-reservations')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M9 16l2 2 4-4"/></svg>
+          Réservations
+        </button>
+        <button class="nav-item" onclick="showPage('flotte-km')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          Km & Carburant
+        </button>
+        <button class="nav-item" onclick="showPage('flotte-entretien')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Entretien
+        </button>
+        <button class="nav-item" onclick="showPage('flotte-couts')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Coûts & TCO
+        </button>
+        <button class="nav-item" onclick="showPage('flotte-conformite')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          Conformité
+        </button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
         <div class="sidebar-label">Paramètres</div>
         <div class="sidebar-group">
         <button class="nav-item" onclick="showPage('parametres')">
@@ -255,9 +285,9 @@
             <h1 class="page-title">Tableau de bord</h1>
           </div>
           <div class="page-actions">
-            <button class="btn">
+            <button class="btn" id="dash-period-label">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              Mars 2026
+              <span id="dash-current-month"></span>
             </button>
             <button class="btn btn-primary" onclick="showPage('devis');setTimeout(function(){openModal('modal-devis');},120)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -266,116 +296,44 @@
           </div>
         </div>
 
-        <!-- KPIs -->
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-label">Chiffre d'affaires YTD</div>
-            <div class="kpi-value">148<span class="kpi-unit">k TND</span></div>
-            <div class="kpi-delta up">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-              +23% vs 2025
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Projets en cours</div>
-            <div class="kpi-value">7</div>
-            <div class="kpi-delta neutral">dont 2 en phase DCE</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Devis en attente</div>
-            <div class="kpi-value">4</div>
-            <div class="kpi-delta up">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-              38.5k TND
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Factures impayées</div>
-            <div class="kpi-value">2</div>
-            <div class="kpi-delta down">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              12.4k TND en retard
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Dépenses du mois</div>
-            <div class="kpi-value">8.2<span class="kpi-unit">k</span></div>
-            <div class="kpi-delta down">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              +6% vs Fév
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Taux occupation</div>
-            <div class="kpi-value">84<span class="kpi-unit">%</span></div>
-            <div class="kpi-delta up">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-              Équipe pleinement active
-            </div>
-          </div>
-        </div>
+        <!-- KPIs dynamiques -->
+        <div class="kpi-grid" id="dash-kpis"></div>
 
         <div class="grid-2">
           <!-- CA mensuel chart -->
-          <div class="card">
-            <div class="card-title">Chiffre d'affaires mensuel — 2026</div>
-            <div class="chart-area" id="ca-chart"></div>
+          <div class="card dash-chart-card">
+            <div class="card-title">
+              Chiffre d'affaires mensuel
+              <span class="dash-chart-legend">
+                <span class="dash-legend-dot dash-legend-current"></span> <span id="dash-chart-year"></span>
+                <span class="dash-legend-dot dash-legend-prev"></span> <span id="dash-chart-year-prev"></span>
+              </span>
+            </div>
+            <div class="dash-ca-chart" id="ca-chart"></div>
           </div>
 
           <!-- Activité récente -->
           <div class="card">
             <div class="card-title">Activité récente</div>
-            <div class="activity-feed">
-              <div class="activity-item">
-                <div class="activity-dot" style="background:var(--green)"></div>
-                <div>
-                  <div class="activity-text"><strong>Devis DV-2026-042</strong> accepté par M. Ben Salah</div>
-                  <div class="activity-time">Aujourd'hui, 09:14</div>
-                </div>
-              </div>
-              <div class="activity-item">
-                <div class="activity-dot" style="background:var(--accent)"></div>
-                <div>
-                  <div class="activity-text">Paiement reçu — Facture <strong>F-2026-018</strong> · 6 400 TND</div>
-                  <div class="activity-time">Hier, 16:30</div>
-                </div>
-              </div>
-              <div class="activity-item">
-                <div class="activity-dot" style="background:var(--blue)"></div>
-                <div>
-                  <div class="activity-text">Projet <strong>Villa Nabeul</strong> passé en phase EXE</div>
-                  <div class="activity-time">Lundi 09 Mar, 11:05</div>
-                </div>
-              </div>
-              <div class="activity-item">
-                <div class="activity-dot" style="background:var(--red)"></div>
-                <div>
-                  <div class="activity-text">Rappel : Facture <strong>F-2026-014</strong> impayée depuis 32 jours</div>
-                  <div class="activity-time">Lundi 09 Mar, 08:00</div>
-                </div>
-              </div>
+            <div class="activity-feed" id="dash-activity">
+              <div class="dash-loading">Chargement…</div>
             </div>
           </div>
         </div>
 
-        <!-- Projets en cours résumé -->
-        <div class="card" style="margin-bottom:2rem">
-          <div class="card-title">Avancement projets actifs</div>
-          <div class="progress-bar-wrap">
-            <div class="progress-info"><span class="progress-info-label">Villa Nabeul — Phase EXE</span><span class="progress-info-val">78%</span></div>
-            <div class="progress-track"><div class="progress-fill" style="width:78%"></div></div>
+        <!-- Grille bas : projets actifs + dépenses -->
+        <div class="grid-2" style="margin-bottom:2rem">
+          <div class="card">
+            <div class="card-title">Avancement projets actifs</div>
+            <div id="dash-projets-actifs">
+              <div class="dash-loading">Chargement…</div>
+            </div>
           </div>
-          <div class="progress-bar-wrap" style="margin-top:0.8rem">
-            <div class="progress-info"><span class="progress-info-label">Résidence Sfax — Phase DCE</span><span class="progress-info-val">45%</span></div>
-            <div class="progress-track"><div class="progress-fill blue" style="width:45%"></div></div>
-          </div>
-          <div class="progress-bar-wrap" style="margin-top:0.8rem">
-            <div class="progress-info"><span class="progress-info-label">Bureaux Midoun — Phase APS</span><span class="progress-info-val">20%</span></div>
-            <div class="progress-track"><div class="progress-fill green" style="width:20%"></div></div>
-          </div>
-          <div class="progress-bar-wrap" style="margin-top:0.8rem">
-            <div class="progress-info"><span class="progress-info-label">Villa Djerba — Phase PC (Permis)</span><span class="progress-info-val">92%</span></div>
-            <div class="progress-track"><div class="progress-fill" style="width:92%;background:var(--green)"></div></div>
+          <div class="card">
+            <div class="card-title">Répartition dépenses du mois</div>
+            <div class="dash-depenses-chart" id="dash-depenses-cat">
+              <div class="dash-loading">Chargement…</div>
+            </div>
           </div>
         </div>
       </div>
@@ -2761,6 +2719,252 @@
         </div>
       </div>
 
+      <!-- ══════════════════════════════════
+           FLOTTE : Tableau de bord
+      ══════════════════════════════════ -->
+      <div class="page" id="page-flotte">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Gestion de la flotte</div>
+            <h1 class="page-title">Tableau de bord flotte</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-flotte-vehicule')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau véhicule
+            </button>
+          </div>
+        </div>
+        <!-- KPIs -->
+        <div class="kpi-grid" id="flotte-kpis"></div>
+        <!-- Alertes -->
+        <div id="flotte-alertes" style="margin-bottom:1.5rem"></div>
+        <!-- Filtres -->
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
+          <button class="btn btn-sm flotte-v-filter active" onclick="flotteFilterVehicules('',this)">Tous</button>
+          <button class="btn btn-sm flotte-v-filter" onclick="flotteFilterVehicules('Disponible',this)">Disponibles</button>
+          <button class="btn btn-sm flotte-v-filter" onclick="flotteFilterVehicules('Attribué',this)">Attribués</button>
+          <button class="btn btn-sm flotte-v-filter" onclick="flotteFilterVehicules('En réparation',this)">En réparation</button>
+          <button class="btn btn-sm flotte-v-filter" onclick="flotteFilterVehicules('Hors service',this)">Hors service</button>
+        </div>
+        <!-- Table véhicules -->
+        <div class="table-wrap">
+          <table id="flotte-vehicules-table">
+            <thead><tr><th>Véhicule</th><th>Immatriculation</th><th>Type</th><th>Km</th><th>Statut</th><th>Attribué à</th><th>Département</th><th></th></tr></thead>
+            <tbody id="flotte-vehicules-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           FLOTTE : Réservations
+      ══════════════════════════════════ -->
+      <div class="page" id="page-flotte-reservations">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Gestion de la flotte</div>
+            <h1 class="page-title">Réservations & Attributions</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-flotte-reservation')">+ Réservation</button>
+            <button class="btn" onclick="openModal('modal-flotte-attribution')">+ Attribution</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem">
+          <button class="flr-tab active" data-tab="reservations" onclick="flotteResaTab('reservations',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid var(--accent)">Réservations</button>
+          <button class="flr-tab" data-tab="attributions" onclick="flotteResaTab('attributions',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Attributions</button>
+          <button class="flr-tab" data-tab="calendrier" onclick="flotteResaTab('calendrier',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Calendrier</button>
+        </div>
+        <div id="flr-panel-reservations">
+          <div class="table-wrap">
+            <table id="flotte-resa-table">
+              <thead><tr><th>Véhicule</th><th>Demandeur</th><th>Du</th><th>Au</th><th>Destination</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="flotte-resa-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="flr-panel-attributions" style="display:none">
+          <div class="table-wrap">
+            <table id="flotte-attr-table">
+              <thead><tr><th>Véhicule</th><th>Type</th><th>Collaborateur</th><th>Depuis</th><th>Jusqu'au</th><th>Clés</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="flotte-attr-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="flr-panel-calendrier" style="display:none">
+          <div id="flotte-calendrier-content" style="min-height:300px"></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           FLOTTE : Kilométrage & Carburant
+      ══════════════════════════════════ -->
+      <div class="page" id="page-flotte-km">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Gestion de la flotte</div>
+            <h1 class="page-title">Kilométrage & Carburant</h1>
+          </div>
+          <div class="page-actions">
+            <select id="flkm-vehicule-filter" class="form-input" style="width:220px;font-size:0.82rem" onchange="renderFlotteKmPage()">
+              <option value="">— Tous les véhicules —</option>
+            </select>
+            <button class="btn btn-primary" onclick="openModal('modal-flotte-km')">+ Trajet</button>
+            <button class="btn" onclick="openModal('modal-flotte-carburant')">+ Carburant</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem">
+          <button class="flkm-tab active" data-tab="km" onclick="flotteKmTab('km',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid var(--accent)">Trajets</button>
+          <button class="flkm-tab" data-tab="carburant" onclick="flotteKmTab('carburant',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Carburant</button>
+          <button class="flkm-tab" data-tab="stats" onclick="flotteKmTab('stats',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Statistiques</button>
+        </div>
+        <div id="flkm-panel-km">
+          <div class="table-wrap">
+            <table id="flotte-km-table">
+              <thead><tr><th>Date</th><th>Véhicule</th><th>Conducteur</th><th>Départ</th><th>Arrivée</th><th>Distance</th><th>Type</th><th>Destination</th><th></th></tr></thead>
+              <tbody id="flotte-km-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="flkm-panel-carburant" style="display:none">
+          <div class="table-wrap">
+            <table id="flotte-carb-table">
+              <thead><tr><th>Date</th><th>Véhicule</th><th>Km</th><th>Litres</th><th>Prix/L</th><th>Total</th><th>Type</th><th>Station</th><th></th></tr></thead>
+              <tbody id="flotte-carb-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="flkm-panel-stats" style="display:none">
+          <div id="flotte-km-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem"></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           FLOTTE : Entretien
+      ══════════════════════════════════ -->
+      <div class="page" id="page-flotte-entretien">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Gestion de la flotte</div>
+            <h1 class="page-title">Entretien & Maintenance</h1>
+          </div>
+          <div class="page-actions">
+            <select id="flent-vehicule-filter" class="form-input" style="width:220px;font-size:0.82rem" onchange="renderFlotteEntretienPage()">
+              <option value="">— Tous les véhicules —</option>
+            </select>
+            <button class="btn btn-primary" onclick="openModal('modal-flotte-entretien')">+ Entretien</button>
+            <button class="btn" onclick="openModal('modal-flotte-sinistre')">+ Sinistre</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem">
+          <button class="flent-tab active" data-tab="entretien" onclick="flotteEntTab('entretien',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid var(--accent)">Entretien</button>
+          <button class="flent-tab" data-tab="sinistres" onclick="flotteEntTab('sinistres',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Sinistres</button>
+        </div>
+        <div id="flent-panel-entretien">
+          <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
+            <button class="btn btn-sm flent-filter active" onclick="flotteEntFilter('',this)">Tous</button>
+            <button class="btn btn-sm flent-filter" onclick="flotteEntFilter('Planifié',this)">Planifiés</button>
+            <button class="btn btn-sm flent-filter" onclick="flotteEntFilter('En cours',this)">En cours</button>
+            <button class="btn btn-sm flent-filter" onclick="flotteEntFilter('Terminé',this)">Terminés</button>
+          </div>
+          <div class="table-wrap">
+            <table id="flotte-entretien-table">
+              <thead><tr><th>Date</th><th>Véhicule</th><th>Type</th><th>Titre</th><th>Prestataire</th><th>Montant</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="flotte-entretien-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="flent-panel-sinistres" style="display:none">
+          <div class="table-wrap">
+            <table id="flotte-sinistres-table">
+              <thead><tr><th>Date</th><th>Véhicule</th><th>Type</th><th>Lieu</th><th>Conducteur</th><th>Dégâts</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="flotte-sinistres-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           FLOTTE : Coûts & TCO
+      ══════════════════════════════════ -->
+      <div class="page" id="page-flotte-couts">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Gestion de la flotte</div>
+            <h1 class="page-title">Coûts & TCO</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn" onclick="openModal('modal-flotte-cout')">+ Coût divers</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem">
+          <button class="fltco-tab active" data-tab="tco" onclick="flotteCoutTab('tco',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid var(--accent)">TCO par véhicule</button>
+          <button class="fltco-tab" data-tab="couts" onclick="flotteCoutTab('couts',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Coûts divers</button>
+        </div>
+        <div id="fltco-panel-tco">
+          <div class="table-wrap">
+            <table id="flotte-tco-table">
+              <thead><tr><th>Véhicule</th><th>Valeur achat</th><th>Carburant</th><th>Entretien</th><th>Assurance</th><th>Autres</th><th>TCO Total</th><th>Coût/km</th></tr></thead>
+              <tbody id="flotte-tco-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="fltco-panel-couts" style="display:none">
+          <div class="table-wrap">
+            <table id="flotte-couts-table">
+              <thead><tr><th>Date</th><th>Véhicule</th><th>Catégorie</th><th>Libellé</th><th>Montant</th><th></th></tr></thead>
+              <tbody id="flotte-couts-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           FLOTTE : Conformité
+      ══════════════════════════════════ -->
+      <div class="page" id="page-flotte-conformite">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Gestion de la flotte</div>
+            <h1 class="page-title">Conformité & Assurances</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openModal('modal-flotte-assurance')">+ Assurance</button>
+            <button class="btn" onclick="openModal('modal-flotte-controle')">+ Contrôle technique</button>
+            <button class="btn" onclick="openModal('modal-flotte-permis')">+ Permis</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem">
+          <button class="flconf-tab active" data-tab="assurances" onclick="flotteConfTab('assurances',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid var(--accent)">Assurances</button>
+          <button class="flconf-tab" data-tab="controles" onclick="flotteConfTab('controles',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Contrôles techniques</button>
+          <button class="flconf-tab" data-tab="permis" onclick="flotteConfTab('permis',this)" style="padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent">Permis de conduire</button>
+        </div>
+        <div id="flconf-panel-assurances">
+          <div class="table-wrap">
+            <table id="flotte-assurances-table">
+              <thead><tr><th>Véhicule</th><th>Assureur</th><th>N° Police</th><th>Couverture</th><th>Début</th><th>Fin</th><th>Prime</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="flotte-assurances-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="flconf-panel-controles" style="display:none">
+          <div class="table-wrap">
+            <table id="flotte-controles-table">
+              <thead><tr><th>Véhicule</th><th>Type</th><th>Date</th><th>Expiration</th><th>Résultat</th><th>Organisme</th><th>Montant</th><th></th></tr></thead>
+              <tbody id="flotte-controles-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="flconf-panel-permis" style="display:none">
+          <div class="table-wrap">
+            <table id="flotte-permis-table">
+              <thead><tr><th>Collaborateur</th><th>N° Permis</th><th>Catégorie</th><th>Délivrance</th><th>Expiration</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="flotte-permis-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -4402,6 +4606,7 @@ if (typeof Gantt === 'undefined') {
 <script src="plateforme-nas.js?t=20260406f"></script>
 <script src="ergonomie.js?t=20260328e"></script>
 <script src="chat.js?t=20260406d"></script>
+<script src="flotte.js?t=20260407a"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {
@@ -5005,6 +5210,385 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-ch-inspection')">Annuler</button>
       <button class="btn btn-primary" onclick="saveChInspection()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODALS FLOTTE
+══════════════════════════════════ -->
+
+<!-- Modal Véhicule -->
+<div class="modal-overlay" id="modal-flotte-vehicule">
+  <div class="modal-box" style="max-width:780px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-flv-title">Nouveau véhicule</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-vehicule')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="flv-edit-id">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Marque *</label><input type="text" id="flv-marque" class="form-input" placeholder="Ex: Renault"></div>
+        <div class="form-field"><label class="form-label">Modèle *</label><input type="text" id="flv-modele" class="form-input" placeholder="Ex: Kangoo"></div>
+        <div class="form-field"><label class="form-label">Immatriculation *</label><input type="text" id="flv-immatriculation" class="form-input" placeholder="123 TU 456"></div>
+        <div class="form-field"><label class="form-label">N° VIN</label><input type="text" id="flv-vin" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Type véhicule</label>
+          <select id="flv-type" class="form-input">
+            <option>Utilitaire</option><option>Berline</option><option>SUV</option><option>Camionnette</option><option>Camion</option><option>Moto</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="form-field"><label class="form-label">Couleur</label><input type="text" id="flv-couleur" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date d'achat</label><input type="date" id="flv-date-achat" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date mise en circulation</label><input type="date" id="flv-date-circ" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Valeur d'achat (TND)</label><input type="number" id="flv-valeur" class="form-input" step="0.01"></div>
+        <div class="form-field"><label class="form-label">Kilométrage actuel</label><input type="number" id="flv-km" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Statut</label>
+          <select id="flv-statut" class="form-input">
+            <option>Disponible</option><option>Attribué</option><option>En réparation</option><option>Hors service</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Usage</label>
+          <select id="flv-usage" class="form-input">
+            <option>Professionnel</option><option>Mixte</option><option>Direction</option>
+          </select>
+        </div>
+        <div class="form-field"><label class="form-label">Département</label><input type="text" id="flv-departement" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Agence</label><input type="text" id="flv-agence" class="form-input"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Notes</label><textarea id="flv-notes" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-vehicule')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteVehicule()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Attribution -->
+<div class="modal-overlay" id="modal-flotte-attribution">
+  <div class="modal-box" style="max-width:680px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-flattr-title">Nouvelle attribution</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-attribution')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="flattr-edit-id">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flattr-vehicule" class="form-input"></select></div>
+        <div class="form-field">
+          <label class="form-label">Type</label>
+          <select id="flattr-type" class="form-input"><option value="permanent">Permanent</option><option value="temporaire">Temporaire</option><option value="projet">Par projet</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Collaborateur *</label><input type="text" id="flattr-collaborateur" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date début *</label><input type="date" id="flattr-debut" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date fin</label><input type="date" id="flattr-fin" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Clés remises</label>
+          <select id="flattr-cles" class="form-input"><option value="1">Oui</option><option value="0">Non</option></select>
+        </div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Accessoires</label><input type="text" id="flattr-accessoires" class="form-input" placeholder="GPS, badge parking..."></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Motif</label><textarea id="flattr-motif" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-attribution')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteAttribution()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Réservation -->
+<div class="modal-overlay" id="modal-flotte-reservation">
+  <div class="modal-box" style="max-width:680px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title">Nouvelle réservation</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-reservation')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="flresa-edit-id">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flresa-vehicule" class="form-input"></select></div>
+        <div class="form-field"><label class="form-label">Demandeur *</label><input type="text" id="flresa-demandeur" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date/heure début *</label><input type="datetime-local" id="flresa-debut" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date/heure fin *</label><input type="datetime-local" id="flresa-fin" class="form-input"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Destination</label><input type="text" id="flresa-destination" class="form-input"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Motif</label><textarea id="flresa-motif" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-reservation')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteReservation()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Kilométrage -->
+<div class="modal-overlay" id="modal-flotte-km">
+  <div class="modal-box" style="max-width:680px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title">Nouveau trajet</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-km')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flkm-vehicule" class="form-input"></select></div>
+        <div class="form-field"><label class="form-label">Date *</label><input type="date" id="flkm-date" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Km départ *</label><input type="number" id="flkm-debut" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Km arrivée *</label><input type="number" id="flkm-fin" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Type trajet</label>
+          <select id="flkm-type" class="form-input"><option>Professionnel</option><option>Personnel</option><option>Domicile-travail</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Conducteur</label><input type="text" id="flkm-conducteur" class="form-input"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Destination</label><input type="text" id="flkm-destination" class="form-input"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Notes</label><textarea id="flkm-notes" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-km')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteKm()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Carburant -->
+<div class="modal-overlay" id="modal-flotte-carburant">
+  <div class="modal-box" style="max-width:680px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title">Plein de carburant</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-carburant')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flcarb-vehicule" class="form-input"></select></div>
+        <div class="form-field"><label class="form-label">Date *</label><input type="date" id="flcarb-date" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Km compteur</label><input type="number" id="flcarb-km" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Litres</label><input type="number" id="flcarb-litres" class="form-input" step="0.01"></div>
+        <div class="form-field"><label class="form-label">Prix/litre</label><input type="number" id="flcarb-prix" class="form-input" step="0.001"></div>
+        <div class="form-field"><label class="form-label">Montant total</label><input type="number" id="flcarb-montant" class="form-input" step="0.01"></div>
+        <div class="form-field">
+          <label class="form-label">Type carburant</label>
+          <select id="flcarb-type" class="form-input"><option>Diesel</option><option>Essence</option><option>GPL</option><option>Électrique</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Station</label><input type="text" id="flcarb-station" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Carte carburant</label><input type="text" id="flcarb-carte" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Plein complet</label>
+          <select id="flcarb-plein" class="form-input"><option value="1">Oui</option><option value="0">Non</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-carburant')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteCarburant()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Entretien -->
+<div class="modal-overlay" id="modal-flotte-entretien">
+  <div class="modal-box" style="max-width:780px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-flent-title">Nouvel entretien</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-entretien')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="flent-edit-id">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flent-vehicule" class="form-input"></select></div>
+        <div class="form-field">
+          <label class="form-label">Type</label>
+          <select id="flent-type" class="form-input"><option>Préventif</option><option>Correctif</option><option>Réglementaire</option></select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Catégorie</label>
+          <select id="flent-categorie" class="form-input">
+            <option>Vidange</option><option>Pneus</option><option>Freins</option><option>Batterie</option><option>Courroie</option><option>Climatisation</option><option>Carrosserie</option><option>Électrique</option><option>Autre</option>
+          </select>
+        </div>
+        <div class="form-field"><label class="form-label">Titre *</label><input type="text" id="flent-titre" class="form-input" placeholder="Ex: Vidange 20 000 km"></div>
+        <div class="form-field"><label class="form-label">Date prévue</label><input type="date" id="flent-date-prevue" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date réalisée</label><input type="date" id="flent-date-realisee" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Km prévu</label><input type="number" id="flent-km-prevu" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Km réalisé</label><input type="number" id="flent-km-realise" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Prestataire</label><input type="text" id="flent-prestataire" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Montant (TND)</label><input type="number" id="flent-montant" class="form-input" step="0.01"></div>
+        <div class="form-field">
+          <label class="form-label">Statut</label>
+          <select id="flent-statut" class="form-input"><option>Planifié</option><option>En cours</option><option>Terminé</option><option>Annulé</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Prochaine échéance km</label><input type="number" id="flent-proch-km" class="form-input"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Description</label><textarea id="flent-description" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-entretien')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteEntretien()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Sinistre -->
+<div class="modal-overlay" id="modal-flotte-sinistre">
+  <div class="modal-box" style="max-width:780px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-flsin-title">Nouveau sinistre</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-sinistre')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="flsin-edit-id">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flsin-vehicule" class="form-input"></select></div>
+        <div class="form-field"><label class="form-label">Date *</label><input type="date" id="flsin-date" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Type</label>
+          <select id="flsin-type" class="form-input"><option>Accident</option><option>Vol</option><option>Vandalisme</option><option>Catastrophe naturelle</option><option>Autre</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Lieu</label><input type="text" id="flsin-lieu" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Conducteur</label><input type="text" id="flsin-conducteur" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Tiers impliqué</label>
+          <select id="flsin-tiers" class="form-input"><option value="0">Non</option><option value="1">Oui</option></select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Constat rempli</label>
+          <select id="flsin-constat" class="form-input"><option value="0">Non</option><option value="1">Oui</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">N° dossier</label><input type="text" id="flsin-dossier" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Montant dégâts</label><input type="number" id="flsin-degats" class="form-input" step="0.01"></div>
+        <div class="form-field"><label class="form-label">Franchise</label><input type="number" id="flsin-franchise" class="form-input" step="0.01"></div>
+        <div class="form-field">
+          <label class="form-label">Statut</label>
+          <select id="flsin-statut" class="form-input"><option>Déclaré</option><option>En expertise</option><option>En réparation</option><option>Clôturé</option></select>
+        </div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Description</label><textarea id="flsin-description" class="form-input" rows="3"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-sinistre')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteSinistre()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Assurance -->
+<div class="modal-overlay" id="modal-flotte-assurance">
+  <div class="modal-box" style="max-width:680px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-flass-title">Nouvelle assurance</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-assurance')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="flass-edit-id">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flass-vehicule" class="form-input"></select></div>
+        <div class="form-field"><label class="form-label">Assureur *</label><input type="text" id="flass-assureur" class="form-input"></div>
+        <div class="form-field"><label class="form-label">N° Police</label><input type="text" id="flass-police" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Couverture</label>
+          <select id="flass-couverture" class="form-input"><option>Tous risques</option><option>Tiers</option><option>Tiers étendu</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Date début *</label><input type="date" id="flass-debut" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date fin *</label><input type="date" id="flass-fin" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Prime annuelle (TND)</label><input type="number" id="flass-prime" class="form-input" step="0.01"></div>
+        <div class="form-field"><label class="form-label">Franchise (TND)</label><input type="number" id="flass-franchise" class="form-input" step="0.01"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Notes</label><textarea id="flass-notes" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-assurance')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteAssurance()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Contrôle technique -->
+<div class="modal-overlay" id="modal-flotte-controle">
+  <div class="modal-box" style="max-width:680px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title">Contrôle technique</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-controle')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flctrl-vehicule" class="form-input"></select></div>
+        <div class="form-field">
+          <label class="form-label">Type</label>
+          <select id="flctrl-type" class="form-input"><option>Visite technique</option><option>Contre-visite</option><option>Contrôle pollution</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Date contrôle *</label><input type="date" id="flctrl-date" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date expiration *</label><input type="date" id="flctrl-expiration" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Résultat</label>
+          <select id="flctrl-resultat" class="form-input"><option>Favorable</option><option>Défavorable</option><option>Contre-visite</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Organisme</label><input type="text" id="flctrl-organisme" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Montant</label><input type="number" id="flctrl-montant" class="form-input" step="0.01"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Observations</label><textarea id="flctrl-observations" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-controle')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteControle()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Permis -->
+<div class="modal-overlay" id="modal-flotte-permis">
+  <div class="modal-box" style="max-width:680px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-flperm-title">Permis de conduire</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-permis')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="flperm-edit-id">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Collaborateur *</label><input type="text" id="flperm-collaborateur" class="form-input"></div>
+        <div class="form-field"><label class="form-label">N° Permis</label><input type="text" id="flperm-numero" class="form-input"></div>
+        <div class="form-field">
+          <label class="form-label">Catégorie</label>
+          <select id="flperm-categorie" class="form-input"><option>B</option><option>A</option><option>C</option><option>D</option><option>E</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Date délivrance</label><input type="date" id="flperm-delivrance" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date expiration</label><input type="date" id="flperm-expiration" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Autorité</label><input type="text" id="flperm-autorite" class="form-input"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Notes</label><textarea id="flperm-notes" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-permis')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlottePermis()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Coût divers -->
+<div class="modal-overlay" id="modal-flotte-cout">
+  <div class="modal-box" style="max-width:580px;width:96%">
+    <div class="modal-header">
+      <div class="modal-title">Coût divers</div>
+      <button class="modal-close" onclick="closeModal('modal-flotte-cout')">&#10005;</button>
+    </div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Véhicule *</label><select id="flcout-vehicule" class="form-input"></select></div>
+        <div class="form-field">
+          <label class="form-label">Catégorie</label>
+          <select id="flcout-categorie" class="form-input"><option>Taxe</option><option>Amende</option><option>Péage</option><option>Parking</option><option>Lavage</option><option>Autre</option></select>
+        </div>
+        <div class="form-field"><label class="form-label">Libellé *</label><input type="text" id="flcout-libelle" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Date *</label><input type="date" id="flcout-date" class="form-input"></div>
+        <div class="form-field"><label class="form-label">Montant (TND)</label><input type="number" id="flcout-montant" class="form-input" step="0.01"></div>
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Notes</label><textarea id="flcout-notes" class="form-input" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-flotte-cout')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveFlotteCout()">Enregistrer</button>
     </div>
   </div>
 </div>

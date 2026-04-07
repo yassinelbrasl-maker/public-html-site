@@ -466,6 +466,133 @@
     .donut-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--text-2); }
     .donut-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
+    /* ══ Dashboard amélioré ══ */
+    .dash-loading {
+      color: var(--text-3); font-size: 0.78rem; text-align: center; padding: 2rem;
+    }
+    .dash-empty {
+      color: var(--text-3); font-size: 0.78rem; text-align: center; padding: 2rem;
+      font-style: italic;
+    }
+
+    /* Chart légende */
+    .dash-chart-card .card-title {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .dash-chart-legend {
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 0.65rem; color: var(--text-3); font-weight: 400;
+    }
+    .dash-legend-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    }
+    .dash-legend-current { background: var(--accent); }
+    .dash-legend-prev { background: rgba(255,255,255,0.15); margin-left: 0.4rem; }
+
+    /* CA Chart amélioré */
+    .dash-ca-chart {
+      position: relative; padding: 0.5rem 0 0;
+    }
+    .dash-ca-grid {
+      display: flex; gap: 0; height: 220px;
+    }
+    .dash-ca-yaxis {
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 0 0.6rem 1.6rem 0; min-width: 40px;
+    }
+    .dash-ca-ylabel {
+      font-size: 0.58rem; color: var(--text-3); font-family: var(--mono);
+      text-align: right; line-height: 1;
+    }
+    .dash-ca-bars {
+      flex: 1; display: flex; align-items: flex-end; gap: 2px;
+      position: relative; padding-bottom: 1.6rem;
+    }
+    .dash-ca-gridline {
+      position: absolute; left: 0; right: 0;
+      border-bottom: 1px solid var(--border); opacity: 0.4;
+      pointer-events: none;
+    }
+    .dash-ca-col {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      position: relative; z-index: 1; height: 100%;
+    }
+    .dash-ca-col.dash-ca-future { opacity: 0.35; }
+    .dash-ca-bar-group {
+      display: flex; align-items: flex-end; gap: 2px;
+      width: 100%; height: 100%; flex: 1;
+    }
+    .dash-ca-bar {
+      flex: 1; border-radius: 2px 2px 0 0;
+      transition: all 0.3s ease; position: relative; min-width: 0;
+      cursor: pointer;
+    }
+    .dash-ca-bar-cur {
+      background: rgba(200,169,110,0.5);
+    }
+    .dash-ca-bar-cur:hover {
+      background: var(--accent);
+    }
+    .dash-ca-bar-prev {
+      background: rgba(255,255,255,0.08);
+    }
+    .dash-ca-bar-prev:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .dash-ca-val {
+      position: absolute; top: -1.2rem; left: 50%; transform: translateX(-50%);
+      font-size: 0.55rem; color: var(--accent); font-family: var(--mono);
+      white-space: nowrap; opacity: 0; transition: opacity 0.2s;
+    }
+    .dash-ca-bar-cur:hover .dash-ca-val { opacity: 1; }
+    .dash-ca-label {
+      font-size: 0.58rem; color: var(--text-3); font-family: var(--mono);
+      white-space: nowrap; margin-top: 0.4rem; position: absolute; bottom: 0;
+    }
+
+    /* Projets actifs */
+    .dash-progress-mt { margin-top: 0.8rem; }
+    .dash-projet-tasks {
+      font-size: 0.6rem; color: var(--text-3); font-family: var(--mono);
+      margin-top: 0.15rem;
+    }
+
+    /* Dépenses par catégorie */
+    .dash-dep-bars { padding: 0.5rem 0; }
+    .dash-dep-stacked {
+      display: flex; height: 24px; border-radius: 3px; overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .dash-dep-seg {
+      transition: opacity 0.2s; cursor: pointer; min-width: 4px;
+    }
+    .dash-dep-seg:hover { opacity: 0.8; }
+    .dash-dep-legend {
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .dash-dep-legend-item {
+      display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;
+    }
+    .dash-dep-legend-dot {
+      width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+    }
+    .dash-dep-legend-label {
+      color: var(--text-2); flex: 1;
+    }
+    .dash-dep-legend-val {
+      color: var(--text); font-family: var(--mono); font-size: 0.7rem;
+    }
+    .dash-dep-total {
+      margin-top: 1rem; padding-top: 0.8rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem; color: var(--text-2); text-align: right;
+    }
+
+    /* Light theme overrides */
+    .ergo-light .dash-ca-bar-prev { background: rgba(0,0,0,0.06); }
+    .ergo-light .dash-ca-bar-prev:hover { background: rgba(0,0,0,0.12); }
+    .ergo-light .dash-legend-prev { background: rgba(0,0,0,0.12); }
+
     /* Responsive */
     @media (max-width: 900px) {
       .sidebar { transform: translateX(-100%); z-index: 200; }

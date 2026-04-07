@@ -245,10 +245,15 @@
       { id: 'bilans',      label: 'Bilans',            icon: '📊' },
       { id: 'depenses',    label: 'Dépenses',          icon: '💸' },
       { id: 'fiscalite',   label: 'Fiscalité',         icon: '🧾' },
-      { id: 'nas',         label: 'Serveur NAS',       icon: '🗄️' },
       { id: 'equipe',      label: 'Équipe',            icon: '👥' },
       { id: 'clients',     label: 'Clients',           icon: '👤' },
       { id: 'parametres',  label: 'Paramètres',        icon: '⚙️' },
+      { id: 'flotte',      label: 'Flotte véhicules',  icon: '🚗' },
+      { id: 'flotte-reservations', label: 'Réservations véhicules', icon: '📅' },
+      { id: 'flotte-km',   label: 'Kilométrage & Carburant', icon: '⛽' },
+      { id: 'flotte-entretien', label: 'Entretien véhicules', icon: '🔧' },
+      { id: 'flotte-couts', label: 'Coûts & TCO',       icon: '💰' },
+      { id: 'flotte-conformite', label: 'Conformité & Assurances', icon: '🛡️' },
     ];
     pages.forEach(function (p) {
       items.push({ type: 'page', label: p.label, sub: 'Navigation', icon: p.icon,

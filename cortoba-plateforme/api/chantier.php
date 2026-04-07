@@ -83,15 +83,27 @@ function ensureChantierTables() {
     $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_journal` (
       `id` VARCHAR(32) NOT NULL PRIMARY KEY,
       `chantier_id` VARCHAR(32) NOT NULL,
+      `numero` INT NOT NULL DEFAULT 1,
       `date_jour` DATE NOT NULL,
+      `heure_debut` VARCHAR(5) DEFAULT NULL,
+      `heure_fin` VARCHAR(5) DEFAULT NULL,
+      `phase_lot` VARCHAR(120) DEFAULT NULL,
       `meteo` VARCHAR(40) DEFAULT NULL,
       `temperature` VARCHAR(20) DEFAULT NULL,
       `effectif_total` INT DEFAULT 0,
       `activites` LONGTEXT DEFAULT NULL,
       `livraisons` TEXT DEFAULT NULL,
+      `intervenants_presents` LONGTEXT DEFAULT NULL,
       `visiteurs` TEXT DEFAULT NULL,
+      `incidents_securite` TEXT DEFAULT NULL,
       `retards` TEXT DEFAULT NULL,
+      `decisions` TEXT DEFAULT NULL,
       `observations` TEXT DEFAULT NULL,
+      `prochaine_date` DATE DEFAULT NULL,
+      `prochaine_desc` TEXT DEFAULT NULL,
+      `photos` LONGTEXT DEFAULT NULL,
+      `valide_par` VARCHAR(120) DEFAULT NULL,
+      `valide_at` DATETIME DEFAULT NULL,
       `cree_par` VARCHAR(120) DEFAULT NULL,
       `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -99,6 +111,54 @@ function ensureChantierTables() {
       KEY `idx_chantier` (`chantier_id`),
       KEY `idx_date` (`date_jour`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Phases/lots paramétrables pour journal
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_phases` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `nom` VARCHAR(120) NOT NULL,
+      `ordre` INT NOT NULL DEFAULT 0,
+      `actif` TINYINT(1) NOT NULL DEFAULT 1,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Seed default phases if table empty
+    $cnt = $db->query("SELECT COUNT(*) FROM CA_chantier_phases")->fetchColumn();
+    if ($cnt == 0) {
+        $phases = ['Terrassement','Fondations','Gros œuvre','Charpente / Toiture','Étanchéité','Maçonnerie','Électricité','Plomberie','CVC / Climatisation','Menuiserie','Revêtements sols','Revêtements muraux','Peinture','Finitions','Aménagements extérieurs','VRD'];
+        $ord = 1;
+        foreach ($phases as $ph) {
+            $pid = bin2hex(random_bytes(16));
+            $db->prepare("INSERT INTO CA_chantier_phases (id, nom, ordre) VALUES (?,?,?)")->execute([$pid, $ph, $ord++]);
+        }
+    }
+
+    // Migrate existing journal table — add new columns if missing
+    try {
+        $cols = [];
+        $colStmt = $db->query("SHOW COLUMNS FROM CA_chantier_journal");
+        foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $c) { $cols[] = $c['Field']; }
+        $migrations = [
+            ['numero',               "ADD COLUMN `numero` INT NOT NULL DEFAULT 1 AFTER `chantier_id`"],
+            ['heure_debut',          "ADD COLUMN `heure_debut` VARCHAR(5) DEFAULT NULL AFTER `date_jour`"],
+            ['heure_fin',            "ADD COLUMN `heure_fin` VARCHAR(5) DEFAULT NULL AFTER `heure_debut`"],
+            ['phase_lot',            "ADD COLUMN `phase_lot` VARCHAR(120) DEFAULT NULL AFTER `heure_fin`"],
+            ['intervenants_presents',"ADD COLUMN `intervenants_presents` LONGTEXT DEFAULT NULL AFTER `livraisons`"],
+            ['incidents_securite',   "ADD COLUMN `incidents_securite` TEXT DEFAULT NULL AFTER `visiteurs`"],
+            ['decisions',            "ADD COLUMN `decisions` TEXT DEFAULT NULL AFTER `retards`"],
+            ['prochaine_date',       "ADD COLUMN `prochaine_date` DATE DEFAULT NULL AFTER `observations`"],
+            ['prochaine_desc',       "ADD COLUMN `prochaine_desc` TEXT DEFAULT NULL AFTER `prochaine_date`"],
+            ['photos',               "ADD COLUMN `photos` LONGTEXT DEFAULT NULL AFTER `prochaine_desc`"],
+            ['valide_par',           "ADD COLUMN `valide_par` VARCHAR(120) DEFAULT NULL AFTER `photos`"],
+            ['valide_at',            "ADD COLUMN `valide_at` DATETIME DEFAULT NULL AFTER `valide_par`"],
+        ];
+        foreach ($migrations as $m) {
+            if (!in_array($m[0], $cols)) {
+                try { $db->exec("ALTER TABLE CA_chantier_journal " . $m[1]); } catch (Exception $e) {}
+            }
+        }
+    } catch (Exception $e) {
+        // Table doesn't exist yet — CREATE TABLE above already has all columns, so no migration needed
+    }
 
     $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_effectifs` (
       `id` VARCHAR(32) NOT NULL PRIMARY KEY,
@@ -175,6 +235,21 @@ try {
         elseif ($method === 'POST')       createTacheChantier($user);
         elseif ($method === 'PUT')        updateTacheChantier($id);
         elseif ($method === 'DELETE')     deleteTacheChantier($id);
+    }
+    // ── Phases (Paramètres) ──
+    elseif ($action === 'phases') {
+        if ($method === 'GET')            listPhases();
+        elseif ($method === 'POST')       createPhase($user);
+        elseif ($method === 'PUT')        updatePhase($id);
+        elseif ($method === 'DELETE')     deletePhase($id);
+    }
+    // ── Journal PDF export ──
+    elseif ($action === 'journal_pdf') {
+        exportJournalPDF($id);
+    }
+    // ── Valider journal ──
+    elseif ($action === 'journal_valider') {
+        validerJournal($id, $user);
     }
     // ── Dashboard ──
     elseif ($action === 'dashboard') {
@@ -333,15 +408,38 @@ function deleteLot($id) {
 function listJournal() {
     $db = getDB();
     $cid = $_GET['chantier_id'] ?? '';
-    $sql = "SELECT * FROM CA_chantier_journal WHERE chantier_id=? ORDER BY date_jour DESC";
+    $dateFrom = $_GET['date_from'] ?? '';
+    $dateTo = $_GET['date_to'] ?? '';
+    $phase = $_GET['phase'] ?? '';
+    $sql = "SELECT * FROM CA_chantier_journal WHERE chantier_id=?";
+    $params = [$cid];
+    if ($dateFrom) { $sql .= " AND date_jour >= ?"; $params[] = $dateFrom; }
+    if ($dateTo)   { $sql .= " AND date_jour <= ?"; $params[] = $dateTo; }
+    if ($phase)    { $sql .= " AND phase_lot = ?";  $params[] = $phase; }
+    $sql .= " ORDER BY date_jour DESC";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$cid]);
+    $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    // Attach effectifs
+    // Attach effectifs + decode JSON fields safely
     foreach ($rows as &$r) {
         $s2 = $db->prepare("SELECT * FROM CA_chantier_effectifs WHERE journal_id=?");
         $s2->execute([$r['id']]);
         $r['effectifs'] = $s2->fetchAll(PDO::FETCH_ASSOC);
+        if (isset($r['intervenants_presents'])) {
+            $r['intervenants_presents'] = json_decode($r['intervenants_presents'] ?: '[]', true) ?: [];
+        } else { $r['intervenants_presents'] = []; }
+        if (isset($r['photos'])) {
+            $r['photos'] = json_decode($r['photos'] ?: '[]', true) ?: [];
+        } else { $r['photos'] = []; }
+        if (!isset($r['numero'])) $r['numero'] = 0;
+        if (!isset($r['heure_debut'])) $r['heure_debut'] = null;
+        if (!isset($r['heure_fin'])) $r['heure_fin'] = null;
+        if (!isset($r['phase_lot'])) $r['phase_lot'] = null;
+        if (!isset($r['incidents_securite'])) $r['incidents_securite'] = null;
+        if (!isset($r['decisions'])) $r['decisions'] = null;
+        if (!isset($r['prochaine_date'])) $r['prochaine_date'] = null;
+        if (!isset($r['prochaine_desc'])) $r['prochaine_desc'] = null;
+        if (!isset($r['valide_par'])) $r['valide_par'] = null;
     }
     jsonOk($rows);
 }
@@ -350,35 +448,64 @@ function createJournal($user) {
     $b = getBody();
     $db = getDB();
     $id = bin2hex(random_bytes(16));
-    $db->prepare("INSERT INTO CA_chantier_journal (id, chantier_id, date_jour, meteo, temperature,
-                  effectif_total, activites, livraisons, visiteurs, retards, observations, cree_par)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
-       ->execute([$id, $b['chantier_id']??'', $b['date_jour']??date('Y-m-d'),
-                  $b['meteo']??null, $b['temperature']??null, $b['effectif_total']??0,
-                  $b['activites']??null, $b['livraisons']??null, $b['visiteurs']??null,
-                  $b['retards']??null, $b['observations']??null, $user['name']??'']);
+    $cid = $b['chantier_id'] ?? '';
+    // Auto-numérotation
+    $num = 1;
+    try {
+        $s = $db->prepare("SELECT COALESCE(MAX(numero),0)+1 AS next_num FROM CA_chantier_journal WHERE chantier_id=?");
+        $s->execute([$cid]);
+        $num = $s->fetch(PDO::FETCH_ASSOC)['next_num'] ?: 1;
+    } catch (Exception $e) {
+        // numero column may not exist yet in migration edge case
+        $s2 = $db->prepare("SELECT COUNT(*)+1 AS next_num FROM CA_chantier_journal WHERE chantier_id=?");
+        $s2->execute([$cid]);
+        $num = $s2->fetch(PDO::FETCH_ASSOC)['next_num'];
+    }
+
+    $db->prepare("INSERT INTO CA_chantier_journal (id, chantier_id, numero, date_jour, heure_debut, heure_fin,
+                  phase_lot, meteo, temperature, effectif_total, activites, livraisons,
+                  intervenants_presents, visiteurs, incidents_securite, retards, decisions,
+                  observations, prochaine_date, prochaine_desc, photos, cree_par)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+       ->execute([$id, $cid, $num, $b['date_jour']??date('Y-m-d'),
+                  $b['heure_debut']??null, $b['heure_fin']??null,
+                  $b['phase_lot']??null, $b['meteo']??null, $b['temperature']??null,
+                  $b['effectif_total']??0, $b['activites']??null, $b['livraisons']??null,
+                  json_encode($b['intervenants_presents']??[], JSON_UNESCAPED_UNICODE),
+                  $b['visiteurs']??null, $b['incidents_securite']??null,
+                  $b['retards']??null, $b['decisions']??null,
+                  $b['observations']??null, $b['prochaine_date']??null, $b['prochaine_desc']??null,
+                  json_encode($b['photos']??[], JSON_UNESCAPED_UNICODE),
+                  $user['name']??'']);
     // Save effectifs
     if (!empty($b['effectifs']) && is_array($b['effectifs'])) {
         foreach ($b['effectifs'] as $eff) {
             $eid = bin2hex(random_bytes(16));
             $db->prepare("INSERT INTO CA_chantier_effectifs (id, journal_id, chantier_id, entreprise, nb_ouvriers, nb_cadres, commentaire)
                           VALUES (?,?,?,?,?,?,?)")
-               ->execute([$eid, $id, $b['chantier_id']??'', $eff['entreprise']??'',
+               ->execute([$eid, $id, $cid, $eff['entreprise']??'',
                           $eff['nb_ouvriers']??0, $eff['nb_cadres']??0, $eff['commentaire']??null]);
         }
     }
-    jsonOk(['id' => $id]);
+    jsonOk(['id' => $id, 'numero' => $num]);
 }
 
 function updateJournal($id, $user) {
     $b = getBody();
     $db = getDB();
-    $db->prepare("UPDATE CA_chantier_journal SET date_jour=?, meteo=?, temperature=?,
-                  effectif_total=?, activites=?, livraisons=?, visiteurs=?, retards=?, observations=?
+    $db->prepare("UPDATE CA_chantier_journal SET date_jour=?, heure_debut=?, heure_fin=?,
+                  phase_lot=?, meteo=?, temperature=?, effectif_total=?, activites=?, livraisons=?,
+                  intervenants_presents=?, visiteurs=?, incidents_securite=?, retards=?, decisions=?,
+                  observations=?, prochaine_date=?, prochaine_desc=?, photos=?
                   WHERE id=?")
-       ->execute([$b['date_jour']??date('Y-m-d'), $b['meteo']??null, $b['temperature']??null,
+       ->execute([$b['date_jour']??date('Y-m-d'), $b['heure_debut']??null, $b['heure_fin']??null,
+                  $b['phase_lot']??null, $b['meteo']??null, $b['temperature']??null,
                   $b['effectif_total']??0, $b['activites']??null, $b['livraisons']??null,
-                  $b['visiteurs']??null, $b['retards']??null, $b['observations']??null, $id]);
+                  json_encode($b['intervenants_presents']??[], JSON_UNESCAPED_UNICODE),
+                  $b['visiteurs']??null, $b['incidents_securite']??null,
+                  $b['retards']??null, $b['decisions']??null,
+                  $b['observations']??null, $b['prochaine_date']??null, $b['prochaine_desc']??null,
+                  json_encode($b['photos']??[], JSON_UNESCAPED_UNICODE), $id]);
     // Refresh effectifs
     $db->prepare("DELETE FROM CA_chantier_effectifs WHERE journal_id=?")->execute([$id]);
     if (!empty($b['effectifs']) && is_array($b['effectifs'])) {
@@ -398,6 +525,13 @@ function deleteJournal($id) {
     $db->prepare("DELETE FROM CA_chantier_effectifs WHERE journal_id=?")->execute([$id]);
     $db->prepare("DELETE FROM CA_chantier_journal WHERE id=?")->execute([$id]);
     jsonOk(['deleted' => true]);
+}
+
+function validerJournal($id, $user) {
+    $db = getDB();
+    $db->prepare("UPDATE CA_chantier_journal SET valide_par=?, valide_at=NOW() WHERE id=?")
+       ->execute([$user['name']??'', $id]);
+    jsonOk(['validated' => true]);
 }
 
 // ══════════════════════════════════════
@@ -540,6 +674,79 @@ function deleteTacheChantier($id) {
 }
 
 // ══════════════════════════════════════
+//  PHASES (Parametres chantier)
+// ══════════════════════════════════════
+
+function listPhases() {
+    $db = getDB();
+    $rows = $db->query("SELECT * FROM CA_chantier_phases ORDER BY ordre ASC, nom ASC")->fetchAll(PDO::FETCH_ASSOC);
+    jsonOk($rows);
+}
+
+function createPhase($user) {
+    $b = getBody();
+    $db = getDB();
+    $id = bin2hex(random_bytes(16));
+    $maxOrd = $db->query("SELECT COALESCE(MAX(ordre),0)+1 FROM CA_chantier_phases")->fetchColumn();
+    $db->prepare("INSERT INTO CA_chantier_phases (id, nom, ordre, actif) VALUES (?,?,?,?)")
+       ->execute([$id, $b['nom']??'', $maxOrd, $b['actif']??1]);
+    jsonOk(['id' => $id]);
+}
+
+function updatePhase($id) {
+    $b = getBody();
+    $db = getDB();
+    $db->prepare("UPDATE CA_chantier_phases SET nom=?, ordre=?, actif=? WHERE id=?")
+       ->execute([$b['nom']??'', $b['ordre']??0, $b['actif']??1, $id]);
+    jsonOk(['updated' => true]);
+}
+
+function deletePhase($id) {
+    $db = getDB();
+    $db->prepare("DELETE FROM CA_chantier_phases WHERE id=?")->execute([$id]);
+    jsonOk(['deleted' => true]);
+}
+
+// ══════════════════════════════════════
+//  JOURNAL PDF EXPORT
+// ══════════════════════════════════════
+
+function exportJournalPDF($id) {
+    $db = getDB();
+    $stmt = $db->prepare("SELECT j.*, c.nom AS chantier_nom, c.code AS chantier_code, c.adresse AS chantier_adresse,
+                          p.nom AS projet_nom, p.code AS projet_code
+                          FROM CA_chantier_journal j
+                          LEFT JOIN CA_chantiers c ON c.id = j.chantier_id
+                          LEFT JOIN CA_projets p ON p.id = c.projet_id
+                          WHERE j.id=?");
+    $stmt->execute([$id]);
+    $j = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$j) jsonError('Journal introuvable', 404);
+
+    $j['intervenants_presents'] = json_decode($j['intervenants_presents'] ?: '[]', true);
+    $j['photos'] = json_decode($j['photos'] ?: '[]', true);
+
+    $s2 = $db->prepare("SELECT * FROM CA_chantier_effectifs WHERE journal_id=?");
+    $s2->execute([$id]);
+    $j['effectifs'] = $s2->fetchAll(PDO::FETCH_ASSOC);
+
+    $agence = [];
+    try {
+        $sa = $db->query("SELECT cle, valeur FROM CA_params WHERE cle LIKE 'agence_%'");
+        foreach ($sa->fetchAll(PDO::FETCH_ASSOC) as $r) { $agence[$r['cle']] = $r['valeur']; }
+    } catch (Exception $e) {}
+
+    jsonOk(['journal' => $j, 'agence' => $agence]);
+}
+
+function validerJournal($id, $user) {
+    $db = getDB();
+    $db->prepare("UPDATE CA_chantier_journal SET valide_par=?, valide_at=NOW() WHERE id=?")
+       ->execute([$user['name']??'', $id]);
+    jsonOk(['validated' => true]);
+}
+
+// ══════════════════════════════════════
 //  DASHBOARD
 // ══════════════════════════════════════
 
@@ -557,35 +764,53 @@ function getDashboard() {
     $s1->execute([$cid]);
     $data['lots_summary'] = $s1->fetch(PDO::FETCH_ASSOC);
 
-    // Reserves stats
-    $s2 = $db->prepare("SELECT statut, COUNT(*) as nb FROM CA_chantier_reserves WHERE chantier_id=? GROUP BY statut");
-    $s2->execute([$cid]);
-    $data['reserves_stats'] = $s2->fetchAll(PDO::FETCH_ASSOC);
+    // Reserves stats (table in chantier_reserves.php — may not exist yet)
+    $data['reserves_stats'] = [];
+    try {
+        $s2 = $db->prepare("SELECT statut, COUNT(*) as nb FROM CA_chantier_reserves WHERE chantier_id=? GROUP BY statut");
+        $s2->execute([$cid]);
+        $data['reserves_stats'] = $s2->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {}
 
     // RFI stats
-    $s3 = $db->prepare("SELECT statut, COUNT(*) as nb FROM CA_chantier_rfi WHERE chantier_id=? GROUP BY statut");
-    $s3->execute([$cid]);
-    $data['rfi_stats'] = $s3->fetchAll(PDO::FETCH_ASSOC);
+    $data['rfi_stats'] = [];
+    try {
+        $s3 = $db->prepare("SELECT statut, COUNT(*) as nb FROM CA_chantier_rfi WHERE chantier_id=? GROUP BY statut");
+        $s3->execute([$cid]);
+        $data['rfi_stats'] = $s3->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {}
 
     // Visa stats
-    $s4 = $db->prepare("SELECT statut, COUNT(*) as nb FROM CA_chantier_visas WHERE chantier_id=? GROUP BY statut");
-    $s4->execute([$cid]);
-    $data['visa_stats'] = $s4->fetchAll(PDO::FETCH_ASSOC);
+    $data['visa_stats'] = [];
+    try {
+        $s4 = $db->prepare("SELECT statut, COUNT(*) as nb FROM CA_chantier_visas WHERE chantier_id=? GROUP BY statut");
+        $s4->execute([$cid]);
+        $data['visa_stats'] = $s4->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {}
 
     // Incidents stats
-    $s5 = $db->prepare("SELECT type, COUNT(*) as nb FROM CA_chantier_incidents WHERE chantier_id=? GROUP BY type");
-    $s5->execute([$cid]);
-    $data['incidents_stats'] = $s5->fetchAll(PDO::FETCH_ASSOC);
+    $data['incidents_stats'] = [];
+    try {
+        $s5 = $db->prepare("SELECT type, COUNT(*) as nb FROM CA_chantier_incidents WHERE chantier_id=? GROUP BY type");
+        $s5->execute([$cid]);
+        $data['incidents_stats'] = $s5->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {}
 
     // Recent journal
-    $s6 = $db->prepare("SELECT * FROM CA_chantier_journal WHERE chantier_id=? ORDER BY date_jour DESC LIMIT 5");
-    $s6->execute([$cid]);
-    $data['recent_journal'] = $s6->fetchAll(PDO::FETCH_ASSOC);
+    $data['recent_journal'] = [];
+    try {
+        $s6 = $db->prepare("SELECT * FROM CA_chantier_journal WHERE chantier_id=? ORDER BY date_jour DESC LIMIT 5");
+        $s6->execute([$cid]);
+        $data['recent_journal'] = $s6->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {}
 
     // Open actions
-    $s7 = $db->prepare("SELECT COUNT(*) as nb FROM CA_chantier_reunion_actions WHERE chantier_id=? AND statut != 'Clôturée'");
-    $s7->execute([$cid]);
-    $data['actions_ouvertes'] = $s7->fetch(PDO::FETCH_ASSOC)['nb'];
+    $data['actions_ouvertes'] = 0;
+    try {
+        $s7 = $db->prepare("SELECT COUNT(*) as nb FROM CA_chantier_reunion_actions WHERE chantier_id=? AND statut != 'Clôturée'");
+        $s7->execute([$cid]);
+        $data['actions_ouvertes'] = $s7->fetch(PDO::FETCH_ASSOC)['nb'];
+    } catch (Exception $e) {}
 
     jsonOk($data);
 }

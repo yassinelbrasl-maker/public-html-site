@@ -208,10 +208,10 @@ function handlePut($id, array $user) {
 
             $db->prepare('
                 INSERT INTO CA_projets (id, code, nom, client, client_code, annee, phase, statut, type_bat,
-                    delai, honoraires, budget, surface, description, adresse, lat, lng, nas_path,
+                    delai, honoraires, budget, surface, description, adresse, lat, lng,
                     surface_shon, surface_shob, surface_terrain, standing, zone, cout_construction, cout_m2,
                     cree_par)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ')->execute([
                 $projetId,
                 '',                                          // code
@@ -230,7 +230,6 @@ function handlePut($id, array $user) {
                 null,                                        // adresse
                 null,                                        // lat
                 null,                                        // lng
-                null,                                        // nas_path
                 null,                                        // surface_shon
                 null,                                        // surface_shob
                 null,                                        // surface_terrain

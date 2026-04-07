@@ -58,6 +58,9 @@ function ensureUsersTable() {
         "salaire_base        DECIMAL(12,3) DEFAULT 0",
         "show_on_website     TINYINT(1)   NOT NULL DEFAULT 0",
         "color               VARCHAR(9)   DEFAULT '#c8a96e'",
+        // ── Taux horaires pour le module Rendement ──
+        "hourly_cost_rate    DECIMAL(10,3) DEFAULT NULL",
+        "hourly_billing_rate DECIMAL(10,3) DEFAULT NULL",
     );
     foreach ($extraCols as $colDef) {
         try { $db->exec("ALTER TABLE cortoba_users ADD COLUMN IF NOT EXISTS $colDef"); }
@@ -102,6 +105,7 @@ function filterMemberRow($row, $viewer) {
             'cin', 'matricule', 'n_cnss', 'situation_familiale', 'enfants_charge',
             'adresse', 'echelon', 'categorie_emploi', 'emploi',
             'banque', 'rib', 'mode_paiement', 'salaire_base',
+            'hourly_cost_rate', 'hourly_billing_rate',
         ));
     }
 
@@ -219,6 +223,9 @@ try {
         $ribP       = $canEditSalary ? trim($body['rib']                 ?? '') : null;
         $modePaie   = $canEditSalary ? trim($body['mode_paiement']       ?? 'Virement') : null;
         $salaireBas = $canEditSalary ? (float)($body['salaire_base']     ?? 0) : null;
+        // Taux horaires Rendement (null = fallback vers taux standard global)
+        $hCost    = ($canEditSalary && isset($body['hourly_cost_rate'])    && $body['hourly_cost_rate']    !== '' && $body['hourly_cost_rate']    !== null) ? (float)$body['hourly_cost_rate']    : null;
+        $hBilling = ($canEditSalary && isset($body['hourly_billing_rate']) && $body['hourly_billing_rate'] !== '' && $body['hourly_billing_rate'] !== null) ? (float)$body['hourly_billing_rate'] : null;
 
         if (!$prenom || !$nom || !$email) jsonError('Champs requis manquants', 400);
         if (!$isEdit && !$pass)             jsonError('Mot de passe requis', 400);
@@ -256,6 +263,8 @@ try {
             $cols['rib']                 = $ribP;
             $cols['mode_paiement']       = $modePaie;
             $cols['salaire_base']        = $salaireBas;
+            $cols['hourly_cost_rate']    = $hCost;
+            $cols['hourly_billing_rate'] = $hBilling;
         }
 
         if ($isEdit) {

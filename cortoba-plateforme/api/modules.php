@@ -35,7 +35,6 @@ function ensureModulesTable() {
             array('bilans',      'Bilans',           '#bilans',      'finance',    90),
             array('depenses',    'Dépenses',         '#depenses',    'finance',   100),
             array('fiscalite',   'Fiscalité',        '#fiscalite',   'finance',   110),
-            array('nas',         'Serveur NAS',      '#nas',         'outils',    120),
             array('equipe',      'Équipe',           '#equipe',      'admin',     130),
             array('clients',     'Clients',          '#clients',     'principal', 140),
             array('parametres',  'Paramètres',       '#parametres',  'admin',     150),
@@ -52,6 +51,12 @@ function ensureModulesTable() {
         array('charge',         'Charge de travail',     '#charge',         'principal', 57),
         array('demandes-admin', 'Demandes admin',        '#demandes-admin', 'admin',    135),
         array('conges',         'Congés',                '#conges',         'admin',    138),
+        array('flotte',         'Flotte véhicules',      '#flotte',         'flotte',   200),
+        array('flotte-reservations','Réservations',      '#flotte-reservations','flotte',202),
+        array('flotte-km',      'Kilométrage & Carburant','#flotte-km',    'flotte',   204),
+        array('flotte-entretien','Entretien',            '#flotte-entretien','flotte',  206),
+        array('flotte-couts',   'Coûts & TCO',           '#flotte-couts',  'flotte',   208),
+        array('flotte-conformite','Conformité',          '#flotte-conformite','flotte', 210),
     );
     $up = $db->prepare("INSERT INTO cortoba_modules (id, label, route_url, categorie, ordre)
                         VALUES (?, ?, ?, ?, ?)
