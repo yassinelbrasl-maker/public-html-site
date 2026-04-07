@@ -14912,6 +14912,8 @@ function ncWebdavPropfind(baseUrl, path, user, pass) {
   var xml = '<?xml version="1.0" encoding="utf-8"?>' +
     '<D:propfind xmlns:D="DAV:"><D:prop><D:displayname/><D:resourcetype/></D:prop></D:propfind>';
 
+  // S'assurer que le chemin commence par /
+  if (path.charAt(0) !== '/') path = '/' + path;
   var encodedPath = path.split('/').map(function(s) { return s ? encodeURIComponent(s) : ''; }).join('/');
   var url = baseUrl + encodedPath;
 
