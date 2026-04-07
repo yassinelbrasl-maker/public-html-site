@@ -10,8 +10,7 @@ $user = requireAuth();
 
 try {
     $action = $_GET['action'] ?? 'all';
-    if ($action === 'kpis')     getKpis();
-    elseif ($action === 'activity') getActivity();
+    if ($action === 'diag')     getDiag();
     elseif ($action === 'all')  getAll();
     else jsonError('Action inconnue', 400);
 } catch (\Throwable $e) {
@@ -27,7 +26,7 @@ function getAll() {
     $monthStart = "$year-$month-01";
     $prevYear = (int)$year - 1;
 
-    // ── Valeurs par défaut (sécurité si une table manque) ──
+    // ── Valeurs par défaut ──
     $caYtd = 0; $caDelta = 0;
     $projetsEnCours = 0; $phaseDetail = '';
     $devisNb = 0; $devisTotal = 0;
@@ -40,58 +39,59 @@ function getAll() {
     $activity = [];
     $depensesParCat = [];
 
+    // Helper : date effective d'une facture
+    $dateCol = "COALESCE(date_emission, date_facture, cree_at)";
+
     // ── CA YTD (factures payées cette année) ──
     try {
-        $stmt = $db->prepare("SELECT COALESCE(SUM(montant_ttc),0) FROM CA_factures WHERE statut = 'Payée' AND date_emission >= ?");
+        $stmt = $db->prepare("SELECT COALESCE(SUM(montant_ttc),0) FROM CA_factures WHERE statut = 'Payée' AND $dateCol >= ?");
         $stmt->execute([$yearStart]);
         $caYtd = (float)$stmt->fetchColumn();
 
-        // CA même période année précédente (pour delta)
         $prevYearStart = "$prevYear-01-01";
         $prevYearEnd = $prevYear . '-' . $month . '-' . $now->format('d');
-        $stmt = $db->prepare("SELECT COALESCE(SUM(montant_ttc),0) FROM CA_factures WHERE statut = 'Payée' AND date_emission >= ? AND date_emission <= ?");
+        $stmt = $db->prepare("SELECT COALESCE(SUM(montant_ttc),0) FROM CA_factures WHERE statut = 'Payée' AND $dateCol >= ? AND $dateCol <= ?");
         $stmt->execute([$prevYearStart, $prevYearEnd]);
         $caPrev = (float)$stmt->fetchColumn();
         $caDelta = $caPrev > 0 ? round(($caYtd - $caPrev) / $caPrev * 100) : ($caYtd > 0 ? 100 : 0);
-    } catch (\Throwable $e) { /* table CA_factures manquante */ }
+    } catch (\Throwable $e) { /* CA_factures */ }
 
-    // ── Projets en cours ──
+    // ── Projets en cours (statuts : 'En cours' ou 'Actif') ──
     try {
-        $stmt = $db->query("SELECT COUNT(*) FROM CA_projets WHERE statut = 'En cours'");
+        $stmt = $db->query("SELECT COUNT(*) FROM CA_projets WHERE statut IN ('En cours','Actif')");
         $projetsEnCours = (int)$stmt->fetchColumn();
 
-        $stmt = $db->query("SELECT phase, COUNT(*) AS nb FROM CA_projets WHERE statut = 'En cours' GROUP BY phase ORDER BY nb DESC");
+        $stmt = $db->query("SELECT phase, COUNT(*) AS nb FROM CA_projets WHERE statut IN ('En cours','Actif') GROUP BY phase ORDER BY nb DESC");
         $phases = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         if ($phases) {
             $top = $phases[0];
-            $phaseDetail = 'dont ' . $top['nb'] . ' en ' . $top['phase'];
+            $phaseDetail = 'dont ' . $top['nb'] . ' en ' . ($top['phase'] ?: 'APS');
         }
-    } catch (\Throwable $e) { /* table CA_projets manquante */ }
+    } catch (\Throwable $e) { /* CA_projets */ }
 
     // ── Devis en attente ──
     try {
-        $stmt = $db->query("SELECT COUNT(*) AS nb, COALESCE(SUM(montant_ttc),0) AS total FROM CA_devis WHERE statut = 'En attente'");
+        $stmt = $db->query("SELECT COUNT(*) AS nb, COALESCE(SUM(montant_ttc),SUM(montant_ht),0) AS total FROM CA_devis WHERE statut = 'En attente'");
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
         $devisNb = (int)$row['nb'];
         $devisTotal = (float)$row['total'];
-    } catch (\Throwable $e) { /* table CA_devis manquante */ }
+    } catch (\Throwable $e) { /* CA_devis */ }
 
-    // ── Factures impayées ──
+    // ── Factures impayées (tous les statuts non payés) ──
     try {
         $stmt = $db->query("SELECT COUNT(*) AS nb, COALESCE(SUM(montant_ttc),0) AS total
-            FROM CA_factures WHERE statut IN ('Émise','En retard','Impayée')");
+            FROM CA_factures WHERE statut NOT IN ('Payée','Annulée') AND statut IS NOT NULL");
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
         $facturesNb = (int)$row['nb'];
         $facturesTot = (float)$row['total'];
 
-        // Jours de retard max
         $stmt = $db->query("SELECT MIN(date_echeance) AS oldest FROM CA_factures
-            WHERE statut IN ('Émise','En retard','Impayée') AND date_echeance < CURDATE()");
+            WHERE statut NOT IN ('Payée','Annulée') AND date_echeance IS NOT NULL AND date_echeance < CURDATE()");
         $oldest = $stmt->fetchColumn();
         if ($oldest) {
             $joursRetard = (int)((new \DateTime())->diff(new \DateTime($oldest))->days);
         }
-    } catch (\Throwable $e) { /* table CA_factures manquante */ }
+    } catch (\Throwable $e) { /* CA_factures */ }
 
     // ── Dépenses du mois ──
     try {
@@ -99,7 +99,6 @@ function getAll() {
         $stmt->execute([$monthStart]);
         $depensesMois = (float)$stmt->fetchColumn();
 
-        // Dépenses mois précédent (delta)
         $prevMonth = (clone $now)->modify('-1 month');
         $prevMonthStart = $prevMonth->format('Y-m-01');
         $prevMonthEnd = $prevMonth->format('Y-m-t');
@@ -107,61 +106,58 @@ function getAll() {
         $stmt->execute([$prevMonthStart, $prevMonthEnd]);
         $depensesPrev = (float)$stmt->fetchColumn();
         $depDelta = $depensesPrev > 0 ? round(($depensesMois - $depensesPrev) / $depensesPrev * 100) : 0;
-    } catch (\Throwable $e) { /* table CA_depenses manquante */ }
+    } catch (\Throwable $e) { /* CA_depenses */ }
 
-    // ── Taux occupation (heures saisies / heures dispo ce mois) ──
+    // ── Taux occupation ──
     try {
         $stmt = $db->query("SELECT COUNT(*) FROM cortoba_users WHERE statut = 'Actif'");
         $nbActifs = (int)$stmt->fetchColumn();
         $heuresDispo = $nbActifs * 160;
-    } catch (\Throwable $e) { /* table cortoba_users manquante */ }
+    } catch (\Throwable $e) {}
 
     try {
         $stmt = $db->prepare("SELECT COALESCE(SUM(hours_spent),0) FROM CA_timesheets WHERE date_jour >= ?");
         $stmt->execute([$monthStart]);
         $heuresSaisies = (float)$stmt->fetchColumn();
-    } catch (\Throwable $e) { /* table CA_timesheets manquante */ }
+    } catch (\Throwable $e) {}
 
     $tauxOccupation = $heuresDispo > 0 ? round($heuresSaisies / $heuresDispo * 100) : 0;
 
-    // ── CA mensuel pour le graphique ──
+    // ── CA mensuel (graphique) ──
     try {
-        $stmt = $db->prepare("SELECT MONTH(date_emission) AS mois, SUM(montant_ttc) AS total
-            FROM CA_factures WHERE statut = 'Payée' AND YEAR(date_emission) = ?
-            GROUP BY MONTH(date_emission) ORDER BY mois");
+        $stmt = $db->prepare("SELECT MONTH($dateCol) AS mois, SUM(montant_ttc) AS total
+            FROM CA_factures WHERE statut = 'Payée' AND YEAR($dateCol) = ?
+            GROUP BY MONTH($dateCol) ORDER BY mois");
         $stmt->execute([$year]);
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $caMensuel[(int)$row['mois'] - 1] = round((float)$row['total'], 2);
         }
 
-        // CA mensuel année précédente
-        $stmt = $db->prepare("SELECT MONTH(date_emission) AS mois, SUM(montant_ttc) AS total
-            FROM CA_factures WHERE statut = 'Payée' AND YEAR(date_emission) = ?
-            GROUP BY MONTH(date_emission) ORDER BY mois");
+        $stmt = $db->prepare("SELECT MONTH($dateCol) AS mois, SUM(montant_ttc) AS total
+            FROM CA_factures WHERE statut = 'Payée' AND YEAR($dateCol) = ?
+            GROUP BY MONTH($dateCol) ORDER BY mois");
         $stmt->execute([$prevYear]);
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $caMensuelPrev[(int)$row['mois'] - 1] = round((float)$row['total'], 2);
         }
-    } catch (\Throwable $e) { /* table CA_factures manquante */ }
+    } catch (\Throwable $e) {}
 
     // ── Projets actifs avec avancement ──
     try {
-        // Tenter avec sous-requête CA_taches
         $stmt = $db->query("SELECT id, nom, phase, statut,
             (SELECT COUNT(*) FROM CA_taches WHERE projet_id = p.id) AS total_taches,
-            (SELECT COUNT(*) FROM CA_taches WHERE projet_id = p.id AND statut = 'Terminée') AS taches_terminees
-            FROM CA_projets p WHERE p.statut = 'En cours' ORDER BY p.cree_at DESC LIMIT 6");
+            (SELECT COUNT(*) FROM CA_taches WHERE projet_id = p.id AND statut IN ('Terminé','Terminée','terminé','terminee')) AS taches_terminees
+            FROM CA_projets p WHERE p.statut IN ('En cours','Actif') ORDER BY p.cree_at DESC LIMIT 6");
         $projetsActifs = $stmt->fetchAll(\PDO::FETCH_ASSOC);
     } catch (\Throwable $e) {
-        // Fallback sans CA_taches
         try {
-            $stmt = $db->query("SELECT id, nom, phase, statut FROM CA_projets WHERE statut = 'En cours' ORDER BY cree_at DESC LIMIT 6");
+            $stmt = $db->query("SELECT id, nom, phase, statut FROM CA_projets WHERE statut IN ('En cours','Actif') ORDER BY cree_at DESC LIMIT 6");
             $projetsActifs = $stmt->fetchAll(\PDO::FETCH_ASSOC);
             foreach ($projetsActifs as &$p) {
                 $p['total_taches'] = 0;
                 $p['taches_terminees'] = 0;
             }
-        } catch (\Throwable $e2) { /* table CA_projets manquante */ }
+        } catch (\Throwable $e2) {}
     }
     foreach ($projetsActifs as &$p) {
         $p['avancement'] = isset($p['total_taches']) && $p['total_taches'] > 0
@@ -188,9 +184,9 @@ function getAll() {
                 'color' => 'blue'
             ];
         }
-    } catch (\Throwable $e) { /* table CA_journal manquante */ }
+    } catch (\Throwable $e) {}
 
-    // Derniers devis créés/acceptés
+    // Derniers devis
     try {
         $stmt = $db->query("SELECT numero, client, statut, montant_ttc, cree_at
             FROM CA_devis ORDER BY cree_at DESC LIMIT 3");
@@ -198,40 +194,39 @@ function getAll() {
             $color = $row['statut'] === 'Accepté' ? 'green' : ($row['statut'] === 'Refusé' ? 'red' : 'accent');
             $activity[] = [
                 'type' => 'devis',
-                'text' => 'Devis <strong>' . htmlspecialchars($row['numero']) . '</strong> · ' .
-                          htmlspecialchars($row['client']) . ' · ' . $row['statut'],
+                'text' => 'Devis <strong>' . htmlspecialchars($row['numero'] ?: '—') . '</strong> · ' .
+                          htmlspecialchars($row['client'] ?: '—') . ' · ' . ($row['statut'] ?: '—'),
                 'time' => $row['cree_at'],
                 'color' => $color
             ];
         }
-    } catch (\Throwable $e) { /* table CA_devis manquante */ }
+    } catch (\Throwable $e) {}
 
-    // Derniers paiements reçus
+    // Derniers paiements
     try {
-        $stmt = $db->query("SELECT numero, client, montant_ttc, date_paiement
-            FROM CA_factures WHERE statut = 'Payée' ORDER BY date_paiement DESC LIMIT 3");
+        $stmt = $db->query("SELECT numero, client, montant_ttc, COALESCE(date_paiement, date_facture, cree_at) AS dt
+            FROM CA_factures WHERE statut = 'Payée' ORDER BY dt DESC LIMIT 3");
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             $activity[] = [
                 'type' => 'paiement',
-                'text' => 'Paiement reçu — Facture <strong>' . htmlspecialchars($row['numero']) . '</strong> · ' .
-                          number_format($row['montant_ttc'], 0, ',', ' ') . ' TND',
-                'time' => $row['date_paiement'] ?: date('Y-m-d'),
+                'text' => 'Paiement reçu — Facture <strong>' . htmlspecialchars($row['numero'] ?: '—') . '</strong> · ' .
+                          number_format((float)$row['montant_ttc'], 0, ',', ' ') . ' TND',
+                'time' => $row['dt'],
                 'color' => 'green'
             ];
         }
-    } catch (\Throwable $e) { /* table CA_factures manquante */ }
+    } catch (\Throwable $e) {}
 
-    // Trier par date décroissante et limiter
     usort($activity, function($a, $b) { return strcmp($b['time'], $a['time']); });
     $activity = array_slice($activity, 0, 8);
 
-    // ── Répartition dépenses par catégorie (mois en cours) ──
+    // ── Répartition dépenses par catégorie ──
     try {
         $stmt = $db->prepare("SELECT categorie, SUM(montant) AS total
             FROM CA_depenses WHERE date_dep >= ? GROUP BY categorie ORDER BY total DESC LIMIT 5");
         $stmt->execute([$monthStart]);
         $depensesParCat = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-    } catch (\Throwable $e) { /* table CA_depenses manquante */ }
+    } catch (\Throwable $e) {}
 
     jsonOk([
         'kpis' => [
@@ -260,10 +255,52 @@ function getAll() {
     ]);
 }
 
-function getKpis() {
-    getAll();
-}
+// ── Diagnostic : affiche les données brutes pour débug ──
+function getDiag() {
+    $db = getDB();
+    $diag = [];
 
-function getActivity() {
-    getAll();
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total, GROUP_CONCAT(DISTINCT statut) AS statuts FROM CA_projets");
+        $diag['projets'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['projets'] = 'ERR: ' . $e->getMessage(); }
+
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total, GROUP_CONCAT(DISTINCT statut) AS statuts FROM CA_devis");
+        $diag['devis'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['devis'] = 'ERR: ' . $e->getMessage(); }
+
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total, GROUP_CONCAT(DISTINCT statut) AS statuts FROM CA_factures");
+        $diag['factures'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $stmt = $db->query("SELECT id, statut, date_emission, date_facture, montant_ttc FROM CA_factures LIMIT 3");
+        $diag['factures_sample'] = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['factures'] = 'ERR: ' . $e->getMessage(); }
+
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total FROM CA_depenses");
+        $diag['depenses'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['depenses'] = 'ERR: ' . $e->getMessage(); }
+
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total, GROUP_CONCAT(DISTINCT statut) AS statuts FROM CA_taches");
+        $diag['taches'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['taches'] = 'ERR: ' . $e->getMessage(); }
+
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total FROM CA_journal");
+        $diag['journal'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['journal'] = 'ERR: ' . $e->getMessage(); }
+
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total FROM cortoba_users WHERE statut = 'Actif'");
+        $diag['users_actifs'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['users'] = 'ERR: ' . $e->getMessage(); }
+
+    try {
+        $stmt = $db->query("SELECT COUNT(*) AS total FROM CA_timesheets");
+        $diag['timesheets'] = $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $diag['timesheets'] = 'ERR: ' . $e->getMessage(); }
+
+    jsonOk($diag);
 }
