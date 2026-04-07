@@ -750,13 +750,6 @@ function exportJournalPDF($id) {
     jsonOk(['journal' => $j, 'agence' => $agence]);
 }
 
-function validerJournal($id, $user) {
-    $db = getDB();
-    $db->prepare("UPDATE CA_chantier_journal SET valide_par=?, valide_at=NOW() WHERE id=?")
-       ->execute([$user['name']??'', $id]);
-    jsonOk(['validated' => true]);
-}
-
 // ══════════════════════════════════════
 //  DASHBOARD
 // ══════════════════════════════════════
