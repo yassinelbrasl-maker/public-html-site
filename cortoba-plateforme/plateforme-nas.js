@@ -2048,6 +2048,7 @@ function resetProjetForm(){
   var chatChk = document.getElementById('pj-chat-create');  if(chatChk) chatChk.checked = false;
   var nasChk  = document.getElementById('pj-nas-create');   if(nasChk)  nasChk.checked = false;
   var portalBtn = document.getElementById('pj-portal-btn'); if(portalBtn) portalBtn.style.display = 'none';
+  var nasLinkBtn = document.getElementById('pj-nas-link-btn'); if(nasLinkBtn) nasLinkBtn.style.display = 'none';
 
 
   populateClientSelect();
@@ -2191,8 +2192,30 @@ function openEditProjet(id){
     portalBtn.onclick = function(){ openCreatePortalAccess(_editingProjetId, document.getElementById('pj-client')?.selectedOptions[0]?.text||'', document.getElementById('pj-client')?.value||''); };
   }
 
+  // Afficher le bouton NAS en mode édition
+  var nasBtn = document.getElementById('pj-nas-link-btn');
+  if (nasBtn) {
+    nasBtn.style.display = 'inline-flex';
+    nasBtn.setAttribute('data-projet-id', id);
+  }
+
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
+}
+
+// ── Ouvrir le dossier NAS depuis la modale d'édition ──
+function openNasFolder() {
+  var cfg = getNasConfig();
+  var ip = cfg.local || '192.168.1.165';
+  var code = (document.getElementById('pj-code-preview').textContent || '').trim();
+  var nom = (document.getElementById('pj-nom').value || '').trim();
+  var annee = (document.getElementById('pj-annee').value || new Date().getFullYear());
+  if (code === '—') code = '';
+  var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+  navigator.clipboard.writeText(nasPath).then(function() {
+    showToast('Chemin NAS copié : ' + nasPath, 'success');
+  });
 }
 
 // ── NAS folder button for project detail ──

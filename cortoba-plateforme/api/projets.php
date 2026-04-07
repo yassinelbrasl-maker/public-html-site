@@ -181,7 +181,7 @@ function update($id, array $user) {
 
     $db->prepare('
         UPDATE CA_projets SET
-            nom=?, client=?, client_code=?, annee=?, phase=?, statut=?, type_bat=?,
+            code=?, nom=?, client=?, client_code=?, annee=?, phase=?, statut=?, type_bat=?,
             delai=?, honoraires=?, budget=?, surface=?, description=?, adresse=?,
             lat=?, lng=?,
             surface_shon=?, surface_shob=?, surface_terrain=?, standing=?, zone=?,
@@ -189,6 +189,7 @@ function update($id, array $user) {
             modifie_par=?
         WHERE id=?
     ')->execute([
+        $body['code']            ?? '',
         trim($body['nom']        ?? ''),
         $body['client']          ?? '',
         $body['clientCode']      ?? '',
