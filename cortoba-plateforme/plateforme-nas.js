@@ -1870,6 +1870,7 @@ function resetProjetForm(){
   var nasChk  = document.getElementById('pj-nas-create');   if(nasChk)  nasChk.checked = false;
   var portalBtn = document.getElementById('pj-portal-btn'); if(portalBtn) portalBtn.style.display = 'none';
 
+
   populateClientSelect();
   populateMissionsList([]);
 
@@ -1986,7 +1987,21 @@ function openEditProjet(id){
 
   // Afficher le bouton portail client en mode édition
   var portalBtn = document.getElementById('pj-portal-btn');
-  if (portalBtn) portalBtn.style.display = '';
+  if (!portalBtn) {
+    // Créer dynamiquement si absent du HTML (cache navigateur)
+    var footer = document.querySelector('#modal-projet .modal-footer');
+    if (footer) {
+      portalBtn = document.createElement('button');
+      portalBtn.id = 'pj-portal-btn';
+      portalBtn.className = 'btn';
+      portalBtn.innerHTML = '&#128279; Créer accès portail';
+      footer.insertBefore(portalBtn, footer.children[1] || footer.children[0]);
+    }
+  }
+  if (portalBtn) {
+    portalBtn.style.cssText = 'display:inline-block;margin-right:auto;background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:0.45rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)';
+    portalBtn.onclick = function(){ openCreatePortalAccess(_editingProjetId, document.getElementById('pj-client')?.selectedOptions[0]?.text||'', document.getElementById('pj-client')?.value||''); };
+  }
 
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
