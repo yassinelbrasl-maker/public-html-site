@@ -1868,6 +1868,7 @@ function resetProjetForm(){
   var saveBtn = document.getElementById('pj-save-btn');     if(saveBtn) saveBtn.textContent='Créer le projet →';
   var chatChk = document.getElementById('pj-chat-create');  if(chatChk) chatChk.checked = false;
   var nasChk  = document.getElementById('pj-nas-create');   if(nasChk)  nasChk.checked = false;
+  var portalBtn = document.getElementById('pj-portal-btn'); if(portalBtn) portalBtn.style.display = 'none';
 
   populateClientSelect();
   populateMissionsList([]);
@@ -1983,6 +1984,10 @@ function openEditProjet(id){
     }).catch(function(){});
   }
 
+  // Afficher le bouton portail client en mode édition
+  var portalBtn = document.getElementById('pj-portal-btn');
+  if (portalBtn) portalBtn.style.display = '';
+
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
 }
@@ -2012,8 +2017,87 @@ function openProjetDetail(id){
     '<div><div style="font-size:0.62rem;color:var(--text-3);letter-spacing:0.15em;text-transform:uppercase">FICHE PROJET</div>'+
     '<div style="font-size:1.1rem;font-weight:600">'+(p.nom||'')+'</div></div>'+
     '<button onclick="this.closest(\'div[style*=position]\').remove()" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button></div>'+
-    '<div style="padding:1.2rem 1.5rem"><table style="width:100%;border-collapse:collapse">'+tr+'</table></div></div>';
+    '<div style="padding:1.2rem 1.5rem"><table style="width:100%;border-collapse:collapse">'+tr+'</table>'+
+    '<div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-wrap:wrap">'+
+    '<button onclick="openCreatePortalAccess(\''+p.id+'\',\''+esc(p.client||'').replace(/'/g,"\\'")+'\',\''+(p.clientId||p.client_id||'')+'\')" style="background:var(--accent);color:#1a1a1a;border:none;border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem">'+
+    '<span style="font-size:0.9rem">&#128279;</span> Créer accès portail</button>'+
+    '</div></div></div>';
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
+// ── Créer accès portail client ──
+function openCreatePortalAccess(projetId, clientName, clientId) {
+  if (!clientId) { showToast('Ce projet n\'a pas de client associé','error'); return; }
+  var client = getClients().find(function(c){ return c.id === clientId; });
+  var email = client ? (client.email||'') : '';
+  var nom   = client ? (client.displayNom||client.display_nom||client.nom||clientName||'') : clientName;
+
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10000;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML = '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;max-width:440px;width:94%;max-height:85vh;overflow:auto">'+
+    '<div style="padding:1.2rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
+    '<div><div style="font-size:0.62rem;color:var(--text-3);letter-spacing:0.15em;text-transform:uppercase">PORTAIL CLIENT</div>'+
+    '<div style="font-size:1rem;font-weight:600">Créer un accès portail</div></div>'+
+    '<button id="portal-close" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button></div>'+
+    '<div style="padding:1.2rem 1.5rem">'+
+    '<div style="margin-bottom:0.8rem"><label style="display:block;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Nom du client</label>'+
+    '<input id="portal-nom" type="text" value="'+esc(nom)+'" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:var(--font)"></div>'+
+    '<div style="margin-bottom:0.8rem"><label style="display:block;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Email</label>'+
+    '<input id="portal-email" type="email" value="'+esc(email)+'" placeholder="client@email.com" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:var(--font)"></div>'+
+    '<div style="margin-bottom:0.8rem"><label style="display:block;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Mot de passe</label>'+
+    '<input id="portal-pass" type="text" value="" placeholder="Minimum 6 caractères" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:var(--font)">'+
+    '<button id="portal-gen-pass" style="background:none;border:none;color:var(--accent);font-size:0.72rem;cursor:pointer;margin-top:0.3rem;font-family:var(--font)">Générer un mot de passe</button></div>'+
+    '<div id="portal-error" style="display:none;color:var(--red);font-size:0.8rem;margin-bottom:0.5rem"></div>'+
+    '<div id="portal-success" style="display:none;background:rgba(90,171,110,0.1);border:1px solid var(--green);border-radius:5px;padding:0.8rem;margin-bottom:0.5rem"></div>'+
+    '<button id="portal-submit" style="width:100%;padding:0.55rem;background:var(--accent);color:#1a1a1a;border:none;border-radius:5px;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:var(--font)">Créer le compte</button>'+
+    '</div></div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+  ov.querySelector('#portal-close').addEventListener('click', function(){ ov.remove(); });
+  ov.querySelector('#portal-gen-pass').addEventListener('click', function(){
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    var pass = '';
+    for(var i=0;i<10;i++) pass += chars.charAt(Math.floor(Math.random()*chars.length));
+    document.getElementById('portal-pass').value = pass;
+  });
+  ov.querySelector('#portal-submit').addEventListener('click', function(){
+    var emailVal = (document.getElementById('portal-email').value||'').trim();
+    var nomVal   = (document.getElementById('portal-nom').value||'').trim();
+    var passVal  = (document.getElementById('portal-pass').value||'').trim();
+    var errEl    = document.getElementById('portal-error');
+    var succEl   = document.getElementById('portal-success');
+    errEl.style.display = 'none';
+    succEl.style.display = 'none';
+
+    if(!emailVal||!nomVal||passVal.length<6){
+      errEl.textContent = 'Email, nom et mot de passe (min 6 car.) requis';
+      errEl.style.display = 'block'; return;
+    }
+    var btn = document.getElementById('portal-submit');
+    btn.disabled = true; btn.textContent = 'Création...';
+
+    apiFetch('api/client_portal_admin.php?action=create_account', {
+      method:'POST',
+      body:{ client_id:clientId, email:emailVal, nom:nomVal, password:passVal }
+    }).then(function(resp){
+      var d = resp.data || resp;
+      var portalUrl = window.location.origin + window.location.pathname.replace(/[^/]+$/, '') + 'portail-client.html';
+      succEl.innerHTML = '<div style="font-weight:600;color:var(--green);margin-bottom:0.5rem">&#10003; Compte créé avec succès</div>'+
+        '<div style="font-size:0.8rem;color:var(--text-2);margin-bottom:0.5rem">Transmettez ces identifiants au client :</div>'+
+        '<div style="background:var(--bg-2);border-radius:5px;padding:0.6rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">'+
+        '<div><strong>URL :</strong> <a href="'+esc(portalUrl)+'" target="_blank" style="color:var(--accent)">'+esc(portalUrl)+'</a></div>'+
+        '<div><strong>Email :</strong> '+esc(emailVal)+'</div>'+
+        '<div><strong>Mot de passe :</strong> '+esc(passVal)+'</div></div>'+
+        '<button onclick="navigator.clipboard.writeText(\'URL: '+esc(portalUrl)+'\\nEmail: '+esc(emailVal)+'\\nMot de passe: '+esc(passVal)+'\').then(function(){showToast(\'Copié !\',\'success\')})" '+
+        'style="margin-top:0.5rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:0.35rem 0.8rem;font-size:0.75rem;cursor:pointer;font-family:var(--font)">Copier les identifiants</button>';
+      succEl.style.display = 'block';
+      btn.style.display = 'none';
+    }).catch(function(e){
+      errEl.textContent = e.message || 'Erreur création';
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Créer le compte';
+    });
+  });
   document.body.appendChild(ov);
 }
 

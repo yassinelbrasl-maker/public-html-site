@@ -3342,6 +3342,7 @@
           📁 Créer un dossier sur le serveur NAS
         </label>
       </div>
+      <button class="btn" id="pj-portal-btn" onclick="openCreatePortalAccess(_editingProjetId, document.getElementById('pj-client')?.selectedOptions[0]?.text||'', document.getElementById('pj-client')?.value||'')" style="display:none;margin-right:auto;background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:0.45rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)">&#128279; Créer accès portail</button>
       <button class="btn" onclick="closeModal('modal-projet')">Annuler</button>
       <button class="btn btn-primary" id="pj-save-btn" onclick="saveProjet()">Créer le projet →</button>
     </div>
