@@ -14915,12 +14915,37 @@ function ncFallbackWebDAV(statusEl) {
   // Timeout de sécurité (30s)
   setTimeout(function() {
     window.removeEventListener('message', messageHandler);
-    if (statusEl.innerHTML.indexOf('Ouverture') !== -1) {
+    if (statusEl.innerHTML.indexOf('Ouverture') !== -1 || statusEl.innerHTML.indexOf('popup') !== -1) {
       statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>' +
         'Délai dépassé — le NAS n\'a pas répondu dans les 30 secondes.<br>' +
-        '<span style="font-size:0.78rem;color:var(--text-3)">Vérifiez que le NAS est allumé et accessible sur le réseau local.</span>';
+        '<span style="font-size:0.78rem;color:var(--text-3)">Le fichier bridge n\'est peut-être pas encore déployé sur le NAS.</span><br><br>' +
+        '<button class="btn btn-primary" onclick="ncDeployBridge()" style="font-size:0.82rem">Déployer le bridge sur le NAS</button>';
     }
   }, 30000);
+}
+
+// Déployer le fichier bridge sur le NAS via l'API serveur
+function ncDeployBridge() {
+  var statusEl = document.getElementById('nas-conformite-status');
+  statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>Déploiement du bridge sur le NAS…';
+
+  apiFetch('api/nas-upload-bridge.php', { method: 'POST', body: {} })
+    .then(function(r) {
+      if (r.data && r.data.uploaded) {
+        statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">✅</div>' +
+          'Bridge déployé avec succès sur le NAS !<br><br>' +
+          '<button class="btn btn-primary" onclick="openNasConformite()" style="font-size:0.82rem">Relancer la vérification</button>';
+      } else {
+        statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>' +
+          'Échec du déploiement (HTTP ' + (r.data && r.data.http || '?') + ').<br>' +
+          '<span style="font-size:0.78rem;color:var(--text-3)">' + (r.data && r.data.error || 'Vérifiez la config NAS') + '</span>';
+      }
+    })
+    .catch(function(e) {
+      statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>' +
+        'Erreur : ' + (e.message || 'impossible de déployer') + '<br>' +
+        '<span style="font-size:0.78rem;color:var(--text-3)">Le serveur distant doit pouvoir accéder au NAS (port forwarding requis).</span>';
+    });
 }
 
 // Nettoyer un nom pour comparaison (minuscule, sans accents, sans caractères spéciaux)
