@@ -697,24 +697,72 @@
           <label>Titre du projet *</label>
           <input type="text" id="lsProjTitle" placeholder="Ex: Villa Oléa" />
         </div>
+
         <div class="form-group">
           <label>Catégorie / Tag</label>
-          <input type="text" id="lsProjTag" placeholder="Ex: Jardin privé" />
+          <select id="lsProjTag">
+            <option>Jardin privé</option>
+            <option>Terrasse</option>
+            <option>Hôtellerie</option>
+            <option>Espace public</option>
+            <option>Résidentiel</option>
+            <option>Patio</option>
+            <option>Piscine & abords</option>
+            <option>Éclairage paysager</option>
+          </select>
         </div>
+
+        <div class="form-group">
+          <label>Année</label>
+          <input type="text" id="lsProjYear" placeholder="2025" />
+        </div>
+
         <div class="form-group">
           <label>Localisation</label>
-          <input type="text" id="lsProjLocation" placeholder="Ex: Djerba, Tunisie" />
+          <input type="text" id="lsProjLocation" placeholder="Djerba, Tunisie" />
         </div>
+
+        <div class="form-group">
+          <label>Surface</label>
+          <input type="text" id="lsProjSurface" placeholder="450 m²" />
+        </div>
+
         <div class="form-group">
           <label>Lien (URL page détail)</label>
           <input type="text" id="lsProjLink" placeholder="#" />
         </div>
+
         <div class="form-group">
-          <label>Ordre (0 = premier)</label>
+          <label>Ordre d'affichage (0 = premier)</label>
           <input type="number" id="lsProjSortOrder" value="0" min="0" />
         </div>
+
         <div class="form-group full">
-          <label>Image du projet</label>
+          <label>Description</label>
+          <textarea id="lsProjDescription" rows="5" placeholder="Décrivez le projet paysager..." style="min-height:120px"></textarea>
+        </div>
+
+        <div class="form-group full">
+          <label>Disposition dans la mosaïque</label>
+          <div class="grid-options" id="lsGridOptions">
+            <div class="grid-opt selected" data-val="" onclick="lsSelectGridOpt(this)">
+              <div class="grid-opt-icon">▢</div>
+              <div class="grid-opt-label">Normal</div>
+            </div>
+            <div class="grid-opt" data-val="span2row" onclick="lsSelectGridOpt(this)">
+              <div class="grid-opt-icon">▮</div>
+              <div class="grid-opt-label">Grand (2 rows)</div>
+            </div>
+            <div class="grid-opt" data-val="span2col" onclick="lsSelectGridOpt(this)">
+              <div class="grid-opt-icon">▬</div>
+              <div class="grid-opt-label">Large (2 col)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero image with drag-to-reposition -->
+        <div class="form-group full">
+          <label>Image principale (hero)</label>
           <div class="img-upload-zone" id="lsHeroZone" style="border-color:rgba(141,186,120,0.3)">
             <input type="file" accept="image/*" id="lsHeroInput" />
             <i class="fa-solid fa-cloud-arrow-up" style="color:#8dba78"></i>
@@ -722,14 +770,83 @@
           </div>
           <div class="upload-progress" id="lsHeroProgress"><div class="upload-progress-bar" id="lsHeroProgressBar" style="background:#8dba78"></div></div>
           <div class="upload-progress-text" id="lsHeroProgressText"></div>
-          <div id="lsHeroPreviewWrap" style="margin-top:0.8rem;display:none;border-radius:var(--radius);overflow:hidden">
-            <img id="lsHeroPreview" style="width:100%;max-height:300px;object-fit:cover;display:block;border-radius:var(--radius)" />
+          <div class="hero-preview-wrap" id="lsHeroPreviewWrap">
+            <img class="hero-preview" id="lsHeroPreview" />
+            <div class="hero-crop-hint"><i class="fa-solid fa-arrows-up-down"></i> Glissez pour repositionner la couverture</div>
+            <div class="hero-pos-value" id="lsHeroPosValue" style="background:rgba(141,186,120,0.7)">50%</div>
           </div>
         </div>
+
+        <!-- Gallery -->
+        <div class="form-group full">
+          <label>Galerie photos</label>
+          <div class="img-upload-zone" id="lsGalleryZone" style="border-color:rgba(141,186,120,0.3)">
+            <input type="file" accept="image/*" multiple id="lsGalleryInput" />
+            <i class="fa-solid fa-images" style="color:#8dba78"></i>
+            <p>Ajoutez plusieurs images à la galerie</p>
+          </div>
+          <div class="upload-progress" id="lsGalleryProgress"><div class="upload-progress-bar" id="lsGalleryProgressBar" style="background:#8dba78"></div></div>
+          <div class="upload-progress-text" id="lsGalleryProgressText"></div>
+          <div class="gallery-thumbs" id="lsGalleryThumbs"></div>
+        </div>
+
+        <!-- Published toggle -->
         <div class="form-group full" style="display:flex;align-items:center;gap:1rem;margin-top:1rem">
           <label style="margin:0;cursor:pointer" for="lsProjPublished">Publié sur le site</label>
           <input type="checkbox" id="lsProjPublished" checked style="width:20px;height:20px;accent-color:#8dba78" />
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ LANDSCAPING SLIDE EDITOR MODAL ═══════ -->
+  <div class="slide-editor-backdrop" id="lsSlideEditorBackdrop">
+    <div class="slide-editor">
+      <div class="slide-editor-header" style="background:linear-gradient(90deg,var(--bg2),rgba(141,186,120,0.08))">
+        <h3 id="lsSlideEditorTitle" style="display:flex;align-items:center;gap:0.5rem"><i class="fa-solid fa-leaf" style="color:#8dba78"></i> Configurer l'image</h3>
+        <button class="btn btn-ghost btn-sm" id="lsSlideEditorClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="slide-editor-body">
+        <div class="slide-editor-preview" id="lsSlideEditorPreview">
+          <img id="lsSlideEditorImg" src="" alt="Preview" />
+          <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(rgba(0,0,0,0.4),rgba(0,0,0,0.4));pointer-events:none;display:flex;align-items:center;justify-content:center">
+            <span style="color:#fff;font-size:0.7rem;letter-spacing:0.12em;opacity:0.5;text-transform:uppercase">Glissez pour repositionner</span>
+          </div>
+        </div>
+        <div class="slide-editor-controls">
+          <div class="slide-ctrl-row">
+            <label>Zoom</label>
+            <input type="range" id="lsSlideZoom" min="100" max="250" value="100" style="accent-color:#8dba78" />
+            <span class="ctrl-val" id="lsSlideZoomVal">100%</span>
+          </div>
+          <div class="slide-ctrl-row">
+            <label>Position X</label>
+            <input type="range" id="lsSlidePosX" min="0" max="100" value="50" style="accent-color:#8dba78" />
+            <span class="ctrl-val" id="lsSlidePosXVal">50%</span>
+          </div>
+          <div class="slide-ctrl-row">
+            <label>Position Y</label>
+            <input type="range" id="lsSlidePosY" min="0" max="100" value="50" style="accent-color:#8dba78" />
+            <span class="ctrl-val" id="lsSlidePosYVal">50%</span>
+          </div>
+          <div class="slide-ctrl-row">
+            <label>Format</label>
+            <div style="display:flex;gap:0.3rem;flex:1" id="lsSlideEditorFitGroup">
+              <button class="btn btn-ghost btn-sm ls-se-fit active" data-mode="cover">Adapté</button>
+              <button class="btn btn-ghost btn-sm ls-se-fit" data-mode="contain">Contenu</button>
+              <button class="btn btn-ghost btn-sm ls-se-fit" data-mode="original">Original</button>
+              <button class="btn btn-ghost btn-sm ls-se-fit" data-mode="fill">Étiré</button>
+            </div>
+          </div>
+          <div class="slide-ctrl-row">
+            <label>Ordre</label>
+            <input type="number" id="lsSlideSortOrder" min="0" value="0" style="width:70px;padding:0.4rem 0.6rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.85rem" />
+          </div>
+        </div>
+      </div>
+      <div class="slide-editor-footer">
+        <button class="btn btn-ghost" id="lsSlideEditorCancel">Annuler</button>
+        <button class="btn btn-primary" id="lsSlideEditorSave" style="background:#8dba78;color:#0c0d0a"><i class="fa-solid fa-check"></i> Publier</button>
       </div>
     </div>
   </div>
@@ -1625,13 +1742,15 @@
     }
 
     // ══════════════════════════════════════════
-    //  LANDSCAPING PROJECTS
+    //  LANDSCAPING PROJECTS (full featured)
     // ══════════════════════════════════════════
     const LS_PROJ_API = 'cortoba-plateforme/api/landscaping_projects.php';
     const LS_SLIDER_API = 'cortoba-plateforme/api/landscaping_slider.php';
     let lsProjects = [];
     let lsEditingId = null;
     let lsHeroImagePath = '';
+    let lsHeroPositionY = 50;
+    let lsGalleryImages = [];
 
     async function lsLoadProjects() {
       try {
@@ -1656,16 +1775,18 @@
       }
       empty.style.display = 'none';
       list.innerHTML = lsProjects.map(p => {
+        const gallery = Array.isArray(p.gallery_images) ? p.gallery_images : [];
+        const img = p.hero_image || gallery[0] || '';
         const badge = p.published == 1
           ? '<span class="proj-status-badge badge-published">Publié</span>'
           : '<span class="proj-status-badge badge-draft">Brouillon</span>';
         return `
           <div class="proj-card" data-id="${p.id}">
-            ${p.image ? `<img class="proj-card-img" src="${p.image}" alt="${esc(p.title)}" />` : '<div class="proj-card-img" style="background:#1a2a14;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-leaf" style="font-size:2rem;color:#8dba78;opacity:0.3"></i></div>'}
+            ${img ? `<img class="proj-card-img" src="${img}" alt="${esc(p.title)}" />` : '<div class="proj-card-img" style="background:#1a2a14;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-leaf" style="font-size:2rem;color:#8dba78;opacity:0.3"></i></div>'}
             <div class="proj-card-body">
               <div class="proj-card-tag" style="color:#8dba78">${esc(p.tag)} ${badge}</div>
               <div class="proj-card-title">${esc(p.title)}</div>
-              <div class="proj-card-loc">${esc(p.location)}</div>
+              <div class="proj-card-loc">${esc(p.location)}${p.year ? ' · ' + esc(p.year) : ''}</div>
               <div class="proj-card-actions">
                 <button class="btn btn-ghost btn-sm" onclick="lsOpenEditor(${p.id})"><i class="fa-solid fa-pen"></i> Modifier</button>
                 <button class="btn btn-danger btn-sm" onclick="lsConfirmDelete(${p.id})"><i class="fa-solid fa-trash"></i></button>
@@ -1675,17 +1796,31 @@
       }).join('');
     }
 
+    function lsSelectGridOpt(el) {
+      document.querySelectorAll('#lsGridOptions .grid-opt').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
     function lsOpenEditor(id) {
       lsEditingId = id || null;
       lsHeroImagePath = '';
+      lsHeroPositionY = 50;
+      lsGalleryImages = [];
+
+      // Reset form
       document.getElementById('lsProjId').value = '';
       document.getElementById('lsProjTitle').value = '';
-      document.getElementById('lsProjTag').value = '';
+      document.getElementById('lsProjTag').value = 'Jardin privé';
+      document.getElementById('lsProjYear').value = '';
       document.getElementById('lsProjLocation').value = '';
+      document.getElementById('lsProjSurface').value = '';
       document.getElementById('lsProjLink').value = '';
       document.getElementById('lsProjSortOrder').value = '0';
+      document.getElementById('lsProjDescription').value = '';
       document.getElementById('lsProjPublished').checked = true;
-      document.getElementById('lsHeroPreviewWrap').style.display = 'none';
+      document.getElementById('lsHeroPreviewWrap').classList.remove('visible');
+      document.getElementById('lsGalleryThumbs').innerHTML = '';
+      lsSelectGridOpt(document.querySelector('#lsGridOptions .grid-opt[data-val=""]'));
 
       document.getElementById('lsEditorTitle').innerHTML = id
         ? '<i class="fa-solid fa-leaf" style="color:#8dba78"></i> Modifier le projet paysager'
@@ -1696,16 +1831,29 @@
         if (p) {
           document.getElementById('lsProjId').value = p.id;
           document.getElementById('lsProjTitle').value = p.title;
-          document.getElementById('lsProjTag').value = p.tag || '';
+          document.getElementById('lsProjTag').value = p.tag || 'Jardin privé';
+          document.getElementById('lsProjYear').value = p.year || '';
           document.getElementById('lsProjLocation').value = p.location || '';
+          document.getElementById('lsProjSurface').value = p.surface || '';
           document.getElementById('lsProjLink').value = p.link || '';
           document.getElementById('lsProjSortOrder').value = p.sort_order || 0;
+          document.getElementById('lsProjDescription').value = p.description || '';
           document.getElementById('lsProjPublished').checked = p.published == 1;
-          if (p.image) {
-            lsHeroImagePath = p.image;
-            document.getElementById('lsHeroPreview').src = p.image;
-            document.getElementById('lsHeroPreviewWrap').style.display = 'block';
+
+          if (p.hero_image) {
+            lsHeroImagePath = p.hero_image;
+            lsHeroPositionY = parseInt(p.hero_position) || 50;
+            document.getElementById('lsHeroPreview').src = p.hero_image;
+            document.getElementById('lsHeroPreviewWrap').classList.add('visible');
+            lsApplyHeroPosition();
           }
+
+          lsGalleryImages = Array.isArray(p.gallery_images) ? [...p.gallery_images] : [];
+          lsRenderGalleryThumbs();
+
+          const gridVal = p.grid_class || '';
+          const opt = document.querySelector(`#lsGridOptions .grid-opt[data-val="${gridVal}"]`);
+          if (opt) lsSelectGridOpt(opt);
         }
       }
       document.getElementById('lsEditorOverlay').classList.add('open');
@@ -1716,6 +1864,29 @@
       lsEditingId = null;
     }
 
+    function lsApplyHeroPosition() {
+      const img = document.getElementById('lsHeroPreview');
+      img.style.objectFit = 'cover';
+      img.style.height = '350px';
+      img.style.objectPosition = `50% ${Math.round(lsHeroPositionY)}%`;
+      document.getElementById('lsHeroPosValue').textContent = Math.round(lsHeroPositionY) + '%';
+    }
+
+    function lsRenderGalleryThumbs() {
+      const cont = document.getElementById('lsGalleryThumbs');
+      cont.innerHTML = lsGalleryImages.map((img, i) => `
+        <div class="gallery-thumb">
+          <img src="${img}" />
+          <button class="remove-img" onclick="lsRemoveGalleryImg(${i})"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      `).join('');
+    }
+
+    function lsRemoveGalleryImg(index) {
+      lsGalleryImages.splice(index, 1);
+      lsRenderGalleryThumbs();
+    }
+
     async function lsSaveProject() {
       const title = document.getElementById('lsProjTitle').value.trim();
       if (!title) { toast('Le titre est obligatoire', 'error'); return; }
@@ -1723,10 +1894,16 @@
       const payload = {
         id: lsEditingId,
         title,
-        tag: document.getElementById('lsProjTag').value.trim(),
+        tag: document.getElementById('lsProjTag').value,
+        year: document.getElementById('lsProjYear').value.trim(),
         location: document.getElementById('lsProjLocation').value.trim(),
-        image: lsHeroImagePath,
+        surface: document.getElementById('lsProjSurface').value.trim(),
+        description: document.getElementById('lsProjDescription').value,
+        hero_image: lsHeroImagePath,
+        hero_position: Math.round(lsHeroPositionY),
+        gallery_images: lsGalleryImages,
         link: document.getElementById('lsProjLink').value.trim(),
+        grid_class: document.querySelector('#lsGridOptions .grid-opt.selected')?.dataset.val || '',
         sort_order: parseInt(document.getElementById('lsProjSortOrder').value) || 0,
         published: document.getElementById('lsProjPublished').checked ? 1 : 0
       };
@@ -1754,7 +1931,6 @@
       lsDeleteTargetId = id;
       document.getElementById('confirmTitle').textContent = 'Supprimer ce projet paysager ?';
       document.getElementById('confirmText').textContent = 'Cette action est irréversible.';
-      // Temporarily rebind confirm yes
       document.getElementById('confirmYes').onclick = lsDoDelete;
       document.getElementById('confirmDialog').classList.add('open');
     }
@@ -1772,7 +1948,6 @@
       }
       lsDeleteTargetId = null;
       document.getElementById('confirmDialog').classList.remove('open');
-      // Restore original binding
       document.getElementById('confirmYes').onclick = deleteProject;
     }
 
@@ -1791,10 +1966,13 @@
           progBar.style.width = pct + '%';
           progText.textContent = 'Upload: ' + pct + '%';
         });
+        lsHeroPositionY = 50;
         document.getElementById('lsHeroPreview').src = lsHeroImagePath;
-        document.getElementById('lsHeroPreviewWrap').style.display = 'block';
+        document.getElementById('lsHeroPreviewWrap').classList.add('visible');
+        document.getElementById('lsHeroPreview').style.objectPosition = '50% 50%';
+        document.getElementById('lsHeroPosValue').textContent = '50%';
         progText.textContent = 'Upload terminé';
-        toast('Image uploadée', 'success');
+        toast('Image hero uploadée', 'success');
       } catch (e) {
         toast('Erreur upload: ' + e.message, 'error');
         progText.textContent = 'Erreur';
@@ -1802,14 +1980,79 @@
       setTimeout(() => { progWrap.classList.remove('active'); progText.classList.remove('active'); }, 2000);
     });
 
-    // Drag & drop on landscaping hero zone
-    const lsHeroZone = document.getElementById('lsHeroZone');
-    lsHeroZone.addEventListener('dragover', e => { e.preventDefault(); lsHeroZone.classList.add('drag-over'); });
-    lsHeroZone.addEventListener('dragleave', () => lsHeroZone.classList.remove('drag-over'));
-    lsHeroZone.addEventListener('drop', e => {
-      e.preventDefault(); lsHeroZone.classList.remove('drag-over');
-      document.getElementById('lsHeroInput').files = e.dataTransfer.files;
-      document.getElementById('lsHeroInput').dispatchEvent(new Event('change'));
+    // ── Landscaping hero drag-to-reposition ──
+    (function() {
+      const wrap = document.getElementById('lsHeroPreviewWrap');
+      let dragging = false, startY = 0, startPos = 50;
+
+      wrap.addEventListener('mousedown', e => {
+        e.preventDefault(); dragging = true;
+        startY = e.clientY; startPos = lsHeroPositionY;
+        wrap.classList.add('dragging');
+      });
+      document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        lsHeroPositionY = Math.max(0, Math.min(100, startPos + (dy / wrap.offsetHeight) * 100));
+        lsApplyHeroPosition();
+      });
+      document.addEventListener('mouseup', () => {
+        if (dragging) { dragging = false; wrap.classList.remove('dragging'); }
+      });
+      wrap.addEventListener('touchstart', e => {
+        dragging = true; startY = e.touches[0].clientY; startPos = lsHeroPositionY;
+        wrap.classList.add('dragging');
+      }, { passive: true });
+      document.addEventListener('touchmove', e => {
+        if (!dragging) return;
+        lsHeroPositionY = Math.max(0, Math.min(100, startPos + ((e.touches[0].clientY - startY) / wrap.offsetHeight) * 100));
+        lsApplyHeroPosition();
+      }, { passive: true });
+      document.addEventListener('touchend', () => {
+        if (dragging) { dragging = false; wrap.classList.remove('dragging'); }
+      });
+    })();
+
+    // ── Landscaping gallery upload ──
+    document.getElementById('lsGalleryInput').addEventListener('change', async function() {
+      const files = Array.from(this.files);
+      if (!files.length) return;
+      const progBar = document.getElementById('lsGalleryProgressBar');
+      const progWrap = document.getElementById('lsGalleryProgress');
+      const progText = document.getElementById('lsGalleryProgressText');
+
+      for (let f = 0; f < files.length; f++) {
+        progWrap.classList.add('active');
+        progText.classList.add('active');
+        progBar.style.width = '0%';
+        progText.textContent = `Photo ${f + 1}/${files.length} — Upload en cours...`;
+        try {
+          const path = await uploadImageWithProgress(files[f], (pct) => {
+            progBar.style.width = pct + '%';
+            progText.textContent = `Photo ${f + 1}/${files.length} — ${pct}%`;
+          });
+          lsGalleryImages.push(path);
+          lsRenderGalleryThumbs();
+        } catch (e) {
+          toast('Erreur upload (' + files[f].name + '): ' + e.message, 'error');
+        }
+      }
+      progText.textContent = `${files.length} photo${files.length > 1 ? 's' : ''} uploadée${files.length > 1 ? 's' : ''}`;
+      setTimeout(() => { progWrap.classList.remove('active'); progText.classList.remove('active'); }, 2500);
+      this.value = '';
+    });
+
+    // Drag & drop zones
+    ['lsHeroZone', 'lsGalleryZone'].forEach(id => {
+      const zone = document.getElementById(id);
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('drag-over');
+        const input = zone.querySelector('input[type="file"]');
+        input.files = e.dataTransfer.files;
+        input.dispatchEvent(new Event('change'));
+      });
     });
 
     // Landscaping editor bindings
@@ -1818,9 +2061,11 @@
     document.getElementById('lsEditorSave').addEventListener('click', lsSaveProject);
 
     // ══════════════════════════════════════════
-    //  LANDSCAPING SLIDER
+    //  LANDSCAPING SLIDER (with editor modal)
     // ══════════════════════════════════════════
     let lsSliderImages = [];
+    let lsSlideEditorState = { id: null, image_path: '', fit_mode: 'cover', position_x: 50, position_y: 50, zoom: 100, sort_order: 0, alt_text: '', bg_color: '#0c0d0a', isNew: false };
+    let lsPendingUploads = [];
 
     async function lsLoadSlider() {
       try {
@@ -1844,21 +2089,182 @@
         return;
       }
       empty.style.display = 'none';
-      list.innerHTML = lsSliderImages.map((s, i) => `
-        <div class="slider-card" data-id="${s.id}" style="height:auto;border-color:rgba(141,186,120,0.2)">
-          <div style="position:relative;width:100%;height:150px;overflow:hidden">
-            <img src="${s.image_path}" alt="${esc(s.alt_text || '')}" style="object-fit:cover;width:100%;height:100%" />
-          </div>
-          <div class="slider-card-actions">
-            <button class="slider-card-btn del" onclick="lsDeleteSliderImage(${s.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
-          </div>
-          <div class="slider-card-order" style="background:rgba(141,186,120,0.8)">${i + 1}</div>
-          <div style="padding:0.3rem 0.5rem;font-size:0.6rem;color:var(--text-muted);text-align:center">${esc(s.alt_text || 'Slide ' + (i+1))}</div>
-        </div>
-      `).join('');
+      const fitLabels = { cover: 'Adapté', contain: 'Contenu', original: 'Original', fill: 'Étiré' };
+      list.innerHTML = lsSliderImages.map((s, i) => {
+        const fm = s.fit_mode || 'cover';
+        const fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
+        const objFit = fitMap[fm] || 'cover';
+        const posX = s.position_x ?? 50;
+        const posY = s.position_y ?? 50;
+        const zm = s.zoom ?? 100;
+        return `
+          <div class="slider-card" data-id="${s.id}" style="height:auto;border-color:rgba(141,186,120,0.2)">
+            <div style="position:relative;width:100%;height:150px;overflow:hidden">
+              <img src="${s.image_path}" alt="${esc(s.alt_text || '')}" style="object-fit:${objFit};object-position:${posX}% ${posY}%;transform:scale(${zm/100})" />
+            </div>
+            <div class="slider-card-actions">
+              <button class="slider-card-btn" style="background:rgba(141,186,120,0.85)" onclick="lsOpenSlideEditor(${s.id})" title="Modifier"><i class="fa-solid fa-pen"></i></button>
+              <button class="slider-card-btn del" onclick="lsDeleteSliderImage(${s.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <div class="slider-card-order" style="background:rgba(141,186,120,0.8)">${i + 1}</div>
+            <div style="padding:0.3rem 0.5rem;font-size:0.6rem;color:var(--text-muted);text-align:center">${fitLabels[fm] || fm} · ${zm}%</div>
+          </div>`;
+      }).join('');
     }
 
-    // Upload landscaping slider images
+    // ── Landscaping Slide Editor ──
+    function lsOpenSlideEditor(idOrNull) {
+      const backdrop = document.getElementById('lsSlideEditorBackdrop');
+      const img = document.getElementById('lsSlideEditorImg');
+      const saveBtn = document.getElementById('lsSlideEditorSave');
+
+      if (idOrNull) {
+        const s = lsSliderImages.find(x => x.id == idOrNull);
+        if (!s) return;
+        lsSlideEditorState = { id: s.id, image_path: s.image_path, fit_mode: s.fit_mode || 'cover', position_x: parseInt(s.position_x) || 50, position_y: parseInt(s.position_y) || 50, zoom: parseInt(s.zoom) || 100, sort_order: parseInt(s.sort_order) || 0, alt_text: s.alt_text || '', bg_color: s.bg_color || '#0c0d0a', isNew: false };
+        document.getElementById('lsSlideEditorTitle').innerHTML = '<i class="fa-solid fa-leaf" style="color:#8dba78"></i> Modifier l\'image';
+        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer';
+      } else {
+        document.getElementById('lsSlideEditorTitle').innerHTML = '<i class="fa-solid fa-leaf" style="color:#8dba78"></i> Nouvelle image — Aperçu';
+        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Publier';
+      }
+
+      img.src = lsSlideEditorState.image_path;
+      document.getElementById('lsSlideZoom').value = lsSlideEditorState.zoom;
+      document.getElementById('lsSlideZoomVal').textContent = lsSlideEditorState.zoom + '%';
+      document.getElementById('lsSlidePosX').value = lsSlideEditorState.position_x;
+      document.getElementById('lsSlidePosXVal').textContent = lsSlideEditorState.position_x + '%';
+      document.getElementById('lsSlidePosY').value = lsSlideEditorState.position_y;
+      document.getElementById('lsSlidePosYVal').textContent = lsSlideEditorState.position_y + '%';
+      document.getElementById('lsSlideSortOrder').value = lsSlideEditorState.sort_order;
+      document.querySelectorAll('.ls-se-fit').forEach(b => b.classList.toggle('active', b.dataset.mode === lsSlideEditorState.fit_mode));
+      lsUpdateSlidePreview();
+      backdrop.classList.add('open');
+    }
+
+    function lsCloseSlideEditor() {
+      document.getElementById('lsSlideEditorBackdrop').classList.remove('open');
+    }
+
+    function lsUpdateSlidePreview() {
+      const img = document.getElementById('lsSlideEditorImg');
+      const fm = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
+      img.style.objectFit = fm[lsSlideEditorState.fit_mode] || 'cover';
+      img.style.objectPosition = lsSlideEditorState.position_x + '% ' + lsSlideEditorState.position_y + '%';
+      img.style.transform = 'scale(' + (lsSlideEditorState.zoom / 100) + ')';
+    }
+
+    // Slide editor controls
+    document.getElementById('lsSlideZoom').addEventListener('input', function() {
+      lsSlideEditorState.zoom = parseInt(this.value);
+      document.getElementById('lsSlideZoomVal').textContent = this.value + '%';
+      lsUpdateSlidePreview();
+    });
+    document.getElementById('lsSlidePosX').addEventListener('input', function() {
+      lsSlideEditorState.position_x = parseInt(this.value);
+      document.getElementById('lsSlidePosXVal').textContent = this.value + '%';
+      lsUpdateSlidePreview();
+    });
+    document.getElementById('lsSlidePosY').addEventListener('input', function() {
+      lsSlideEditorState.position_y = parseInt(this.value);
+      document.getElementById('lsSlidePosYVal').textContent = this.value + '%';
+      lsUpdateSlidePreview();
+    });
+
+    // Fit mode buttons
+    document.querySelectorAll('.ls-se-fit').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.ls-se-fit').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        lsSlideEditorState.fit_mode = this.dataset.mode;
+        lsUpdateSlidePreview();
+      });
+    });
+
+    // Drag to reposition in LS slide editor
+    (function() {
+      const preview = document.getElementById('lsSlideEditorPreview');
+      let dragging = false, startX, startY, startPX, startPY;
+      preview.addEventListener('mousedown', function(e) {
+        dragging = true; startX = e.clientX; startY = e.clientY;
+        startPX = lsSlideEditorState.position_x; startPY = lsSlideEditorState.position_y;
+        preview.classList.add('dragging');
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        const dx = (e.clientX - startX) / preview.offsetWidth * -100;
+        const dy = (e.clientY - startY) / preview.offsetHeight * -100;
+        lsSlideEditorState.position_x = Math.max(0, Math.min(100, Math.round(startPX + dx)));
+        lsSlideEditorState.position_y = Math.max(0, Math.min(100, Math.round(startPY + dy)));
+        document.getElementById('lsSlidePosX').value = lsSlideEditorState.position_x;
+        document.getElementById('lsSlidePosXVal').textContent = lsSlideEditorState.position_x + '%';
+        document.getElementById('lsSlidePosY').value = lsSlideEditorState.position_y;
+        document.getElementById('lsSlidePosYVal').textContent = lsSlideEditorState.position_y + '%';
+        lsUpdateSlidePreview();
+      });
+      document.addEventListener('mouseup', function() {
+        if (dragging) { dragging = false; preview.classList.remove('dragging'); }
+      });
+      preview.addEventListener('touchstart', function(e) {
+        const t = e.touches[0];
+        dragging = true; startX = t.clientX; startY = t.clientY;
+        startPX = lsSlideEditorState.position_x; startPY = lsSlideEditorState.position_y;
+        preview.classList.add('dragging');
+      }, { passive: true });
+      document.addEventListener('touchmove', function(e) {
+        if (!dragging) return;
+        const t = e.touches[0];
+        const dx = (t.clientX - startX) / preview.offsetWidth * -100;
+        const dy = (t.clientY - startY) / preview.offsetHeight * -100;
+        lsSlideEditorState.position_x = Math.max(0, Math.min(100, Math.round(startPX + dx)));
+        lsSlideEditorState.position_y = Math.max(0, Math.min(100, Math.round(startPY + dy)));
+        document.getElementById('lsSlidePosX').value = lsSlideEditorState.position_x;
+        document.getElementById('lsSlidePosXVal').textContent = lsSlideEditorState.position_x + '%';
+        document.getElementById('lsSlidePosY').value = lsSlideEditorState.position_y;
+        document.getElementById('lsSlidePosYVal').textContent = lsSlideEditorState.position_y + '%';
+        lsUpdateSlidePreview();
+      }, { passive: true });
+      document.addEventListener('touchend', function() {
+        if (dragging) { dragging = false; preview.classList.remove('dragging'); }
+      });
+    })();
+
+    // Close LS slide editor
+    document.getElementById('lsSlideEditorClose').addEventListener('click', lsCloseSlideEditor);
+    document.getElementById('lsSlideEditorCancel').addEventListener('click', lsCloseSlideEditor);
+
+    // Save from LS slide editor
+    document.getElementById('lsSlideEditorSave').addEventListener('click', async function() {
+      const s = lsSlideEditorState;
+      s.sort_order = parseInt(document.getElementById('lsSlideSortOrder').value) || 0;
+      try {
+        if (s.isNew) {
+          const res = await fetch(LS_SLIDER_API, {
+            method: 'POST', headers: headers(),
+            body: JSON.stringify({ image_path: s.image_path, alt_text: s.alt_text, fit_mode: s.fit_mode, position_x: s.position_x, position_y: s.position_y, zoom: s.zoom, bg_color: s.bg_color, sort_order: s.sort_order })
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error);
+          toast('Image publiée dans le slider', 'success');
+        } else {
+          const res = await fetch(LS_SLIDER_API, {
+            method: 'PUT', headers: headers(),
+            body: JSON.stringify({ id: s.id, image_path: s.image_path, alt_text: s.alt_text, sort_order: s.sort_order, fit_mode: s.fit_mode, position_x: s.position_x, position_y: s.position_y, zoom: s.zoom, bg_color: s.bg_color })
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error);
+          toast('Image mise à jour', 'success');
+        }
+        lsCloseSlideEditor();
+        lsLoadSlider();
+        lsProcessNextUpload();
+      } catch (e) {
+        toast('Erreur: ' + e.message, 'error');
+      }
+    });
+
+    // Upload slider images — upload then open editor for each
     document.getElementById('lsSliderFileInput').addEventListener('change', async function() {
       const files = Array.from(this.files);
       if (!files.length) return;
@@ -1868,6 +2274,7 @@
       const progWrap = document.getElementById('lsSliderProgress');
       const progText = document.getElementById('lsSliderProgressText');
 
+      const uploaded = [];
       for (let f = 0; f < files.length; f++) {
         progWrap.classList.add('active');
         progText.classList.add('active');
@@ -1878,23 +2285,28 @@
             progBar.style.width = pct + '%';
             progText.textContent = `Upload ${f + 1}/${files.length} — ${pct}%`;
           });
-          // Directly save to slider
-          const res = await fetch(LS_SLIDER_API, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify({ image_path: path, alt_text: '', sort_order: lsSliderImages.length + f })
-          });
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error);
+          uploaded.push(path);
         } catch (e) {
-          toast('Erreur: ' + e.message, 'error');
+          toast('Erreur upload: ' + e.message, 'error');
         }
       }
       progWrap.classList.remove('active');
       progText.classList.remove('active');
-      toast(files.length + ' photo(s) ajoutée(s) au slider', 'success');
-      lsLoadSlider();
+
+      if (uploaded.length === 0) return;
+
+      lsPendingUploads = uploaded.map((path, i) => ({
+        image_path: path, sort_order: lsSliderImages.length + i
+      }));
+      lsProcessNextUpload();
     });
+
+    function lsProcessNextUpload() {
+      if (lsPendingUploads.length === 0) return;
+      const next = lsPendingUploads.shift();
+      lsSlideEditorState = { id: null, image_path: next.image_path, fit_mode: 'cover', position_x: 50, position_y: 50, zoom: 100, sort_order: next.sort_order, alt_text: '', bg_color: '#0c0d0a', isNew: true };
+      lsOpenSlideEditor(null);
+    }
 
     async function lsDeleteSliderImage(id) {
       try {
