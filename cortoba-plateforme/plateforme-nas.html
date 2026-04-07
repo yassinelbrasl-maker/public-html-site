@@ -3271,12 +3271,17 @@
               <option>Actif</option><option>En pause</option><option>Prospection</option><option>Archivé</option>
             </select>
           </div>
-          <div class="form-field">
+          <div class="form-field" style="position:relative">
             <label class="form-label">Type de bâtiment</label>
-            <select id="pj-type-bat" class="form-select">
+            <select id="pj-type-bat" class="form-select" style="display:none">
               <option value="">— Sélectionner —</option>
-              <!-- Peuplé dynamiquement par populateTypeBatSelect() -->
             </select>
+            <div style="position:relative">
+              <input id="pj-typebat-search" class="form-input" placeholder="Rechercher un type…" autocomplete="off" readonly
+                onfocus="showTypeBatDropdown()" onclick="showTypeBatDropdown()" />
+              <button type="button" onclick="clearTypeBatSearch()" style="position:absolute;right:0.5rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.9rem;display:none" id="pj-typebat-clear">✕</button>
+            </div>
+            <div id="pj-typebat-dropdown" style="display:none;position:absolute;z-index:300;top:100%;left:0;right:0;max-height:280px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
           </div>
           <div class="form-field">
             <label class="form-label">Année</label>
@@ -4713,7 +4718,7 @@ if (typeof Gantt === 'undefined') {
   document.head.appendChild(_fg);
 }
 </script>
-<script src="plateforme-nas.js?t=20260407c"></script>
+<script src="plateforme-nas.js?t=20260407d"></script>
 <script src="ergonomie.js?t=20260328e"></script>
 <script src="chat.js?t=20260406d"></script>
 <script src="flotte.js?t=20260407a"></script>

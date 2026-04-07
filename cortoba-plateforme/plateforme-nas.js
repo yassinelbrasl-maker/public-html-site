@@ -560,7 +560,71 @@ function populateTypeBatSelect() {
 
   // Restaurer la valeur si elle existe encore
   if (currentVal) sel.value = currentVal;
+  // Sync custom dropdown display
+  syncTypeBatDisplay();
 }
+
+// ── Type bâtiment custom dropdown ──
+var _typeBatDropOpen = false;
+function showTypeBatDropdown() {
+  var dd = document.getElementById('pj-typebat-dropdown'); if (!dd) return;
+  dd.style.display = 'block'; _typeBatDropOpen = true;
+  renderTypeBatDropdown();
+}
+function hideTypeBatDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('pj-typebat-dropdown');
+    if (dd) dd.style.display = 'none'; _typeBatDropOpen = false;
+  }, 200);
+}
+function renderTypeBatDropdown() {
+  var dd = document.getElementById('pj-typebat-dropdown'); if (!dd) return;
+  var types = getCfgTypesBatiment();
+  var html = '';
+  types.forEach(function(group) {
+    html += '<div style="padding:0.4rem 1rem;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);background:var(--bg-2);font-weight:600">' + group.icon + ' ' + group.label + '</div>';
+    (group.subtypes || []).forEach(function(st) {
+      var val = group.label + ' ' + st.label;
+      html += '<div onmousedown="selectTypeBat(\'' + val.replace(/'/g, "\\'") + '\')" style="padding:0.5rem 1rem 0.5rem 1.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'">' +
+        st.icon + ' ' + st.label + '</div>';
+    });
+  });
+  dd.innerHTML = html;
+}
+function selectTypeBat(val) {
+  var sel = document.getElementById('pj-type-bat');
+  var input = document.getElementById('pj-typebat-search');
+  var clearBtn = document.getElementById('pj-typebat-clear');
+  if (sel) sel.value = val;
+  if (input) input.value = val;
+  if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+  hideTypeBatDropdown();
+}
+function clearTypeBatSearch() {
+  var sel = document.getElementById('pj-type-bat');
+  var input = document.getElementById('pj-typebat-search');
+  var clearBtn = document.getElementById('pj-typebat-clear');
+  if (sel) sel.value = '';
+  if (input) input.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+}
+function syncTypeBatDisplay() {
+  var sel = document.getElementById('pj-type-bat');
+  var input = document.getElementById('pj-typebat-search');
+  var clearBtn = document.getElementById('pj-typebat-clear');
+  if (!sel || !input) return;
+  var val = sel.value || '';
+  input.value = val;
+  if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+}
+document.addEventListener('click', function(e) {
+  if (!_typeBatDropOpen) return;
+  var input = document.getElementById('pj-typebat-search');
+  var dd = document.getElementById('pj-typebat-dropdown');
+  if (input && dd && !input.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none'; _typeBatDropOpen = false;
+  }
+});
 
 // ══════════════════════════════════════════════════════════
 //  CODE CLIENT GENERATOR
@@ -1968,6 +2032,7 @@ function resetProjetForm(){
 
   var pjStatut = document.getElementById('pj-statut');  if(pjStatut) pjStatut.value = 'Actif';
   var pjType   = document.getElementById('pj-type-bat');if(pjType)   pjType.value   = '';
+  clearTypeBatSearch();
 
   var err     = document.getElementById('pj-err');     if(err)    err.style.display='none';
   var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) codeEl.textContent='—';
@@ -2053,6 +2118,7 @@ function openEditProjet(id){
     typeBatSel.appendChild(tmpOpt);
     typeBatSel.value = typeBatVal;
   }
+  syncTypeBatDisplay();
 
   if (p.lat && p.lng) {
     document.getElementById('pj-lat').value = p.lat;
