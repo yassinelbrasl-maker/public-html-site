@@ -4365,11 +4365,79 @@ function renderDashboard(){
     if(ypEl) ypEl.textContent = _dashData.annee - 1;
     if(window.ergoHideSkeletons) window.ergoHideSkeletons();
   }).catch(function(e){
-    console.warn('[dashboard] load error:', e);
-    // Fallback : afficher message vide
-    var kpiEl = document.getElementById('dash-kpis');
-    if(kpiEl) kpiEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-3);padding:2rem">Impossible de charger le tableau de bord</div>';
+    console.error('[dashboard] load error:', e);
+    // Fallback : données locales depuis le cache
+    _renderDashboardFromCache();
   });
+}
+
+// Fallback : construire le dashboard depuis les données déjà en cache (loadData)
+function _renderDashboardFromCache(){
+  var now = new Date();
+  var year = now.getFullYear();
+  var month = now.getMonth(); // 0-based
+  var MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  var factures = getFactures();
+  var devis = getDevis();
+  var projets = getProjets();
+  var depenses = getDepenses();
+
+  // KPIs
+  var caYtd = 0;
+  factures.forEach(function(f){
+    var d = new Date(f.dateEmission||f.date_emission||'');
+    if(!isNaN(d) && d.getFullYear()===year && f.statut==='Payée') caYtd += (f.montantTtc||f.montant_ttc||f.montant||0);
+  });
+  var projEnCours = projets.filter(function(p){ return p.statut==='En cours'; });
+  var devisEnAttente = devis.filter(function(d){ return d.statut==='En attente'; });
+  var devisTotal = 0; devisEnAttente.forEach(function(d){ devisTotal += parseFloat(d.montant)||0; });
+  var factImpayees = factures.filter(function(f){ return f.statut==='Émise'||f.statut==='En retard'||f.statut==='Impayée'; });
+  var factTotal = 0; factImpayees.forEach(function(f){ factTotal += (f.montantTtc||f.montant_ttc||f.montant||0); });
+  var depMois = 0;
+  depenses.forEach(function(d){
+    var dd = new Date(d.date||'');
+    if(!isNaN(dd) && dd.getFullYear()===year && dd.getMonth()===month) depMois += parseFloat(d.montant)||0;
+  });
+
+  _renderDashKpis({
+    ca_ytd: caYtd, ca_delta: 0,
+    projets_en_cours: projEnCours.length, phase_detail: '',
+    devis_en_attente: devisEnAttente.length, devis_total: devisTotal,
+    factures_impayees: factImpayees.length, factures_total: factTotal, jours_retard: 0,
+    depenses_mois: depMois, dep_delta: 0,
+    taux_occupation: 0, heures_saisies: 0, heures_dispo: 0
+  });
+
+  // CA chart depuis factures cache
+  var caParMois = new Array(12).fill(0);
+  factures.forEach(function(f){
+    var d = new Date(f.dateEmission||f.date_emission||'');
+    if(!isNaN(d) && d.getFullYear()===year && f.statut==='Payée') caParMois[d.getMonth()] += (f.montantTtc||f.montant_ttc||f.montant||0);
+  });
+  _renderDashCaChart(caParMois, new Array(12).fill(0), year, month+1);
+
+  // Activity depuis devis/factures récents
+  var act = [];
+  devis.slice(0,4).forEach(function(d){
+    var color = d.statut==='Accepté'?'green':(d.statut==='Refusé'?'red':'accent');
+    act.push({type:'devis', text:'Devis <strong>'+(d.ref||'')+'</strong> · '+(d.client||'')+' · '+(d.statut||''), time:d.date||'', color:color});
+  });
+  _renderDashActivity(act.length ? act : []);
+
+  // Projets actifs
+  var pa = projEnCours.slice(0,6).map(function(p){ return {nom:p.nom, phase:p.phase||'', total_taches:0, taches_terminees:0, avancement:0}; });
+  _renderDashProjets(pa);
+
+  _renderDashDepenses([], depMois);
+
+  var el = document.getElementById('dash-current-month');
+  if(el) el.textContent = MOIS_NOMS[month]+' '+year;
+  var yEl = document.getElementById('dash-chart-year');
+  if(yEl) yEl.textContent = year;
+  var ypEl = document.getElementById('dash-chart-year-prev');
+  if(ypEl) ypEl.textContent = year - 1;
+  if(window.ergoHideSkeletons) window.ergoHideSkeletons();
 }
 
 function _fmtMontant(v){
