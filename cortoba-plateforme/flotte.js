@@ -36,6 +36,44 @@ function _flotteLoadVehicules() {
   });
 }
 
+// Datalist partagée pour tous les champs collaborateur (input + datalist)
+function _flottePopulateDatalist(membres) {
+  var dl = document.getElementById('flotte-membres-datalist');
+  if (!dl) {
+    dl = document.createElement('datalist');
+    dl.id = 'flotte-membres-datalist';
+    document.body.appendChild(dl);
+  }
+  var html = '';
+  (membres || []).forEach(function(m) {
+    var nom = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
+    if (nom) html += '<option value="' + nom.replace(/"/g, '&quot;') + '">';
+  });
+  dl.innerHTML = html;
+}
+
+function _flotteBindCollabInputs() {
+  // Bind les attributs list sur les inputs
+  var ids = ['flattr-collaborateur', 'flresa-demandeur', 'flkm-conducteur', 'flsin-conducteur', 'flperm-collaborateur'];
+  ids.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.setAttribute('list', 'flotte-membres-datalist');
+      el.setAttribute('autocomplete', 'off');
+    }
+  });
+
+  // Charger les membres : d'abord le cache, puis l'API si vide
+  var cached = (typeof getMembres === 'function') ? getMembres() : [];
+  if (cached && cached.length > 0) {
+    _flottePopulateDatalist(cached);
+  } else if (typeof loadMembresFromAPI === 'function') {
+    loadMembresFromAPI().then(function(membres) {
+      _flottePopulateDatalist(membres);
+    });
+  }
+}
+
 
 // ══════════════════════════════════════
 //  DASHBOARD FLOTTE
@@ -192,6 +230,7 @@ function renderFlotteResaPage() {
   ]).then(function() {
     _flottePopulateVehiculeSelect('flresa-vehicule');
     _flottePopulateVehiculeSelect('flattr-vehicule');
+    _flotteBindCollabInputs();
     _renderFlotteResaTable();
     _renderFlotteAttrTable();
   });
@@ -354,6 +393,7 @@ function renderFlotteKmPage() {
     }
     _flottePopulateVehiculeSelect('flkm-vehicule');
     _flottePopulateVehiculeSelect('flcarb-vehicule');
+    _flotteBindCollabInputs();
     _renderFlotteKmTable();
     _renderFlotteCarbTable();
     _renderFlotteKmStats();
@@ -514,6 +554,7 @@ function renderFlotteEntretienPage() {
     }
     _flottePopulateVehiculeSelect('flent-vehicule');
     _flottePopulateVehiculeSelect('flsin-vehicule');
+    _flotteBindCollabInputs();
     _renderFlotteEntretienTable();
     _renderFlotteSinistresTable();
   });
@@ -751,6 +792,7 @@ function renderFlotteConformitePage() {
   ]).then(function() {
     _flottePopulateVehiculeSelect('flass-vehicule');
     _flottePopulateVehiculeSelect('flctrl-vehicule');
+    _flotteBindCollabInputs();
     _renderFlotteAssurancesTable();
     _renderFlotteControlesTable();
     _renderFlottePermisTable();
