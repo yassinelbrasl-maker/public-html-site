@@ -220,6 +220,8 @@
     });
   }
 
+  window.makeTableSortable = makeTableSortable;
+
   function initSortableTables() {
     document.querySelectorAll('.table-wrap table, .card table').forEach(makeTableSortable);
   }
