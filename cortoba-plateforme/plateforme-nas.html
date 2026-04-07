@@ -465,7 +465,11 @@
             <div class="page-eyebrow">Gestion</div>
             <h1 class="page-title">Projets</h1>
           </div>
-          <div class="page-actions">
+          <div class="page-actions" style="display:flex;gap:0.5rem;align-items:center">
+            <button class="btn" onclick="openNasConformite()" style="border:1px solid var(--border);font-size:0.78rem" title="Vérifier la conformité projets / dossiers NAS">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Conformité NAS
+            </button>
             <button class="btn btn-primary" onclick="openConfigurateur()">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Nouveau projet
@@ -4608,6 +4612,74 @@
       <div style="display:flex;gap:0.4rem">
         <button class="btn btn-sm" onclick="closeModal('modal-demande-admin')">Annuler</button>
         <button class="btn btn-primary btn-sm" onclick="saveDemandeAdmin()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal conformité NAS -->
+<div class="modal-overlay" id="modal-nas-conformite">
+  <div class="modal-box" style="max-width:1100px;width:98%;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Vérification</div>
+        <div class="modal-title">Conformité Projets / Dossiers NAS</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-nas-conformite')">✕</button>
+    </div>
+    <div class="modal-body" style="flex:1;overflow:auto;padding:1.2rem">
+      <div id="nas-conformite-status" style="text-align:center;padding:2rem;color:var(--text-3)">
+        <div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>
+        Analyse en cours — interrogation du NAS via WebDAV…
+      </div>
+      <div id="nas-conformite-summary" style="display:none;margin-bottom:1.2rem">
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+          <div style="flex:1;min-width:140px;background:var(--bg-2);border-radius:8px;padding:1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:600" id="nc-total-ok">0</div>
+            <div style="font-size:0.75rem;color:var(--text-3)">Conformes</div>
+          </div>
+          <div style="flex:1;min-width:140px;background:var(--bg-2);border-radius:8px;padding:1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:600;color:#e07b72" id="nc-total-missing-nas">0</div>
+            <div style="font-size:0.75rem;color:var(--text-3)">Dossier absent NAS</div>
+          </div>
+          <div style="flex:1;min-width:140px;background:var(--bg-2);border-radius:8px;padding:1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:600;color:#d4a54a" id="nc-total-missing-plat">0</div>
+            <div style="font-size:0.75rem;color:var(--text-3)">Absent plateforme</div>
+          </div>
+          <div style="flex:1;min-width:140px;background:var(--bg-2);border-radius:8px;padding:1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:600;color:#7ba1d4" id="nc-total-mismatch">0</div>
+            <div style="font-size:0.75rem;color:var(--text-3)">Noms divergents</div>
+          </div>
+        </div>
+      </div>
+      <div id="nas-conformite-filters" style="display:none;margin-bottom:0.8rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button class="btn btn-sm nc-filter active" data-filter="all" onclick="filterNcTable('all',this)">Tous</button>
+        <button class="btn btn-sm nc-filter" data-filter="missing_nas" onclick="filterNcTable('missing_nas',this)" style="color:#e07b72">Dossier absent NAS</button>
+        <button class="btn btn-sm nc-filter" data-filter="missing_plat" onclick="filterNcTable('missing_plat',this)" style="color:#d4a54a">Absent plateforme</button>
+        <button class="btn btn-sm nc-filter" data-filter="mismatch" onclick="filterNcTable('mismatch',this)" style="color:#7ba1d4">Noms divergents</button>
+        <button class="btn btn-sm nc-filter" data-filter="ok" onclick="filterNcTable('ok',this)" style="color:var(--green)">Conformes</button>
+      </div>
+      <div class="table-wrap" style="overflow-x:auto">
+        <table id="nas-conformite-table" style="display:none">
+          <thead>
+            <tr>
+              <th style="width:60px">Année</th>
+              <th style="width:110px">Code</th>
+              <th>Nom plateforme</th>
+              <th>Dossier NAS</th>
+              <th style="width:120px">Statut</th>
+              <th style="width:180px">Action</th>
+            </tr>
+          </thead>
+          <tbody id="nas-conformite-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center">
+      <span id="nc-footer-info" style="font-size:0.75rem;color:var(--text-3)"></span>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn" onclick="closeModal('modal-nas-conformite')">Fermer</button>
+        <button class="btn btn-primary" id="nc-apply-all-btn" style="display:none" onclick="ncApplyAll()">Appliquer les actions sélectionnées</button>
       </div>
     </div>
   </div>

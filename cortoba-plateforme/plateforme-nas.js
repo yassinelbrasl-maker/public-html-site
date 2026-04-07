@@ -14825,3 +14825,392 @@ function sendPortailMsg() {
     loadPortailRoomMessages(_portalMsgCurrent);
   }).catch(function(e) { showToast(e.message, 'error'); });
 }
+
+// ══════════════════════════════════════════════════════════
+//  CONFORMITÉ NAS — Comparaison projets / dossiers NAS
+// ══════════════════════════════════════════════════════════
+
+var _ncData = []; // résultats de la comparaison
+
+function openNasConformite() {
+  openModal('modal-nas-conformite');
+  var statusEl = document.getElementById('nas-conformite-status');
+  var summaryEl = document.getElementById('nas-conformite-summary');
+  var filtersEl = document.getElementById('nas-conformite-filters');
+  var tableEl = document.getElementById('nas-conformite-table');
+  var applyBtn = document.getElementById('nc-apply-all-btn');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>Analyse en cours — interrogation du NAS via WebDAV…';
+  summaryEl.style.display = 'none';
+  filtersEl.style.display = 'none';
+  tableEl.style.display = 'none';
+  if (applyBtn) applyBtn.style.display = 'none';
+
+  apiFetch('api/nas-check.php')
+    .then(function(r) {
+      var nasFolders = r.data.nas_folders || {};
+      var projets = r.data.projets || [];
+      _ncData = buildConformiteData(projets, nasFolders);
+      renderConformiteResults();
+    })
+    .catch(function(e) {
+      statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>Erreur de connexion au NAS :<br><span style="color:#e07b72">' + (e.message || 'Vérifiez la configuration NAS') + '</span>';
+    });
+}
+
+// Nettoyer un nom pour comparaison (minuscule, sans accents, sans caractères spéciaux)
+function ncNormalize(str) {
+  return (str || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+// Extraire le code projet d'un nom de dossier NAS (format: CODE_NomProjet ou CODE - NomProjet)
+function ncExtractCode(folderName) {
+  // Patterns courants : "01_26_ABC_Nom" ou "01_26_ABC - Nom" etc.
+  var m = folderName.match(/^(\d{2}_\d{2}_[A-Z0-9]+)/i);
+  if (m) return m[1].toUpperCase();
+  // Essayer aussi avec tiret : "01_26_ABC-..."
+  m = folderName.match(/^(\d{2}_\d{2}_\w+)/i);
+  if (m) return m[1].toUpperCase();
+  return '';
+}
+
+// Construire le nom de dossier attendu pour un projet (comme buildNasBridgeUrl)
+function ncExpectedFolder(p) {
+  var code = p.code || '';
+  var nom = p.nom || '';
+  return (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+}
+
+function buildConformiteData(projets, nasFolders) {
+  var results = [];
+  var matchedNasFolders = {}; // année/folder => true
+
+  // Pour chaque projet de la plateforme
+  projets.forEach(function(p) {
+    var annee = p.annee || '';
+    var code = (p.code || '').toUpperCase();
+    var expected = ncExpectedFolder(p);
+    var yearFolders = nasFolders[annee] || [];
+
+    // Chercher correspondance exacte
+    var exactMatch = yearFolders.find(function(f) { return f === expected; });
+    if (exactMatch) {
+      results.push({ type: 'ok', annee: annee, projet: p, nasFolder: exactMatch, expected: expected });
+      matchedNasFolders[annee + '/' + exactMatch] = true;
+      return;
+    }
+
+    // Chercher par code projet
+    var codeMatch = null;
+    yearFolders.forEach(function(f) {
+      if (matchedNasFolders[annee + '/' + f]) return;
+      var fCode = ncExtractCode(f);
+      if (fCode && fCode === code) {
+        codeMatch = f;
+      }
+    });
+
+    if (codeMatch) {
+      // Même code mais nom différent
+      results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: codeMatch, expected: expected });
+      matchedNasFolders[annee + '/' + codeMatch] = true;
+      return;
+    }
+
+    // Chercher par similarité de nom normalisé
+    var normExpected = ncNormalize(expected);
+    var fuzzyMatch = null;
+    yearFolders.forEach(function(f) {
+      if (matchedNasFolders[annee + '/' + f]) return;
+      var normF = ncNormalize(f);
+      if (normF === normExpected || (normExpected.length > 8 && normF.indexOf(normExpected) !== -1) || (normF.length > 8 && normExpected.indexOf(normF) !== -1)) {
+        fuzzyMatch = f;
+      }
+    });
+
+    if (fuzzyMatch) {
+      results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: fuzzyMatch, expected: expected });
+      matchedNasFolders[annee + '/' + fuzzyMatch] = true;
+      return;
+    }
+
+    // Pas de correspondance → dossier absent sur le NAS
+    results.push({ type: 'missing_nas', annee: annee, projet: p, nasFolder: null, expected: expected });
+  });
+
+  // Dossiers NAS sans projet correspondant sur la plateforme
+  Object.keys(nasFolders).forEach(function(annee) {
+    nasFolders[annee].forEach(function(folder) {
+      if (matchedNasFolders[annee + '/' + folder]) return;
+      // Ignorer les dossiers spéciaux (template, etc.)
+      if (folder.indexOf('00-') === 0 || folder.indexOf('_template') !== -1 || folder.indexOf('Dossier Type') !== -1) return;
+      results.push({ type: 'missing_plat', annee: annee, projet: null, nasFolder: folder, expected: '' });
+    });
+  });
+
+  // Trier : anomalies d'abord, puis par année desc
+  var typeOrder = { mismatch: 0, missing_nas: 1, missing_plat: 2, ok: 3 };
+  results.sort(function(a, b) {
+    var ta = typeOrder[a.type] !== undefined ? typeOrder[a.type] : 9;
+    var tb = typeOrder[b.type] !== undefined ? typeOrder[b.type] : 9;
+    if (ta !== tb) return ta - tb;
+    if (a.annee !== b.annee) return b.annee.localeCompare(a.annee);
+    return 0;
+  });
+
+  return results;
+}
+
+function renderConformiteResults() {
+  var statusEl = document.getElementById('nas-conformite-status');
+  var summaryEl = document.getElementById('nas-conformite-summary');
+  var filtersEl = document.getElementById('nas-conformite-filters');
+  var tableEl = document.getElementById('nas-conformite-table');
+  var tbody = document.getElementById('nas-conformite-tbody');
+  var applyBtn = document.getElementById('nc-apply-all-btn');
+
+  statusEl.style.display = 'none';
+  summaryEl.style.display = 'block';
+  filtersEl.style.display = 'flex';
+  tableEl.style.display = 'table';
+
+  // Compteurs
+  var ok = 0, missingNas = 0, missingPlat = 0, mismatch = 0;
+  _ncData.forEach(function(r) {
+    if (r.type === 'ok') ok++;
+    else if (r.type === 'missing_nas') missingNas++;
+    else if (r.type === 'missing_plat') missingPlat++;
+    else if (r.type === 'mismatch') mismatch++;
+  });
+  document.getElementById('nc-total-ok').textContent = ok;
+  document.getElementById('nc-total-missing-nas').textContent = missingNas;
+  document.getElementById('nc-total-missing-plat').textContent = missingPlat;
+  document.getElementById('nc-total-mismatch').textContent = mismatch;
+
+  var hasActions = missingNas > 0 || missingPlat > 0 || mismatch > 0;
+  if (applyBtn) applyBtn.style.display = hasActions ? 'inline-flex' : 'none';
+
+  var footerInfo = document.getElementById('nc-footer-info');
+  if (footerInfo) footerInfo.textContent = _ncData.length + ' entrées analysées — ' + ok + ' conformes';
+
+  renderNcTable('all');
+}
+
+function renderNcTable(filter) {
+  var tbody = document.getElementById('nas-conformite-tbody');
+  var items = _ncData;
+  if (filter && filter !== 'all') {
+    items = items.filter(function(r) { return r.type === filter; });
+  }
+
+  if (items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:2rem">Aucun élément dans cette catégorie</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = items.map(function(r, i) {
+    var idx = _ncData.indexOf(r);
+    var annee = r.annee || '—';
+    var code = r.projet ? (r.projet.code || '—') : '—';
+    var nomPlat = r.projet ? (r.projet.nom || '—') : '<span style="color:var(--text-3);font-style:italic">— non référencé —</span>';
+    var nasFolder = r.nasFolder || '<span style="color:var(--text-3);font-style:italic">— absent —</span>';
+    var statusBadge = '';
+    var actionHtml = '';
+
+    switch (r.type) {
+      case 'ok':
+        statusBadge = '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--green);font-size:0.78rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Conforme</span>';
+        actionHtml = '<span style="color:var(--text-3);font-size:0.78rem">—</span>';
+        break;
+      case 'missing_nas':
+        statusBadge = '<span style="color:#e07b72;font-size:0.78rem;font-weight:500">Dossier absent</span>';
+        actionHtml = '<button class="btn btn-sm" style="font-size:0.72rem;margin-right:4px" onclick="ncCreateFolder(' + idx + ')" title="Créer le dossier sur le NAS">📁 Créer dossier</button>' +
+          '<button class="btn btn-sm" style="font-size:0.72rem;color:#e07b72" onclick="ncArchiveProject(' + idx + ')" title="Archiver le projet">Archiver</button>';
+        break;
+      case 'missing_plat':
+        statusBadge = '<span style="color:#d4a54a;font-size:0.78rem;font-weight:500">Absent plateforme</span>';
+        actionHtml = '<span style="color:var(--text-3);font-size:0.72rem">Dossier orphelin NAS</span>';
+        break;
+      case 'mismatch':
+        statusBadge = '<span style="color:#7ba1d4;font-size:0.78rem;font-weight:500">Nom divergent</span>';
+        actionHtml = '<button class="btn btn-sm" style="font-size:0.72rem;margin-right:4px" onclick="ncRenameNas(' + idx + ')" title="Renommer le dossier NAS pour correspondre à la plateforme">NAS ← Plat.</button>' +
+          '<button class="btn btn-sm" style="font-size:0.72rem" onclick="ncRenamePlat(' + idx + ')" title="Modifier le nom sur la plateforme pour correspondre au NAS">Plat. ← NAS</button>';
+        break;
+    }
+
+    var rowStyle = r.type === 'ok' ? 'opacity:0.6;' : '';
+    return '<tr data-nc-type="' + r.type + '" style="' + rowStyle + '">' +
+      '<td style="white-space:nowrap">' + annee + '</td>' +
+      '<td style="font-family:var(--font-mono,monospace);font-size:0.78rem;white-space:nowrap">' + code + '</td>' +
+      '<td>' + nomPlat + '</td>' +
+      '<td style="font-size:0.82rem">' + nasFolder + '</td>' +
+      '<td>' + statusBadge + '</td>' +
+      '<td style="white-space:nowrap">' + actionHtml + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function filterNcTable(filter, btn) {
+  // Mettre à jour les boutons actifs
+  var btns = document.querySelectorAll('#nas-conformite-filters .nc-filter');
+  btns.forEach(function(b) { b.classList.remove('active'); b.style.background = ''; });
+  if (btn) { btn.classList.add('active'); btn.style.background = 'var(--bg-2)'; }
+  renderNcTable(filter);
+}
+
+// ── Actions individuelles ──
+
+// Créer un dossier sur le NAS
+function ncCreateFolder(idx) {
+  var r = _ncData[idx]; if (!r || !r.projet) return;
+  var btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '⏳…';
+
+  apiFetch('api/nas-mkdir.php', {
+    method: 'POST',
+    body: { folder: r.expected, annee: r.annee }
+  }).then(function(res) {
+    if (res.data && res.data.created) {
+      r.type = 'ok';
+      r.nasFolder = r.expected;
+      showToast('Dossier créé : ' + r.expected, '#4caf50');
+      renderConformiteResults();
+    } else {
+      btn.disabled = false;
+      btn.textContent = '📁 Créer dossier';
+      showToast('Échec de la création du dossier', '#e07b72');
+    }
+  }).catch(function(e) {
+    btn.disabled = false;
+    btn.textContent = '📁 Créer dossier';
+    showToast('Erreur : ' + (e.message || 'vérifiez le NAS'), '#e07b72');
+  });
+}
+
+// Archiver un projet sur la plateforme
+function ncArchiveProject(idx) {
+  var r = _ncData[idx]; if (!r || !r.projet) return;
+  if (!confirm('Archiver le projet « ' + (r.projet.nom || r.projet.code) + ' » ?\nLe statut passera à "Archivé".')) return;
+
+  apiFetch('api/projets.php?id=' + r.projet.id)
+    .then(function(res) {
+      var p = res.data;
+      p.statut = 'Archivé';
+      return apiFetch('api/projets.php?id=' + r.projet.id, {
+        method: 'PUT',
+        body: p
+      });
+    })
+    .then(function() {
+      r.projet.statut = 'Archivé';
+      showToast('Projet archivé : ' + (r.projet.nom || r.projet.code), '#4caf50');
+      loadData().then(function() { renderProjets(); });
+    })
+    .catch(function(e) {
+      showToast('Erreur : ' + (e.message || ''), '#e07b72');
+    });
+}
+
+// Renommer le dossier NAS pour correspondre à la plateforme
+function ncRenameNas(idx) {
+  var r = _ncData[idx]; if (!r) return;
+  var oldName = r.nasFolder;
+  var newName = r.expected;
+  if (!confirm('Renommer sur le NAS :\n\n« ' + oldName + ' »\n→ « ' + newName + ' »\n\n(Opération WebDAV MOVE)')) return;
+
+  var cfg = getNasConfig();
+  var ip = cfg.local || '192.168.1.165';
+  var port = cfg.webdavPort || '5005';
+  var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
+
+  apiFetch('api/nas-rename.php', {
+    method: 'POST',
+    body: { annee: r.annee, oldName: oldName, newName: newName }
+  }).then(function(res) {
+    if (res.data && res.data.renamed) {
+      r.type = 'ok';
+      r.nasFolder = newName;
+      showToast('Dossier NAS renommé', '#4caf50');
+      renderConformiteResults();
+    } else {
+      showToast('Échec du renommage NAS', '#e07b72');
+    }
+  }).catch(function(e) {
+    showToast('Erreur : ' + (e.message || ''), '#e07b72');
+  });
+}
+
+// Renommer le projet sur la plateforme pour correspondre au NAS
+function ncRenamePlat(idx) {
+  var r = _ncData[idx]; if (!r || !r.projet || !r.nasFolder) return;
+  // Extraire le nom du dossier NAS (après le code_)
+  var folder = r.nasFolder;
+  var code = r.projet.code || '';
+  var newNom = folder;
+  // Enlever le préfixe code du nom de dossier
+  if (code && folder.indexOf(code + '_') === 0) {
+    newNom = folder.substring(code.length + 1);
+  } else if (code && folder.indexOf(code + ' - ') === 0) {
+    newNom = folder.substring(code.length + 3);
+  }
+  newNom = newNom.replace(/_/g, ' ').trim();
+
+  if (!confirm('Modifier le nom du projet sur la plateforme :\n\n« ' + r.projet.nom + ' »\n→ « ' + newNom + ' »')) return;
+
+  apiFetch('api/projets.php?id=' + r.projet.id)
+    .then(function(res) {
+      var p = res.data;
+      p.nom = newNom;
+      return apiFetch('api/projets.php?id=' + r.projet.id, {
+        method: 'PUT',
+        body: p
+      });
+    })
+    .then(function() {
+      r.projet.nom = newNom;
+      r.expected = ncExpectedFolder(r.projet);
+      r.type = 'ok';
+      showToast('Nom du projet mis à jour', '#4caf50');
+      renderConformiteResults();
+      loadData().then(function() { renderProjets(); });
+    })
+    .catch(function(e) {
+      showToast('Erreur : ' + (e.message || ''), '#e07b72');
+    });
+}
+
+// Appliquer toutes les actions (créer les dossiers manquants sur le NAS)
+function ncApplyAll() {
+  var missingNas = _ncData.filter(function(r) { return r.type === 'missing_nas'; });
+  if (missingNas.length === 0) { showToast('Aucune action à appliquer', '#d4a54a'); return; }
+  if (!confirm('Créer ' + missingNas.length + ' dossier(s) manquant(s) sur le NAS ?')) return;
+
+  var done = 0, errors = 0;
+  var total = missingNas.length;
+
+  missingNas.forEach(function(r) {
+    apiFetch('api/nas-mkdir.php', {
+      method: 'POST',
+      body: { folder: r.expected, annee: r.annee }
+    }).then(function(res) {
+      done++;
+      if (res.data && res.data.created) {
+        r.type = 'ok';
+        r.nasFolder = r.expected;
+      } else { errors++; }
+      if (done === total) {
+        showToast((done - errors) + '/' + total + ' dossiers créés' + (errors ? ' (' + errors + ' erreurs)' : ''), errors ? '#d4a54a' : '#4caf50');
+        renderConformiteResults();
+      }
+    }).catch(function() {
+      done++; errors++;
+      if (done === total) {
+        showToast((done - errors) + '/' + total + ' dossiers créés (' + errors + ' erreurs)', '#e07b72');
+        renderConformiteResults();
+      }
+    });
+  });
+}
