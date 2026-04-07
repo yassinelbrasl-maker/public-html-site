@@ -10,6 +10,11 @@ require_once __DIR__ . '/../config/middleware.php';
 // ── Bootstrap : création idempotente des tables ──
 clientPortalEnsureSchema();
 
+// ── Si inclus par un autre fichier (ex: client_portal_admin.php), ne pas exécuter le routage ──
+if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') !== 'client_portal.php') {
+    return; // Seules les fonctions sont exposées
+}
+
 // ── Actions publiques (sans auth) ──
 $action = $_GET['action'] ?? '';
 if (in_array($action, ['login', 'reset_password_request', 'reset_password'], true)) {
