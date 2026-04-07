@@ -1079,6 +1079,18 @@
             </button>
           </div>
         </div>
+        <!-- Barre recherche clients -->
+        <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:220px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="clients-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher par nom, code, email, téléphone…" oninput="clientFilterChanged()" />
+          </div>
+          <select id="clients-filter-statut" class="form-select" style="width:auto;min-width:130px" onchange="clientFilterChanged()">
+            <option value="">Tous les statuts</option>
+            <option>Actif</option><option>Prospect</option><option>Client</option><option>Archivé</option>
+          </select>
+          <span id="clients-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Code</th><th>Nom / Raison sociale</th><th>WhatsApp</th><th>Email</th><th>Source</th><th>Statut</th><th></th></tr></thead>
@@ -4701,7 +4713,7 @@ if (typeof Gantt === 'undefined') {
   document.head.appendChild(_fg);
 }
 </script>
-<script src="plateforme-nas.js?t=20260407b"></script>
+<script src="plateforme-nas.js?t=20260407c"></script>
 <script src="ergonomie.js?t=20260328e"></script>
 <script src="chat.js?t=20260406d"></script>
 <script src="flotte.js?t=20260407a"></script>

@@ -1010,12 +1010,29 @@ function resetClientForm() {
   setTimeout(initExtensibleSelects, 50);
 }
 
+// ── Client search/filter ──
+function clientFilterChanged(){ renderClients(); }
+function getFilteredClients(){
+  var clients = getClients();
+  var q = (document.getElementById('clients-search')||{value:''}).value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  var fStatut = (document.getElementById('clients-filter-statut')||{value:''}).value;
+  return clients.filter(function(c){
+    if(fStatut && (c.statut||'')!==fStatut) return false;
+    if(!q) return true;
+    var hay = [(c.code||''),(c.displayNom||c.nom||c.raison||''),(c.email||''),(c.whatsapp||c.tel||''),(c.source||'')].join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return hay.indexOf(q)!==-1;
+  });
+}
+
 // ── Render Clients ──
 function renderClients() {
   var tb = document.getElementById('clients-tbody'); if (!tb) return;
-  var clients = getClients();
+  var allClients = getClients();
+  var clients = getFilteredClients();
+  var ct = document.getElementById('clients-count');
+  if(ct) ct.textContent = clients.length===allClients.length ? clients.length+' client'+(clients.length>1?'s':'') : clients.length+' / '+allClients.length+' clients';
   tb.innerHTML = clients.length === 0
-    ? '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:2rem">Aucun client. Créez votre premier client.</td></tr>'
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:2rem">'+(allClients.length?'Aucun résultat.':'Aucun client. Créez votre premier client.')+'</td></tr>'
     : clients.map(function(c) {
         var wa = c.whatsapp || c.tel || '';
         var waLink = wa
@@ -1401,7 +1418,7 @@ function renderProjets(){
   };
   var ths = active.map(function(key){
     var col = ALL_PJ_COLUMNS.find(function(c){ return c.key===key; }); if(!col) return '';
-    var s = 'padding:0.7rem 0.8rem;white-space:nowrap;user-select:none;'; if(col.sortable) s+='cursor:pointer;';
+    var s = 'padding:0.45rem 0.8rem;white-space:nowrap;user-select:none;'; if(col.sortable) s+='cursor:pointer;';
     return '<th style="'+s+'" '+(col.sortable?'onclick="sortByPjColumn(\''+key+'\')"':'')+'>'+col.label+(col.sortable?sortIcon(key):'')+'</th>';
   }).join('');
   var burgerTh = '<th style="width:28px;padding:0.4rem 0.5rem;text-align:center"><button id="pj-col-burger" onclick="togglePjColDropdown(event)" title="Colonnes visibles" style="background:none;border:none;cursor:pointer;color:var(--text-3);opacity:0.6;padding:2px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></th>';
@@ -1432,12 +1449,15 @@ function renderProjets(){
   }
   tb.innerHTML = pageList.map(function(p){
     var cells = active.map(function(key){
-      var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td>—</td>';
-      return '<td>'+col.render(p)+'</td>';
+      var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td style="padding:0.35rem 0.8rem">—</td>';
+      return '<td style="padding:0.35rem 0.8rem">'+col.render(p)+'</td>';
     }).join('');
-    var editBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent);margin-right:3px">✎</button>';
+    var actionBtns = '<div style="display:flex;gap:2px;align-items:center">'+
+      '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent);padding:0.2rem 0.4rem;font-size:0.75rem">✎</button>'+
+      (canDelete() ? '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" title="Supprimer" style="color:#e07070;padding:0.2rem 0.4rem;font-size:0.75rem">✕</button>' : '')+
+      '</div>';
     return '<tr onclick="openProjetDetail(\''+p.id+'\')" style="cursor:pointer">'+cells+
-      '<td onclick="event.stopPropagation()">'+editBtn+(canDelete() ? '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button>' : '')+'</td><td></td></tr>';
+      '<td onclick="event.stopPropagation()" style="padding:0.35rem 0.5rem">'+actionBtns+'</td><td style="padding:0.35rem 0.5rem"></td></tr>';
   }).join('');
   renderPjPagination(totalFiltered, totalPages);
   if(document.getElementById('page-projets')&&document.getElementById('page-projets').classList.contains('active')){
@@ -2109,6 +2129,31 @@ function openEditProjet(id){
   document.getElementById('modal-projet').classList.add('open');
 }
 
+// ── NAS folder button for project detail ──
+function buildNasFolderButton(p) {
+  var cfg = getNasConfig();
+  var ip = cfg.local || '192.168.1.165';
+  var annee = p.annee || new Date().getFullYear();
+  var code = p.code || '';
+  var nom = p.nom || '';
+  var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+  var btnStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem';
+  // Build a button that copies NAS path + offers to create folder if needed
+  return '<button onclick="copyNasPath(this,\'' + esc(nasPath).replace(/'/g, "\\'") + '\')" style="' + btnStyle + '" title="' + esc(nasPath) + '">' +
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+    ' Dossier NAS</button>';
+}
+function copyNasPath(btn, path) {
+  navigator.clipboard.writeText(path).then(function() {
+    showToast('Chemin copié : ' + path, 'success');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copié !';
+    setTimeout(function() {
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Dossier NAS';
+    }, 2000);
+  });
+}
+
 function openProjetDetail(id){
   var p = getProjets().find(function(x){ return x.id===id; }); if(!p) return;
   var typeBatVal = p.typeBat||p.type_bat||'';
@@ -2136,6 +2181,7 @@ function openProjetDetail(id){
     '<button onclick="this.closest(\'div[style*=position]\').remove()" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button></div>'+
     '<div style="padding:1.2rem 1.5rem"><table style="width:100%;border-collapse:collapse">'+tr+'</table>'+
     '<div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-wrap:wrap">'+
+    buildNasFolderButton(p)+
     '<button onclick="openCreatePortalAccess(\''+p.id+'\',\''+esc(p.client||'').replace(/'/g,"\\'")+'\',\''+(p.clientId||p.client_id||'')+'\')" style="background:var(--accent);color:#1a1a1a;border:none;border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem">'+
     '<span style="font-size:0.9rem">&#128279;</span> Créer accès portail</button>'+
     '</div></div></div>';
@@ -2331,9 +2377,13 @@ var ALL_PJ_COLUMNS = [
   {key:'nom',       label:'Projet',     default:true, locked:true, sortable:true, render:function(p){return'<span style="font-weight:500">'+(p.nom||'—')+'</span>';}},
   {key:'client',    label:'Client',     default:true, locked:false,sortable:true, render:function(p){return p.client||'—';}},
   {key:'statut',    label:'Statut',     default:true, locked:false,sortable:true, render:function(p){return'<span class="'+badgeClass(p.statut||'')+'">'+(p.statut||'—')+'</span>';}},
+  {key:'annee',     label:'Année',      default:false,locked:false,sortable:true, render:function(p){return p.annee||'—';}},
   {key:'typeBat',   label:'Type bât.',  default:false,locked:false,sortable:true, render:function(p){return p.typeBat||p.type_bat||'—';}},
+  {key:'standing',  label:'Standing',   default:false,locked:false,sortable:true, render:function(p){return p.standing||'—';}},
+  {key:'zone',      label:'Zone',       default:false,locked:false,sortable:true, render:function(p){return p.zone||'—';}},
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
-  {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}}
+  {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
+  {key:'nasPath',   label:'Dossier NAS',default:false,locked:false,sortable:false,render:function(p){var cfg=getNasConfig();var ip=cfg.local||'192.168.1.165';var fn=(p.code||'')+'_'+(p.nom||'');var path='\\\\'+ip+'\\Public\\CAS_PROJETS\\'+(p.annee||'')+'\\'+fn;return'<span onclick="event.stopPropagation();navigator.clipboard.writeText(\''+path.replace(/'/g,"\\'")+'\');showToast(\'Chemin copié\',\'success\')" style="cursor:pointer;font-size:0.7rem;color:var(--text-3);text-decoration:underline dotted" title="Cliquer pour copier">'+fn.substring(0,20)+(fn.length>20?'…':'')+'</span>';}}
 ];
 var _pjActiveColumns = null;
 
