@@ -7,6 +7,19 @@
 require_once __DIR__ . '/../config/middleware.php';
 setCorsHeaders();
 
+// Catch fatal errors and return JSON
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    if (!(error_reporting() & $errno)) return false;
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+});
+register_shutdown_function(function() {
+    $e = error_get_last();
+    if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'error' => $e['message'] . ' (' . basename($e['file']) . ':' . $e['line'] . ')']);
+    }
+});
+
 // Auto-création des tables si elles n'existent pas
 function ensureChantierTables() {
     $db = getDB();
@@ -187,7 +200,7 @@ function ensureChantierTables() {
       KEY `idx_chantier` (`chantier_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 }
-ensureChantierTables();
+try { ensureChantierTables(); } catch (Exception $e) { /* migration errors are non-fatal */ }
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : '';
