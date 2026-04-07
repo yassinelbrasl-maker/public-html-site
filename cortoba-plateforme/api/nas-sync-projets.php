@@ -16,8 +16,8 @@ if (empty($nasFolders)) jsonError('nas_folders requis (objet {annee: [dossiers]}
 $db = getDB();
 
 // 1. Supprimer tous les projets existants et données liées
-$db->exec('DELETE FROM CA_projet_missions');
-$db->exec('DELETE FROM CA_projet_intervenants');
+try { $db->exec('DELETE FROM CA_projets_missions'); } catch (\Throwable $e) {}
+try { $db->exec('DELETE FROM CA_projets_intervenants'); } catch (\Throwable $e) {}
 $db->exec('DELETE FROM CA_projets');
 
 $created = [];
