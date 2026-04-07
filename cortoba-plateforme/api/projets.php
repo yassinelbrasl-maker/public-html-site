@@ -13,6 +13,7 @@ function ensureProjetsRendementColumns() {
         "contract_value DECIMAL(14,3) DEFAULT NULL",
         "project_type   VARCHAR(80)   DEFAULT NULL",
         "budget_heures  DECIMAL(8,2)  DEFAULT NULL",
+        "nas_path       VARCHAR(500)  DEFAULT NULL",
     );
     foreach ($extra as $def) {
         try { $db->exec("ALTER TABLE CA_projets ADD COLUMN IF NOT EXISTS $def"); }
@@ -179,6 +180,14 @@ function update($id, array $user) {
     $stmt->execute([$id]);
     if (!$stmt->fetch()) jsonError('Projet introuvable', 404);
 
+    // Mise à jour partielle : NAS path uniquement
+    if (isset($body['nasPath']) && !isset($body['nom'])) {
+        $db->prepare('UPDATE CA_projets SET nas_path=?, modifie_par=? WHERE id=?')
+           ->execute([$body['nasPath'], $user['name'], $id]);
+        jsonOk(['updated' => $id, 'nas_path' => $body['nasPath']]);
+        return;
+    }
+
     $db->prepare('
         UPDATE CA_projets SET
             code=?, nom=?, client=?, client_code=?, annee=?, phase=?, statut=?, type_bat=?,
@@ -186,6 +195,7 @@ function update($id, array $user) {
             lat=?, lng=?,
             surface_shon=?, surface_shob=?, surface_terrain=?, standing=?, zone=?,
             cout_construction=?, cout_m2=?,
+            nas_path=?,
             modifie_par=?
         WHERE id=?
     ')->execute([
@@ -212,6 +222,7 @@ function update($id, array $user) {
         $body['zone']            ?? null,
         !empty($body['cout_construction']) ? floatval($body['cout_construction']) : null,
         !empty($body['cout_m2']) ? floatval($body['cout_m2']) : null,
+        $body['nasPath']         ?? null,
         $user['name'],
         $id,
     ]);

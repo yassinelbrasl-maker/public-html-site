@@ -2355,12 +2355,14 @@ function openEditProjet(id){
     portalBtn.onclick = function(){ openCreatePortalAccess(_editingProjetId, document.getElementById('pj-client')?.selectedOptions[0]?.text||'', document.getElementById('pj-client')?.value||''); };
   }
 
-  // Afficher le bouton NAS en mode édition
+  // Afficher le bouton NAS en mode édition + charger le chemin sauvegardé
   var nasBtn = document.getElementById('pj-nas-link-btn');
   if (nasBtn) {
     nasBtn.style.display = 'inline-flex';
     nasBtn.setAttribute('data-projet-id', id);
   }
+  var nasPathInput = document.getElementById('pj-nas-path-input');
+  if (nasPathInput) nasPathInput.value = p.nas_path || p.nasPath || '';
 
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
@@ -2411,8 +2413,15 @@ function applyNasPath() {
   var input = document.getElementById('pj-nas-path-input');
   var path = input ? input.value.trim() : '';
   if (!path) { showToast('Chemin vide', 'error'); return; }
+  // Sauvegarder le chemin NAS en base si on est en édition
+  if (_editingProjetId) {
+    apiFetch('api/projets.php?id=' + _editingProjetId, {
+      method: 'PUT',
+      body: { nasPath: path }
+    }).catch(function(){});
+  }
   navigator.clipboard.writeText(path).then(function() {
-    showToast('Chemin NAS copié : ' + path, 'success');
+    showToast('Chemin NAS sauvegardé et copié', 'success');
     var panel = document.getElementById('pj-nas-edit-panel');
     if (panel) panel.style.display = 'none';
   });
@@ -2629,6 +2638,7 @@ function saveProjet(){
     missions:getSelectedMissions(),
     intervenants:getIntervenants(),
     create_chat_room: (document.getElementById('pj-chat-create') || {}).checked || false,
+    nasPath: (document.getElementById('pj-nas-path-input') || {}).value || null,
   };
   var wantNas = !_editingProjetId && ((document.getElementById('pj-nas-create') || {}).checked || false);
   // Ouvrir la popup NAS AVANT l'appel async (sinon popup blocker)

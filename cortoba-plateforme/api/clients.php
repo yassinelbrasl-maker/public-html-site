@@ -138,6 +138,11 @@ function update($id, array $user) {
         $groupeJson = json_encode($body['groupe'], JSON_UNESCAPED_UNICODE);
     }
 
+    // Lire l'ancien code client AVANT la mise à jour (pour sync projets)
+    $stOldCl = $db->prepare('SELECT code, display_nom FROM CA_clients WHERE id = ?');
+    $stOldCl->execute([$id]);
+    $oldClient = $stOldCl->fetch(\PDO::FETCH_ASSOC);
+
     try {
         $db->prepare('
             UPDATE CA_clients SET
@@ -201,6 +206,16 @@ function update($id, array $user) {
     }
 
     saveContactsAux($id, $body['contactsAux'] ?? []);
+
+    // Synchroniser le nom client et le code dans les projets liés
+    $newDisplayNom = $body['displayNom'] ?? '';
+    $newCode       = $body['code'] ?? '';
+    $oldCode       = $oldClient ? ($oldClient['code'] ?? '') : '';
+    if ($oldCode && ($newDisplayNom || $newCode)) {
+        $db->prepare('UPDATE CA_projets SET client = ?, client_code = ? WHERE client_code = ?')
+           ->execute([$newDisplayNom, $newCode, $oldCode]);
+    }
+
     getOne($id);
 }
 
