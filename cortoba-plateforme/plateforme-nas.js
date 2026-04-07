@@ -1616,6 +1616,100 @@ function populateClientSelect(){
   });
 }
 
+// ── Client searchable dropdown ──
+var _clientDropdownOpen = false;
+
+function filterClientDropdown() {
+  var input = document.getElementById('pj-client-search');
+  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var clearBtn = document.getElementById('pj-client-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  renderClientDropdown(q);
+  showClientDropdown();
+}
+
+function showClientDropdown() {
+  var dd = document.getElementById('pj-client-dropdown');
+  if (!dd) return;
+  dd.style.display = 'block';
+  _clientDropdownOpen = true;
+  var q = (document.getElementById('pj-client-search').value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  renderClientDropdown(q);
+}
+
+function hideClientDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('pj-client-dropdown');
+    if (dd) dd.style.display = 'none';
+    _clientDropdownOpen = false;
+  }, 200);
+}
+
+function renderClientDropdown(q) {
+  var dd = document.getElementById('pj-client-dropdown');
+  if (!dd) return;
+  var clients = getClients();
+  var filtered = clients.filter(function(c) {
+    if (!q) return true;
+    var nom = (c.displayNom || c.display_nom || c.nom || c.raison || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var code = (c.code || '').toLowerCase();
+    return nom.indexOf(q) !== -1 || code.indexOf(q) !== -1;
+  });
+
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucun client trouvé</div>';
+    return;
+  }
+
+  dd.innerHTML = filtered.map(function(c) {
+    var nom = c.displayNom || c.display_nom || c.nom || c.raison || '';
+    var code = c.code || '';
+    return '<div class="client-dd-item" onmousedown="selectClient(\'' + c.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'">' +
+      '<span style="color:var(--text-1)">' + nom + '</span>' +
+      (code ? ' <span style="color:var(--text-3);font-size:0.72rem">(' + code + ')</span>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function selectClient(clientId) {
+  var sel = document.getElementById('pj-client');
+  var input = document.getElementById('pj-client-search');
+  var clearBtn = document.getElementById('pj-client-clear');
+  sel.value = clientId;
+  var selectedOpt = sel.selectedOptions[0];
+  if (selectedOpt && clientId) {
+    input.value = selectedOpt.textContent;
+  } else {
+    input.value = '';
+  }
+  if (clearBtn) clearBtn.style.display = clientId ? 'block' : 'none';
+  hideClientDropdown();
+  previewPjCode();
+}
+
+function clearClientSearch() {
+  var input = document.getElementById('pj-client-search');
+  var sel = document.getElementById('pj-client');
+  var clearBtn = document.getElementById('pj-client-clear');
+  input.value = '';
+  sel.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  input.focus();
+  showClientDropdown();
+  previewPjCode();
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  if (!_clientDropdownOpen) return;
+  var container = document.getElementById('pj-client-search');
+  var dd = document.getElementById('pj-client-dropdown');
+  if (container && dd && !container.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
+    _clientDropdownOpen = false;
+  }
+});
+
 // A2 — Missions avec liste par défaut
 var MISSION_CATEGORIES = [
   {id:'AI',  label:'Assistance immobilière'},
@@ -1872,6 +1966,8 @@ function resetProjetForm(){
 
 
   populateClientSelect();
+  var csInput = document.getElementById('pj-client-search'); if (csInput) csInput.value = '';
+  var csClear = document.getElementById('pj-client-clear'); if (csClear) csClear.style.display = 'none';
   populateMissionsList([]);
 
   // Construire et revenir au premier onglet
@@ -1959,7 +2055,13 @@ function openEditProjet(id){
     return c.id===p.clientId || c.id===p.client_id ||
            (c.displayNom||c.display_nom)===p.client;
   });
-  if (sel && client) sel.value = client.id;
+  if (sel && client) {
+    sel.value = client.id;
+    var searchInput = document.getElementById('pj-client-search');
+    if (searchInput) searchInput.value = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '';
+    var clearBtn = document.getElementById('pj-client-clear');
+    if (clearBtn) clearBtn.style.display = client.id ? 'block' : 'none';
+  }
   previewPjCode();
 
   populateMissionsList(p.missions||[]);
