@@ -262,6 +262,25 @@
         </div>
       </div>
 
+      <div class="sidebar-section" data-section="portail-client">
+        <div class="sidebar-label" onclick="toggleSidebarSection(this)"><svg class="sidebar-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Portail Client</div>
+        <div class="sidebar-group">
+        <button class="nav-item" onclick="showPage('portail')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Comptes clients
+        </button>
+        <button class="nav-item" onclick="showPage('portail-docs')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Documents partagés
+        </button>
+        <button class="nav-item" onclick="showPage('portail-messages')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Messages clients
+          <span class="nav-badge" id="portail-msg-badge" style="display:none">0</span>
+        </button>
+        </div>
+      </div>
+
       <div class="sidebar-section">
         <div class="sidebar-label">Paramètres</div>
         <div class="sidebar-group">
@@ -5590,6 +5609,209 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-flotte-cout')">Annuler</button>
       <button class="btn btn-primary" onclick="saveFlotteCout()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+      <!-- ══ PORTAIL CLIENT — COMPTES ══ -->
+      <div class="page" id="page-portail">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Portail Client</div>
+            <h1 class="page-title">Comptes clients</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="portail-new-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau compte
+            </button>
+          </div>
+        </div>
+        <div class="kpi-row" id="portail-kpis"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Client</th><th>Email</th><th>Statut</th><th>Dernière connexion</th><th>Créé le</th><th></th></tr></thead>
+            <tbody id="portail-accounts-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ PORTAIL CLIENT — DOCUMENTS PARTAGÉS ══ -->
+      <div class="page" id="page-portail-docs">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Portail Client</div>
+            <h1 class="page-title">Documents partagés</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="portail-pub-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              Publier un document
+            </button>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:1rem">
+          <select class="form-input" id="portail-doc-client-filter" style="width:auto;min-width:180px">
+            <option value="">Tous les clients</option>
+          </select>
+          <select class="form-input" id="portail-doc-cat-filter" style="width:auto;min-width:150px">
+            <option value="">Toutes catégories</option>
+            <option value="livrable">Livrables</option>
+            <option value="plan">Plans</option>
+            <option value="rendu">Rendus</option>
+            <option value="administratif">Administratif</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Titre</th><th>Client</th><th>Projet</th><th>Catégorie</th><th>Version</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+            <tbody id="portail-docs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ PORTAIL CLIENT — MESSAGES ══ -->
+      <div class="page" id="page-portail-messages">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Portail Client</div>
+            <h1 class="page-title">Messages clients</h1>
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;height:calc(100vh - 200px);min-height:400px">
+          <div style="width:280px;min-width:220px;border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--bg-1)" id="portail-msg-rooms"></div>
+          <div style="flex:1;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg-1)">
+            <div style="padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-weight:600;font-size:0.85rem" id="portail-msg-header">Sélectionnez une discussion</div>
+            <div style="flex:1;overflow:auto;padding:1rem" id="portail-msg-messages"></div>
+            <div style="padding:0.6rem 1rem;border-top:1px solid var(--border);display:none" id="portail-msg-composer">
+              <div style="display:flex;gap:0.5rem">
+                <textarea id="portail-msg-input" rows="2" class="form-input" style="flex:1;resize:none" placeholder="Votre réponse..."></textarea>
+                <button class="btn btn-primary" id="portail-msg-send" style="align-self:flex-end">Envoyer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- Modal publier document au portail -->
+<div class="modal-overlay" id="modal-portail-doc">
+  <div class="modal-box" style="max-width:520px;width:95%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">PORTAIL CLIENT</div>
+        <div class="modal-title">Publier un document</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-portail-doc')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="form-field">
+          <label class="form-label">Client *</label>
+          <select id="pdoc-client" class="form-input"></select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Projet *</label>
+          <select id="pdoc-projet" class="form-input"></select>
+        </div>
+        <div class="form-field" style="grid-column:1/-1">
+          <label class="form-label">Titre du document *</label>
+          <input type="text" id="pdoc-titre" class="form-input" placeholder="Ex: APS Phase 1">
+        </div>
+        <div class="form-field">
+          <label class="form-label">Catégorie</label>
+          <select id="pdoc-categorie" class="form-input">
+            <option value="livrable">Livrable</option>
+            <option value="plan">Plan</option>
+            <option value="rendu">Rendu</option>
+            <option value="administratif">Administratif</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Phase (optionnel)</label>
+          <input type="text" id="pdoc-phase" class="form-input" placeholder="Ex: APS, APD, EXE">
+        </div>
+        <div class="form-field" style="grid-column:1/-1">
+          <label class="form-label">Description (optionnel)</label>
+          <textarea id="pdoc-description" class="form-input" rows="2"></textarea>
+        </div>
+        <div class="form-field" style="grid-column:1/-1">
+          <label class="form-label">Source du fichier</label>
+          <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+            <button class="btn" id="pdoc-src-upload" onclick="pdocSetSource('upload')" style="flex:1;font-size:0.78rem">📎 Upload</button>
+            <button class="btn" id="pdoc-src-nas" onclick="pdocSetSource('nas')" style="flex:1;font-size:0.78rem">🗄️ Lien NAS</button>
+            <button class="btn" id="pdoc-src-url" onclick="pdocSetSource('url')" style="flex:1;font-size:0.78rem">🔗 URL externe</button>
+          </div>
+          <div id="pdoc-source-upload">
+            <input type="file" id="pdoc-file" class="form-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.pptx,.dwg,.dxf,.zip,.rar">
+          </div>
+          <div id="pdoc-source-nas" style="display:none">
+            <input type="text" id="pdoc-nas-path" class="form-input" placeholder="Chemin NAS ou URL WebDAV">
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Le fichier sera téléchargé depuis le NAS vers le portail</div>
+          </div>
+          <div id="pdoc-source-url" style="display:none">
+            <input type="text" id="pdoc-url" class="form-input" placeholder="https://...">
+          </div>
+        </div>
+        <div class="form-field" style="grid-column:1/-1">
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.8rem;color:var(--text-2)">
+            <input type="checkbox" id="pdoc-request-validation" style="accent-color:var(--accent)">
+            Demander une validation au client après publication
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-portail-doc')">Annuler</button>
+      <button class="btn btn-primary" id="pdoc-submit">Publier</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouveau compte portail -->
+<div class="modal-overlay" id="modal-portail-account">
+  <div class="modal-box" style="max-width:440px;width:95%">
+    <div class="modal-header">
+      <div>
+        <div style="font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">PORTAIL CLIENT</div>
+        <div class="modal-title" id="pa-modal-title">Nouveau compte</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-portail-account')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pa-id">
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-field">
+          <label class="form-label">Client *</label>
+          <select id="pa-client" class="form-input"></select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Nom affiché *</label>
+          <input type="text" id="pa-nom" class="form-input" placeholder="Nom du client">
+        </div>
+        <div class="form-field">
+          <label class="form-label">Email *</label>
+          <input type="email" id="pa-email" class="form-input" placeholder="client@email.com">
+        </div>
+        <div class="form-field">
+          <label class="form-label">Mot de passe *</label>
+          <div style="display:flex;gap:0.5rem">
+            <input type="text" id="pa-password" class="form-input" placeholder="Min. 6 caractères" style="flex:1">
+            <button class="btn" onclick="paGenPass()" style="white-space:nowrap;font-size:0.75rem">Générer</button>
+          </div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Statut</label>
+          <select id="pa-statut" class="form-input">
+            <option value="actif">Actif</option>
+            <option value="inactif">Inactif</option>
+          </select>
+        </div>
+      </div>
+      <div id="pa-success" style="display:none;margin-top:0.8rem;background:rgba(90,171,110,0.1);border:1px solid var(--green);border-radius:5px;padding:0.8rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-portail-account')">Annuler</button>
+      <button class="btn btn-primary" id="pa-save-btn">Créer le compte</button>
     </div>
   </div>
 </div>

@@ -666,7 +666,70 @@ function sigGetData() {
 // ═══════════════════════════════════════════════════════════════
 
 function loadChantier() {
-  loadChantierPhotos();
+  loadChantierAvancement();
+}
+
+function loadChantierAvancement() {
+  var pid = CURRENT_PROJECT || (PROJECTS.length === 1 ? PROJECTS[0].id : '');
+  if (!pid) { $('chantier-avancement').innerHTML = '<div class="empty-state"><div class="empty-text">Selectionnez un projet</div></div>'; return; }
+
+  apiCall('chantier_info', { params: { projet_id: pid } }).then(function (data) {
+    var ch = data.chantier || {};
+    var lots = data.lots || [];
+    var phases = data.phases || [];
+    var html = '';
+
+    // Info generale
+    html += '<div class="card"><div class="card-title">Informations du chantier</div>' +
+      '<div class="data-table"><table><tbody>';
+    if (ch.adresse) html += '<tr><td>Adresse</td><td>' + esc(ch.adresse) + '</td></tr>';
+    if (ch.date_debut) html += '<tr><td>Date de debut</td><td>' + fmtDate(ch.date_debut) + '</td></tr>';
+    if (ch.date_fin_prevue) html += '<tr><td>Date de fin prevue</td><td>' + fmtDate(ch.date_fin_prevue) + '</td></tr>';
+    if (ch.statut) html += '<tr><td>Statut</td><td><span class="badge ' + badgeClass(ch.statut) + '">' + esc(ch.statut) + '</span></td></tr>';
+    if (ch.avancement_global != null) html += '<tr><td>Avancement global</td><td><div class="progress-bar-wrap"><div class="progress-bar" style="width:' + (ch.avancement_global || 0) + '%"></div></div><span style="margin-left:0.5rem;font-weight:600">' + (ch.avancement_global || 0) + '%</span></td></tr>';
+    html += '</tbody></table></div></div>';
+
+    // Phases
+    if (phases.length) {
+      html += '<div class="card"><div class="card-title">Phases du chantier</div>';
+      phases.forEach(function (p) {
+        var pct = p.avancement || 0;
+        html += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border-light)">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">' +
+          '<strong style="font-size:0.85rem">' + esc(p.nom || p.titre || 'Phase') + '</strong>' +
+          '<span style="font-size:0.82rem;font-weight:600">' + pct + '%</span></div>' +
+          '<div class="progress-bar-wrap"><div class="progress-bar" style="width:' + pct + '%"></div></div>';
+        if (p.date_debut || p.date_fin) {
+          html += '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.2rem">';
+          if (p.date_debut) html += fmtDate(p.date_debut);
+          if (p.date_debut && p.date_fin) html += ' → ';
+          if (p.date_fin) html += fmtDate(p.date_fin);
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Lots
+    if (lots.length) {
+      html += '<div class="card"><div class="card-title">Lots</div><div class="data-table"><table>' +
+        '<thead><tr><th>Lot</th><th>Entreprise</th><th>Avancement</th><th>Statut</th></tr></thead><tbody>';
+      lots.forEach(function (l) {
+        var lpct = l.avancement || 0;
+        html += '<tr><td><strong>' + esc(l.nom || l.titre || '') + '</strong></td>' +
+          '<td>' + esc(l.entreprise || l.intervenant || '—') + '</td>' +
+          '<td><div style="display:flex;align-items:center;gap:0.5rem"><div class="progress-bar-wrap" style="flex:1;min-width:60px"><div class="progress-bar" style="width:' + lpct + '%"></div></div><span style="font-size:0.8rem">' + lpct + '%</span></div></td>' +
+          '<td><span class="badge ' + badgeClass(l.statut || '') + '">' + esc(l.statut || '—') + '</span></td></tr>';
+      });
+      html += '</tbody></table></div></div>';
+    }
+
+    if (!html || html === '') html = '<div class="empty-state"><div class="empty-text">Aucune donnee de chantier</div></div>';
+    $('chantier-avancement').innerHTML = html;
+  }).catch(function (e) {
+    $('chantier-avancement').innerHTML = '<div class="empty-state"><div class="empty-icon">&#127959;</div><div class="empty-text">Pas de chantier pour ce projet</div></div>';
+  });
 }
 
 function loadChantierPhotos() {
@@ -952,9 +1015,11 @@ document.addEventListener('DOMContentLoaded', function () {
     tab.addEventListener('click', function () {
       document.querySelectorAll('#page-chantier .tab').forEach(function (t) { t.classList.remove('active'); });
       this.classList.add('active');
+      $('chantier-avancement').style.display = this.dataset.tab === 'avancement' ? '' : 'none';
       $('chantier-photos').style.display = this.dataset.tab === 'photos' ? '' : 'none';
       $('chantier-reunions').style.display = this.dataset.tab === 'reunions' ? '' : 'none';
       $('chantier-reserves').style.display = this.dataset.tab === 'reserves' ? '' : 'none';
+      if (this.dataset.tab === 'avancement') loadChantierAvancement();
       if (this.dataset.tab === 'photos') loadChantierPhotos();
       if (this.dataset.tab === 'reunions') loadChantierReunions();
       if (this.dataset.tab === 'reserves') loadChantierReserves();

@@ -4228,7 +4228,7 @@ function doLogout(){
 }
 
 // ── Navigation ──
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres',chantier:'Tableau de bord chantier','chantier-journal':'Journal de chantier','chantier-intervenants':'Intervenants','chantier-reunions':'Réunions & PV','chantier-photos':'Photos & Médias','chantier-reserves':'Réserves & RFI','chantier-visas':'Visas d\'exécution','chantier-securite':'Sécurité',flotte:'Tableau de bord flotte','flotte-reservations':'Réservations & Attributions','flotte-km':'Kilométrage & Carburant','flotte-entretien':'Entretien & Maintenance','flotte-couts':'Coûts & TCO','flotte-conformite':'Conformité & Assurances'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres',chantier:'Tableau de bord chantier','chantier-journal':'Journal de chantier','chantier-intervenants':'Intervenants','chantier-reunions':'Réunions & PV','chantier-photos':'Photos & Médias','chantier-reserves':'Réserves & RFI','chantier-visas':'Visas d\'exécution','chantier-securite':'Sécurité',flotte:'Tableau de bord flotte','flotte-reservations':'Réservations & Attributions','flotte-km':'Kilométrage & Carburant','flotte-entretien':'Entretien & Maintenance','flotte-couts':'Coûts & TCO','flotte-conformite':'Conformité & Assurances',portail:'Comptes clients','portail-docs':'Documents partagés','portail-messages':'Messages clients'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   // ('notifications' est toujours accessible : ouvert depuis la cloche)
@@ -4274,6 +4274,9 @@ function showPage(id){
   if(id==='flotte-entretien')    setTimeout(function(){ if(typeof renderFlotteEntretienPage==='function') renderFlotteEntretienPage(); },80);
   if(id==='flotte-couts')        setTimeout(function(){ if(typeof renderFlotteCoutsPage==='function') renderFlotteCoutsPage(); },80);
   if(id==='flotte-conformite')   setTimeout(function(){ if(typeof renderFlotteConformitePage==='function') renderFlotteConformitePage(); },80);
+  if(id==='portail')    setTimeout(function(){ if(typeof renderPortailAccounts==='function') renderPortailAccounts(); },80);
+  if(id==='portail-docs') setTimeout(function(){ if(typeof renderPortailDocs==='function') renderPortailDocs(); },80);
+  if(id==='portail-messages') setTimeout(function(){ if(typeof renderPortailMessages==='function') renderPortailMessages(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
   if(id==='parametres') {
@@ -14428,4 +14431,397 @@ function _renderSecuriteStats(data) {
     '<div style="font-size:2rem;font-weight:700;color:' + ((data.incidents_ouverts||0) > 0 ? 'var(--red)' : 'var(--green)') + '">' + (data.incidents_ouverts||0) + '</div>' +
     '<div style="color:var(--text-2);font-size:0.85rem">incidents ouverts</div></div></div>';
   el.innerHTML = h;
+}
+
+// ══════════════════════════════════════════════════════════
+//  PORTAIL CLIENT — Gestion interne
+// ══════════════════════════════════════════════════════════
+
+var _portalAccounts = [];
+var _portalDocs = [];
+var _portalMsgRooms = [];
+var _portalMsgCurrent = null;
+var _portalMsgPoll = null;
+
+// ── Comptes clients ──
+
+function renderPortailAccounts() {
+  apiFetch('api/client_portal_admin.php?action=list_accounts').then(function(r) {
+    _portalAccounts = r.data || r || [];
+    var tbody = document.getElementById('portail-accounts-tbody');
+    if (!tbody) return;
+    var actifs = _portalAccounts.filter(function(a){ return a.statut === 'actif'; }).length;
+    var kpis = document.getElementById('portail-kpis');
+    if (kpis) {
+      kpis.innerHTML = '<div class="kpi-card"><div class="kpi-value">' + _portalAccounts.length + '</div><div class="kpi-label">Total comptes</div></div>' +
+        '<div class="kpi-card"><div class="kpi-value" style="color:var(--green)">' + actifs + '</div><div class="kpi-label">Actifs</div></div>' +
+        '<div class="kpi-card"><div class="kpi-value" style="color:var(--text-3)">' + (_portalAccounts.length - actifs) + '</div><div class="kpi-label">Inactifs</div></div>';
+    }
+    if (_portalAccounts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:2rem">Aucun compte client</td></tr>';
+      return;
+    }
+    tbody.innerHTML = _portalAccounts.map(function(a) {
+      var badge = a.statut === 'actif' ? 'badge-green' : 'badge-gray';
+      return '<tr>' +
+        '<td><strong>' + esc(a.nom) + '</strong><div style="font-size:0.72rem;color:var(--text-3)">' + esc(a.client_display || '') + '</div></td>' +
+        '<td><span style="font-family:var(--mono);font-size:0.8rem">' + esc(a.email) + '</span></td>' +
+        '<td><span class="badge ' + badge + '">' + esc(a.statut) + '</span></td>' +
+        '<td>' + (a.last_login ? fmtDate(a.last_login) : '<span style="color:var(--text-3)">Jamais</span>') + '</td>' +
+        '<td>' + fmtDate(a.cree_at) + '</td>' +
+        '<td><button class="btn-icon" onclick="editPortailAccount(\'' + a.id + '\')" title="Modifier">✏️</button>' +
+        '<button class="btn-icon" onclick="deletePortailAccount(\'' + a.id + '\',\'' + esc(a.nom).replace(/'/g, "\\'") + '\')" title="Supprimer" style="color:var(--red)">🗑️</button></td></tr>';
+    }).join('');
+  }).catch(function(e) { showToast('Erreur chargement comptes: ' + e.message, 'error'); });
+}
+
+function paGenPass() {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  var pass = '';
+  for (var i = 0; i < 10; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  document.getElementById('pa-password').value = pass;
+}
+
+function openPortailAccountModal(accountId) {
+  var isEdit = !!accountId;
+  document.getElementById('pa-modal-title').textContent = isEdit ? 'Modifier le compte' : 'Nouveau compte';
+  document.getElementById('pa-save-btn').textContent = isEdit ? 'Enregistrer' : 'Créer le compte';
+  document.getElementById('pa-id').value = accountId || '';
+  document.getElementById('pa-success').style.display = 'none';
+  // Populate client dropdown
+  var sel = document.getElementById('pa-client');
+  var clients = getClients();
+  sel.innerHTML = '<option value="">— Sélectionner —</option>' + clients.map(function(c) {
+    return '<option value="' + c.id + '">' + esc(c.displayNom || c.display_nom || c.nom || '') + '</option>';
+  }).join('');
+  if (isEdit) {
+    var a = _portalAccounts.find(function(x){ return x.id === accountId; });
+    if (a) {
+      sel.value = a.client_id || '';
+      document.getElementById('pa-nom').value = a.nom || '';
+      document.getElementById('pa-email').value = a.email || '';
+      document.getElementById('pa-password').value = '';
+      document.getElementById('pa-statut').value = a.statut || 'actif';
+    }
+  } else {
+    document.getElementById('pa-nom').value = '';
+    document.getElementById('pa-email').value = '';
+    document.getElementById('pa-password').value = '';
+    document.getElementById('pa-statut').value = 'actif';
+  }
+  openModal('modal-portail-account');
+}
+
+function savePortailAccount() {
+  var id = document.getElementById('pa-id').value;
+  var isEdit = !!id;
+  var clientId = document.getElementById('pa-client').value;
+  var nom = document.getElementById('pa-nom').value.trim();
+  var email = document.getElementById('pa-email').value.trim();
+  var password = document.getElementById('pa-password').value.trim();
+  var statut = document.getElementById('pa-statut').value;
+  if (!clientId || !nom || !email) { showToast('Client, nom et email requis', 'error'); return; }
+  if (!isEdit && password.length < 6) { showToast('Mot de passe min. 6 caractères', 'error'); return; }
+  var btn = document.getElementById('pa-save-btn');
+  btn.disabled = true; btn.textContent = isEdit ? 'Enregistrement...' : 'Création...';
+  if (isEdit) {
+    var body = { nom: nom, email: email, statut: statut };
+    if (password.length >= 6) body.password = password;
+    apiFetch('api/client_portal_admin.php?action=update_account&id=' + encodeURIComponent(id), { method: 'PUT', body: body })
+      .then(function() { showToast('Compte mis à jour', 'success'); closeModal('modal-portail-account'); renderPortailAccounts(); })
+      .catch(function(e) { showToast(e.message, 'error'); })
+      .finally(function() { btn.disabled = false; btn.textContent = 'Enregistrer'; });
+  } else {
+    apiFetch('api/client_portal_admin.php?action=create_account', { method: 'POST', body: { client_id: clientId, nom: nom, email: email, password: password } })
+      .then(function() {
+        var portalUrl = window.location.origin + window.location.pathname.replace(/[^/]+$/, '') + 'portail-client.html';
+        var succEl = document.getElementById('pa-success');
+        succEl.innerHTML = '<div style="font-weight:600;color:var(--green);margin-bottom:0.5rem">✓ Compte créé</div>' +
+          '<div style="background:var(--bg-2);border-radius:5px;padding:0.6rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">' +
+          '<div><strong>URL :</strong> ' + esc(portalUrl) + '</div>' +
+          '<div><strong>Email :</strong> ' + esc(email) + '</div>' +
+          '<div><strong>Mot de passe :</strong> ' + esc(password) + '</div></div>' +
+          '<button onclick="navigator.clipboard.writeText(\'URL: ' + esc(portalUrl) + '\\nEmail: ' + esc(email) + '\\nMot de passe: ' + esc(password) + '\').then(function(){showToast(\'Copié !\',\'success\')})" ' +
+          'style="margin-top:0.5rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:0.35rem 0.8rem;font-size:0.75rem;cursor:pointer;font-family:var(--font)">📋 Copier les identifiants</button>';
+        succEl.style.display = 'block';
+        btn.style.display = 'none';
+        renderPortailAccounts();
+      })
+      .catch(function(e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Créer le compte'; });
+  }
+}
+
+function editPortailAccount(id) { openPortailAccountModal(id); }
+
+function deletePortailAccount(id, nom) {
+  if (!confirm('Supprimer le compte de ' + nom + ' ? Cette action est irréversible.')) return;
+  apiFetch('api/client_portal_admin.php?action=delete_account&id=' + encodeURIComponent(id), { method: 'DELETE' })
+    .then(function() { showToast('Compte supprimé', 'success'); renderPortailAccounts(); })
+    .catch(function(e) { showToast(e.message, 'error'); });
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  var newBtn = document.getElementById('portail-new-btn');
+  if (newBtn) newBtn.addEventListener('click', function() { openPortailAccountModal(null); });
+  var saveBtn = document.getElementById('pa-save-btn');
+  if (saveBtn) saveBtn.addEventListener('click', savePortailAccount);
+  var pubBtn = document.getElementById('portail-pub-btn');
+  if (pubBtn) pubBtn.addEventListener('click', function() { openPortailDocModal(); });
+  var pdocSubmit = document.getElementById('pdoc-submit');
+  if (pdocSubmit) pdocSubmit.addEventListener('click', submitPortailDoc);
+  var msgSend = document.getElementById('portail-msg-send');
+  if (msgSend) msgSend.addEventListener('click', sendPortailMsg);
+  var msgInput = document.getElementById('portail-msg-input');
+  if (msgInput) msgInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPortailMsg(); }
+  });
+});
+
+// ── Documents partagés ──
+
+var _pdocSource = 'upload';
+
+function pdocSetSource(src) {
+  _pdocSource = src;
+  ['upload', 'nas', 'url'].forEach(function(s) {
+    var el = document.getElementById('pdoc-source-' + s);
+    if (el) el.style.display = s === src ? '' : 'none';
+    var btn = document.getElementById('pdoc-src-' + s);
+    if (btn) btn.style.borderColor = s === src ? 'var(--accent)' : 'var(--border)';
+    if (btn) btn.style.color = s === src ? 'var(--accent)' : 'var(--text-2)';
+  });
+}
+
+function openPortailDocModal() {
+  // Populate client dropdown
+  var clientSel = document.getElementById('pdoc-client');
+  var clients = getClients();
+  clientSel.innerHTML = '<option value="">— Sélectionner —</option>' + clients.map(function(c) {
+    return '<option value="' + c.id + '">' + esc(c.displayNom || c.display_nom || c.nom || '') + '</option>';
+  }).join('');
+  clientSel.onchange = function() { pdocUpdateProjets(); };
+  document.getElementById('pdoc-projet').innerHTML = '<option value="">— Sélectionner le client d\'abord —</option>';
+  document.getElementById('pdoc-titre').value = '';
+  document.getElementById('pdoc-description').value = '';
+  document.getElementById('pdoc-phase').value = '';
+  document.getElementById('pdoc-categorie').value = 'livrable';
+  document.getElementById('pdoc-file').value = '';
+  document.getElementById('pdoc-nas-path').value = '';
+  document.getElementById('pdoc-url').value = '';
+  document.getElementById('pdoc-request-validation').checked = false;
+  pdocSetSource('upload');
+  openModal('modal-portail-doc');
+}
+
+function pdocUpdateProjets() {
+  var clientId = document.getElementById('pdoc-client').value;
+  var projetSel = document.getElementById('pdoc-projet');
+  if (!clientId) { projetSel.innerHTML = '<option value="">— Sélectionner le client d\'abord —</option>'; return; }
+  var client = getClients().find(function(c){ return c.id === clientId; });
+  var code = client ? (client.code || '') : '';
+  var projets = getProjets().filter(function(p) { return p.client_code === code || p.clientId === clientId || p.client_id === clientId; });
+  projetSel.innerHTML = '<option value="">— Sélectionner —</option>' + projets.map(function(p) {
+    return '<option value="' + p.id + '">' + esc(p.code || '') + ' — ' + esc(p.nom || '') + '</option>';
+  }).join('');
+}
+
+function submitPortailDoc() {
+  var clientId = document.getElementById('pdoc-client').value;
+  var projetId = document.getElementById('pdoc-projet').value;
+  var titre = document.getElementById('pdoc-titre').value.trim();
+  if (!clientId || !projetId || !titre) { showToast('Client, projet et titre requis', 'error'); return; }
+
+  var btn = document.getElementById('pdoc-submit');
+  btn.disabled = true; btn.textContent = 'Publication...';
+
+  if (_pdocSource === 'upload') {
+    var file = document.getElementById('pdoc-file').files[0];
+    if (!file) { showToast('Sélectionnez un fichier', 'error'); btn.disabled = false; btn.textContent = 'Publier'; return; }
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('projet_id', projetId);
+    fd.append('client_id', clientId);
+    fd.append('titre', titre);
+    fd.append('categorie', document.getElementById('pdoc-categorie').value);
+    fd.append('phase', document.getElementById('pdoc-phase').value);
+    fd.append('description', document.getElementById('pdoc-description').value);
+    var token = sessionStorage.getItem('cortoba_token');
+    fetch('api/client_portal_admin.php?action=publish_document', {
+      method: 'POST',
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+      body: fd
+    }).then(function(r) { return r.json(); }).then(function(r) {
+      if (r.error) throw new Error(r.error);
+      afterDocPublish(r, clientId, projetId);
+    }).catch(function(e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Publier'; });
+  } else if (_pdocSource === 'nas' || _pdocSource === 'url') {
+    var sourceUrl = _pdocSource === 'nas' ? document.getElementById('pdoc-nas-path').value.trim() : document.getElementById('pdoc-url').value.trim();
+    if (!sourceUrl) { showToast('Entrez un chemin ou URL', 'error'); btn.disabled = false; btn.textContent = 'Publier'; return; }
+    apiFetch('api/client_portal_admin.php?action=publish_document_url', {
+      method: 'POST',
+      body: {
+        projet_id: projetId, client_id: clientId, titre: titre,
+        categorie: document.getElementById('pdoc-categorie').value,
+        phase: document.getElementById('pdoc-phase').value,
+        description: document.getElementById('pdoc-description').value,
+        source_url: sourceUrl, source_type: _pdocSource
+      }
+    }).then(function(r) {
+      afterDocPublish(r, clientId, projetId);
+    }).catch(function(e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Publier'; });
+  }
+}
+
+function afterDocPublish(r, clientId, projetId) {
+  var requestVal = document.getElementById('pdoc-request-validation').checked;
+  if (requestVal && r.data && r.data.id) {
+    apiFetch('api/client_portal_admin.php?action=request_validation', {
+      method: 'POST',
+      body: { document_id: r.data.id, projet_id: projetId, client_id: clientId, type: 'document' }
+    }).catch(function() {});
+  }
+  showToast('Document publié au portail client', 'success');
+  closeModal('modal-portail-doc');
+  renderPortailDocs();
+  var btn = document.getElementById('pdoc-submit');
+  btn.disabled = false; btn.textContent = 'Publier';
+}
+
+function renderPortailDocs() {
+  var clientFilter = (document.getElementById('portail-doc-client-filter') || {}).value || '';
+  var catFilter = (document.getElementById('portail-doc-cat-filter') || {}).value || '';
+  var url = 'api/client_portal_admin.php?action=client_documents';
+  if (clientFilter) url += '&client_id=' + encodeURIComponent(clientFilter);
+  apiFetch(url).then(function(r) {
+    _portalDocs = r.data || r || [];
+    // Populate client filter
+    var clientSel = document.getElementById('portail-doc-client-filter');
+    if (clientSel && clientSel.options.length <= 1) {
+      var seen = {};
+      _portalDocs.forEach(function(d) {
+        if (d.client_id && !seen[d.client_id]) {
+          seen[d.client_id] = true;
+          var opt = document.createElement('option');
+          opt.value = d.client_id;
+          opt.textContent = d.client_display || d.client_id;
+          clientSel.appendChild(opt);
+        }
+      });
+    }
+    var filtered = _portalDocs;
+    if (catFilter) filtered = filtered.filter(function(d){ return d.categorie === catFilter; });
+    var tbody = document.getElementById('portail-docs-tbody');
+    if (!tbody) return;
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucun document</td></tr>';
+      return;
+    }
+    tbody.innerHTML = filtered.map(function(d) {
+      var statBadge = d.statut === 'Valide' ? 'badge-green' : d.statut === 'Refuse' ? 'badge-red' : d.statut === 'En attente validation' ? 'badge-orange' : 'badge-blue';
+      return '<tr>' +
+        '<td><strong>' + esc(d.titre) + '</strong><div style="font-size:0.7rem;color:var(--text-3)">' + esc(d.fichier_nom || '') + '</div></td>' +
+        '<td>' + esc(d.client_display || '') + '</td>' +
+        '<td><span style="font-family:var(--mono);font-size:0.78rem">' + esc(d.projet_code || '') + '</span></td>' +
+        '<td><span class="badge">' + esc(d.categorie || '') + '</span></td>' +
+        '<td>v' + (d.version || 1) + '</td>' +
+        '<td><span class="badge ' + statBadge + '">' + esc(d.statut || '') + '</span></td>' +
+        '<td>' + fmtDate(d.cree_at) + '</td>' +
+        '<td><a href="' + esc(d.fichier_url || '#') + '" target="_blank" class="btn-icon" title="Télécharger">📥</a></td></tr>';
+    }).join('');
+  }).catch(function(e) { showToast('Erreur docs: ' + e.message, 'error'); });
+}
+
+// Filter listeners
+document.addEventListener('DOMContentLoaded', function() {
+  var cf = document.getElementById('portail-doc-client-filter');
+  if (cf) cf.addEventListener('change', renderPortailDocs);
+  var catf = document.getElementById('portail-doc-cat-filter');
+  if (catf) catf.addEventListener('change', renderPortailDocs);
+});
+
+// ── Messages clients (chat) ──
+
+function renderPortailMessages() {
+  // Load all client-type chat rooms
+  apiFetch('api/client_portal_admin.php?action=client_chat_rooms').then(function(r) {
+    _portalMsgRooms = r.data || r || [];
+    var container = document.getElementById('portail-msg-rooms');
+    if (!container) return;
+    if (_portalMsgRooms.length === 0) {
+      container.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text-3);font-size:0.82rem">Aucune discussion client</div>';
+      return;
+    }
+    container.innerHTML = _portalMsgRooms.map(function(room) {
+      var unread = room.unread_count || 0;
+      var active = _portalMsgCurrent === room.id ? 'background:var(--bg-2);' : '';
+      return '<div class="portail-msg-room" data-room="' + room.id + '" style="padding:0.7rem 1rem;cursor:pointer;border-bottom:1px solid var(--border);' + active + '" ' +
+        'onclick="openPortailRoom(\'' + room.id + '\')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<strong style="font-size:0.82rem">' + esc(room.name || 'Discussion') + '</strong>' +
+        (unread > 0 ? '<span class="badge badge-accent" style="font-size:0.65rem;min-width:18px;text-align:center">' + unread + '</span>' : '') + '</div>' +
+        '<div style="font-size:0.72rem;color:var(--text-3)">' + esc(room.projet_code || '') + ' — ' + esc(room.projet_nom || '') + '</div>' +
+        (room.last_msg_at ? '<div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">' + fmtDate(room.last_msg_at) + '</div>' : '') +
+        '</div>';
+    }).join('');
+    // Update badge
+    var totalUnread = _portalMsgRooms.reduce(function(s, r){ return s + (r.unread_count || 0); }, 0);
+    var badge = document.getElementById('portail-msg-badge');
+    if (badge) { badge.textContent = totalUnread; badge.style.display = totalUnread > 0 ? '' : 'none'; }
+  }).catch(function(e) { console.error('portail messages', e); });
+}
+
+function openPortailRoom(roomId) {
+  _portalMsgCurrent = roomId;
+  var room = _portalMsgRooms.find(function(r){ return r.id === roomId; });
+  document.getElementById('portail-msg-header').textContent = room ? (room.name || 'Discussion') : 'Discussion';
+  document.getElementById('portail-msg-composer').style.display = '';
+  // Highlight active room
+  document.querySelectorAll('.portail-msg-room').forEach(function(el) {
+    el.style.background = el.dataset.room === roomId ? 'var(--bg-2)' : '';
+  });
+  loadPortailRoomMessages(roomId);
+  // Start polling
+  if (_portalMsgPoll) clearInterval(_portalMsgPoll);
+  _portalMsgPoll = setInterval(function() { loadPortailRoomMessages(roomId); }, 5000);
+}
+
+function loadPortailRoomMessages(roomId) {
+  apiFetch('api/client_portal_admin.php?action=client_chat_messages&room_id=' + encodeURIComponent(roomId)).then(function(r) {
+    var msgs = r.data || r || [];
+    var container = document.getElementById('portail-msg-messages');
+    if (!container) return;
+    if (msgs.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:2rem">Aucun message</div>';
+      return;
+    }
+    var prevLen = container.children.length;
+    container.innerHTML = msgs.map(function(m) {
+      var isClient = (m.sender_id || '').indexOf('client_') === 0;
+      var align = isClient ? 'flex-end' : 'flex-start';
+      var bg = isClient ? 'var(--accent)' : 'var(--bg-2)';
+      var color = isClient ? '#1a1a1a' : 'var(--text)';
+      return '<div style="display:flex;justify-content:' + align + ';margin-bottom:0.5rem">' +
+        '<div style="max-width:75%;background:' + bg + ';color:' + color + ';border-radius:8px;padding:0.5rem 0.75rem">' +
+        '<div style="font-size:0.7rem;font-weight:600;margin-bottom:0.2rem">' + esc(m.sender_name || '') + '</div>' +
+        '<div style="font-size:0.83rem;white-space:pre-wrap">' + esc(m.content || '') + '</div>' +
+        '<div style="font-size:0.65rem;opacity:0.7;text-align:right;margin-top:0.2rem">' + fmtDate(m.cree_at) + '</div>' +
+        '</div></div>';
+    }).join('');
+    if (msgs.length !== prevLen) container.scrollTop = container.scrollHeight;
+  }).catch(function() {});
+}
+
+function sendPortailMsg() {
+  if (!_portalMsgCurrent) return;
+  var input = document.getElementById('portail-msg-input');
+  var content = (input.value || '').trim();
+  if (!content) return;
+  input.value = '';
+  apiFetch('api/client_portal_admin.php?action=client_chat_send', {
+    method: 'POST',
+    body: { room_id: _portalMsgCurrent, content: content }
+  }).then(function() {
+    loadPortailRoomMessages(_portalMsgCurrent);
+  }).catch(function(e) { showToast(e.message, 'error'); });
 }

@@ -22,6 +22,10 @@ try {
         case 'request_validation':  cpaRequestValidation($user); break;
         case 'client_documents':    cpaClientDocuments($user); break;
         case 'client_validations':  cpaClientValidations($user); break;
+        case 'publish_document_url': cpaPublishDocumentUrl($user); break;
+        case 'client_chat_rooms':   cpaClientChatRooms($user); break;
+        case 'client_chat_messages': cpaClientChatMessages($user); break;
+        case 'client_chat_send':    cpaClientChatSend($user); break;
         default: jsonError('Action inconnue', 404);
     }
 } catch (\Throwable $e) {
@@ -227,9 +231,10 @@ function cpaClientDocuments($user) {
     $projetId = $_GET['projet_id'] ?? '';
 
     $db = getDB();
-    $sql = "SELECT d.*, p.code AS projet_code, p.nom AS projet_nom
+    $sql = "SELECT d.*, p.code AS projet_code, p.nom AS projet_nom, c.display_nom AS client_display
             FROM CA_client_documents d
-            LEFT JOIN CA_projets p ON p.id = d.projet_id WHERE 1=1";
+            LEFT JOIN CA_projets p ON p.id = d.projet_id
+            LEFT JOIN CA_clients c ON c.id = d.client_id WHERE 1=1";
     $params = [];
 
     if ($clientId) { $sql .= " AND d.client_id = ?"; $params[] = $clientId; }
@@ -259,4 +264,146 @@ function cpaClientValidations($user) {
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PUBLIER DOCUMENT VIA URL (NAS ou externe)
+// ═══════════════════════════════════════════════════════════════
+
+function cpaPublishDocumentUrl($user) {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST requis', 405);
+    $body = getBody();
+
+    $projetId    = $body['projet_id'] ?? '';
+    $clientId    = $body['client_id'] ?? '';
+    $titre       = trim($body['titre'] ?? '');
+    $categorie   = $body['categorie'] ?? 'livrable';
+    $phase       = $body['phase'] ?? null;
+    $description = $body['description'] ?? null;
+    $sourceUrl   = trim($body['source_url'] ?? '');
+    $sourceType  = $body['source_type'] ?? 'url'; // 'nas' ou 'url'
+
+    if (!$projetId || !$clientId || !$titre) jsonError('projet_id, client_id et titre requis');
+    if (!$sourceUrl) jsonError('source_url requis');
+
+    $db = getDB();
+
+    // Determiner le nom du fichier depuis l'URL
+    $fileName = basename(parse_url($sourceUrl, PHP_URL_PATH) ?: $titre);
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (!$ext) { $fileName .= '.pdf'; $ext = 'pdf'; }
+
+    // Si NAS, tenter de telecharger le fichier
+    $fichierUrl = $sourceUrl;
+    $fichierTaille = 0;
+    if ($sourceType === 'nas') {
+        // Tenter le telechargement WebDAV/HTTP
+        $uploadDir = realpath(__DIR__ . '/../../') . '/img/client_docs/';
+        if (!is_dir($uploadDir)) @mkdir($uploadDir, 0755, true);
+        $destName = 'cdoc_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $destPath = $uploadDir . $destName;
+
+        $ctx = stream_context_create(['http' => [
+            'timeout' => 30,
+            'header'  => "Authorization: Basic " . base64_encode("CASNAS:Cortoba2026")
+        ]]);
+        $content = @file_get_contents($sourceUrl, false, $ctx);
+        if ($content !== false) {
+            file_put_contents($destPath, $content);
+            $fichierUrl = '/img/client_docs/' . $destName;
+            $fichierTaille = strlen($content);
+            $fileName = $destName;
+        }
+        // Si echec, on garde l'URL NAS comme reference
+    }
+
+    // Gestion du versioning
+    $version = 1;
+    $parentId = null;
+    $stmt = $db->prepare("SELECT id, version FROM CA_client_documents
+                          WHERE projet_id = ? AND client_id = ? AND titre = ?
+                          ORDER BY version DESC LIMIT 1");
+    $stmt->execute([$projetId, $clientId, $titre]);
+    $prev = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($prev) {
+        $version  = (int)$prev['version'] + 1;
+        $parentId = $prev['id'];
+        $db->prepare("UPDATE CA_client_documents SET statut = 'Remplace' WHERE id = ?")->execute([$prev['id']]);
+    }
+
+    $docId = cpGenId();
+    $db->prepare("INSERT INTO CA_client_documents
+                  (id, projet_id, client_id, categorie, titre, description, fichier_url, fichier_nom,
+                   fichier_taille, version, parent_doc_id, phase, statut, uploaded_by, uploaded_by_type)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Nouveau', ?, 'team')")
+       ->execute([$docId, $projetId, $clientId, $categorie, $titre, $description,
+                  $fichierUrl, $fileName, $fichierTaille,
+                  $version, $parentId, $phase, $user['name'] ?? 'Equipe']);
+
+    jsonOk(['id' => $docId, 'version' => $version, 'url' => $fichierUrl], 201);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MESSAGERIE CLIENT (vue admin)
+// ═══════════════════════════════════════════════════════════════
+
+function cpaClientChatRooms($user) {
+    $db = getDB();
+    $stmt = $db->prepare("
+        SELECT r.id, r.name, r.projet_id, r.is_archived, r.cree_at,
+               p.code AS projet_code, p.nom AS projet_nom,
+               c.display_nom AS client_display,
+               (SELECT COUNT(*) FROM CA_chat_messages m WHERE m.room_id = r.id) AS msg_count,
+               (SELECT m2.cree_at FROM CA_chat_messages m2 WHERE m2.room_id = r.id ORDER BY m2.cree_at DESC LIMIT 1) AS last_msg_at,
+               (SELECT COUNT(*) FROM CA_chat_messages m3 WHERE m3.room_id = r.id AND m3.sender_id LIKE 'client_%'
+                AND m3.cree_at > COALESCE((SELECT MAX(m4.cree_at) FROM CA_chat_messages m4 WHERE m4.room_id = r.id AND m4.sender_id NOT LIKE 'client_%'), '1970-01-01')) AS unread_count
+        FROM CA_chat_rooms r
+        LEFT JOIN CA_projets p ON p.id = r.projet_id
+        LEFT JOIN CA_clients c ON c.code = p.client_code COLLATE utf8mb4_unicode_ci
+        WHERE r.type = 'client'
+        ORDER BY last_msg_at DESC
+    ");
+    $stmt->execute();
+    jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function cpaClientChatMessages($user) {
+    $roomId = $_GET['room_id'] ?? '';
+    if (!$roomId) jsonError('room_id requis');
+
+    $db = getDB();
+    // Verifier que c'est bien une room client
+    $stmt = $db->prepare("SELECT id FROM CA_chat_rooms WHERE id = ? AND type = 'client'");
+    $stmt->execute([$roomId]);
+    if (!$stmt->fetch()) jsonError('Room non trouvee', 404);
+
+    $limit = min((int)($_GET['limit'] ?? 100), 200);
+    $stmt = $db->prepare("SELECT id, sender_id, sender_name, kind, content, attachment_url, attachment_name, cree_at
+                          FROM CA_chat_messages WHERE room_id = ?
+                          ORDER BY cree_at ASC LIMIT $limit");
+    $stmt->execute([$roomId]);
+    jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function cpaClientChatSend($user) {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST requis', 405);
+    $body   = getBody();
+    $roomId  = $body['room_id'] ?? '';
+    $content = trim($body['content'] ?? '');
+    if (!$roomId || !$content) jsonError('room_id et content requis');
+
+    $db = getDB();
+    $stmt = $db->prepare("SELECT id, is_archived FROM CA_chat_rooms WHERE id = ? AND type = 'client'");
+    $stmt->execute([$roomId]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$room) jsonError('Room non trouvee', 404);
+    if ($room['is_archived']) jsonError('Discussion archivee', 403);
+
+    $msgId = cpGenId();
+    $senderName = $user['name'] ?? $user['prenom'] ?? 'Équipe';
+    $db->prepare("INSERT INTO CA_chat_messages (id, room_id, sender_id, sender_name, kind, content)
+                  VALUES (?, ?, ?, ?, 'text', ?)")
+       ->execute([$msgId, $roomId, 'team_' . ($user['id'] ?? ''), $senderName, $content]);
+
+    jsonOk(['id' => $msgId]);
 }
