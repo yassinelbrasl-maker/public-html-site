@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "plateforme",
+      "runtimeExecutable": "C:/Program Files/Git/usr/bin/perl.exe",
+      "runtimeArgs": [".claude/serve.pl", "8080", "cortoba-plateforme"],
+      "port": 8080
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "C:/Program Files/Git/usr/bin/perl.exe",
+      "runtimeArgs": [".claude/serve.pl", "8081", "."],
+      "port": 8081
+    }
+  ]
+}

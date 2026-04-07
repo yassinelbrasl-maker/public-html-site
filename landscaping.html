@@ -1262,8 +1262,8 @@
 
     /* ── Hero slider ── */
     let currentSlide = 0;
-    const slides = document.querySelectorAll('.hero-slide');
-    const dots   = document.querySelectorAll('.hero-dot');
+    let slides = document.querySelectorAll('.hero-slide');
+    let dots   = document.querySelectorAll('.hero-dot');
 
     function goToSlide(n) {
       slides[currentSlide].classList.remove('active');
@@ -1273,9 +1273,72 @@
       dots[currentSlide].classList.add('active');
     }
 
-    setInterval(() => {
-      goToSlide((currentSlide + 1) % slides.length);
+    let heroInterval = setInterval(() => {
+      if (slides.length > 0) goToSlide((currentSlide + 1) % slides.length);
     }, 5500);
+
+    /* ── Dynamic content from API ── */
+    function escHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    // Load hero slider from API
+    fetch('cortoba-plateforme/api/landscaping_slider.php')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success || !data.data.length) return;
+        const slidesContainer = document.querySelector('.hero-slides');
+        const dotsContainer = document.querySelector('.hero-indicators');
+        if (!slidesContainer || !dotsContainer) return;
+
+        clearInterval(heroInterval);
+        currentSlide = 0;
+
+        slidesContainer.innerHTML = data.data.map((s, i) =>
+          `<div class="hero-slide${i === 0 ? ' active' : ''}" style="background-image:url('${s.image_path}');background-color:${s.bg_color || '#0c0d0a'}"></div>`
+        ).join('');
+
+        dotsContainer.innerHTML = data.data.map((_, i) =>
+          `<button class="hero-dot${i === 0 ? ' active' : ''}" onclick="goToSlide(${i})" aria-label="Diapositive ${i+1}"></button>`
+        ).join('');
+
+        slides = document.querySelectorAll('.hero-slide');
+        dots = document.querySelectorAll('.hero-dot');
+
+        if (slides.length > 1) {
+          heroInterval = setInterval(() => {
+            goToSlide((currentSlide + 1) % slides.length);
+          }, 5500);
+        }
+      })
+      .catch(() => {});
+
+    // Load projects from API
+    fetch('cortoba-plateforme/api/landscaping_projects.php')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success || !data.data.length) return;
+        const mosaic = document.querySelector('.projects-mosaic');
+        if (!mosaic) return;
+
+        mosaic.innerHTML = data.data.map((p, i) => {
+          const delayClass = i === 0 ? 'reveal' : `reveal reveal-delay-${(i % 2) + 1}`;
+          return `<a class="proj-card ${delayClass}" href="${escHtml(p.link || '#')}" style="${i === 0 ? 'background:#1a2a14' : ''}">
+            <div class="proj-img" style="background-image:url('${escHtml(p.image)}')"></div>
+            <div class="proj-overlay">
+              <p class="proj-tag">${escHtml(p.tag)}</p>
+              <h3 class="proj-name">${escHtml(p.title)}</h3>
+              <p class="proj-loc">${escHtml(p.location)}</p>
+            </div>
+          </a>`;
+        }).join('');
+
+        // Re-observe new elements
+        mosaic.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+      })
+      .catch(() => {});
 
     /* ── Scroll reveal ── */
     const revealObserver = new IntersectionObserver((entries) => {

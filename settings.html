@@ -394,6 +394,15 @@
         <button class="sidebar-item" data-section="slider">
           <i class="fa-solid fa-photo-film"></i> Slider accueil
         </button>
+        <div style="border-top:1px solid var(--border);margin:0.8rem 0;opacity:0.4"></div>
+        <div style="padding:0.4rem 1.5rem;font-size:0.6rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#8dba78;opacity:0.7">Landscaping</div>
+        <button class="sidebar-item" data-section="ls-projects">
+          <i class="fa-solid fa-leaf"></i> Projets paysagers
+        </button>
+        <button class="sidebar-item" data-section="ls-slider">
+          <i class="fa-solid fa-panorama"></i> Slider héro
+        </button>
+        <div style="border-top:1px solid var(--border);margin:0.8rem 0;opacity:0.4"></div>
         <button class="sidebar-item" data-section="general">
           <i class="fa-solid fa-gear"></i> Général
         </button>
@@ -461,6 +470,45 @@
           <i class="fa-solid fa-photo-film"></i>
           <h3>Aucune photo dans le slider</h3>
           <p>Ajoutez des photos pour les voir défiler sur la page d'accueil.</p>
+        </div>
+      </div>
+
+      <!-- ── SECTION: LANDSCAPING PROJECTS ── -->
+      <div class="section" id="sec-ls-projects">
+        <div class="main-header">
+          <h1><i class="fa-solid fa-leaf" style="color:#8dba78;margin-right:0.6rem"></i> Projets paysagers</h1>
+          <button class="btn btn-primary" id="lsAddProjectBtn" style="background:#8dba78;color:#0c0d0a"><i class="fa-solid fa-plus"></i> Nouveau projet</button>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem">Gérez les projets affichés sur la page <a href="landscaping.html" target="_blank">Cortoba Landscaping</a>.</p>
+        <div id="lsProjectsList" class="projects-list"></div>
+        <div id="lsProjectsEmpty" class="empty-state" style="display:none">
+          <i class="fa-solid fa-leaf"></i>
+          <h3>Aucun projet paysager</h3>
+          <p>Ajoutez votre premier projet pour le voir apparaître sur la page Landscaping.</p>
+          <button class="btn btn-primary" onclick="lsOpenEditor()" style="background:#8dba78;color:#0c0d0a"><i class="fa-solid fa-plus"></i> Ajouter un projet</button>
+        </div>
+      </div>
+
+      <!-- ── SECTION: LANDSCAPING SLIDER ── -->
+      <div class="section" id="sec-ls-slider">
+        <div class="main-header">
+          <h1><i class="fa-solid fa-panorama" style="color:#8dba78;margin-right:0.6rem"></i> Slider héro — Landscaping</h1>
+          <div style="display:flex;gap:0.5rem">
+            <div class="img-upload-zone" id="lsSliderUploadZone" style="padding:0.6rem 1.2rem;border-width:1px;display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;position:relative;border-color:#8dba78">
+              <input type="file" accept="image/*" multiple id="lsSliderFileInput" style="position:absolute;inset:0;opacity:0;cursor:pointer" />
+              <i class="fa-solid fa-plus" style="color:#8dba78"></i> <span style="color:#8dba78">Ajouter des photos</span>
+            </div>
+          </div>
+        </div>
+        <div class="upload-progress" id="lsSliderProgress"><div class="upload-progress-bar" id="lsSliderProgressBar" style="background:#8dba78"></div></div>
+        <div class="upload-progress-text" id="lsSliderProgressText"></div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem">Photos du héro sur la page <a href="landscaping.html" target="_blank">Cortoba Landscaping</a>.</p>
+
+        <div id="lsSliderList" style="display:flex;flex-wrap:wrap;gap:0.8rem"></div>
+        <div id="lsSliderEmpty" class="empty-state" style="display:none">
+          <i class="fa-solid fa-panorama"></i>
+          <h3>Aucune photo dans le slider</h3>
+          <p>Ajoutez des photos pour le héro de la page Landscaping.</p>
         </div>
       </div>
 
@@ -630,6 +678,59 @@
       <p id="confirmText">Cette action est irréversible.</p>
       <button class="btn btn-ghost" id="confirmNo">Annuler</button>
       <button class="btn btn-danger" id="confirmYes">Supprimer</button>
+    </div>
+  </div>
+
+  <!-- ═══════ LANDSCAPING PROJECT EDITOR ═══════ -->
+  <div class="editor-overlay" id="lsEditorOverlay">
+    <div class="editor-header" style="background:linear-gradient(90deg,var(--bg2),rgba(141,186,120,0.08))">
+      <h2 id="lsEditorTitle" style="display:flex;align-items:center;gap:0.6rem"><i class="fa-solid fa-leaf" style="color:#8dba78"></i> Nouveau projet paysager</h2>
+      <div style="display:flex;gap:0.6rem">
+        <button class="btn btn-ghost" id="lsEditorCancel"><i class="fa-solid fa-xmark"></i> Annuler</button>
+        <button class="btn btn-primary" id="lsEditorSave" style="background:#8dba78;color:#0c0d0a"><i class="fa-solid fa-check"></i> Enregistrer</button>
+      </div>
+    </div>
+    <div class="editor-body">
+      <input type="hidden" id="lsProjId" />
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Titre du projet *</label>
+          <input type="text" id="lsProjTitle" placeholder="Ex: Villa Oléa" />
+        </div>
+        <div class="form-group">
+          <label>Catégorie / Tag</label>
+          <input type="text" id="lsProjTag" placeholder="Ex: Jardin privé" />
+        </div>
+        <div class="form-group">
+          <label>Localisation</label>
+          <input type="text" id="lsProjLocation" placeholder="Ex: Djerba, Tunisie" />
+        </div>
+        <div class="form-group">
+          <label>Lien (URL page détail)</label>
+          <input type="text" id="lsProjLink" placeholder="#" />
+        </div>
+        <div class="form-group">
+          <label>Ordre (0 = premier)</label>
+          <input type="number" id="lsProjSortOrder" value="0" min="0" />
+        </div>
+        <div class="form-group full">
+          <label>Image du projet</label>
+          <div class="img-upload-zone" id="lsHeroZone" style="border-color:rgba(141,186,120,0.3)">
+            <input type="file" accept="image/*" id="lsHeroInput" />
+            <i class="fa-solid fa-cloud-arrow-up" style="color:#8dba78"></i>
+            <p>Cliquez ou glissez une image ici</p>
+          </div>
+          <div class="upload-progress" id="lsHeroProgress"><div class="upload-progress-bar" id="lsHeroProgressBar" style="background:#8dba78"></div></div>
+          <div class="upload-progress-text" id="lsHeroProgressText"></div>
+          <div id="lsHeroPreviewWrap" style="margin-top:0.8rem;display:none;border-radius:var(--radius);overflow:hidden">
+            <img id="lsHeroPreview" style="width:100%;max-height:300px;object-fit:cover;display:block;border-radius:var(--radius)" />
+          </div>
+        </div>
+        <div class="form-group full" style="display:flex;align-items:center;gap:1rem;margin-top:1rem">
+          <label style="margin:0;cursor:pointer" for="lsProjPublished">Publié sur le site</label>
+          <input type="checkbox" id="lsProjPublished" checked style="width:20px;height:20px;accent-color:#8dba78" />
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1523,12 +1624,308 @@
       }
     }
 
+    // ══════════════════════════════════════════
+    //  LANDSCAPING PROJECTS
+    // ══════════════════════════════════════════
+    const LS_PROJ_API = 'cortoba-plateforme/api/landscaping_projects.php';
+    const LS_SLIDER_API = 'cortoba-plateforme/api/landscaping_slider.php';
+    let lsProjects = [];
+    let lsEditingId = null;
+    let lsHeroImagePath = '';
+
+    async function lsLoadProjects() {
+      try {
+        const res = await fetch(LS_PROJ_API + '?admin=1', { headers: headers() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        lsProjects = data.data;
+        lsRenderProjects();
+      } catch (e) {
+        lsProjects = [];
+        lsRenderProjects();
+      }
+    }
+
+    function lsRenderProjects() {
+      const list = document.getElementById('lsProjectsList');
+      const empty = document.getElementById('lsProjectsEmpty');
+      if (lsProjects.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      list.innerHTML = lsProjects.map(p => {
+        const badge = p.published == 1
+          ? '<span class="proj-status-badge badge-published">Publié</span>'
+          : '<span class="proj-status-badge badge-draft">Brouillon</span>';
+        return `
+          <div class="proj-card" data-id="${p.id}">
+            ${p.image ? `<img class="proj-card-img" src="${p.image}" alt="${esc(p.title)}" />` : '<div class="proj-card-img" style="background:#1a2a14;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-leaf" style="font-size:2rem;color:#8dba78;opacity:0.3"></i></div>'}
+            <div class="proj-card-body">
+              <div class="proj-card-tag" style="color:#8dba78">${esc(p.tag)} ${badge}</div>
+              <div class="proj-card-title">${esc(p.title)}</div>
+              <div class="proj-card-loc">${esc(p.location)}</div>
+              <div class="proj-card-actions">
+                <button class="btn btn-ghost btn-sm" onclick="lsOpenEditor(${p.id})"><i class="fa-solid fa-pen"></i> Modifier</button>
+                <button class="btn btn-danger btn-sm" onclick="lsConfirmDelete(${p.id})"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function lsOpenEditor(id) {
+      lsEditingId = id || null;
+      lsHeroImagePath = '';
+      document.getElementById('lsProjId').value = '';
+      document.getElementById('lsProjTitle').value = '';
+      document.getElementById('lsProjTag').value = '';
+      document.getElementById('lsProjLocation').value = '';
+      document.getElementById('lsProjLink').value = '';
+      document.getElementById('lsProjSortOrder').value = '0';
+      document.getElementById('lsProjPublished').checked = true;
+      document.getElementById('lsHeroPreviewWrap').style.display = 'none';
+
+      document.getElementById('lsEditorTitle').innerHTML = id
+        ? '<i class="fa-solid fa-leaf" style="color:#8dba78"></i> Modifier le projet paysager'
+        : '<i class="fa-solid fa-leaf" style="color:#8dba78"></i> Nouveau projet paysager';
+
+      if (id) {
+        const p = lsProjects.find(x => x.id == id);
+        if (p) {
+          document.getElementById('lsProjId').value = p.id;
+          document.getElementById('lsProjTitle').value = p.title;
+          document.getElementById('lsProjTag').value = p.tag || '';
+          document.getElementById('lsProjLocation').value = p.location || '';
+          document.getElementById('lsProjLink').value = p.link || '';
+          document.getElementById('lsProjSortOrder').value = p.sort_order || 0;
+          document.getElementById('lsProjPublished').checked = p.published == 1;
+          if (p.image) {
+            lsHeroImagePath = p.image;
+            document.getElementById('lsHeroPreview').src = p.image;
+            document.getElementById('lsHeroPreviewWrap').style.display = 'block';
+          }
+        }
+      }
+      document.getElementById('lsEditorOverlay').classList.add('open');
+    }
+
+    function lsCloseEditor() {
+      document.getElementById('lsEditorOverlay').classList.remove('open');
+      lsEditingId = null;
+    }
+
+    async function lsSaveProject() {
+      const title = document.getElementById('lsProjTitle').value.trim();
+      if (!title) { toast('Le titre est obligatoire', 'error'); return; }
+
+      const payload = {
+        id: lsEditingId,
+        title,
+        tag: document.getElementById('lsProjTag').value.trim(),
+        location: document.getElementById('lsProjLocation').value.trim(),
+        image: lsHeroImagePath,
+        link: document.getElementById('lsProjLink').value.trim(),
+        sort_order: parseInt(document.getElementById('lsProjSortOrder').value) || 0,
+        published: document.getElementById('lsProjPublished').checked ? 1 : 0
+      };
+
+      const method = lsEditingId ? 'PUT' : 'POST';
+      try {
+        document.getElementById('lsEditorSave').disabled = true;
+        document.getElementById('lsEditorSave').innerHTML = '<span class="spinner"></span> Enregistrement...';
+        const res = await fetch(LS_PROJ_API, { method, headers: headers(), body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        toast(lsEditingId ? 'Projet paysager mis à jour' : 'Projet paysager créé', 'success');
+        lsCloseEditor();
+        lsLoadProjects();
+      } catch (e) {
+        toast('Erreur: ' + e.message, 'error');
+      } finally {
+        document.getElementById('lsEditorSave').disabled = false;
+        document.getElementById('lsEditorSave').innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer';
+      }
+    }
+
+    let lsDeleteTargetId = null;
+    function lsConfirmDelete(id) {
+      lsDeleteTargetId = id;
+      document.getElementById('confirmTitle').textContent = 'Supprimer ce projet paysager ?';
+      document.getElementById('confirmText').textContent = 'Cette action est irréversible.';
+      // Temporarily rebind confirm yes
+      document.getElementById('confirmYes').onclick = lsDoDelete;
+      document.getElementById('confirmDialog').classList.add('open');
+    }
+
+    async function lsDoDelete() {
+      if (!lsDeleteTargetId) return;
+      try {
+        const res = await fetch(LS_PROJ_API + '?id=' + lsDeleteTargetId, { method: 'DELETE', headers: headers() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        toast('Projet paysager supprimé', 'success');
+        lsLoadProjects();
+      } catch (e) {
+        toast('Erreur: ' + e.message, 'error');
+      }
+      lsDeleteTargetId = null;
+      document.getElementById('confirmDialog').classList.remove('open');
+      // Restore original binding
+      document.getElementById('confirmYes').onclick = deleteProject;
+    }
+
+    // ── Landscaping hero image upload ──
+    document.getElementById('lsHeroInput').addEventListener('change', async function() {
+      if (!this.files[0]) return;
+      const progBar = document.getElementById('lsHeroProgressBar');
+      const progWrap = document.getElementById('lsHeroProgress');
+      const progText = document.getElementById('lsHeroProgressText');
+      progWrap.classList.add('active');
+      progText.classList.add('active');
+      progBar.style.width = '0%';
+      progText.textContent = 'Upload en cours...';
+      try {
+        lsHeroImagePath = await uploadImageWithProgress(this.files[0], (pct) => {
+          progBar.style.width = pct + '%';
+          progText.textContent = 'Upload: ' + pct + '%';
+        });
+        document.getElementById('lsHeroPreview').src = lsHeroImagePath;
+        document.getElementById('lsHeroPreviewWrap').style.display = 'block';
+        progText.textContent = 'Upload terminé';
+        toast('Image uploadée', 'success');
+      } catch (e) {
+        toast('Erreur upload: ' + e.message, 'error');
+        progText.textContent = 'Erreur';
+      }
+      setTimeout(() => { progWrap.classList.remove('active'); progText.classList.remove('active'); }, 2000);
+    });
+
+    // Drag & drop on landscaping hero zone
+    const lsHeroZone = document.getElementById('lsHeroZone');
+    lsHeroZone.addEventListener('dragover', e => { e.preventDefault(); lsHeroZone.classList.add('drag-over'); });
+    lsHeroZone.addEventListener('dragleave', () => lsHeroZone.classList.remove('drag-over'));
+    lsHeroZone.addEventListener('drop', e => {
+      e.preventDefault(); lsHeroZone.classList.remove('drag-over');
+      document.getElementById('lsHeroInput').files = e.dataTransfer.files;
+      document.getElementById('lsHeroInput').dispatchEvent(new Event('change'));
+    });
+
+    // Landscaping editor bindings
+    document.getElementById('lsAddProjectBtn').addEventListener('click', () => lsOpenEditor());
+    document.getElementById('lsEditorCancel').addEventListener('click', lsCloseEditor);
+    document.getElementById('lsEditorSave').addEventListener('click', lsSaveProject);
+
+    // ══════════════════════════════════════════
+    //  LANDSCAPING SLIDER
+    // ══════════════════════════════════════════
+    let lsSliderImages = [];
+
+    async function lsLoadSlider() {
+      try {
+        const res = await fetch(LS_SLIDER_API, { headers: headers() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        lsSliderImages = data.data;
+        lsRenderSlider();
+      } catch (e) {
+        lsSliderImages = [];
+        lsRenderSlider();
+      }
+    }
+
+    function lsRenderSlider() {
+      const list = document.getElementById('lsSliderList');
+      const empty = document.getElementById('lsSliderEmpty');
+      if (lsSliderImages.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      list.innerHTML = lsSliderImages.map((s, i) => `
+        <div class="slider-card" data-id="${s.id}" style="height:auto;border-color:rgba(141,186,120,0.2)">
+          <div style="position:relative;width:100%;height:150px;overflow:hidden">
+            <img src="${s.image_path}" alt="${esc(s.alt_text || '')}" style="object-fit:cover;width:100%;height:100%" />
+          </div>
+          <div class="slider-card-actions">
+            <button class="slider-card-btn del" onclick="lsDeleteSliderImage(${s.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <div class="slider-card-order" style="background:rgba(141,186,120,0.8)">${i + 1}</div>
+          <div style="padding:0.3rem 0.5rem;font-size:0.6rem;color:var(--text-muted);text-align:center">${esc(s.alt_text || 'Slide ' + (i+1))}</div>
+        </div>
+      `).join('');
+    }
+
+    // Upload landscaping slider images
+    document.getElementById('lsSliderFileInput').addEventListener('change', async function() {
+      const files = Array.from(this.files);
+      if (!files.length) return;
+      this.value = '';
+
+      const progBar = document.getElementById('lsSliderProgressBar');
+      const progWrap = document.getElementById('lsSliderProgress');
+      const progText = document.getElementById('lsSliderProgressText');
+
+      for (let f = 0; f < files.length; f++) {
+        progWrap.classList.add('active');
+        progText.classList.add('active');
+        progBar.style.width = '0%';
+        progText.textContent = `Upload ${f + 1}/${files.length}...`;
+        try {
+          const path = await uploadImageWithProgress(files[f], (pct) => {
+            progBar.style.width = pct + '%';
+            progText.textContent = `Upload ${f + 1}/${files.length} — ${pct}%`;
+          });
+          // Directly save to slider
+          const res = await fetch(LS_SLIDER_API, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ image_path: path, alt_text: '', sort_order: lsSliderImages.length + f })
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error);
+        } catch (e) {
+          toast('Erreur: ' + e.message, 'error');
+        }
+      }
+      progWrap.classList.remove('active');
+      progText.classList.remove('active');
+      toast(files.length + ' photo(s) ajoutée(s) au slider', 'success');
+      lsLoadSlider();
+    });
+
+    async function lsDeleteSliderImage(id) {
+      try {
+        const res = await fetch(LS_SLIDER_API + '?id=' + id, { method: 'DELETE', headers: headers() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        toast('Photo supprimée du slider', 'success');
+        lsLoadSlider();
+      } catch (e) {
+        toast('Erreur: ' + e.message, 'error');
+      }
+    }
+
+    // Drag & drop on landscaping slider upload zone
+    const lsSliderZone = document.getElementById('lsSliderUploadZone');
+    lsSliderZone.addEventListener('dragover', e => { e.preventDefault(); lsSliderZone.classList.add('drag-over'); });
+    lsSliderZone.addEventListener('dragleave', () => lsSliderZone.classList.remove('drag-over'));
+    lsSliderZone.addEventListener('drop', e => {
+      e.preventDefault(); lsSliderZone.classList.remove('drag-over');
+      document.getElementById('lsSliderFileInput').files = e.dataTransfer.files;
+      document.getElementById('lsSliderFileInput').dispatchEvent(new Event('change'));
+    });
+
     // ── Init ──
     function showApp() {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('app').classList.add('active');
       loadProjects();
       loadSlider();
+      lsLoadProjects();
+      lsLoadSlider();
     }
 
     (async () => {
