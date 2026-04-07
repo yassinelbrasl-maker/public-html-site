@@ -14861,7 +14861,7 @@ function openNasConformite() {
     });
 }
 
-// Fallback : interroger le NAS directement depuis le navigateur via WebDAV PROPFIND
+// Fallback : ouvrir un popup HTTP sur le NAS pour contourner le mixed-content HTTPS->HTTP
 function ncFallbackWebDAV(statusEl) {
   var cfg = getNasConfig();
   var ip = cfg.local || '192.168.1.165';
@@ -14869,110 +14869,58 @@ function ncFallbackWebDAV(statusEl) {
   var user = cfg.user || 'CASNAS';
   var pass = cfg.pass || 'Cortoba2026';
   var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
-  var baseUrl = 'http://' + ip + ':' + port;
+  if (rootPath.charAt(0) !== '/') rootPath = '/' + rootPath;
 
-  // Utiliser les projets déjà chargés en mémoire
-  var projets = getProjets().map(function(p) {
-    return { id: p.id, code: p.code || '', nom: p.nom || '', annee: p.annee || '', statut: p.statut || '' };
-  });
+  // Ecouter le message de retour du popup bridge
+  var messageHandler = function(evt) {
+    if (!evt.data || evt.data.type !== 'nas-conformite-result') return;
+    window.removeEventListener('message', messageHandler);
 
-  // D'abord lister les dossiers-années
-  ncWebdavPropfind(baseUrl, rootPath, user, pass)
-    .then(function(years) {
-      // Filtrer pour ne garder que les années valides (20xx)
-      var validYears = years.filter(function(y) { return /^20\d{2}$/.test(y); });
-      if (validYears.length === 0) {
-        statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⚠️</div>Aucune année trouvée dans ' + rootPath;
-        return;
-      }
-      // Lister les dossiers de chaque année en parallèle
-      var promises = validYears.map(function(year) {
-        return ncWebdavPropfind(baseUrl, rootPath + '/' + year, user, pass)
-          .then(function(folders) { return { year: year, folders: folders }; })
-          .catch(function() { return { year: year, folders: [] }; });
+    if (evt.data.data && evt.data.data.success) {
+      var nasFolders = evt.data.data.nas_folders || {};
+      var projets = getProjets().map(function(p) {
+        return { id: p.id, code: p.code || '', nom: p.nom || '', annee: p.annee || '', statut: p.statut || '' };
       });
-      return Promise.all(promises);
-    })
-    .then(function(results) {
-      if (!results) return;
-      var nasFolders = {};
-      results.forEach(function(r) { nasFolders[r.year] = r.folders; });
       _ncData = buildConformiteData(projets, nasFolders);
       renderConformiteResults();
-    })
-    .catch(function(e) {
+    } else {
       statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>Impossible de contacter le NAS :<br><span style="color:#e07b72">' +
-        (e.message || 'Vérifiez que vous êtes sur le réseau local et que le NAS est accessible sur ' + ip + ':' + port) +
+        (evt.data.data && evt.data.data.error || 'Erreur inconnue') +
         '</span><br><br><span style="font-size:0.78rem;color:var(--text-3)">Assurez-vous d\'être connecté au même réseau que le NAS QNAP.</span>';
-    });
-}
-
-// WebDAV PROPFIND depuis le navigateur — retourne la liste des sous-dossiers
-function ncWebdavPropfind(baseUrl, path, user, pass) {
-  var xml = '<?xml version="1.0" encoding="utf-8"?>' +
-    '<D:propfind xmlns:D="DAV:"><D:prop><D:displayname/><D:resourcetype/></D:prop></D:propfind>';
-
-  // S'assurer que le chemin commence par /
-  if (path.charAt(0) !== '/') path = '/' + path;
-  var encodedPath = path.split('/').map(function(s) { return s ? encodeURIComponent(s) : ''; }).join('/');
-  var url = baseUrl + encodedPath;
-
-  return fetch(url, {
-    method: 'PROPFIND',
-    headers: {
-      'Content-Type': 'application/xml',
-      'Depth': '1',
-      'Authorization': 'Basic ' + btoa(user + ':' + pass)
-    },
-    body: xml
-  }).then(function(resp) {
-    if (!resp.ok && resp.status !== 207) throw new Error('HTTP ' + resp.status);
-    return resp.text();
-  }).then(function(xmlText) {
-    return ncParsePropfindResponse(xmlText, path);
-  });
-}
-
-// Parser la réponse PROPFIND XML et extraire les noms de dossiers
-function ncParsePropfindResponse(xmlText, basePath) {
-  var folders = [];
-  try {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(xmlText, 'application/xml');
-    var responses = doc.getElementsByTagNameNS('DAV:', 'response');
-    if (responses.length === 0) responses = doc.getElementsByTagName('response');
-    var baseDecoded = decodeURIComponent(basePath).replace(/\/+$/, '');
-
-    for (var i = 0; i < responses.length; i++) {
-      var resp = responses[i];
-      // Vérifier que c'est un dossier (collection)
-      var rtNodes = resp.getElementsByTagNameNS('DAV:', 'collection');
-      if (rtNodes.length === 0) rtNodes = resp.getElementsByTagName('collection');
-      if (rtNodes.length === 0) continue;
-
-      // Extraire le href
-      var hrefNodes = resp.getElementsByTagNameNS('DAV:', 'href');
-      if (hrefNodes.length === 0) hrefNodes = resp.getElementsByTagName('href');
-      if (hrefNodes.length === 0) continue;
-      var href = hrefNodes[0].textContent || '';
-      var decoded = decodeURIComponent(href).replace(/\/+$/, '');
-      var name = decoded.split('/').pop();
-
-      // Ignorer le dossier racine
-      if (decoded === baseDecoded || !name || name === '.' || name === '..') continue;
-      folders.push(name);
     }
-  } catch (e) {
-    // Fallback regex si le parsing DOM échoue
-    var matches = xmlText.match(/<D:href[^>]*>([^<]+)<\/D:href>/gi) || [];
-    matches.forEach(function(m) {
-      var href = m.replace(/<\/?D:href[^>]*>/gi, '');
-      var decoded = decodeURIComponent(href).replace(/\/+$/, '');
-      var name = decoded.split('/').pop();
-      if (name && name !== basePath.split('/').pop()) folders.push(name);
-    });
+  };
+  window.addEventListener('message', messageHandler);
+
+  // Construire l'URL du bridge sur le NAS
+  var hash = 'ip=' + encodeURIComponent(ip) +
+    '&port=' + encodeURIComponent(port) +
+    '&user=' + encodeURIComponent(user) +
+    '&pass=' + encodeURIComponent(pass) +
+    '&root=' + encodeURIComponent(rootPath);
+
+  var bridgeUrl = 'http://' + ip + ':' + port + '/Public/nas-tools/nas-conformite-bridge.html#' + hash;
+
+  statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>' +
+    'Ouverture du scanner NAS (popup)…<br>' +
+    '<span style="font-size:0.78rem;color:var(--text-3)">Si le popup est bloqué, autorisez-le dans votre navigateur.</span>';
+
+  var popup = window.open(bridgeUrl, 'nas_conformite', 'width=500,height=400,left=200,top=200');
+  if (!popup) {
+    window.removeEventListener('message', messageHandler);
+    statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⚠️</div>' +
+      'Popup bloqué par le navigateur.<br>' +
+      '<span style="color:var(--text-3);font-size:0.82rem">Autorisez les popups pour ce site puis réessayez.</span>';
   }
-  return folders;
+
+  // Timeout de sécurité (30s)
+  setTimeout(function() {
+    window.removeEventListener('message', messageHandler);
+    if (statusEl.innerHTML.indexOf('Ouverture') !== -1) {
+      statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>' +
+        'Délai dépassé — le NAS n\'a pas répondu dans les 30 secondes.<br>' +
+        '<span style="font-size:0.78rem;color:var(--text-3)">Vérifiez que le NAS est allumé et accessible sur le réseau local.</span>';
+    }
+  }, 30000);
 }
 
 // Nettoyer un nom pour comparaison (minuscule, sans accents, sans caractères spéciaux)

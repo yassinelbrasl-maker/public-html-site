@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Cortoba — Scan NAS</title>
+<style>
+  body { font-family: 'DM Sans', sans-serif; background: #1a1a1a; color: #ccc; padding: 2rem; }
+  .step { margin: 0.5rem 0; font-size: 0.85rem; }
+  .ok { color: #4caf50; }
+  .err { color: #e07b72; }
+  .wait { color: #d4a54a; }
+  h2 { font-size: 1rem; color: #fff; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+<h2>Scan des dossiers NAS en cours...</h2>
+<div id="log"></div>
+<script>
+(function() {
+  var params = {};
+  var hash = location.hash.substring(1);
+  hash.split('&').forEach(function(p) {
+    var kv = p.split('=');
+    if (kv.length === 2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
+  });
+
+  var ip   = params.ip || '192.168.1.165';
+  var port = params.port || '5005';
+  var user = params.user || '';
+  var pass = params.pass || '';
+  var root = params.root || '/Public/CAS_PROJETS';
+  var baseUrl = 'http://' + ip + ':' + port;
+  var logEl = document.getElementById('log');
+
+  function log(msg, cls) {
+    var d = document.createElement('div');
+    d.className = 'step ' + (cls || '');
+    d.textContent = msg;
+    logEl.appendChild(d);
+  }
+
+  function encodePath(path) {
+    if (path.charAt(0) !== '/') path = '/' + path;
+    return path.split('/').map(function(s) { return s ? encodeURIComponent(s) : ''; }).join('/');
+  }
+
+  function propfind(path) {
+    var xml = '<?xml version="1.0" encoding="utf-8"?>' +
+      '<D:propfind xmlns:D="DAV:"><D:prop><D:displayname/><D:resourcetype/></D:prop></D:propfind>';
+    var url = baseUrl + encodePath(path);
+
+    return fetch(url, {
+      method: 'PROPFIND',
+      headers: {
+        'Content-Type': 'application/xml',
+        'Depth': '1',
+        'Authorization': 'Basic ' + btoa(user + ':' + pass)
+      },
+      body: xml
+    }).then(function(r) {
+      if (!r.ok && r.status !== 207) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(function(xmlText) {
+      return parseFolders(xmlText, path);
+    });
+  }
+
+  function parseFolders(xmlText, basePath) {
+    var folders = [];
+    try {
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(xmlText, 'application/xml');
+      var responses = doc.getElementsByTagNameNS('DAV:', 'response');
+      var baseDecoded = decodeURIComponent(basePath).replace(/\/+$/, '');
+
+      for (var i = 0; i < responses.length; i++) {
+        var resp = responses[i];
+        var cols = resp.getElementsByTagNameNS('DAV:', 'collection');
+        if (cols.length === 0) continue;
+        var hrefs = resp.getElementsByTagNameNS('DAV:', 'href');
+        if (hrefs.length === 0) continue;
+        var href = hrefs[0].textContent || '';
+        var decoded = decodeURIComponent(href).replace(/\/+$/, '');
+        var name = decoded.split('/').pop();
+        if (decoded === baseDecoded || !name || name === '.' || name === '..') continue;
+        folders.push(name);
+      }
+    } catch(e) {
+      log('Erreur parsing XML: ' + e.message, 'err');
+    }
+    return folders;
+  }
+
+  function sendResult(data) {
+    // Envoyer au parent (fenêtre principale) via postMessage
+    if (window.opener) {
+      window.opener.postMessage({ type: 'nas-conformite-result', data: data }, '*');
+    }
+  }
+
+  // Lancer le scan
+  log('Connexion au NAS ' + ip + ':' + port + '...', 'wait');
+
+  propfind(root)
+    .then(function(years) {
+      var validYears = years.filter(function(y) { return /^20\d{2}$/.test(y); });
+      log(validYears.length + ' année(s) trouvée(s) : ' + validYears.join(', '), 'ok');
+
+      var promises = validYears.map(function(year) {
+        return propfind(root + '/' + year)
+          .then(function(folders) {
+            log(year + ' : ' + folders.length + ' dossier(s)', 'ok');
+            return { year: year, folders: folders };
+          })
+          .catch(function(e) {
+            log(year + ' : erreur — ' + e.message, 'err');
+            return { year: year, folders: [] };
+          });
+      });
+
+      return Promise.all(promises);
+    })
+    .then(function(results) {
+      var nasFolders = {};
+      results.forEach(function(r) { nasFolders[r.year] = r.folders; });
+      var totalFolders = results.reduce(function(s, r) { return s + r.folders.length; }, 0);
+      log('Scan terminé : ' + totalFolders + ' dossier(s) au total.', 'ok');
+      sendResult({ success: true, nas_folders: nasFolders });
+      setTimeout(function() { window.close(); }, 2000);
+    })
+    .catch(function(e) {
+      log('Erreur : ' + e.message, 'err');
+      sendResult({ success: false, error: e.message });
+    });
+})();
+</script>
+</body>
+</html>
