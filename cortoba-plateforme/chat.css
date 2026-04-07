@@ -319,7 +319,6 @@
   font-family: inherit;
   min-height: 38px;
   max-height: 120px;
-  outline: none;
 }
 .chat-composer textarea:focus { border-color: var(--accent, #c8a96e); }
 .chat-composer button {

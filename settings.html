@@ -36,7 +36,7 @@
     .login-box input {
       width: 100%; padding: 0.8rem 1rem; background: var(--bg2); border: 1px solid var(--border);
       border-radius: 6px; color: var(--text); font-size: 0.9rem; margin-bottom: 1rem;
-      outline: none; transition: border 0.2s;
+      transition: border 0.2s;
     }
     .login-box input:focus { border-color: var(--accent); }
     .login-box .btn-login {
@@ -142,7 +142,7 @@
     }
     .form-group input, .form-group select, .form-group textarea {
       width: 100%; padding: 0.75rem 1rem; background: var(--bg3); border: 1px solid var(--border);
-      border-radius: 6px; color: var(--text); font-size: 0.9rem; outline: none; transition: border 0.2s;
+      border-radius: 6px; color: var(--text); font-size: 0.9rem; transition: border 0.2s;
     }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
     .form-group textarea { min-height: 160px; resize: vertical; line-height: 1.7; }
@@ -335,7 +335,7 @@
     }
     .slide-ctrl-row input[type="range"] {
       flex: 1; accent-color: var(--accent); height: 4px;
-      -webkit-appearance: none; background: var(--border); border-radius: 2px; outline: none;
+      -webkit-appearance: none; background: var(--border); border-radius: 2px;
     }
     .slide-ctrl-row input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; width: 16px; height: 16px;
@@ -369,9 +369,11 @@
       <img src="img/Copilot_20250803_202525.png" alt="Cortoba" />
       <h2>Paramètres du site</h2>
       <p>Connectez-vous avec votre compte administrateur</p>
-      <div class="login-error" id="loginError"></div>
-      <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" />
-      <input type="password" id="loginPass" placeholder="Mot de passe" autocomplete="current-password" />
+      <div class="login-error" id="loginError" role="alert"></div>
+      <label for="loginEmail" class="sr-only">Email</label>
+      <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" aria-label="Email" />
+      <label for="loginPass" class="sr-only">Mot de passe</label>
+      <input type="password" id="loginPass" placeholder="Mot de passe" autocomplete="current-password" aria-label="Mot de passe" />
       <button class="btn-login" id="loginBtn">Se connecter</button>
     </div>
   </div>

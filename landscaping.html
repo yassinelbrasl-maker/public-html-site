@@ -18,7 +18,7 @@
       --bg-card:    #161810;
       --border:     rgba(255,255,255,0.07);
       --text:       #e4e0d5;
-      --text-muted: #7a7a6e;
+      --text-muted: #9a9a8e;
       --accent:     #8dba78;         /* green */
       --accent-dim: rgba(141,186,120,0.12);
       --accent-warm:#c8a96e;         /* gold from arch site */
@@ -190,7 +190,7 @@
       align-items: center;
       gap: 0.45rem;
       text-decoration: none;
-      color: rgba(255,255,255,0.45);
+      color: rgba(255,255,255,0.65);
       font-size: 0.68rem;
       font-weight: 400;
       letter-spacing: 0.12em;
@@ -889,6 +889,8 @@
 </head>
 <body>
 
+  <a href="#main-content" class="skip-link" style="position:absolute;top:-100%;left:1rem;z-index:10000;padding:0.8rem 1.5rem;background:var(--accent);color:#0c0d0a;font-weight:600;font-size:0.85rem;text-decoration:none;border-radius:0 0 4px 4px;transition:top 0.2s" onfocus="this.style.top='0'" onblur="this.style.top='-100%'">Aller au contenu principal</a>
+
   <!-- ══ INTRO ANIMATION SCREEN ══ -->
   <div class="intro-screen" id="introScreen">
     <div class="intro-logo-line">
@@ -926,7 +928,7 @@
 
   <!-- ══ MOBILE MENU ══ -->
   <div class="mobile-menu" id="mobileMenu">
-    <button class="mobile-menu-close" onclick="toggleMenu()">✕</button>
+    <button class="mobile-menu-close" onclick="toggleMenu()" aria-label="Fermer le menu">✕</button>
     <nav class="mobile-menu-nav">
       <a href="#projets" onclick="toggleMenu()">Projets</a>
       <a href="#services" onclick="toggleMenu()">Services</a>
@@ -936,6 +938,7 @@
   </div>
 
   <!-- ══ HERO ══ -->
+  <main id="main-content">
   <section class="hero" id="accueil">
     <div class="hero-slides">
       <div class="hero-slide active" style="background-image: url('img/landscaping/hero1.jpg'); background-color:#1a2815;"></div>
@@ -961,9 +964,9 @@
     </div>
 
     <div class="hero-indicators" id="heroIndicators">
-      <div class="hero-dot active" onclick="goToSlide(0)"></div>
-      <div class="hero-dot" onclick="goToSlide(1)"></div>
-      <div class="hero-dot" onclick="goToSlide(2)"></div>
+      <button class="hero-dot active" onclick="goToSlide(0)" aria-label="Diapositive 1"></button>
+      <button class="hero-dot" onclick="goToSlide(1)" aria-label="Diapositive 2"></button>
+      <button class="hero-dot" onclick="goToSlide(2)" aria-label="Diapositive 3"></button>
     </div>
   </section>
 
@@ -1226,6 +1229,7 @@
     </div>
     <div class="footer-copy">© 2025 Cortoba</div>
   </footer>
+  </main>
 
   <script>
     /* ── Intro animation ── */

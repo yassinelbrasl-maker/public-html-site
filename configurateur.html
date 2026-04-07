@@ -92,9 +92,9 @@
         width: 28px; height: 28px; border-radius: 50%;
         border: 1px solid rgba(200,169,110,0.25);
         display: flex; align-items: center; justify-content: center;
-        font-size: 0.7rem; color: #555; transition: all 0.3s;
+        font-size: 0.7rem; color: #999; transition: all 0.3s;
       }
-      .cfg-step-lbl { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #444; transition: color 0.3s; }
+      .cfg-step-lbl { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #999; transition: color 0.3s; }
       .cfg-step.active .cfg-step-num { border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,0.08); }
       .cfg-step.active .cfg-step-lbl { color: var(--accent); }
       .cfg-step.done .cfg-step-num { border-color: var(--accent); background: var(--accent); color: #0e0e0e; }
@@ -113,7 +113,7 @@
       
       .cfg-field { margin-bottom: 2.2rem; }
       .cfg-label { display: block; font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.5); margin-bottom: 0.9rem; font-weight: 500; }
-      .cfg-opt { text-transform: none; letter-spacing: 0; color: #444; font-weight: 300; }
+      .cfg-opt { text-transform: none; letter-spacing: 0; color: #999; font-weight: 300; }
       .cfg-section-label { font-style: italic; font-size: 0.85rem; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 0.8rem; margin: 1.8rem 0 1.2rem; }
       
       /* Icon cards */
@@ -255,7 +255,7 @@
       .cfg-metric-lbl { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.8rem; }
       .cfg-metric-val { font-size: 2.5rem; font-weight: 200; color: var(--text); line-height: 1; }
       .cfg-metric-unit { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.1rem; }
-      .cfg-metric-sub { font-size: 0.72rem; color: #444; margin-top: 0.5rem; }
+      .cfg-metric-sub { font-size: 0.72rem; color: #999; margin-top: 0.5rem; }
       .cfg-badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.68rem; font-weight: 500; margin-top: 0.8rem; }
       .cfg-badge-green { background: rgba(74,124,89,0.15); color: #6bbf6b; border: 1px solid rgba(74,124,89,0.25); }
       .cfg-badge-orange { background: rgba(196,122,43,0.15); color: #c8a96e; border: 1px solid rgba(196,122,43,0.25); }
@@ -280,7 +280,7 @@
       .cfg-form-field textarea {
         width: 100%; padding: 0.8rem 0.9rem;
         background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08);
-        color: var(--text); font-family: inherit; font-size: 0.85rem; outline: none; transition: border-color 0.25s;
+        color: var(--text); font-family: inherit; font-size: 0.85rem; transition: border-color 0.25s;
       }
       .cfg-form-field input:focus, .cfg-form-field textarea:focus { border-color: var(--accent); }
       .cfg-form-field textarea { height: 80px; resize: vertical; }
@@ -387,7 +387,6 @@
         font-weight: 300;
         text-align: center;
         font-family: inherit;
-        outline: none;
         -moz-appearance: textfield;
       }
       .cfg-terrain-manual::-webkit-outer-spin-button,
@@ -460,7 +459,6 @@
         font-family: inherit;
         font-size: 0.85rem;
         padding: 0.85rem 0.8rem;
-        outline: none;
       }
       .cfg-map-search-bar input::placeholder { color: var(--text-muted); }
       .cfg-map-search-btn {
@@ -655,7 +653,7 @@
       }
       .cfg-room-header { display: flex; align-items: center; margin-bottom: 0.6rem; }
       .cfg-room-label { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); flex: 1; }
-      .cfg-room-del { background: none; border: none; color: #555; cursor: pointer; font-size: 0.85rem; transition: color 0.2s; padding: 0 0.2rem; }
+      .cfg-room-del { background: none; border: none; color: #999; cursor: pointer; font-size: 0.85rem; transition: color 0.2s; padding: 0 0.2rem; }
       .cfg-room-del:hover { color: #e07b72; }
       .cfg-room-opts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
       .cfg-room-opt {
@@ -796,7 +794,7 @@
       }
       .cfg-bilan-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
       .cfg-bilan-val { font-size: 0.88rem; font-weight: 600; color: var(--accent); min-width: 50px; text-align: center; }
-      .cfg-bilan-min-badge { font-size: 0.6rem; color: #555; white-space: nowrap; }
+      .cfg-bilan-min-badge { font-size: 0.6rem; color: #999; white-space: nowrap; }
 
       /* ── Timeline délai ── */
       .cfg-timeline {
@@ -928,6 +926,7 @@
   </style>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
   <!-- Top bar -->
   <div class="cfg-topbar">
     <a href="index.html" class="cfg-topbar-logo">Cortoba <em>Architecture Studio</em></a>
@@ -938,6 +937,7 @@
   </div>
 
   <!-- Configurateur content -->
+    <main id="main-content">
     <section id="configurateur" style="padding:0; background:#0e0e0e;">
 
       <!-- Intro Banner -->
@@ -985,7 +985,7 @@
             </div>
             <div class="cfg-field" style="max-width:500px;margin:2rem auto 0">
               <input type="text" id="cfg_nom_projet" placeholder="Ex : Villa Djerba, Résidence Les Oliviers…"
-                     style="width:100%;padding:1.2rem 1.5rem;background:var(--bg-card,#161616);border:1.5px solid rgba(200,169,110,0.3);color:var(--text,#e8e4dc);font-family:inherit;font-size:1.1rem;text-align:center;outline:none;transition:border-color 0.3s;letter-spacing:0.03em"
+                     style="width:100%;padding:1.2rem 1.5rem;background:var(--bg-card,#161616);border:1.5px solid rgba(200,169,110,0.3);color:var(--text,#e8e4dc);font-family:inherit;font-size:1.1rem;text-align:center;transition:border-color 0.3s;letter-spacing:0.03em"
                      onfocus="this.style.borderColor='var(--accent,#c8a96e)'" onblur="this.style.borderColor='rgba(200,169,110,0.3)'"
                      oninput="cfgState.cfg_nom_projet=this.value.trim()">
               <div class="cfg-field-error" id="cfg-nom-error">⚠ Veuillez donner un nom à votre projet</div>
@@ -1069,7 +1069,7 @@
 
               <div class="cfg-cos-warning" id="cos-warning"></div>
 
-              <div style="font-size:0.65rem;color:#444;margin-top:0.6rem;line-height:1.6">
+              <div style="font-size:0.65rem;color:#999;margin-top:0.6rem;line-height:1.6">
                 * Valeurs typiques en Tunisie selon zone. Vérifiez avec votre architecte le PLU local.
               </div>
             </div>
@@ -1643,7 +1643,7 @@
                 <div style="flex:1;height:1px;background:rgba(200,169,110,0.2)"></div>
               </div>
               <div class="cfg-timeline" id="cfg-timeline"><!-- rempli par JS --></div>
-              <div style="font-size:0.68rem;color:#444;font-style:italic">* Estimations indicatives selon disponibilité des corps de métier en Tunisie</div>
+              <div style="font-size:0.68rem;color:#999;font-style:italic">* Estimations indicatives selon disponibilité des corps de métier en Tunisie</div>
             </div>
 
             <!-- ─── BILAN SURFACES (ÉDITABLE) ─── -->
@@ -1651,7 +1651,7 @@
               <div style="font-size:0.65rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--accent);margin-bottom:0.6rem;display:flex;align-items:center;gap:0.8rem">
                 <span>Bilan des surfaces intérieures nettes</span>
                 <div style="flex:1;height:1px;background:rgba(200,169,110,0.2)"></div>
-                <span style="font-size:0.6rem;color:#555;letter-spacing:0;text-transform:none;font-style:italic">Surfaces modifiables ↕</span>
+                <span style="font-size:0.6rem;color:#999;letter-spacing:0;text-transform:none;font-style:italic">Surfaces modifiables ↕</span>
               </div>
               <div id="cfg-bilan-surfaces" style="display:flex;flex-direction:column;gap:0">
                 <!-- rempli par JS -->
@@ -1806,7 +1806,7 @@
       <div id="cfg-recap-float" class="hidden">
         <div class="cfg-recap-title">
           <span>Récapitulatif</span>
-          <button onclick="cfgToggleRecap()" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.9rem">✕</button>
+          <button onclick="cfgToggleRecap()" style="background:none;border:none;color:#999;cursor:pointer;font-size:0.9rem">✕</button>
         </div>
         <div id="cfg-recap-content">
           <div style="font-size:0.75rem;color:var(--text-muted);font-style:italic">Commencez à configurer votre projet…</div>
@@ -2812,7 +2812,7 @@
                 <div style="font-size:0.72rem;color:var(--text-muted)">${item.detail}</div>
               </div>
               <div style="font-size:1rem;font-weight:400;color:var(--accent)">${item.cost.toLocaleString('fr-TN')} DT</div>
-            </div>`).join('') || '<div style="font-size:0.8rem;color:#555;padding:0.6rem;font-style:italic">Aucun élément extérieur sélectionné</div>';
+            </div>`).join('') || '<div style="font-size:0.8rem;color:#999;padding:0.6rem;font-style:italic">Aucun élément extérieur sélectionné</div>';
         }
 
         // Total + EUR conversion
@@ -3290,5 +3290,6 @@
         window.scrollTo({top:0, behavior:'smooth'});
       }
   </script>
+</main>
 </body>
 </html>

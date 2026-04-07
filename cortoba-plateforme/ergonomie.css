@@ -166,7 +166,6 @@ th.sorted-asc .ergo-sort-icon, th.sorted-desc .ergo-sort-icon { opacity: 1; colo
   color: var(--text);
   font-family: var(--font);
   font-size: 0.92rem;
-  outline: none;
 }
 .ergo-cmd-input::placeholder { color: var(--text-3); }
 .ergo-cmd-esc {

@@ -210,9 +210,9 @@
         width: 28px; height: 28px; border-radius: 50%;
         border: 1px solid rgba(200,169,110,0.25);
         display: flex; align-items: center; justify-content: center;
-        font-size: 0.7rem; color: #555; transition: all 0.3s;
+        font-size: 0.7rem; color: #999; transition: all 0.3s;
       }
-      .cfg-step-lbl { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #444; transition: color 0.3s; }
+      .cfg-step-lbl { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #999; transition: color 0.3s; }
       .cfg-step.active .cfg-step-num { border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,0.08); }
       .cfg-step.active .cfg-step-lbl { color: var(--accent); }
       .cfg-step.done .cfg-step-num { border-color: var(--accent); background: var(--accent); color: #0e0e0e; }
@@ -231,7 +231,7 @@
       
       .cfg-field { margin-bottom: 2.2rem; }
       .cfg-label { display: block; font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.5); margin-bottom: 0.9rem; font-weight: 500; }
-      .cfg-opt { text-transform: none; letter-spacing: 0; color: #444; font-weight: 300; }
+      .cfg-opt { text-transform: none; letter-spacing: 0; color: #999; font-weight: 300; }
       .cfg-section-label { font-style: italic; font-size: 0.85rem; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 0.8rem; margin: 1.8rem 0 1.2rem; }
       
       /* Icon cards */
@@ -373,7 +373,7 @@
       .cfg-metric-lbl { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.8rem; }
       .cfg-metric-val { font-size: 2.5rem; font-weight: 200; color: var(--text); line-height: 1; }
       .cfg-metric-unit { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.1rem; }
-      .cfg-metric-sub { font-size: 0.72rem; color: #444; margin-top: 0.5rem; }
+      .cfg-metric-sub { font-size: 0.72rem; color: #999; margin-top: 0.5rem; }
       .cfg-badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.68rem; font-weight: 500; margin-top: 0.8rem; }
       .cfg-badge-green { background: rgba(74,124,89,0.15); color: #6bbf6b; border: 1px solid rgba(74,124,89,0.25); }
       .cfg-badge-orange { background: rgba(196,122,43,0.15); color: #c8a96e; border: 1px solid rgba(196,122,43,0.25); }
@@ -398,7 +398,7 @@
       .cfg-form-field textarea {
         width: 100%; padding: 0.8rem 0.9rem;
         background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08);
-        color: var(--text); font-family: inherit; font-size: 0.85rem; outline: none; transition: border-color 0.25s;
+        color: var(--text); font-family: inherit; font-size: 0.85rem; transition: border-color 0.25s;
       }
       .cfg-form-field input:focus, .cfg-form-field textarea:focus { border-color: var(--accent); }
       .cfg-form-field textarea { height: 80px; resize: vertical; }
@@ -505,7 +505,6 @@
         font-weight: 300;
         text-align: center;
         font-family: inherit;
-        outline: none;
         -moz-appearance: textfield;
       }
       .cfg-terrain-manual::-webkit-outer-spin-button,
@@ -578,7 +577,6 @@
         font-family: inherit;
         font-size: 0.85rem;
         padding: 0.85rem 0.8rem;
-        outline: none;
       }
       .cfg-map-search-bar input::placeholder { color: var(--text-muted); }
       .cfg-map-search-btn {
@@ -772,7 +770,7 @@
       }
       .cfg-room-header { display: flex; align-items: center; margin-bottom: 0.6rem; }
       .cfg-room-label { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); flex: 1; }
-      .cfg-room-del { background: none; border: none; color: #555; cursor: pointer; font-size: 0.85rem; transition: color 0.2s; padding: 0 0.2rem; }
+      .cfg-room-del { background: none; border: none; color: #999; cursor: pointer; font-size: 0.85rem; transition: color 0.2s; padding: 0 0.2rem; }
       .cfg-room-del:hover { color: #e07b72; }
       .cfg-room-opts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
       .cfg-room-opt {
@@ -914,7 +912,7 @@
       }
       .cfg-bilan-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
       .cfg-bilan-val { font-size: 0.88rem; font-weight: 600; color: var(--accent); min-width: 50px; text-align: center; }
-      .cfg-bilan-min-badge { font-size: 0.6rem; color: #555; white-space: nowrap; }
+      .cfg-bilan-min-badge { font-size: 0.6rem; color: #999; white-space: nowrap; }
 
       /* ── Timeline délai ── */
       .cfg-timeline {
@@ -1048,6 +1046,8 @@
   
   <body>
 
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
+
   <!-- ══════════════════════════════════
        INTRO ANIMATION — CORTOBA ARCHITECTURE
        ══════════════════════════════════ -->
@@ -1120,7 +1120,7 @@
 
     <!-- Overlay menu mobile plein écran -->
     <div class="mobile-menu" id="mobileMenu">
-      <button class="mobile-menu-close" onclick="toggleMenu()">✕</button>
+      <button class="mobile-menu-close" onclick="toggleMenu()" aria-label="Fermer le menu">✕</button>
       <nav class="mobile-menu-nav">
         <a href="#projects" onclick="toggleMenu()" data-i18n="nav_projects">Projets</a>
         <a href="#services" onclick="toggleMenu()" data-i18n="nav_services">Services</a>
@@ -1142,12 +1142,13 @@
       </div>
     </div>
 
+    <main id="main-content">
     <section id="accueil" class="hero-section">
       <div class="slider-container" id="sliderContainer">
         <div class="slider-track" id="sliderTrack">
-          <img src="/img/Projets/p3.jpg" class="slider-image" alt="Slide">
-          <img src="/img/Projets/p5.jpg" class="slider-image" alt="Slide">
-          <img src="/img/Projets/p1.jpg" class="slider-image" alt="Slide">
+          <img src="/img/Projets/p3.jpg" class="slider-image" alt="Projet résidentiel Cortoba — vue extérieure">
+          <img src="/img/Projets/p5.jpg" class="slider-image" alt="Projet architectural Cortoba — façade contemporaine">
+          <img src="/img/Projets/p1.jpg" class="slider-image" alt="Réalisation Cortoba — design méditerranéen">
         </div>
       </div>
       <div class="overlay">
@@ -1273,16 +1274,19 @@
       <p class="intro-text" data-i18n="contact_intro">Envie d'échanger ou de démarrer un projet ? Parlons-en.</p>
       <div class="contact-wrapper">
         <form class="contact-form" action="https://formspree.io/f/mbdzlnny" method="POST" id="contactForm">
-          <input type="text" name="nom" data-i18n-placeholder="form_name" placeholder="Votre nom" required>
-          <input type="email" name="email" data-i18n-placeholder="form_email" placeholder="Votre email" required>
-          <textarea name="message" rows="5" data-i18n-placeholder="form_message" placeholder="Votre message" required></textarea>
+          <label for="contact-nom" class="sr-only">Votre nom</label>
+          <input type="text" name="nom" id="contact-nom" data-i18n-placeholder="form_name" placeholder="Votre nom" required aria-label="Votre nom">
+          <label for="contact-email" class="sr-only">Votre email</label>
+          <input type="email" name="email" id="contact-email" data-i18n-placeholder="form_email" placeholder="Votre email" required aria-label="Votre email">
+          <label for="contact-message" class="sr-only">Votre message</label>
+          <textarea name="message" id="contact-message" rows="5" data-i18n-placeholder="form_message" placeholder="Votre message" required aria-label="Votre message"></textarea>
           <input type="hidden" name="_subject" value="Nouveau message - Cortoba Architecture Studio">
           <input type="hidden" name="_language" value="fr">
           <button type="submit" id="submitBtn" data-i18n="form_send">Envoyer</button>
-          <p id="form-success" style="display:none; color: #2e7d32; margin-top: 12px; font-weight: bold;" data-i18n="form_success">
+          <p id="form-success" role="alert" style="display:none; color: #2e7d32; margin-top: 12px; font-weight: bold;" data-i18n="form_success">
             ✅ Message envoyé avec succès ! Nous vous répondrons rapidement.
           </p>
-          <p id="form-error" style="display:none; color: #c62828; margin-top: 12px; font-weight: bold;" data-i18n="form_error">
+          <p id="form-error" role="alert" style="display:none; color: #c62828; margin-top: 12px; font-weight: bold;" data-i18n="form_error">
             ❌ Une erreur est survenue. Veuillez réessayer ou nous contacter par email.
           </p>
         </form>
@@ -1298,7 +1302,7 @@
       <h2>📍 <span data-i18n="map_title">Localisation</span></h2>
       <p class="intro-text" data-i18n="map_intro">Retrouvez-nous à Midoun, Djerba – en face du stade, Immeuble Cortoba, 1er étage.</p>
       <div class="map-container">
-        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3932.5934013895326!2d10.986050799999997!3d33.804753999999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x13aa9779f4ac460b%3A0x95f2918c9f396d68!2sCortoba%20Architecture%20Studio!5e1!3m2!1sfr!2stn!4v1769655382963!5m2!1sfr!2stn" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3932.5934013895326!2d10.986050799999997!3d33.804753999999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x13aa9779f4ac460b%3A0x95f2918c9f396d68!2sCortoba%20Architecture%20Studio!5e1!3m2!1sfr!2stn!4v1769655382963!5m2!1sfr!2stn" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Localisation de Cortoba Architecture Studio sur Google Maps"></iframe>
       </div>
       <div class="map-actions">
         <a href="https://www.google.com/maps/dir/?api=1&destination=33.804754,10.9860508" target="_blank" rel="noopener noreferrer" class="map-gmaps-btn">
@@ -1308,6 +1312,7 @@
         </a>
       </div>
     </section>
+    </main>
 
     <footer>
       <p>&copy; 2026 Cortoba Architecture Studio. <span data-i18n="footer_rights">Tous droits réservés.</span></p>
