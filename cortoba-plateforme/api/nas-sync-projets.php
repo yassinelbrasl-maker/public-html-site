@@ -5,7 +5,13 @@
 //  Usage unique — à supprimer après utilisation
 // ═══════════════════════════════════════════════════════════════
 
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+ini_set('max_execution_time', '120');
+
 require_once __DIR__ . '/../config/middleware.php';
+
+setCorsHeaders();
 
 $user = requireAuth();
 $body = getBody();
