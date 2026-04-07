@@ -296,10 +296,10 @@ function createNasProjectFolder(PDO $db, array $projet): array {
     $rootPath  = rtrim($cfg['cortoba_nas_projets_root'] ?? '/Public/CAS_PROJETS', '/');
     $annee     = $projet['annee'] ?? date('Y');
     $code      = $projet['code'] ?? '';
-    $nom       = $projet['nom'] ?? '';
+    $client    = $projet['client'] ?? $projet['nom'] ?? '';
 
-    // Nom du dossier : CODE - Nom du projet (nettoyé)
-    $folderName = trim($code . ' - ' . $nom);
+    // Nom du dossier : CODE_NomClient (nettoyé)
+    $folderName = trim($code . '_' . $client);
     $folderName = preg_replace('/[<>:"\/|?*]/', '_', $folderName); // caractères interdits
 
     $baseUrl = 'http://' . $ip . ':' . $port;

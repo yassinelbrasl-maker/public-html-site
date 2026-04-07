@@ -987,9 +987,21 @@ function saveClient() {
     codeGenere = genClientCode(type, prenom, type==='morale' ? raison : nom);
   }
 
-  var finalCode = _editingClientId
-    ? (clients.find(function(c){ return c.id===_editingClientId; })||{}).code || codeGenere
-    : codeGenere;
+  var finalCode;
+  if (_editingClientId) {
+    var origClient = clients.find(function(c){ return c.id===_editingClientId; }) || {};
+    var nameChanged = false;
+    if (type === 'morale') {
+      nameChanged = (origClient.raison || '').trim() !== raison;
+    } else if (type === 'groupe') {
+      nameChanged = false; // groupe code is manual
+    } else {
+      nameChanged = (origClient.nom || '').trim() !== nom || (origClient.prenom || '').trim() !== prenom;
+    }
+    finalCode = nameChanged ? codeGenere : (origClient.code || codeGenere);
+  } else {
+    finalCode = codeGenere;
+  }
 
   var body = {
     code: finalCode,
@@ -2208,10 +2220,10 @@ function openNasFolder() {
   var cfg = getNasConfig();
   var ip = cfg.local || '192.168.1.165';
   var code = (document.getElementById('pj-code-preview').textContent || '').trim();
-  var nom = (document.getElementById('pj-nom').value || '').trim();
+  var client = (document.getElementById('pj-client').value || '').trim();
   var annee = (document.getElementById('pj-annee').value || new Date().getFullYear());
   if (code === '—') code = '';
-  var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
   navigator.clipboard.writeText(nasPath).then(function() {
     showToast('Chemin NAS copié : ' + nasPath, 'success');
@@ -2224,8 +2236,8 @@ function buildNasFolderButton(p) {
   var ip = cfg.local || '192.168.1.165';
   var annee = p.annee || new Date().getFullYear();
   var code = p.code || '';
-  var nom = p.nom || '';
-  var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var client = p.client || p.nom || '';
+  var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
   var btnStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem';
   // Build a button that copies NAS path + offers to create folder if needed
@@ -2448,7 +2460,7 @@ function saveProjet(){
       var projet = resp.data || resp || {};
       var finalCode = projet.code || code;
       if (nasPopup) {
-        nasPopup.location.href = buildNasBridgeUrl(finalCode, nom, annee);
+        nasPopup.location.href = buildNasBridgeUrl(finalCode, displayNom, annee);
       }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
@@ -2472,7 +2484,7 @@ var ALL_PJ_COLUMNS = [
   {key:'zone',      label:'Zone',       default:false,locked:false,sortable:true, render:function(p){return p.zone||'—';}},
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
   {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
-  {key:'nasPath',   label:'Dossier NAS',default:false,locked:false,sortable:false,render:function(p){var cfg=getNasConfig();var ip=cfg.local||'192.168.1.165';var fn=(p.code||'')+'_'+(p.nom||'');var path='\\\\'+ip+'\\Public\\CAS_PROJETS\\'+(p.annee||'')+'\\'+fn;return'<span onclick="event.stopPropagation();navigator.clipboard.writeText(\''+path.replace(/'/g,"\\'")+'\');showToast(\'Chemin copié\',\'success\')" style="cursor:pointer;font-size:0.7rem;color:var(--text-3);text-decoration:underline dotted" title="Cliquer pour copier">'+fn.substring(0,20)+(fn.length>20?'…':'')+'</span>';}}
+  {key:'nasPath',   label:'Dossier NAS',default:false,locked:false,sortable:false,render:function(p){var cfg=getNasConfig();var ip=cfg.local||'192.168.1.165';var fn=(p.code||'')+'_'+(p.client||p.nom||'');var path='\\\\'+ip+'\\Public\\CAS_PROJETS\\'+(p.annee||'')+'\\'+fn;return'<span onclick="event.stopPropagation();navigator.clipboard.writeText(\''+path.replace(/'/g,"\\'")+'\');showToast(\'Chemin copié\',\'success\')" style="cursor:pointer;font-size:0.7rem;color:var(--text-3);text-decoration:underline dotted" title="Cliquer pour copier">'+fn.substring(0,20)+(fn.length>20?'…':'')+'</span>';}}
 ];
 var _pjActiveColumns = null;
 
@@ -6682,14 +6694,14 @@ function saveNasProjectConfig() {
 }
 
 // ── Construire l'URL du bridge NAS (HTTP sur le NAS local) ──
-function buildNasBridgeUrl(code, nom, annee) {
+function buildNasBridgeUrl(code, clientName, annee) {
   var cfg = getNasConfig();
   var ip = cfg.local || '192.168.1.165';
   var user = cfg.user || 'CASNAS';
   var pass = cfg.pass || 'Cortoba2026';
   var port = cfg.webdavPort || '5005';
 
-  var folderName = (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
   var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
 
@@ -15210,8 +15222,8 @@ function ncExtractCode(folderName) {
 // Construire le nom de dossier attendu pour un projet (comme buildNasBridgeUrl)
 function ncExpectedFolder(p) {
   var code = p.code || '';
-  var nom = p.nom || '';
-  return (code + '_' + nom).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var client = p.client || p.nom || '';
+  return (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
 }
 
 function buildConformiteData(projets, nasFolders) {
