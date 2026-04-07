@@ -7,15 +7,11 @@
 require_once __DIR__ . '/../config/middleware.php';
 setCorsHeaders();
 
-// Catch fatal errors and return JSON
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    if (!(error_reporting() & $errno)) return false;
-    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
-});
+// Catch fatal/parse errors and return JSON instead of empty response
 register_shutdown_function(function() {
     $e = error_get_last();
     if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        header('Content-Type: application/json; charset=utf-8');
+        if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['success' => false, 'error' => $e['message'] . ' (' . basename($e['file']) . ':' . $e['line'] . ')']);
     }
 });
@@ -135,15 +131,17 @@ function ensureChantierTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     // Seed default phases if table empty
-    $cnt = $db->query("SELECT COUNT(*) FROM CA_chantier_phases")->fetchColumn();
-    if ($cnt == 0) {
-        $phases = ['Terrassement','Fondations','Gros œuvre','Charpente / Toiture','Étanchéité','Maçonnerie','Électricité','Plomberie','CVC / Climatisation','Menuiserie','Revêtements sols','Revêtements muraux','Peinture','Finitions','Aménagements extérieurs','VRD'];
-        $ord = 1;
-        foreach ($phases as $ph) {
-            $pid = bin2hex(random_bytes(16));
-            $db->prepare("INSERT INTO CA_chantier_phases (id, nom, ordre) VALUES (?,?,?)")->execute([$pid, $ph, $ord++]);
+    try {
+        $cnt = $db->query("SELECT COUNT(*) FROM CA_chantier_phases")->fetchColumn();
+        if ($cnt == 0) {
+            $phases = ['Terrassement','Fondations','Gros oeuvre','Charpente / Toiture','Etancheite','Maconnerie','Electricite','Plomberie','CVC / Climatisation','Menuiserie','Revetements sols','Revetements muraux','Peinture','Finitions','Amenagements exterieurs','VRD'];
+            $ord = 1;
+            foreach ($phases as $ph) {
+                $pid = bin2hex(random_bytes(16));
+                $db->prepare("INSERT INTO CA_chantier_phases (id, nom, ordre) VALUES (?,?,?)")->execute([$pid, $ph, $ord++]);
+            }
         }
-    }
+    } catch (Exception $e) {}
 
     // Migrate existing journal table — add new columns if missing
     try {
@@ -200,7 +198,7 @@ function ensureChantierTables() {
       KEY `idx_chantier` (`chantier_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 }
-try { ensureChantierTables(); } catch (Exception $e) { /* migration errors are non-fatal */ }
+try { ensureChantierTables(); } catch (\Throwable $e) { /* migration errors are non-fatal */ }
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -271,7 +269,7 @@ try {
     else {
         jsonError('Action inconnue', 404);
     }
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     jsonError($e->getMessage(), 500);
 }
 

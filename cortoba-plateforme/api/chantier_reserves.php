@@ -102,7 +102,7 @@ function ensureReservesTables() {
       KEY `idx_zone` (`zone`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 }
-ensureReservesTables();
+try { ensureReservesTables(); } catch (\Throwable $e) {}
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : 'reserves';
@@ -134,7 +134,7 @@ try {
     else {
         jsonError('Action inconnue', 404);
     }
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     jsonError($e->getMessage(), 500);
 }
 

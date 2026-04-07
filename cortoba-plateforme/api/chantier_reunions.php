@@ -44,7 +44,7 @@ function ensureReunionsTables() {
       KEY `idx_statut` (`statut`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 }
-ensureReunionsTables();
+try { ensureReunionsTables(); } catch (\Throwable $e) {}
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : 'reunions';
@@ -71,7 +71,7 @@ try {
     else {
         jsonError('Action inconnue', 404);
     }
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     jsonError($e->getMessage(), 500);
 }
 
