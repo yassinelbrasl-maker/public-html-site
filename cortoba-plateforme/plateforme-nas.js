@@ -1465,11 +1465,156 @@ function canDelete(){
   var s = getSession();
   return s && (s.isAdmin || s.role === 'Architecte gérant');
 }
-function canCreate(){
+// ── Restrictions dynamiques par rôle ──
+var _restrictionsCache = null;
+var _RESTRICTION_DEFAULTS = {
+  stagiaire: {
+    creer_projets: true, creer_clients: true, creer_devis: true, creer_factures: true,
+    supprimer: true
+  },
+  membre: {
+    creer_projets: false, creer_clients: false, creer_devis: false, creer_factures: false,
+    supprimer: true, voir_salaires: true, voir_contacts_perso: true, gerer_parametres: true
+  }
+};
+var _RESTRICTION_LABELS = {
+  creer_projets:      'Création de projets',
+  creer_clients:      'Création de clients',
+  creer_devis:        'Création de devis',
+  creer_factures:     'Création de factures',
+  supprimer:          'Suppression d\'éléments',
+  voir_salaires:      'Accès aux salaires et charges',
+  voir_contacts_perso:'Accès aux contacts personnels',
+  gerer_parametres:   'Gestion des rôles et paramètres'
+};
+var _ROLE_META = {
+  stagiaire: {label:'Stagiaire', color:'#e07b72', bg:'rgba(224,112,112,0.1)', border:'rgba(224,112,112,0.25)',
+    icon:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+    desc:'Accès limité — stagiaire / observateur'},
+  membre: {label:'Membre standard', color:'var(--accent)', bg:'rgba(200,169,110,0.12)', border:'rgba(200,169,110,0.25)',
+    icon:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
+    desc:'Tout rôle hors Admin / Architecte gérant'}
+};
+
+function getRestrictions() {
+  if (_restrictionsCache) return _restrictionsCache;
+  var saved = getSetting('cfg_restrictions', null);
+  if (saved && typeof saved === 'object') {
+    // Merge with defaults to ensure new keys are included
+    var merged = {};
+    for (var role in _RESTRICTION_DEFAULTS) {
+      merged[role] = {};
+      for (var key in _RESTRICTION_DEFAULTS[role]) {
+        merged[role][key] = (saved[role] && saved[role][key] !== undefined) ? saved[role][key] : _RESTRICTION_DEFAULTS[role][key];
+      }
+    }
+    _restrictionsCache = merged;
+  } else {
+    _restrictionsCache = JSON.parse(JSON.stringify(_RESTRICTION_DEFAULTS));
+  }
+  return _restrictionsCache;
+}
+
+function isRestricted(roleGroup, action) {
+  var r = getRestrictions();
+  return r[roleGroup] && r[roleGroup][action] === true;
+}
+
+function getUserRoleGroup() {
   var s = getSession();
-  if (!s) return false;
-  if ((s.role || '').toLowerCase() === 'stagiaire') return false;
+  if (!s) return null;
+  if (s.isAdmin || s.role === 'Architecte gérant') return null; // no restrictions
+  if ((s.role || '').toLowerCase() === 'stagiaire') return 'stagiaire';
+  return 'membre';
+}
+
+function canCreate(action) {
+  var group = getUserRoleGroup();
+  if (!group) return true;
+  // Map action to restriction key
+  var map = {'projet':'creer_projets','client':'creer_clients','devis':'creer_devis','facture':'creer_factures'};
+  if (action && map[action]) return !isRestricted(group, map[action]);
+  // General check: any creation blocked?
+  if (isRestricted(group, 'creer_projets') && isRestricted(group, 'creer_clients') &&
+      isRestricted(group, 'creer_devis') && isRestricted(group, 'creer_factures')) return false;
+  // Check all individually
+  for (var k in map) { if (isRestricted(group, map[k])) return false; }
   return true;
+}
+
+function renderRestrictions() {
+  var container = document.getElementById('restrictions-container');
+  if (!container) return;
+  var r = getRestrictions();
+  var html = '';
+  var roles = ['stagiaire', 'membre'];
+  for (var ri = 0; ri < roles.length; ri++) {
+    var role = roles[ri];
+    var meta = _ROLE_META[role];
+    var rules = r[role];
+    html += '<div style="margin-bottom:' + (ri < roles.length - 1 ? '1.5rem' : '0') + '">';
+    html += '<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.8rem">';
+    html += '<span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.22rem 0.7rem;border-radius:20px;font-size:0.72rem;background:' + meta.bg + ';color:' + meta.color + ';border:1px solid ' + meta.border + ';font-weight:600;letter-spacing:0.03em">' + meta.icon + ' ' + meta.label + '</span>';
+    html += '<span style="font-size:0.72rem;color:var(--text-3)">— ' + meta.desc + '</span>';
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.5rem">';
+    for (var key in rules) {
+      var blocked = rules[key];
+      var label = _RESTRICTION_LABELS[key] || key;
+      var id = 'restrict-' + role + '-' + key;
+      html += '<label for="' + id + '" style="display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem;cursor:pointer;transition:all .15s;user-select:none">';
+      html += '<div style="position:relative;width:34px;height:18px;flex-shrink:0">';
+      html += '<input type="checkbox" id="' + id + '" ' + (blocked ? 'checked' : '') + ' onchange="onRestrictionToggle()" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;margin:0;z-index:1">';
+      html += '<div style="position:absolute;top:0;left:0;width:34px;height:18px;border-radius:9px;background:' + (blocked ? '#e07b72' : 'var(--green)') + ';transition:background .2s"></div>';
+      html += '<div style="position:absolute;top:2px;' + (blocked ? 'left:18px' : 'left:2px') + ';width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></div>';
+      html += '</div>';
+      html += '<span style="color:var(--text);flex:1">' + label + '</span>';
+      html += '<span style="font-size:0.65rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:' + (blocked ? '#e07b72' : 'var(--green)') + '">' + (blocked ? 'Bloqué' : 'Autorisé') + '</span>';
+      html += '</label>';
+    }
+    html += '</div></div>';
+  }
+  container.innerHTML = html;
+}
+
+function onRestrictionToggle() {
+  document.getElementById('btn-save-restrictions').style.display = '';
+  // Update visual state of all toggles
+  document.querySelectorAll('#restrictions-container input[type="checkbox"]').forEach(function(cb) {
+    var track = cb.nextElementSibling;
+    var thumb = track.nextElementSibling;
+    var statusEl = cb.closest('label').querySelector('span:last-child');
+    if (cb.checked) {
+      track.style.background = '#e07b72';
+      thumb.style.left = '18px';
+      statusEl.style.color = '#e07b72';
+      statusEl.textContent = 'Bloqué';
+    } else {
+      track.style.background = 'var(--green)';
+      thumb.style.left = '2px';
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = 'Autorisé';
+    }
+  });
+}
+
+function saveRestrictions() {
+  var r = {};
+  var roles = ['stagiaire', 'membre'];
+  for (var i = 0; i < roles.length; i++) {
+    var role = roles[i];
+    r[role] = {};
+    for (var key in _RESTRICTION_DEFAULTS[role]) {
+      var cb = document.getElementById('restrict-' + role + '-' + key);
+      r[role][key] = cb ? cb.checked : _RESTRICTION_DEFAULTS[role][key];
+    }
+  }
+  _restrictionsCache = r;
+  saveSetting('cfg_restrictions', r).then(function() {
+    document.getElementById('btn-save-restrictions').style.display = 'none';
+    applyModuleAccess();
+    showToast && showToast('Restrictions enregistrées');
+  });
 }
 function deleteRow(type, id){
   if (!canDelete()) { alert('Seul un Architecte gérant peut supprimer.'); return; }
