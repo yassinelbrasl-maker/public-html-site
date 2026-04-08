@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../config/middleware.php';
 require_once __DIR__ . '/chat_helpers.php';
+require_once __DIR__ . '/corbeille.php';
 
 // ── Migrations idempotentes pour colonnes Rendement ──
 function ensureProjetsRendementColumns() {
