@@ -189,75 +189,78 @@ function tryQtsApi(baseUrl, parts) {
 function copyTemplateWebDAV(baseUrl, destFolder) {
   if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
   addStep('Template: ' + templateFolder, 'ok');
-  var s = addStep('WebDAV COPY modele...', 'wait');
-  var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/');
-  var headers = { 'Content-Type': 'application/xml', 'Depth': '1' };
-  if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
-  return fetch(baseUrl + templatePath, { method: 'PROPFIND', headers: headers })
+  var s = addStep('Copie du modele...', 'wait');
+  var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/') + '/';
+  var authHeaders = {};
+  if (user) authHeaders['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+
+  // Etape 1 : PROPFIND pour lister le contenu du template
+  var propHeaders = { 'Content-Type': 'application/xml', 'Depth': '1' };
+  if (user) propHeaders['Authorization'] = authHeaders['Authorization'];
+
+  return fetch(baseUrl + templatePath, { method: 'PROPFIND', headers: propHeaders })
     .then(function(r) {
-      if (!r.ok && r.status !== 207) throw new Error('PROPFIND status ' + r.status);
+      if (!r.ok && r.status !== 207) throw new Error('PROPFIND ' + r.status);
       return r.text();
     })
     .then(function(xml) {
-      var parser = new DOMParser();
-      var doc = parser.parseFromString(xml, 'text/xml');
-      // Chercher les reponses avec ou sans namespace DAV
-      var responses = doc.querySelectorAll('response, D\\:response, *|response');
-      if (responses.length === 0) {
-        // Fallback : parser via regex pour extraire les href
-        var hrefMatches = xml.match(/<[^>]*href[^>]*>([^<]+)<\/[^>]*href>/gi) || [];
-        var children = [];
-        var tplName = (templateFolder || '').split('/').pop();
-        hrefMatches.forEach(function(m) {
-          var val = m.replace(/<[^>]*>/g, '').trim();
-          var h = decodeURIComponent(val).replace(/\/$/, '');
-          var name = h.split('/').pop();
-          if (!name || name === tplName) return;
-          children.push({ href: val, name: name });
-        });
-      } else {
-        var children = [];
-        var tplName = (templateFolder || '').split('/').pop();
-        responses.forEach(function(resp) {
-          var href = resp.querySelector('href, D\\:href, *|href');
-          if (!href) return;
-          var h = decodeURIComponent(href.textContent).replace(/\/$/, '');
-          var name = h.split('/').pop();
-          if (!name || name === tplName) return;
-          children.push({ href: href.textContent, name: name });
-        });
+      // Extraire les noms des sous-dossiers via regex (plus fiable que DOM avec namespaces)
+      var hrefPattern = /<[^>]*href[^>]*>([^<]+)<\/[^>]*href>/gi;
+      var match;
+      var children = [];
+      var tplName = (templateFolder || '').split('/').pop();
+      while ((match = hrefPattern.exec(xml)) !== null) {
+        var rawHref = match[1].trim();
+        var decoded = decodeURIComponent(rawHref).replace(/\/$/, '');
+        var name = decoded.split('/').pop();
+        if (!name || name === tplName) continue;
+        children.push({ href: rawHref, name: name });
       }
-      addStep('PROPFIND: ' + responses.length + ' responses, ' + children.length + ' children', responses.length > 0 ? 'ok' : 'fail');
+      addStep('Template contient ' + children.length + ' elements', children.length > 0 ? 'ok' : 'fail');
       if (children.length === 0) {
         updateStep(s, 'Modele vide ou introuvable', 'ok');
         return { ok: true, copied: 0 };
       }
+
+      // Etape 2 : COPY chaque element, avec fallback MKCOL si COPY echoue
       var copied = 0; var idx = 0;
       function copyNext() {
         if (idx >= children.length) return Promise.resolve();
         var child = children[idx]; idx++;
         var srcUrl = baseUrl + child.href;
-        var destPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(child.name);
+        var destPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(child.name) + '/';
+
+        // Essai 1 : COPY
         var copyHeaders = { 'Destination': baseUrl + destPath, 'Depth': 'infinity', 'Overwrite': 'F' };
-        if (user) copyHeaders['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+        if (user) copyHeaders['Authorization'] = authHeaders['Authorization'];
         return fetch(srcUrl, { method: 'COPY', headers: copyHeaders })
           .then(function(r) {
-            if (r.status === 201 || r.status === 204) copied++;
-            else if (r.status >= 400) throw new Error('COPY ' + r.status);
-            return copyNext();
+            if (r.status === 201 || r.status === 204) { copied++; return copyNext(); }
+            // COPY echoue → fallback MKCOL
+            return mkcolFallback(child.name);
           })
-          .catch(function(e) {
-            if (copied === 0 && idx <= 1) throw e; // premier echec = abandonner
-            return copyNext();
+          .catch(function() {
+            // COPY non supporte → fallback MKCOL
+            return mkcolFallback(child.name);
           });
+
+        function mkcolFallback(folderName) {
+          var mkPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/';
+          return fetch(baseUrl + mkPath, { method: 'MKCOL', headers: authHeaders })
+            .then(function(r2) {
+              if (r2.status === 201 || r2.status === 405) copied++; // 405 = existe deja
+              return copyNext();
+            })
+            .catch(function() { return copyNext(); });
+        }
       }
       return copyNext().then(function() {
-        updateStep(s, 'WebDAV COPY : ' + copied + '/' + children.length + ' elements', 'ok');
+        updateStep(s, copied + '/' + children.length + ' sous-dossiers crees', copied > 0 ? 'ok' : 'fail');
         return { ok: copied > 0, copied: copied };
       });
     })
     .catch(function(e) {
-      updateStep(s, 'WebDAV COPY : echec — ' + e.message, 'fail');
+      updateStep(s, 'Echec copie modele: ' + e.message, 'fail');
       return { ok: false, error: e.message };
     });
 }
