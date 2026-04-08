@@ -16648,6 +16648,24 @@ function buildConformiteData(projets, nasFolders) {
   return results;
 }
 
+function _ncPopulateAnneeFilter() {
+  var sel = document.getElementById('nc-filter-annee'); if (!sel) return;
+  var years = {};
+  _ncData.forEach(function(r) { if (r.annee) years[r.annee] = 1; });
+  var sorted = Object.keys(years).sort().reverse();
+  var current = sel.value;
+  var html = '<option value="">Toutes les années</option>';
+  sorted.forEach(function(y) { html += '<option value="'+y+'"'+(y===current?' selected':'')+'>'+y+'</option>'; });
+  sel.innerHTML = html;
+}
+
+function _ncGetFiltered() {
+  var annee = (document.getElementById('nc-filter-annee') || {}).value || '';
+  var items = _ncData;
+  if (annee) items = items.filter(function(r) { return String(r.annee) === annee; });
+  return items;
+}
+
 function renderConformiteResults() {
   var statusEl = document.getElementById('nas-conformite-status');
   var summaryEl = document.getElementById('nas-conformite-summary');
@@ -16661,9 +16679,12 @@ function renderConformiteResults() {
   filtersEl.style.display = 'flex';
   tableEl.style.display = 'table';
 
-  // Compteurs
+  _ncPopulateAnneeFilter();
+
+  // Compteurs sur les éléments filtrés par année
+  var filtered = _ncGetFiltered();
   var ok = 0, missingNas = 0, missingPlat = 0, mismatch = 0;
-  _ncData.forEach(function(r) {
+  filtered.forEach(function(r) {
     if (r.type === 'ok') ok++;
     else if (r.type === 'missing_nas') missingNas++;
     else if (r.type === 'missing_plat') missingPlat++;
@@ -16678,8 +16699,32 @@ function renderConformiteResults() {
   if (applyBtn) applyBtn.style.display = hasActions ? 'inline-flex' : 'none';
 
   var footerInfo = document.getElementById('nc-footer-info');
-  if (footerInfo) footerInfo.textContent = _ncData.length + ' entrées analysées — ' + ok + ' conformes';
+  if (footerInfo) footerInfo.textContent = filtered.length + ' entrées analysées — ' + ok + ' conformes';
 
+  renderNcTable('all');
+}
+
+function applyNcFilters() {
+  // Re-render compteurs et tableau avec le filtre année actif
+  var filtered = _ncGetFiltered();
+  var ok = 0, missingNas = 0, missingPlat = 0, mismatch = 0;
+  filtered.forEach(function(r) {
+    if (r.type === 'ok') ok++;
+    else if (r.type === 'missing_nas') missingNas++;
+    else if (r.type === 'missing_plat') missingPlat++;
+    else if (r.type === 'mismatch') mismatch++;
+  });
+  document.getElementById('nc-total-ok').textContent = ok;
+  document.getElementById('nc-total-missing-nas').textContent = missingNas;
+  document.getElementById('nc-total-missing-plat').textContent = missingPlat;
+  document.getElementById('nc-total-mismatch').textContent = mismatch;
+  var footerInfo = document.getElementById('nc-footer-info');
+  if (footerInfo) footerInfo.textContent = filtered.length + ' entrées analysées — ' + ok + ' conformes';
+  // Reset type filter to "all"
+  var btns = document.querySelectorAll('#nas-conformite-filters .nc-filter');
+  btns.forEach(function(b) { b.classList.remove('active'); b.style.background = ''; });
+  var allBtn = document.querySelector('#nas-conformite-filters .nc-filter[data-filter="all"]');
+  if (allBtn) { allBtn.classList.add('active'); allBtn.style.background = 'var(--bg-2)'; }
   renderNcTable('all');
 }
 
