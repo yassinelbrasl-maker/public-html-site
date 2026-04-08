@@ -649,7 +649,7 @@ function cpChatRooms($client) {
                (SELECT COUNT(*) FROM CA_chat_messages m WHERE m.room_id = r.id) AS msg_count,
                (SELECT m2.cree_at FROM CA_chat_messages m2 WHERE m2.room_id = r.id ORDER BY m2.cree_at DESC LIMIT 1) AS last_msg_at
         FROM CA_chat_rooms r
-        LEFT JOIN CA_projets p ON p.id = r.projet_id
+        LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = r.projet_id
         WHERE r.type = 'client' AND r.projet_id IN ($ph)
         ORDER BY last_msg_at DESC
     ");
