@@ -2192,7 +2192,16 @@
             <div class="form-field full">
               <label class="form-label">Dossier modèle (template)</label>
               <input id="param-nas-template-folder" class="form-input" placeholder="00-Dossier Type" />
-              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">Si un dossier modèle existe, sa structure sera copiée dans le nouveau dossier projet.</div>
+              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">Le contenu de ce dossier sera copié dans chaque nouveau dossier projet. Chemin complet : <code>/Public/CAS_PROJETS/{année}/{template}</code></div>
+            </div>
+            <div class="form-field full">
+              <label class="form-label">Sous-dossiers par défaut</label>
+              <div id="param-nas-subfolders-list" style="display:flex;flex-direction:column;gap:0.3rem;margin-bottom:0.5rem"></div>
+              <div style="display:flex;gap:0.4rem">
+                <input id="param-nas-subfolder-input" class="form-input" placeholder="Nom du sous-dossier (ex: Plans, Photos, Documents)" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addNasSubfolder();}" />
+                <button class="btn btn-sm" onclick="addNasSubfolder()" style="white-space:nowrap">+ Ajouter</button>
+              </div>
+              <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">Ces sous-dossiers seront créés automatiquement dans chaque nouveau dossier projet, en complément du dossier modèle.</div>
             </div>
           </div>
           <div style="margin-top:1rem;display:flex;justify-content:flex-end">
