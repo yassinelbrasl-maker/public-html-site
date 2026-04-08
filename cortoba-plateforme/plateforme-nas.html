@@ -1084,6 +1084,76 @@
             </table>
           </div>
         </div>
+
+        <!-- Restrictions par rôle -->
+        <div class="card" id="equipe-restrictions-card" style="margin-top:1.5rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+            <div class="card-title" style="margin-bottom:0">Restrictions par rôle</div>
+            <div style="font-size:0.72rem;color:var(--text-3)">Règles appliquées automatiquement selon le type de membre</div>
+          </div>
+
+          <!-- Stagiaire -->
+          <div style="margin-bottom:1.2rem">
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
+              <span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.22rem 0.7rem;border-radius:20px;font-size:0.72rem;background:rgba(224,112,112,0.1);color:#e07b72;border:1px solid rgba(224,112,112,0.25);font-weight:600;letter-spacing:0.03em">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                Stagiaire
+              </span>
+              <span style="font-size:0.72rem;color:var(--text-3)">— Accès en lecture seule sur les données sensibles</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.5rem">
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Création de <strong>projets</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Création de <strong>clients</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Création de <strong>devis</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Création de <strong>factures</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Suppression d'<strong>éléments</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Membres non-administrateurs -->
+          <div>
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem">
+              <span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.22rem 0.7rem;border-radius:20px;font-size:0.72rem;background:rgba(200,169,110,0.12);color:var(--accent);border:1px solid rgba(200,169,110,0.25);font-weight:600;letter-spacing:0.03em">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                Membre standard
+              </span>
+              <span style="font-size:0.72rem;color:var(--text-3)">— Tout rôle hors Admin / Architecte gérant</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.5rem">
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Suppression de <strong>projets / clients</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Accès aux <strong>salaires et charges</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Accès aux <strong>contacts personnels</strong></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span style="color:var(--text)">Gestion des <strong>rôles et paramètres</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ══ CLIENTS ══ -->
