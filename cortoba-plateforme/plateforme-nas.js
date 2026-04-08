@@ -9621,7 +9621,7 @@ function _renderJournalTasks(taches, entries, dateJour) {
   var projetMap = {};
   taches.forEach(function(t) {
     var pid = t.projet_id;
-    if (!projetMap[pid]) projetMap[pid] = { nom: t.projetNom || '—', code: t.projetCode || '', items: [] };
+    if (!projetMap[pid]) projetMap[pid] = { nom: t.projetNom || '—', code: t.projetCode || '', client: t.projetClient || '', items: [] };
     projetMap[pid].items.push(t);
   });
 
