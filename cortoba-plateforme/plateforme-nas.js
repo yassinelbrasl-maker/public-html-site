@@ -4825,8 +4825,14 @@ function showToast(msg, color){
 //  GESTION DES ACCÈS PAR MODULE
 // ══════════════════════════════════════════════════════════════
 
-// Liste des modules de la plateforme
-var NAV_MODULE_IDS = MODULES_PLATEFORME.map(function(m){ return m.id; });
+// Liste des modules de la plateforme (lazy — MODULES_PLATEFORME est déclaré plus bas)
+var NAV_MODULE_IDS = null;
+function getNavModuleIds() {
+  if (!NAV_MODULE_IDS && typeof MODULES_PLATEFORME !== 'undefined' && Array.isArray(MODULES_PLATEFORME) && MODULES_PLATEFORME.length > 0) {
+    NAV_MODULE_IDS = MODULES_PLATEFORME.map(function(m){ return m.id; });
+  }
+  return NAV_MODULE_IDS || ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','equipe','clients','demandes-admin','conges','parametres','chantier','chantier-journal','chantier-intervenants','chantier-reunions','chantier-photos','chantier-reserves','chantier-visas','chantier-securite','flotte','flotte-reservations','flotte-km','flotte-entretien','flotte-couts','flotte-conformite','portail','portail-docs','portail-messages'];
+}
 
 // Lire la session courante
 function getSession() {
