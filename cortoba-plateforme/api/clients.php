@@ -203,11 +203,8 @@ function update($id, array $user) {
     $body = getBody();
     $db   = getDB();
 
-    // Supprimer les virgules des noms
-    $body['displayNom'] = stripCommas($body['displayNom'] ?? '');
-    $body['nom']        = stripCommas($body['nom'] ?? null);
-    $body['prenom']     = stripCommas($body['prenom'] ?? null);
-    $body['raison']     = stripCommas($body['raison'] ?? null);
+    // Normaliser les noms : supprimer virgules + forcer majuscules
+    normalizeClientNames($body);
 
     $groupeJson = null;
     if (!empty($body['groupe'])) {
