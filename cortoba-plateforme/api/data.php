@@ -114,11 +114,11 @@ function getOne($table, $id) {
 }
 
 function createRow($cfg, $user) {
-    $role = strtolower(trim($user['role'] ?? ''));
     $table = $cfg['table'];
-    if ($role === 'stagiaire' && in_array($table, ['CA_devis', 'CA_factures'])) {
+    $tableRestrMap = ['CA_devis' => 'creer_devis', 'CA_factures' => 'creer_factures'];
+    if (isset($tableRestrMap[$table]) && isRestricted($user, $tableRestrMap[$table])) {
         $label = ($table === 'CA_devis') ? 'devis' : 'factures';
-        jsonError('Les stagiaires ne sont pas autorisés à créer des ' . $label, 403);
+        jsonError('Vous n\'êtes pas autorisé à créer des ' . $label, 403);
     }
 
     $body   = getBody();
