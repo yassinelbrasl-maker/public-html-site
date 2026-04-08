@@ -8791,35 +8791,117 @@ document.addEventListener('click', function(e) {
 function filterTacheProjetSelect(query) { filterTacheProjetDropdown(query); }
 window.filterTacheProjetSelect = filterTacheProjetSelect;
 
-// ── Recherche dans le select des missions ──
-function filterMissionSelect(query) {
-  var sel = document.getElementById('tache-titre-select');
-  if (!sel) return;
-  var q = (query || '').trim().toLowerCase();
-  // Filtrer les options et les optgroups
-  var optgroups = sel.querySelectorAll('optgroup');
-  if (optgroups.length) {
-    optgroups.forEach(function(og) {
-      var visibleCount = 0;
-      var opts = og.querySelectorAll('option');
-      opts.forEach(function(o) {
-        var txt = (o.textContent || '').toLowerCase();
-        var match = !q || txt.indexOf(q) !== -1;
-        o.hidden = !match;
-        if (match) visibleCount++;
-      });
-      og.hidden = visibleCount === 0;
-    });
-  } else {
-    var opts = sel.querySelectorAll('option');
-    for (var i = 0; i < opts.length; i++) {
-      var o = opts[i];
-      if (!o.value) { o.hidden = false; continue; }
-      var txt = (o.textContent || '').toLowerCase();
-      o.hidden = q && txt.indexOf(q) === -1;
+// ── Searchable dropdown pour les missions ──
+var _missionDropOpen = false;
+
+function _buildMissionDropdownItems() {
+  var missions = getMissions();
+  var cats = getMissionCategories();
+  var projetId = (document.getElementById('tache-projet') || {}).value;
+  var affectees = null;
+  if (projetId) {
+    var projet = (getProjets() || []).find(function(p) { return p.id === projetId; });
+    if (projet) {
+      var raw;
+      try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
+      catch (e) { raw = []; }
+      affectees = _normalizeProjetMissions(raw);
     }
   }
+  var hasContext = !!affectees;
+  var items = [];
+  if (!hasContext) {
+    cats.forEach(function(cat) {
+      var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
+      if (catMissions.length === 0) return;
+      items.push({ type: 'header', label: cat.label });
+      catMissions.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
+    });
+    var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c) { return c.id === m.cat; }); });
+    if (orphans.length) {
+      items.push({ type: 'header', label: 'Autres' });
+      orphans.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
+    }
+  } else {
+    var aff = missions.filter(function(m) { return affectees.indexOf(m.nom) !== -1; });
+    var other = missions.filter(function(m) { return affectees.indexOf(m.nom) === -1; });
+    if (aff.length) {
+      items.push({ type: 'header', label: '✓ Affectées à ce projet' });
+      aff.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
+    }
+    if (other.length) {
+      items.push({ type: 'header', label: '◌ Autres missions disponibles' });
+      other.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: true }); });
+    }
+  }
+  return items;
 }
+
+function openMissionDropdown() {
+  _missionDropOpen = true;
+  filterMissionDropdown(document.getElementById('tache-mission-search').value);
+}
+window.openMissionDropdown = openMissionDropdown;
+
+function filterMissionDropdown(query) {
+  var dd = document.getElementById('tache-mission-dropdown');
+  if (!dd) return;
+  var q = (query || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var items = _buildMissionDropdownItems();
+  var html = '';
+  var lastHeaderHtml = '';
+  var hasVisibleInGroup = false;
+
+  items.forEach(function(it, idx) {
+    if (it.type === 'header') {
+      if (lastHeaderHtml && hasVisibleInGroup) html += lastHeaderHtml;
+      lastHeaderHtml = '<div style="padding:0.4rem 0.8rem;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">' + it.label + '</div>';
+      hasVisibleInGroup = false;
+    } else {
+      var txt = it.nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (!q || txt.indexOf(q) !== -1) {
+        if (lastHeaderHtml && !hasVisibleInGroup) { html += lastHeaderHtml; hasVisibleInGroup = true; }
+        var style = 'padding:0.5rem 0.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background 0.15s' +
+          (it.unaffected ? ';color:var(--text-3);font-style:italic' : '');
+        html += '<div onmousedown="selectMissionDropdown(\'' + it.nom.replace(/'/g, "\\'") + '\',' + (it.unaffected ? 'true' : 'false') + ')"' +
+          ' style="' + style + '"' +
+          ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'\'">' +
+          (it.unaffected ? '◌ ' : '') + it.nom + '</div>';
+      }
+    }
+  });
+
+  if (!html) html = '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.78rem">Aucune mission trouvée</div>';
+  dd.innerHTML = html;
+  dd.style.display = 'block';
+}
+window.filterMissionDropdown = filterMissionDropdown;
+
+function selectMissionDropdown(nom, unaffected) {
+  var sel = document.getElementById('tache-titre-select');
+  var search = document.getElementById('tache-mission-search');
+  var dd = document.getElementById('tache-mission-dropdown');
+  if (sel) { sel.value = nom; }
+  if (search) search.value = nom;
+  if (dd) dd.style.display = 'none';
+  _missionDropOpen = false;
+  // Trigger the unaffected mission check
+  if (unaffected && sel) onTacheTitreSelectChange(sel);
+}
+window.selectMissionDropdown = selectMissionDropdown;
+
+// Fermer dropdown mission si clic ailleurs
+document.addEventListener('click', function(e) {
+  if (!_missionDropOpen) return;
+  var search = document.getElementById('tache-mission-search');
+  var dd = document.getElementById('tache-mission-dropdown');
+  if (search && dd && !search.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none'; _missionDropOpen = false;
+  }
+});
+
+// Compat ancienne fonction
+function filterMissionSelect(query) { filterMissionDropdown(query); }
 window.filterMissionSelect = filterMissionSelect;
 
 // ── Changement de projet → recharger la liste des missions (demi-teinte à jour) ──
