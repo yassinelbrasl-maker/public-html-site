@@ -335,6 +335,7 @@ ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `email_principal`     ENUM(
 ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `salaire_net`         DECIMAL(12,2) DEFAULT 0;
 ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `charges_sociales`    DECIMAL(12,2) DEFAULT 0;
 ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `subventions`         DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `subv_directe`        TINYINT(1)    DEFAULT 0;
 ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `avantages_nature`    DECIMAL(12,2) DEFAULT 0;
 ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `heures_mois`         DECIMAL(6,2)  DEFAULT 160;
 -- Projection d'augmentation
