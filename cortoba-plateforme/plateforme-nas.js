@@ -16601,6 +16601,7 @@ function openNasConformite() {
     .then(function(r) {
       var nasFolders = r.data.nas_folders || {};
       var projets = r.data.projets || [];
+      _ncRawProjets = projets; _ncRawNasFolders = nasFolders;
       _ncData = buildConformiteData(projets, nasFolders);
       renderConformiteResults();
     })
