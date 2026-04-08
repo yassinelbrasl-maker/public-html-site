@@ -197,7 +197,7 @@ function update($id, array $user) {
     $params = [];
 
     $allowed = ['titre','description','statut','priorite','assignee','date_debut','date_echeance',
-                'progression','ordre','parent_id','location_type','location_zone',
+                'progression','ordre','parent_id','categorie','location_type','location_zone',
                 'heures_estimees','heures_reelles','progression_planifiee','progression_manuelle'];
 
     // Alias order_index → ordre
