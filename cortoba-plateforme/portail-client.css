@@ -528,6 +528,11 @@ a:hover { text-decoration: underline; }
 }
 .reserve-item .reserve-loc { font-size: 0.75rem; color: var(--text-3); }
 
+/* ── TABLE RESPONSIVE WRAPPER ── */
+.table-responsive {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+
 /* ── PROJECT INFO ── */
 .info-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
