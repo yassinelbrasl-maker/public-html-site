@@ -588,7 +588,7 @@ function _renderFlotteEntretienTable() {
       '<td>'+e.type_entretien+'</td><td>'+e.titre+'</td><td>'+(e.prestataire||'—')+'</td>' +
       '<td>'+_flotteFmt(e.montant)+' TND</td><td>'+_flotteStatutBadge(e.statut)+'</td>' +
       '<td><button class="btn btn-sm" onclick="editFlotteEntretien(\''+e.id+'\')">&#9998;</button> ' +
-      '<button class="btn btn-sm" onclick="deleteFlotteEntretien(\''+e.id+'\')">&#128465;</button></td></tr>';
+      (canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteEntretien(\''+e.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
