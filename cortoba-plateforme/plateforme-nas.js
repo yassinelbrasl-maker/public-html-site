@@ -4286,6 +4286,8 @@ function renderDepenses(){
   var list=getDepenses();
   var sess = getSession();
   var isAdmin = sess && sess.isAdmin;
+  var statsGrid = document.getElementById('depenses-stats-grid');
+  if (statsGrid) statsGrid.style.display = isAdmin ? '' : 'none';
   tb.innerHTML=list.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucune dépense.</td></tr>'
     :list.map(function(d){
       var ttc = d.montantTTC||d.montant_ttc||d.montant||0;
