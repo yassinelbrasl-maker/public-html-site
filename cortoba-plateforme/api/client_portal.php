@@ -70,6 +70,9 @@ try {
         // Infos projet
         case 'project_team':        cpProjectTeam($client); break;
 
+        // Journal d'acces
+        case 'access_log':          cpAccessLog($client); break;
+
         default: jsonError('Action inconnue', 404);
     }
 } catch (\Throwable $e) {
