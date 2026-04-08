@@ -178,6 +178,7 @@ function showPage(page) {
     case 'validations': loadValidations(); break;
     case 'chantier': loadChantier(); break;
     case 'projet-info': loadProjectInfo(); break;
+    case 'journal-acces': loadAccessLog(1); break;
   }
 
   // Close sidebar on mobile
