@@ -147,6 +147,7 @@ function create(array $user) {
         $body['date_echeance'] ?: null,
         intval($body['progression'] ?? 0),
         $ordre,
+        $body['categorie'] ?? null,
         $body['location_type']     ?? 'Bureau',
         $body['location_zone']     ?? '',
         floatval($body['heures_estimees'] ?? 0),
