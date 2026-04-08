@@ -2882,21 +2882,14 @@ function togglePjColDropdown(e){
     renderPjColDropdown();
     if(dd&&btn){
       var rect=btn.getBoundingClientRect();
-      var spaceBelow=window.innerHeight-rect.bottom-10;
       var spaceAbove=rect.top-10;
       dd.style.position='fixed';
       dd.style.right=(window.innerWidth-rect.right)+'px';
       dd.style.left='auto';
       dd.style.overflowY='auto';
-      if(spaceBelow>=300||spaceBelow>=spaceAbove){
-        dd.style.top=(rect.bottom+4)+'px';
-        dd.style.bottom='auto';
-        dd.style.maxHeight=Math.max(spaceBelow,200)+'px';
-      } else {
-        dd.style.bottom=(window.innerHeight-rect.top+4)+'px';
-        dd.style.top='auto';
-        dd.style.maxHeight=Math.max(spaceAbove,200)+'px';
-      }
+      dd.style.bottom=(window.innerHeight-rect.top+4)+'px';
+      dd.style.top='auto';
+      dd.style.maxHeight=Math.max(spaceAbove,200)+'px';
       dd.style.display='block';
     }
     if(btn){btn.style.color='var(--accent)';btn.style.opacity='1';}
