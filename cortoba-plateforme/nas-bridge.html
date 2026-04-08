@@ -196,82 +196,146 @@ function tryQtsApi(baseUrl, parts) {
 }
 
 // ── Copie du contenu du dossier modele ──
-// Methode 1 : WebDAV COPY
+// Methode 1 : WebDAV PROPFIND + COPY/MKCOL (essaye port WebDAV puis port 80)
 function copyTemplateWebDAV(baseUrl, destFolder) {
   if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
   addStep('Template: ' + templateFolder, 'ok');
   var s = addStep('Copie du modele...', 'wait');
-  var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/') + '/';
   var authHeaders = {};
   if (user) authHeaders['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
 
-  // Etape 1 : PROPFIND pour lister le contenu du template
-  var propHeaders = { 'Content-Type': 'application/xml', 'Depth': '1' };
-  if (user) propHeaders['Authorization'] = authHeaders['Authorization'];
+  // Essayer d'abord le baseUrl fourni, puis fallback sur le port 80 (HTTP standard)
+  var httpBase = 'http://' + ip;
+  var urlsToTry = [baseUrl];
+  if (baseUrl !== httpBase) urlsToTry.push(httpBase);
 
-  return fetch(baseUrl + templatePath, { method: 'PROPFIND', headers: propHeaders })
+  var urlIdx = 0;
+  function tryNextUrl() {
+    if (urlIdx >= urlsToTry.length) {
+      // Aucun PROPFIND n'a fonctionne → fallback MKCOL direct
+      return mkcolFromTemplate(baseUrl, destFolder, s, authHeaders);
+    }
+    var tryBase = urlsToTry[urlIdx]; urlIdx++;
+    var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/') + '/';
+    var propHeaders = { 'Content-Type': 'application/xml', 'Depth': '1' };
+    if (user) propHeaders['Authorization'] = authHeaders['Authorization'];
+
+    return fetch(tryBase + templatePath, { method: 'PROPFIND', headers: propHeaders })
+      .then(function(r) {
+        if (!r.ok && r.status !== 207) throw new Error('PROPFIND ' + r.status);
+        return r.text();
+      })
+      .then(function(xml) {
+        var hrefPattern = /<[^>]*href[^>]*>([^<]+)<\/[^>]*href>/gi;
+        var match; var children = [];
+        var tplName = (templateFolder || '').split('/').pop();
+        while ((match = hrefPattern.exec(xml)) !== null) {
+          var rawHref = match[1].trim();
+          var decoded = decodeURIComponent(rawHref).replace(/\/$/, '');
+          var name = decoded.split('/').pop();
+          if (!name || name === tplName) continue;
+          children.push({ href: rawHref, name: name });
+        }
+        if (children.length === 0) {
+          // PROPFIND OK mais vide → essayer URL suivante ou fallback
+          return tryNextUrl();
+        }
+        addStep('Template contient ' + children.length + ' elements', 'ok');
+
+        // COPY chaque element, avec fallback MKCOL
+        var copied = 0; var idx = 0;
+        // Utiliser le port WebDAV pour MKCOL (plus fiable pour ecriture)
+        var writeBase = baseUrl;
+        function copyNext() {
+          if (idx >= children.length) return Promise.resolve();
+          var child = children[idx]; idx++;
+          var srcUrl = tryBase + child.href;
+          var destPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(child.name) + '/';
+
+          var copyHeaders = { 'Destination': writeBase + destPath, 'Depth': 'infinity', 'Overwrite': 'F' };
+          if (user) copyHeaders['Authorization'] = authHeaders['Authorization'];
+          return fetch(srcUrl, { method: 'COPY', headers: copyHeaders })
+            .then(function(r) {
+              if (r.status === 201 || r.status === 204) { copied++; return copyNext(); }
+              return mkcolFallback(child.name);
+            })
+            .catch(function() { return mkcolFallback(child.name); });
+
+          function mkcolFallback(folderName) {
+            var mkPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/';
+            return fetch(writeBase + mkPath, { method: 'MKCOL', headers: authHeaders })
+              .then(function(r2) {
+                if (r2.status === 201 || r2.status === 405) copied++;
+                return copyNext();
+              })
+              .catch(function() { return copyNext(); });
+          }
+        }
+        return copyNext().then(function() {
+          updateStep(s, copied + '/' + children.length + ' sous-dossiers crees', copied > 0 ? 'ok' : 'fail');
+          return { ok: copied > 0, copied: copied };
+        });
+      })
+      .catch(function() {
+        // Cette URL a echoue, essayer la suivante
+        return tryNextUrl();
+      });
+  }
+  return tryNextUrl();
+}
+
+// Fallback : lister le template via HTTP GET (index) et creer les sous-dossiers via MKCOL
+function mkcolFromTemplate(writeBase, destFolder, stepEl, authHeaders) {
+  var httpBase = 'http://' + ip;
+  var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/') + '/';
+  var s2 = addStep('Listing template via HTTP...', 'wait');
+
+  return fetch(httpBase + templatePath)
     .then(function(r) {
-      if (!r.ok && r.status !== 207) throw new Error('PROPFIND ' + r.status);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
     })
-    .then(function(xml) {
-      // Extraire les noms des sous-dossiers via regex (plus fiable que DOM avec namespaces)
-      var hrefPattern = /<[^>]*href[^>]*>([^<]+)<\/[^>]*href>/gi;
-      var match;
+    .then(function(html) {
+      // Parser la page d'index du NAS pour extraire les noms de sous-dossiers
       var children = [];
-      var tplName = (templateFolder || '').split('/').pop();
-      while ((match = hrefPattern.exec(xml)) !== null) {
-        var rawHref = match[1].trim();
-        var decoded = decodeURIComponent(rawHref).replace(/\/$/, '');
-        var name = decoded.split('/').pop();
-        if (!name || name === tplName) continue;
-        children.push({ href: rawHref, name: name });
+      // Pattern : <a href="...">NOM/</a> — le listing QNAP affiche les noms des dossiers
+      var linkPattern = /<a[^>]+href="([^"]*)"[^>]*>([^<]+)<\/a>/gi;
+      var m;
+      while ((m = linkPattern.exec(html)) !== null) {
+        var linkText = m[2].trim();
+        // Ignorer les liens de navigation (répertoire parent, etc.)
+        if (linkText === '[répertoire parent]' || linkText === '[parent directory]' ||
+            linkText === '../' || linkText === '..' || linkText === '.') continue;
+        var name = linkText.replace(/\/$/, '');
+        if (name) children.push(name);
       }
-      addStep('Template contient ' + children.length + ' elements', children.length > 0 ? 'ok' : 'fail');
+      updateStep(s2, 'Template : ' + children.length + ' sous-dossiers trouves', children.length > 0 ? 'ok' : 'fail');
+
       if (children.length === 0) {
-        updateStep(s, 'Modele vide ou introuvable', 'ok');
-        return { ok: true, copied: 0 };
+        updateStep(stepEl, 'Modele vide ou introuvable', 'fail');
+        return { ok: false, copied: 0 };
       }
 
-      // Etape 2 : COPY chaque element, avec fallback MKCOL si COPY echoue
-      var copied = 0; var idx = 0;
-      function copyNext() {
+      // Creer chaque sous-dossier via MKCOL
+      var created = 0; var idx = 0;
+      function mkNext() {
         if (idx >= children.length) return Promise.resolve();
-        var child = children[idx]; idx++;
-        var srcUrl = baseUrl + child.href;
-        var destPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(child.name) + '/';
-
-        // Essai 1 : COPY
-        var copyHeaders = { 'Destination': baseUrl + destPath, 'Depth': 'infinity', 'Overwrite': 'F' };
-        if (user) copyHeaders['Authorization'] = authHeaders['Authorization'];
-        return fetch(srcUrl, { method: 'COPY', headers: copyHeaders })
+        var name = children[idx]; idx++;
+        var mkPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(name) + '/';
+        return fetch(writeBase + mkPath, { method: 'MKCOL', headers: authHeaders })
           .then(function(r) {
-            if (r.status === 201 || r.status === 204) { copied++; return copyNext(); }
-            // COPY echoue → fallback MKCOL
-            return mkcolFallback(child.name);
+            if (r.status === 201 || r.status === 405) created++;
+            return mkNext();
           })
-          .catch(function() {
-            // COPY non supporte → fallback MKCOL
-            return mkcolFallback(child.name);
-          });
-
-        function mkcolFallback(folderName) {
-          var mkPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/';
-          return fetch(baseUrl + mkPath, { method: 'MKCOL', headers: authHeaders })
-            .then(function(r2) {
-              if (r2.status === 201 || r2.status === 405) copied++; // 405 = existe deja
-              return copyNext();
-            })
-            .catch(function() { return copyNext(); });
-        }
+          .catch(function() { return mkNext(); });
       }
-      return copyNext().then(function() {
-        updateStep(s, copied + '/' + children.length + ' sous-dossiers crees', copied > 0 ? 'ok' : 'fail');
-        return { ok: copied > 0, copied: copied };
+      return mkNext().then(function() {
+        updateStep(stepEl, created + '/' + children.length + ' sous-dossiers crees', created > 0 ? 'ok' : 'fail');
+        return { ok: created > 0, copied: created };
       });
     })
     .catch(function(e) {
-      updateStep(s, 'Echec copie modele: ' + e.message, 'fail');
+      updateStep(stepEl, 'Echec copie modele: ' + e.message, 'fail');
       return { ok: false, error: e.message };
     });
 }
