@@ -24,7 +24,10 @@ $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
 $user   = requireAuth();
 
-if ($method === 'GET')        $id ? getOne($id) : getAll();
+$action = $_GET['action'] ?? null;
+
+if ($action === 'cleanup-commas' && $method === 'POST') { cleanupCommas(); }
+elseif ($method === 'GET')        $id ? getOne($id) : getAll();
 elseif ($method === 'POST')   create($user);
 elseif ($method === 'PUT')    update($id, $user);
 elseif ($method === 'PATCH')  patch($id, $user);
