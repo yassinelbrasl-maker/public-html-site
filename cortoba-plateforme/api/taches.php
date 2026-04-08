@@ -130,9 +130,9 @@ function create(array $user) {
     $db->prepare('
         INSERT INTO CA_taches (id, projet_id, parent_id, niveau, titre, description,
             statut, priorite, assignee, date_debut, date_echeance, progression, ordre,
-            location_type, location_zone, heures_estimees, heures_reelles,
+            categorie, location_type, location_zone, heures_estimees, heures_reelles,
             progression_planifiee, progression_manuelle, cree_par)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $projetId,
