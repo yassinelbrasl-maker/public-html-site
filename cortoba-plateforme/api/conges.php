@@ -72,9 +72,15 @@ try {
         }
     } catch (\Throwable $e) { /* silencieux */ }
 
+    // Migration unique : remplacer les anciens jours fériés algériens par les tunisiens
+    $yr = (int)date('Y');
+    $hasOld = $db->query("SELECT COUNT(*) FROM CA_jours_feries WHERE YEAR(date) = $yr AND libelle LIKE '%amazigh%' OR libelle LIKE '%Victoire (19 mars%' OR libelle LIKE '%Moharram%' OR libelle LIKE '%Mawlid%'")->fetchColumn();
+    if ($hasOld) {
+        $db->exec("DELETE FROM CA_jours_feries WHERE YEAR(date) = $yr");
+    }
+
     // Pré-alimenter les jours fériés tunisiens de l'année courante (idempotent)
     // Secteur : Privés soumis au Code du Travail et à la Convention Collective Cadre
-    $yr = (int)date('Y');
     $cnt = $db->query("SELECT COUNT(*) FROM CA_jours_feries WHERE YEAR(date) = $yr")->fetchColumn();
     if (!$cnt) {
         $feries = [
