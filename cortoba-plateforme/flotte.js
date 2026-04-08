@@ -435,7 +435,7 @@ function _renderFlotteCarbTable() {
       '<td>'+_flotteFmtInt(c.km_compteur)+'</td><td>'+parseFloat(c.litres).toFixed(1)+' L</td>' +
       '<td>'+parseFloat(c.prix_litre).toFixed(3)+'</td><td><strong>'+_flotteFmt(c.montant_total)+' TND</strong></td>' +
       '<td>'+c.type_carburant+'</td><td>'+(c.station||'—')+'</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlotteCarb(\''+c.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteCarb(\''+c.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
