@@ -26,6 +26,7 @@ try {
         case 'client_chat_rooms':   cpaClientChatRooms($user); break;
         case 'client_chat_messages': cpaClientChatMessages($user); break;
         case 'client_chat_send':    cpaClientChatSend($user); break;
+        case 'access_log':          cpaAccessLog($user); break;
         default: jsonError('Action inconnue', 404);
     }
 } catch (\Throwable $e) {
