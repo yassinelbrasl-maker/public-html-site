@@ -722,7 +722,7 @@ function cpDevis($client) {
                d.statut, d.date_devis, d.date_expiry, d.objet, d.notes,
                p.code AS projet_code, p.nom AS projet_nom
         FROM CA_devis d
-        LEFT JOIN CA_projets p ON p.id = d.projet_id
+        LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = d.projet_id
         WHERE d.projet_id IN ($ph)
         ORDER BY d.date_devis DESC
     ");
