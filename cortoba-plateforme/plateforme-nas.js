@@ -6311,7 +6311,7 @@ var MODULES_PLATEFORME_SECTIONS = [
     { id: 'portail',          label: 'Comptes clients' },
     { id: 'portail-docs',     label: 'Documents partagés' },
     { id: 'portail-messages', label: 'Messages clients' },
-    { id: 'portail-journal', label: "Journal d'acces" },
+    { id: 'portail-journal', label: "Journal acces clients" },
   ]},
   { section: 'Paramètres', modules: [
     { id: 'parametres',  label: 'Paramètres' },
