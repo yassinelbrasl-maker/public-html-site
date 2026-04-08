@@ -47,7 +47,7 @@ $TABLES = array(
             'statut','date_facture','date_emission','date_echeance','date_paiement',
             'lignes_json','fodec','timbre','ras_taux','ras_amt','net_payer',
             'mode_paiement','rib','ref_elfatoora','signature_elec',
-            'montant_lettres','notes',
+            'montant_lettres','notes','mission_phase',
         ),
         'cree_par' => true,
     ),
