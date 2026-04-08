@@ -1516,6 +1516,24 @@
         <div id="da-list"></div>
       </div>
 
+      <!-- ══ CORBEILLE ══ -->
+      <div class="page" id="page-corbeille">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Administration</div>
+            <h1 class="page-title">Corbeille</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sm" onclick="purgeCorbeille()" title="Supprimer les éléments de plus de 30 jours">Purger (+30j)</button>
+            <button class="btn btn-sm" onclick="renderCorbeillePage()" title="Rafraîchir">&#8635; Rafraîchir</button>
+          </div>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
+          Les éléments supprimés sont conservés 30 jours avant suppression définitive.
+        </div>
+        <div class="card"><div id="corbeille-wrap" style="padding:1rem"><div style="color:var(--text-3);font-size:0.82rem">Chargement…</div></div></div>
+      </div>
+
       <!-- ══ PARAMÈTRES ══ -->
       <div class="page" id="page-parametres">
         <div class="page-header">
