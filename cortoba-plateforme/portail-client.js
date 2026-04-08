@@ -518,14 +518,14 @@ function loadFinance() {
     if (!devis.length) {
       $('finance-devis').innerHTML = '<div class="empty-state"><div class="empty-text">Aucun devis</div></div>';
     } else {
-      var h = '<table class="data-table"><thead><tr><th>N.</th><th>Projet</th><th>Objet</th><th>Montant TTC</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
+      var h = '<div class="table-responsive"><table class="data-table"><thead><tr><th>N.</th><th>Projet</th><th>Objet</th><th>Montant TTC</th><th>Statut</th><th>Date</th></tr></thead><tbody>';
       devis.forEach(function (d) {
         h += '<tr><td class="mono">' + esc(d.numero) + '</td><td>' + esc(d.projet_code || '') + '</td>' +
           '<td>' + esc(d.objet || '') + '</td><td class="mono">' + fmtMoney(d.montant_ttc) + '</td>' +
           '<td><span class="badge ' + badgeClass(d.statut) + '">' + esc(d.statut) + '</span></td>' +
           '<td>' + fmtDate(d.date_devis) + '</td></tr>';
       });
-      h += '</tbody></table>';
+      h += '</tbody></table></div>';
       $('finance-devis').innerHTML = h;
     }
 
