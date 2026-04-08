@@ -6152,11 +6152,11 @@ function canViewSensitiveMember() {
 // Modules par défaut selon rôle (pré-coché automatiquement à la sélection)
 var MODULES_PAR_ROLE = {
   'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','parametres'],
-  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','rendement','nas','clients','demandes-admin'],
-  'Décorateur':              ['dashboard','projets','suivi','journal','nas','clients'],
+  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','rendement','depenses','nas','clients','demandes-admin'],
+  'Décorateur':              ['dashboard','projets','suivi','journal','depenses','nas','clients'],
   'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite'],
-  'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','nas','clients','demandes-admin'],
-  'Stagiaire':               ['dashboard','projets','suivi','journal'],
+  'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','depenses','nas','clients','demandes-admin'],
+  'Stagiaire':               ['dashboard','projets','suivi','journal','depenses'],
 };
 
 // Rôles par défaut
