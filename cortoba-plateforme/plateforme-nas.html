@@ -4304,7 +4304,14 @@
           </div>
           <div class="form-field">
             <label class="form-label">Subventions État (SIVP, Karama…)</label>
-            <input id="mb-subv" class="form-input" type="number" step="0.01" min="0" value="0" oninput="recomputeCoutEmployeur()" />
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <input id="mb-subv" class="form-input" type="number" step="0.01" min="0" value="0" oninput="recomputeCoutEmployeur()" style="flex:1" />
+              <label id="mb-subv-directe-wrap" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;white-space:nowrap;font-size:0.7rem;color:var(--text-2);user-select:none">
+                <input type="checkbox" id="mb-subv-directe" onchange="recomputeCoutEmployeur()" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer" />
+                Versé directement
+              </label>
+            </div>
+            <div id="mb-subv-directe-hint" style="font-size:0.6rem;color:var(--accent);margin-top:0.2rem;display:none">↑ La subvention est versée directement au membre — non déduite du coût employeur.</div>
           </div>
           <div class="form-field">
             <label class="form-label">Avantages en nature</label>
