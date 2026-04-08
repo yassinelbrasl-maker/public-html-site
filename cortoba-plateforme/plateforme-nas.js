@@ -1002,6 +1002,11 @@ function saveClient() {
   } else {
     displayNom = nom + (prenom ? ' '+prenom : '');
   }
+  // Supprimer toutes les virgules des noms
+  displayNom = displayNom.replace(/,/g, '');
+  nom    = nom    ? nom.replace(/,/g, '')    : nom;
+  prenom = prenom ? prenom.replace(/,/g, '') : prenom;
+  raison = raison ? raison.replace(/,/g, '') : raison;
 
   var numClient  = _editingClientId
     ? (clients.find(function(c){ return c.id===_editingClientId; })||{}).numClient || clients.length + 1
