@@ -200,16 +200,32 @@ function copyTemplateWebDAV(baseUrl, destFolder) {
     .then(function(xml) {
       var parser = new DOMParser();
       var doc = parser.parseFromString(xml, 'text/xml');
-      var responses = doc.querySelectorAll('response');
-      var children = [];
-      responses.forEach(function(resp) {
-        var href = resp.querySelector('href');
-        if (!href) return;
-        var h = decodeURIComponent(href.textContent).replace(/\/$/, '');
-        var name = h.split('/').pop();
-        if (!name || name === '00-Dossier Type') return;
-        children.push({ href: href.textContent, name: name });
-      });
+      // Chercher les reponses avec ou sans namespace DAV
+      var responses = doc.querySelectorAll('response, D\\:response, *|response');
+      if (responses.length === 0) {
+        // Fallback : parser via regex pour extraire les href
+        var hrefMatches = xml.match(/<[^>]*href[^>]*>([^<]+)<\/[^>]*href>/gi) || [];
+        var children = [];
+        var tplName = (templateFolder || '').split('/').pop();
+        hrefMatches.forEach(function(m) {
+          var val = m.replace(/<[^>]*>/g, '').trim();
+          var h = decodeURIComponent(val).replace(/\/$/, '');
+          var name = h.split('/').pop();
+          if (!name || name === tplName) return;
+          children.push({ href: val, name: name });
+        });
+      } else {
+        var children = [];
+        var tplName = (templateFolder || '').split('/').pop();
+        responses.forEach(function(resp) {
+          var href = resp.querySelector('href, D\\:href, *|href');
+          if (!href) return;
+          var h = decodeURIComponent(href.textContent).replace(/\/$/, '');
+          var name = h.split('/').pop();
+          if (!name || name === tplName) return;
+          children.push({ href: href.textContent, name: name });
+        });
+      }
       if (children.length === 0) {
         updateStep(s, 'Modele vide ou introuvable', 'ok');
         return { ok: true, copied: 0 };
