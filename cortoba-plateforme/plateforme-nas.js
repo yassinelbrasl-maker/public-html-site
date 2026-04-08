@@ -8996,27 +8996,134 @@ function _renderMembreColumn(nom, taches) {
   html += suiviProgressBar(pct);
   html += '</div>';
 
-  // Liste des tâches
+  // Liste des tâches — affichage hiérarchique
   html += '<div class="suivi-membre-tasks">';
-  // Trier : Bloqué > En cours > A faire > Terminé
-  var ordre = {'Bloqué': 0, 'En cours': 1, 'A faire': 2, 'Terminé': 3};
-  taches.sort(function(a, b) { return (ordre[a.statut] || 9) - (ordre[b.statut] || 9); });
 
-  taches.forEach(function(t) {
+  // Indexer les items de ce membre par id
+  var byId = {};
+  taches.forEach(function(t) { byId[t.id] = t; });
+
+  // Séparer par niveau
+  var missions  = taches.filter(function(t){ return t.niveau === 0; });
+  var tachesN1  = taches.filter(function(t){ return t.niveau === 1; });
+  var sousTaches = taches.filter(function(t){ return t.niveau === 2; });
+
+  // Ordre de tri par statut
+  var ordre = {'Bloqué': 0, 'En cours': 1, 'A faire': 2, 'Terminé': 3};
+  var sortFn = function(a, b) { return (ordre[a.statut] || 9) - (ordre[b.statut] || 9); };
+
+  // Helper: rendre une ligne de tâche
+  function renderRow(t, indent) {
     var niveauLabel = t.niveau === 0 ? '🎯' : t.niveau === 1 ? '◆' : '•';
-    html += '<div class="suivi-membre-task-row" onclick="editTache(\'' + t.id + '\')">';
-    html += '<span class="suivi-membre-task-niveau">' + niveauLabel + '</span>';
-    html += '<div class="suivi-membre-task-body">';
-    html += '<div class="suivi-membre-task-titre">' + (t.titre || '') + '</div>';
-    if (t.projetNom) html += '<div class="suivi-membre-task-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
-    html += '</div>';
-    html += '<div class="suivi-membre-task-meta">';
-    html += suiviStatutBadge(t.statut);
-    html += suiviPrioriteBadge(t.priorite);
-    if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
-    html += '</div>';
-    html += '</div>';
+    var pad = indent * 1.2;
+    var s = '<div class="suivi-membre-task-row" onclick="editTache(\'' + t.id + '\')" style="padding-left:' + (1 + pad) + 'rem">';
+    s += '<span class="suivi-membre-task-niveau">' + niveauLabel + '</span>';
+    s += '<div class="suivi-membre-task-body">';
+    s += '<div class="suivi-membre-task-titre">' + (t.titre || '') + '</div>';
+    if (t.projetNom) s += '<div class="suivi-membre-task-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
+    s += '</div>';
+    s += '<div class="suivi-membre-task-meta">';
+    s += suiviStatutBadge(t.statut);
+    s += suiviPrioriteBadge(t.priorite);
+    if (t.dateEcheance) s += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
+    s += '</div>';
+    s += '</div>';
+    return s;
+  }
+
+  // Helper: rendre un header contextuel pour un parent absent (pas assigné à ce membre)
+  function renderParentContext(t, indent) {
+    var pad = indent * 1.2;
+    var icon = t.niveau === 0 ? '🎯' : '◆';
+    return '<div style="padding:0.25rem 1rem 0.15rem ' + (1 + pad) + 'rem;font-size:0.72rem;color:var(--text-3);display:flex;align-items:center;gap:0.3rem;user-select:none">'
+      + '<span>' + icon + '</span><span style="opacity:0.7">' + (t.titre || '—') + '</span></div>';
+  }
+
+  // Collecter les IDs de missions rendues pour éviter les doublons
+  var renderedMissions = {};
+  var renderedTaches = {};
+
+  // 1) Rendre les missions avec leurs enfants
+  missions.sort(sortFn);
+  missions.forEach(function(m) {
+    renderedMissions[m.id] = true;
+    html += renderRow(m, 0);
+    // Tâches enfants de cette mission (assignées à ce membre)
+    var childTaches = tachesN1.filter(function(t){ return t.parent_id === m.id; });
+    childTaches.sort(sortFn);
+    childTaches.forEach(function(tache) {
+      renderedTaches[tache.id] = true;
+      html += renderRow(tache, 1);
+      // Sous-tâches enfants
+      var subs = sousTaches.filter(function(st){ return st.parent_id === tache.id; });
+      subs.sort(sortFn);
+      subs.forEach(function(st) { html += renderRow(st, 2); });
+    });
+    // Sous-tâches orphelines dont le parent tâche n'est pas assigné à ce membre mais dont la mission parente l'est
+    sousTaches.filter(function(st) {
+      if (st.parent_id && byId[st.parent_id]) return false; // déjà rendu via tâche parente
+      var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
+      return parentTache && parentTache.parent_id === m.id;
+    }).sort(sortFn).forEach(function(st) {
+      var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
+      if (parentTache) html += renderParentContext(parentTache, 1);
+      html += renderRow(st, 2);
+    });
   });
+
+  // 2) Tâches orphelines (parent mission pas assigné à ce membre)
+  var orphanTaches = tachesN1.filter(function(t){ return !renderedTaches[t.id]; });
+  orphanTaches.sort(sortFn);
+  orphanTaches.forEach(function(tache) {
+    renderedTaches[tache.id] = true;
+    // Afficher la mission parente comme contexte
+    if (tache.parent_id) {
+      var parentMission = _suiviCache.find(function(x){ return x.id === tache.parent_id && x.niveau === 0; });
+      if (parentMission && !renderedMissions[parentMission.id]) {
+        renderedMissions[parentMission.id] = true;
+        html += renderParentContext(parentMission, 0);
+      }
+    }
+    html += renderRow(tache, 1);
+    // Sous-tâches enfants
+    var subs = sousTaches.filter(function(st){ return st.parent_id === tache.id; });
+    subs.sort(sortFn);
+    subs.forEach(function(st) { html += renderRow(st, 2); });
+  });
+
+  // 3) Sous-tâches orphelines restantes
+  var orphanSubs = sousTaches.filter(function(st) {
+    // Pas déjà rendu ?
+    var parentRendered = st.parent_id && renderedTaches[st.parent_id];
+    if (parentRendered) return false;
+    // Déjà rendu dans la section missions orphelines ?
+    var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
+    if (parentTache && renderedTaches[parentTache.id]) return false;
+    // Vérifie si rendu via missions section 1
+    if (parentTache) {
+      var gp = _suiviCache.find(function(x){ return x.id === parentTache.parent_id && x.niveau === 0; });
+      if (gp && renderedMissions[gp.id]) return false;
+    }
+    return true;
+  });
+  orphanSubs.sort(sortFn);
+  orphanSubs.forEach(function(st) {
+    // Afficher le contexte parent
+    var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
+    if (parentTache) {
+      var parentMission = _suiviCache.find(function(x){ return x.id === parentTache.parent_id && x.niveau === 0; });
+      if (parentMission && !renderedMissions[parentMission.id]) {
+        renderedMissions[parentMission.id] = true;
+        html += renderParentContext(parentMission, 0);
+      }
+      if (!renderedTaches[parentTache.id]) {
+        renderedTaches[parentTache.id] = true;
+        html += renderParentContext(parentTache, 1);
+      }
+    }
+    html += renderRow(st, 2);
+  });
+
   html += '</div></div>';
   return html;
 }
