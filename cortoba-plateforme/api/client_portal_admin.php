@@ -359,7 +359,7 @@ function cpaClientChatRooms($user) {
                (SELECT COUNT(*) FROM CA_chat_messages m3 WHERE m3.room_id = r.id AND m3.sender_id LIKE 'client_%'
                 AND m3.cree_at > COALESCE((SELECT MAX(m4.cree_at) FROM CA_chat_messages m4 WHERE m4.room_id = r.id AND m4.sender_id NOT LIKE 'client_%'), '1970-01-01')) AS unread_count
         FROM CA_chat_rooms r
-        LEFT JOIN CA_projets p ON p.id = r.projet_id
+        LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = r.projet_id
         LEFT JOIN CA_clients c ON c.code = p.client_code COLLATE utf8mb4_unicode_ci
         WHERE r.type = 'client'
         ORDER BY last_msg_at DESC
