@@ -4293,9 +4293,9 @@ function openEditDepense(id) {
     var rembToggle = document.getElementById('dep-remboursement-toggle');
     if (rembToggle) rembToggle.checked = true;
     toggleRemboursementSection();
-    // Show admin section if user is admin
     var sess2 = getSession();
     if (sess2 && sess2.isAdmin) {
+      // Admin: show editable reimbursement management section
       var rembAdminSec = document.getElementById('dep-remb-admin-section');
       if (rembAdminSec) rembAdminSec.style.display = '';
       var rembStatutEl = document.getElementById('dep-remb-statut');
