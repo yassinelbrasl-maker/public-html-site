@@ -13079,6 +13079,9 @@ function renderCongesMine(){
       if (r.commentaire_admin){
         html += ' <span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3)">💬</span>';
       }
+      if (canDelete() && (r.statut === 'Annulé' || r.statut === 'Refusé')){
+        html += ' <button class="btn btn-sm" onclick="deleteConge(\'' + r.id + '\')" style="font-size:0.7rem;color:#e07070" title="Supprimer définitivement">✕</button>';
+      }
       html += '</td></tr>';
     });
     html += '</tbody></table>';
