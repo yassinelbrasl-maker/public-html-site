@@ -16800,19 +16800,19 @@ function renderPortailJournal(page) {
       if (e.details) {
         if (typeof e.details === 'object') {
           var parts = [];
-          Object.keys(e.details).forEach(function(k) { parts.push(escH(k) + ': ' + escH(e.details[k])); });
+          Object.keys(e.details).forEach(function(k) { parts.push(escHtml(k) + ': ' + escHtml(e.details[k])); });
           detailStr = parts.join(', ');
         } else {
-          detailStr = escH(String(e.details));
+          detailStr = escHtml(String(e.details));
         }
       }
       var dateStr = e.cree_at ? new Date(e.cree_at.replace(' ', 'T')).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
       return '<tr>' +
         '<td style="white-space:nowrap">' + dateStr + '</td>' +
-        '<td>' + escH(e.client_nom || '—') + '</td>' +
-        '<td>' + escH(e.account_nom || e.account_email || '—') + '</td>' +
-        '<td>' + escH(journalActionLabel(e.action)) + '</td>' +
-        '<td style="font-family:var(--mono,monospace);font-size:0.8rem">' + escH(e.ip_address || '—') + '</td>' +
+        '<td>' + escHtml(e.client_nom || '—') + '</td>' +
+        '<td>' + escHtml(e.account_nom || e.account_email || '—') + '</td>' +
+        '<td>' + escHtml(journalActionLabel(e.action)) + '</td>' +
+        '<td style="font-family:var(--mono,monospace);font-size:0.8rem">' + escHtml(e.ip_address || '—') + '</td>' +
         '<td style="font-size:0.78rem;color:var(--text-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detailStr + '</td>' +
         '</tr>';
     }).join('');
