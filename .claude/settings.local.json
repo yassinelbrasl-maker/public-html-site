@@ -1,0 +1,54 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(php|js\\)$\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(ls E:/public_html/public_html/configurateur*)",
+      "Bash(ls E:/public_html/public_html/*.html)",
+      "Bash(curl -s --connect-timeout 5 -o /dev/null -w \"%{http_code}\" \"http://192.168.1.165:5005/\")",
+      "Bash(ping -n 2 -w 3000 192.168.1.165)",
+      "Bash(curl -s --connect-timeout 5 -X PROPFIND -H \"Depth: 1\" -H \"Content-Type: application/xml\" \"http://192.168.1.165:5005/\" -u \"admin:\" -k)",
+      "Bash(curl -s --connect-timeout 3 -o /dev/null -w \"%{http_code}\" \"http://localhost/cortoba-plateforme/tools/test-nas.php\")",
+      "Bash(php -r \"echo ''PHP OK'';\")",
+      "Read(//c/xampp/php/**)",
+      "Bash(where php.exe)",
+      "Read(//c//**)",
+      "Bash(mysql -h 10.10.10.100 -u dxmmmjkr_admin -pYassine2026 dxmmmjkr_CAS -e \"SELECT setting_key, setting_value FROM CA_settings WHERE setting_key LIKE ''cortoba_nas%''\")",
+      "Bash(where mysql.exe)",
+      "Read(//c/Program Files/**)",
+      "Bash(curl -s --connect-timeout 5 -o /dev/null -w \"%{http_code}\" \"https://cortobaarchitecture.com/cortoba-plateforme/api/settings.php\")",
+      "Bash(curl -s \"https://cortobaarchitecture.com/cortoba-plateforme/api/settings.php\")",
+      "Bash(curl -s --connect-timeout 5 -X PROPFIND -H \"Depth: 0\" -H \"Content-Type: application/xml\" \"http://192.168.1.165:5005/\" -u \"CASNAS:Cortoba2026\" -k -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s --connect-timeout 5 -X PROPFIND -H \"Depth: 1\" -H \"Content-Type: application/xml\" \"http://192.168.1.165:5005/\" -u \"CASNAS:Cortoba2026\" -k)",
+      "Bash(curl -s --connect-timeout 5 -X PROPFIND -H \"Depth: 1\" -H \"Content-Type: application/xml\" \"http://192.168.1.165:5005/Public/\" -u \"CASNAS:Cortoba2026\" -k)",
+      "Bash(curl -s --connect-timeout 5 -X PROPFIND -H \"Depth: 1\" -H \"Content-Type: application/xml\" \"http://192.168.1.165:5005/Public/CAS_PROJETS/\" -u \"CASNAS:Cortoba2026\" -k)",
+      "Bash(curl -s --connect-timeout 5 -X DELETE \"http://192.168.1.165:5005/Public/CAS_PROJETS/2026/TEST_CLAUDE_DIAG/\" -u \"CASNAS:Cortoba2026\" -k -o /dev/null -w \"DELETE: %{http_code}\")",
+      "Bash(curl -s --connect-timeout 10 -X PROPFIND -H \"Depth: 0\" \"http://CASNAS2025.myqnapcloud.com:5005/\" -u \"CASNAS:Cortoba2026\" -k -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s \"https://cortobaarchitecture.com/cortoba-plateforme/api/projets.php\")",
+      "Bash(git -C E:/public_html/public_html diff cortoba-plateforme/plateforme-nas.js)",
+      "Bash(curl -s --connect-timeout 5 -u \"CASNAS:Cortoba2026\" -X PROPFIND -H \"Depth: 1\" \"http://192.168.1.165:5005/Public/CAS_PROJETS/2026/\")",
+      "Bash(gh run:*)",
+      "Bash(find /e/public_html/public_html -maxdepth 1 -name *project*.html -o -name *projet*.html)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"E:/public_html/public_html\" && git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null || (git add -A && git commit -m \"Auto-commit changes\" && git push origin master) 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Auto-push en cours..."
+          }
+        ]
+      }
+    ]
+  }
+}

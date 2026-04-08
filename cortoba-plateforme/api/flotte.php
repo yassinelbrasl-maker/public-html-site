@@ -8,6 +8,15 @@
 require_once __DIR__ . '/../config/middleware.php';
 setCorsHeaders();
 
+// Helper : nettoyer le body — convertir '' en null pour éviter les erreurs MySQL sur DATE/INT
+function getCleanBody() {
+    $b = getBody();
+    foreach ($b as $k => &$v) {
+        if ($v === '') $v = null;
+    }
+    return $b;
+}
+
 // ── Auto-création des tables ──
 function ensureFlotteTables() {
     $db = getDB();
@@ -377,7 +386,7 @@ function getVehicule($id) {
 }
 
 function createVehicule($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_vehicules (id, marque, modele, immatriculation, vin, type_vehicule, couleur,
                   date_achat, date_mise_circulation, valeur_achat, kilometrage_actuel, statut,
@@ -398,7 +407,7 @@ function createVehicule($user) {
 }
 
 function updateVehicule($id) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $db->prepare("UPDATE CA_flotte_vehicules SET
                   marque=?, modele=?, immatriculation=?, vin=?, type_vehicule=?, couleur=?,
                   date_achat=?, date_mise_circulation=?, valeur_achat=?, valeur_residuelle=?,
@@ -448,7 +457,7 @@ function listAttributions() {
 }
 
 function createAttribution($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_attributions (id, vehicule_id, type_attribution, collaborateur, projet_id,
                   date_debut, date_fin, motif, cles_remises, accessoires, statut, cree_par)
@@ -466,7 +475,7 @@ function createAttribution($user) {
 }
 
 function updateAttribution($id) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $db->prepare("UPDATE CA_flotte_attributions SET
                   type_attribution=?, collaborateur=?, projet_id=?, date_debut=?, date_fin=?,
                   motif=?, cles_remises=?, accessoires=?, statut=?
@@ -520,7 +529,7 @@ function listReservations() {
 }
 
 function createReservation($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     // Vérifier conflit de réservation
     $stmt = $db->prepare("SELECT COUNT(*) FROM CA_flotte_reservations
@@ -544,7 +553,7 @@ function createReservation($user) {
 }
 
 function updateReservation($id) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $db->prepare("UPDATE CA_flotte_reservations SET statut=?, approuve_par=? WHERE id=?")
        ->execute([$b['statut'] ?? 'En attente', $b['approuve_par'] ?? null, $id]);
     jsonOk(['updated' => true]);
@@ -581,7 +590,7 @@ function listKilometres() {
 }
 
 function createKilometrage($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $distance = (int)($b['km_fin'] ?? 0) - (int)($b['km_debut'] ?? 0);
     $db->prepare("INSERT INTO CA_flotte_kilometres (id, vehicule_id, date_releve, km_debut, km_fin, distance,
@@ -633,7 +642,7 @@ function listCarburant() {
 }
 
 function createCarburant($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $montant = (float)($b['litres'] ?? 0) * (float)($b['prix_litre'] ?? 0);
     if (isset($b['montant_total']) && (float)$b['montant_total'] > 0) $montant = (float)$b['montant_total'];
@@ -686,7 +695,7 @@ function listEntretien() {
 }
 
 function createEntretien($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_entretien (id, vehicule_id, type_entretien, categorie, titre, description,
                   date_prevue, date_realisee, km_prevu, km_realise, prestataire, lieu, montant, statut,
@@ -706,7 +715,7 @@ function createEntretien($user) {
 }
 
 function updateEntretien($id) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $db->prepare("UPDATE CA_flotte_entretien SET
                   type_entretien=?, categorie=?, titre=?, description=?,
                   date_prevue=?, date_realisee=?, km_prevu=?, km_realise=?,
@@ -763,7 +772,7 @@ function listSinistres() {
 }
 
 function createSinistre($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_sinistres (id, vehicule_id, date_sinistre, type_sinistre, lieu,
                   description, conducteur, tiers_implique, constat_rempli, numero_dossier,
@@ -781,7 +790,7 @@ function createSinistre($user) {
 }
 
 function updateSinistre($id) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $db->prepare("UPDATE CA_flotte_sinistres SET
                   type_sinistre=?, lieu=?, description=?, conducteur=?,
                   tiers_implique=?, constat_rempli=?, numero_dossier=?,
@@ -829,7 +838,7 @@ function listAssurances() {
 }
 
 function createAssurance($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_assurances (id, vehicule_id, assureur, numero_police, type_couverture,
                   date_debut, date_fin, prime_annuelle, franchise, statut, notes)
@@ -845,7 +854,7 @@ function createAssurance($user) {
 }
 
 function updateAssurance($id) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $db->prepare("UPDATE CA_flotte_assurances SET
                   assureur=?, numero_police=?, type_couverture=?,
                   date_debut=?, date_fin=?, prime_annuelle=?, franchise=?, statut=?, notes=?
@@ -891,7 +900,7 @@ function listControles() {
 }
 
 function createControle($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_controles (id, vehicule_id, type_controle, date_controle, date_expiration,
                   resultat, organisme, observations, montant)
@@ -923,7 +932,7 @@ function listPermis() {
 }
 
 function createPermis($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_permis (id, collaborateur, numero_permis, categorie, date_delivrance,
                   date_expiration, autorite_delivrance, statut, notes)
@@ -938,7 +947,7 @@ function createPermis($user) {
 }
 
 function updatePermis($id) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $db->prepare("UPDATE CA_flotte_permis SET
                   collaborateur=?, numero_permis=?, categorie=?, date_delivrance=?,
                   date_expiration=?, autorite_delivrance=?, statut=?, notes=?
@@ -983,7 +992,7 @@ function listCouts() {
 }
 
 function createCout($user) {
-    $b = getBody(); $db = getDB();
+    $b = getCleanBody(); $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_flotte_couts (id, vehicule_id, categorie, libelle, date_cout, montant, notes)
                   VALUES (?,?,?,?,?,?,?)")
