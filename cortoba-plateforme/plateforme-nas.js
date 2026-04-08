@@ -8418,6 +8418,9 @@ function renderSuiviTree(items) {
       html += '</div>'; // .suivi-children
       html += '</div>'; // .suivi-mission-card
     });
+    html += '</div>'; // .suivi-cat-body
+    html += '</div>'; // .suivi-cat-group
+    }); // catKeys
     html += '</div>'; // .suivi-projet-body
     html += '</div>'; // .suivi-projet-group
     }); // year projects
