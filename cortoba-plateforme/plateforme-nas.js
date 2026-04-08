@@ -2268,7 +2268,7 @@ function resetProjetForm(){
   var nasLinkBtn = document.getElementById('pj-nas-link-btn'); if(nasLinkBtn) nasLinkBtn.style.display = 'none';
   var nasPathInput = document.getElementById('pj-nas-path-input'); if(nasPathInput) nasPathInput.value = '';
   var nasEditPanel = document.getElementById('pj-nas-edit-panel'); if(nasEditPanel) nasEditPanel.style.display = 'none';
-
+  var msSearch = document.getElementById('pj-mission-search'); if(msSearch) msSearch.value = '';
 
   populateClientSelect();
   var csInput = document.getElementById('pj-client-search'); if (csInput) csInput.value = '';
