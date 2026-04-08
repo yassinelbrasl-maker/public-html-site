@@ -591,7 +591,7 @@ function loadValidationHistory() {
       $('val-history').innerHTML = '<div class="empty-state"><div class="empty-text">Aucun historique</div></div>';
       return;
     }
-    var h = '<table class="data-table"><thead><tr><th>Document</th><th>Projet</th><th>Statut</th><th>Commentaire</th><th>Date</th></tr></thead><tbody>';
+    var h = '<div class="table-responsive"><table class="data-table"><thead><tr><th>Document</th><th>Projet</th><th>Statut</th><th>Commentaire</th><th>Date</th></tr></thead><tbody>';
     vals.forEach(function (v) {
       h += '<tr><td>' + esc(v.doc_titre || v.reference_label || '—') + '</td>' +
         '<td>' + esc(v.projet_code || '') + '</td>' +
@@ -599,7 +599,7 @@ function loadValidationHistory() {
         '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">' + esc(v.commentaire || '—') + '</td>' +
         '<td>' + fmtDate(v.signe_at || v.modifie_at || v.cree_at) + '</td></tr>';
     });
-    h += '</tbody></table>';
+    h += '</tbody></table></div>';
     $('val-history').innerHTML = h;
   });
 }
