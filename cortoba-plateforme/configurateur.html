@@ -1274,7 +1274,7 @@ function buildNasBridgeUrl(code, clientName, annee) {
   return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge.html#' + hash;
 }
 
-function showSuccess(nom, code) {
+function showSuccess(nom, code, projetId) {
   // Cacher le wizard
   for (var i = 1; i <= TOTAL; i++) {
     var s = document.getElementById('cfg-s' + i); if (s) s.classList.remove('active');
@@ -1286,6 +1286,10 @@ function showSuccess(nom, code) {
     success.style.display = 'flex';
     var pn = document.getElementById('success-projet-name'); if (pn) pn.textContent = nom;
     var pc = document.getElementById('success-code'); if (pc) pc.textContent = code;
+  }
+  // Mettre à jour le lien "Voir dans la plateforme" avec l'ID du projet
+  if (projetId) {
+    _createdProjetId = projetId;
   }
 }
 
