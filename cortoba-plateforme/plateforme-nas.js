@@ -16909,18 +16909,26 @@ function renderNcTable(filter) {
   }
 
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:2rem">Aucun élément dans cette catégorie</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:2rem">Aucun élément dans cette catégorie</td></tr>';
     return;
   }
 
+  var monoStyle = 'font-family:var(--font-mono,monospace);font-size:0.78rem;white-space:nowrap';
   tbody.innerHTML = items.map(function(r, i) {
     var idx = _ncData.indexOf(r);
     var annee = r.annee || '—';
-    var code = r.projet ? (r.projet.code || '—') : '—';
+    var codePlat = r.projet ? (r.projet.code || '—') : '—';
+    var codeNas = r.nasFolder ? ncExtractCode(r.nasFolder) : '—';
+    if (!codeNas) codeNas = '—';
     var nomPlat = r.projet ? (r.projet.nom || '—') : '<span style="color:var(--text-3);font-style:italic">— non référencé —</span>';
     var nasFolder = r.nasFolder || '<span style="color:var(--text-3);font-style:italic">— absent —</span>';
     var statusBadge = '';
     var actionHtml = '';
+
+    // Colorer les codes si différents
+    var codeMatch = (codePlat !== '—' && codeNas !== '—' && codePlat.toUpperCase() === codeNas.toUpperCase());
+    var codePlatStyle = monoStyle + (!codeMatch && codePlat !== '—' && codeNas !== '—' ? ';color:#e07b72' : '');
+    var codeNasStyle = monoStyle + (!codeMatch && codePlat !== '—' && codeNas !== '—' ? ';color:#e07b72' : '');
 
     switch (r.type) {
       case 'ok':
@@ -16929,7 +16937,7 @@ function renderNcTable(filter) {
         break;
       case 'missing_nas':
         statusBadge = '<span style="color:#e07b72;font-size:0.78rem;font-weight:500">Dossier absent</span>';
-        actionHtml = '<button class="btn btn-sm" style="font-size:0.72rem;margin-right:4px" onclick="ncCreateFolder(' + idx + ')" title="Créer le dossier sur le NAS">📁 Créer dossier</button>' +
+        actionHtml = '<button class="btn btn-sm" style="font-size:0.72rem;margin-right:4px" onclick="ncCreateFolder(' + idx + ')" title="Créer le dossier sur le NAS">Créer dossier</button>' +
           '<button class="btn btn-sm" style="font-size:0.72rem;color:#e07b72" onclick="ncArchiveProject(' + idx + ')" title="Archiver le projet">Archiver</button>';
         break;
       case 'missing_plat':
@@ -16946,7 +16954,8 @@ function renderNcTable(filter) {
     var rowStyle = r.type === 'ok' ? 'opacity:0.6;' : '';
     return '<tr data-nc-type="' + r.type + '" style="' + rowStyle + '">' +
       '<td style="white-space:nowrap">' + annee + '</td>' +
-      '<td style="font-family:var(--font-mono,monospace);font-size:0.78rem;white-space:nowrap">' + code + '</td>' +
+      '<td style="' + codePlatStyle + '">' + codePlat + '</td>' +
+      '<td style="' + codeNasStyle + '">' + codeNas + '</td>' +
       '<td>' + nomPlat + '</td>' +
       '<td style="font-size:0.82rem">' + nasFolder + '</td>' +
       '<td>' + statusBadge + '</td>' +
