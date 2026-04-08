@@ -8291,6 +8291,7 @@ function loadTaches(projetId) {
       if (t.parent_id !== undefined)   t.parentId    = t.parent_id;
       if (t.projet_nom !== undefined)  t.projetNom   = t.projet_nom;
       if (t.projet_code !== undefined) t.projetCode  = t.projet_code;
+      if (t.projet_client !== undefined) t.projetClient = t.projet_client;
       if (t.date_debut !== undefined)  t.dateDebut   = t.date_debut;
       if (t.date_echeance !== undefined) t.dateEcheance = t.date_echeance;
       if (t.cree_par !== undefined)    t.creePar     = t.cree_par;
