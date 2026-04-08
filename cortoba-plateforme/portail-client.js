@@ -696,7 +696,7 @@ function loadChantierAvancement() {
 
     // Info generale
     html += '<div class="card"><div class="card-title">Informations du chantier</div>' +
-      '<div class="data-table"><table><tbody>';
+      '<table class="data-table"><tbody>';
     if (ch.adresse) html += '<tr><td>Adresse</td><td>' + esc(ch.adresse) + '</td></tr>';
     if (ch.date_debut) html += '<tr><td>Date de debut</td><td>' + fmtDate(ch.date_debut) + '</td></tr>';
     if (ch.date_fin_prevue) html += '<tr><td>Date de fin prevue</td><td>' + fmtDate(ch.date_fin_prevue) + '</td></tr>';
