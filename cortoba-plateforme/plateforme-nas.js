@@ -12533,14 +12533,64 @@ function renderGanttPage() {
 //  CHARGE DE TRAVAIL — capacité vs planifié
 // ═══════════════════════════════════════════════════════════════
 
+var _chargePeriod = 'week'; // 'today', 'week', 'month', 'custom'
+
+function setChargePeriod(period) {
+  _chargePeriod = period;
+  var today = new Date();
+  var fromEl = document.getElementById('charge-from');
+  var toEl   = document.getElementById('charge-to');
+  var todayStr = today.toISOString().split('T')[0];
+
+  if (period === 'today') {
+    fromEl.value = todayStr;
+    toEl.value   = todayStr;
+  } else if (period === 'week') {
+    var day = today.getDay(); // 0=dim
+    var monday = new Date(today);
+    monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+    var sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    fromEl.value = monday.toISOString().split('T')[0];
+    toEl.value   = sunday.toISOString().split('T')[0];
+  } else if (period === 'month') {
+    var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    var lastDay  = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    fromEl.value = firstDay.toISOString().split('T')[0];
+    toEl.value   = lastDay.toISOString().split('T')[0];
+  }
+  // custom : on garde les valeurs des inputs
+
+  // Mise à jour visuelle des boutons
+  ['today','week','month'].forEach(function(p){
+    var btn = document.getElementById('charge-btn-' + p);
+    if (btn) {
+      btn.style.background = (p === period) ? 'var(--accent)' : '';
+      btn.style.color      = (p === period) ? 'var(--bg-1)' : '';
+    }
+  });
+
+  renderChargePage();
+}
+window.setChargePeriod = setChargePeriod;
+
+function _countWorkDays(d1, d2) {
+  var count = 0;
+  var cur = new Date(d1);
+  while (cur <= d2) {
+    var day = cur.getDay();
+    if (day !== 0 && day !== 6) count++; // Exclure samedi/dimanche
+    cur.setDate(cur.getDate() + 1);
+  }
+  return Math.max(count, 1);
+}
+
 function renderChargePage() {
   var df = (document.getElementById('charge-from')||{}).value;
   var dt = (document.getElementById('charge-to')||{}).value;
   if (!df || !dt) {
-    var today = new Date();
-    var weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
-    if (!df) { document.getElementById('charge-from').value = today.toISOString().split('T')[0]; df = today.toISOString().split('T')[0]; }
-    if (!dt) { document.getElementById('charge-to').value = weekEnd.toISOString().split('T')[0]; dt = weekEnd.toISOString().split('T')[0]; }
+    setChargePeriod('week');
+    return;
   }
   loadTaches().then(function(list){
     var membres = getMembres();
@@ -12566,20 +12616,40 @@ function renderChargePage() {
       byMember[t.assignee].planifie += he;
       byMember[t.assignee].tasks.push(t);
     });
-    // Capacité hebdo = heures_mois / 4 ; ajuster selon longueur période
-    var periodDays = Math.max(1, Math.round((d2-d1)/86400000) + 1);
+
+    // Capacité = heures_mois / jours ouvrés du mois × jours ouvrés de la période
+    var workDaysPeriod = _countWorkDays(d1, d2);
+    var workDaysMonth  = _countWorkDays(
+      new Date(d1.getFullYear(), d1.getMonth(), 1),
+      new Date(d1.getFullYear(), d1.getMonth() + 1, 0)
+    );
+
+    // Libellé période
+    var periodLabel = '';
+    if (_chargePeriod === 'today')  periodLabel = "Aujourd'hui — " + workDaysPeriod + ' jour ouvré';
+    else if (_chargePeriod === 'week')  periodLabel = 'Cette semaine — ' + workDaysPeriod + ' jours ouvrés';
+    else if (_chargePeriod === 'month') periodLabel = 'Ce mois — ' + workDaysPeriod + ' jours ouvrés';
+    else periodLabel = 'Période personnalisée — ' + workDaysPeriod + ' jour' + (workDaysPeriod > 1 ? 's' : '') + ' ouvré' + (workDaysPeriod > 1 ? 's' : '');
+
     var wrap = document.getElementById('charge-wrap');
     if (!wrap) return;
     var html = '';
+    html += '<div style="font-size:0.72rem;color:var(--accent);margin-bottom:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">' + periodLabel + '</div>';
+
     var names = Object.keys(byMember);
-    if (!names.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucun collaborateur.</div>'; return; }
+    if (!names.length) { wrap.innerHTML = html + '<div style="color:var(--text-3);font-size:0.82rem">Aucun collaborateur.</div>'; return; }
+
+    var totalPlanifie = 0, totalCapacite = 0;
     names.forEach(function(n){
       var d = byMember[n];
-      var capWeek = parseFloat(d.membre.heures_mois || 160) / 4;
-      var capacite = capWeek * (periodDays / 7);
+      var heuresMois = parseFloat(d.membre.heures_mois || 160);
+      var capacite = (heuresMois / workDaysMonth) * workDaysPeriod;
       var pct = capacite > 0 ? Math.round(d.planifie / capacite * 100) : 0;
       var color = d.membre.color || '#c8a96e';
       var barColor = pct > 100 ? '#c0392b' : (pct > 80 ? '#d18e1e' : color);
+      totalPlanifie += d.planifie;
+      totalCapacite += capacite;
+
       html += '<div style="margin-bottom:1rem">';
       html += '<div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem">';
       html += '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+color+';margin-right:0.4rem"></span>'+n+'</span>';
@@ -12587,10 +12657,27 @@ function renderChargePage() {
       html += '</div>';
       html += '<div style="height:8px;background:var(--bg-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+barColor+';transition:width .3s"></div></div>';
       if (d.tasks.length) {
-        html += '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">'+d.tasks.length+' tâche(s) active(s)</div>';
+        html += '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">';
+        d.tasks.forEach(function(tk){
+          var he = parseFloat(tk.heures_estimees)||0;
+          html += '<span style="display:inline-block;margin-right:0.6rem">• ' + (tk.titre||'').substring(0,35) + (he ? ' <strong>'+he.toFixed(1)+'h</strong>':'') + '</span>';
+        });
+        html += '</div>';
       }
       html += '</div>';
     });
+
+    // Total équipe
+    var totalPct = totalCapacite > 0 ? Math.round(totalPlanifie / totalCapacite * 100) : 0;
+    var totalBarColor = totalPct > 100 ? '#c0392b' : (totalPct > 80 ? '#d18e1e' : 'var(--accent)');
+    html += '<div style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid var(--border)">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:0.82rem;font-weight:600;margin-bottom:0.3rem">';
+    html += '<span>Total équipe</span>';
+    html += '<span style="color:var(--text-3)">'+totalPlanifie.toFixed(1)+' h / '+totalCapacite.toFixed(1)+' h <strong style="color:'+totalBarColor+'">('+totalPct+'%)</strong></span>';
+    html += '</div>';
+    html += '<div style="height:8px;background:var(--bg-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(totalPct,100)+'%;background:'+totalBarColor+';transition:width .3s"></div></div>';
+    html += '</div>';
+
     wrap.innerHTML = html;
   });
 }
