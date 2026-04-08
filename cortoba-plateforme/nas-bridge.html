@@ -341,6 +341,31 @@ function copyTemplate(webdavBase, destFolder) {
   });
 }
 
+// ── Creation des sous-dossiers configures ──
+function createSubfolders(webdavBase, destFolder) {
+  if (!subfolders || subfolders.length === 0) return Promise.resolve();
+  var s = addStep('Creation des sous-dossiers...', 'wait');
+  var created = 0;
+  var idx = 0;
+  function nextSub() {
+    if (idx >= subfolders.length) return Promise.resolve();
+    var name = subfolders[idx]; idx++;
+    var subPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(name);
+    var headers = {};
+    if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+    return fetch(webdavBase + subPath, { method: 'MKCOL', headers: headers })
+      .then(function(r) {
+        if (r.status === 201) created++;
+        // 405 = deja existe, on continue
+        return nextSub();
+      })
+      .catch(function() { return nextSub(); });
+  }
+  return nextSub().then(function() {
+    updateStep(s, 'Sous-dossiers : ' + created + '/' + subfolders.length + ' crees', 'ok');
+  });
+}
+
 // ── Demarrage : essayer plusieurs methodes ──
 function start() {
   if (!ip || !user || !folders) {
