@@ -943,6 +943,7 @@ function deleteFlotteControle(id) {
 }
 
 function deleteFlottePermis(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer ce permis ?')) return;
   apiFetch('api/flotte.php?action=permis&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteConformitePage();
