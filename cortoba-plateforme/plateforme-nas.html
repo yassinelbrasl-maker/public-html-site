@@ -1599,6 +1599,392 @@
         <div id="da-list"></div>
       </div>
 
+      <!-- ══ SUIVI DES HONORAIRES ══ -->
+      <div class="page" id="page-honoraires">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Finance</div>
+            <h1 class="page-title">Suivi des Honoraires</h1>
+          </div>
+          <div class="page-actions">
+            <select id="hon-projet-sel" class="form-input" style="width:280px" onchange="loadHonorairesProjet()">
+              <option value="">— Choisir un projet —</option>
+            </select>
+            <button class="btn btn-sm" onclick="openHonInit()" id="hon-init-btn" style="display:none">Initialiser honoraires</button>
+          </div>
+        </div>
+
+        <!-- Dashboard global (sans projet sélectionné) -->
+        <div id="hon-dashboard-wrap">
+          <div class="kpi-grid" id="hon-global-kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem"></div>
+          <div class="card">
+            <div class="card-title">Santé financière des projets</div>
+            <table class="data-table" id="hon-global-table">
+              <thead><tr><th>Projet</th><th>Prévu</th><th>Engagé</th><th>Facturé</th><th>Encaissé</th><th>Santé</th></tr></thead>
+              <tbody id="hon-global-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Détail projet -->
+        <div id="hon-projet-wrap" style="display:none">
+          <!-- KPIs -->
+          <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem">
+            <div class="kpi-card"><div class="kpi-label">Honoraires prévus</div><div class="kpi-val" id="hon-kpi-prevu">—</div></div>
+            <div class="kpi-card"><div class="kpi-label">Engagés</div><div class="kpi-val" id="hon-kpi-engage">—</div></div>
+            <div class="kpi-card"><div class="kpi-label">Facturés</div><div class="kpi-val" id="hon-kpi-facture">—</div></div>
+            <div class="kpi-card"><div class="kpi-label">Encaissés</div><div class="kpi-val" id="hon-kpi-encaisse">—</div></div>
+          </div>
+
+          <!-- Health indicator -->
+          <div id="hon-health" style="margin-bottom:1.5rem"></div>
+
+          <!-- Breakdown table -->
+          <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-title">Décomposition par mission</div>
+            <div style="overflow-x:auto">
+            <table class="data-table" id="hon-breakdown-table">
+              <thead><tr>
+                <th>Mission</th><th>Mode</th><th>Prévu</th><th>Engagé</th><th>Facturé</th><th>Encaissé</th>
+                <th>Prog. prévue</th><th>Prog. réelle</th><th>Écart</th><th></th>
+              </tr></thead>
+              <tbody id="hon-breakdown-tbody"></tbody>
+              <tfoot id="hon-breakdown-tfoot"></tfoot>
+            </table>
+            </div>
+          </div>
+
+          <!-- Earned Value -->
+          <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-title">Valeur acquise (Earned Value)</div>
+            <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:1rem">
+              <div class="kpi-card" style="padding:0.7rem"><div class="kpi-label" style="font-size:0.7rem">Budget (BAC)</div><div class="kpi-val" style="font-size:1rem" id="ev-bac">—</div></div>
+              <div class="kpi-card" style="padding:0.7rem"><div class="kpi-label" style="font-size:0.7rem">Valeur planifiée (PV)</div><div class="kpi-val" style="font-size:1rem" id="ev-pv">—</div></div>
+              <div class="kpi-card" style="padding:0.7rem"><div class="kpi-label" style="font-size:0.7rem">Valeur acquise (EV)</div><div class="kpi-val" style="font-size:1rem" id="ev-ev">—</div></div>
+              <div class="kpi-card" style="padding:0.7rem"><div class="kpi-label" style="font-size:0.7rem">Coût réel (AC)</div><div class="kpi-val" style="font-size:1rem" id="ev-ac">—</div></div>
+              <div class="kpi-card" style="padding:0.7rem"><div class="kpi-label" style="font-size:0.7rem">Estimation finale (EAC)</div><div class="kpi-val" style="font-size:1rem" id="ev-eac">—</div></div>
+            </div>
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+              <div style="flex:1;min-width:120px;text-align:center">
+                <div style="font-size:0.72rem;color:var(--text-3)">SPI (Délai)</div>
+                <div id="ev-spi" style="font-size:1.3rem;font-weight:600">—</div>
+              </div>
+              <div style="flex:1;min-width:120px;text-align:center">
+                <div style="font-size:0.72rem;color:var(--text-3)">CPI (Coût)</div>
+                <div id="ev-cpi" style="font-size:1.3rem;font-weight:600">—</div>
+              </div>
+              <div style="flex:1;min-width:120px;text-align:center">
+                <div style="font-size:0.72rem;color:var(--text-3)">Écart délai (SV)</div>
+                <div id="ev-sv" style="font-size:1.3rem;font-weight:600">—</div>
+              </div>
+              <div style="flex:1;min-width:120px;text-align:center">
+                <div style="font-size:0.72rem;color:var(--text-3)">Écart coût (CV)</div>
+                <div id="ev-cv" style="font-size:1.3rem;font-weight:600">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Échéancier -->
+          <div class="card">
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+              Échéancier de facturation
+              <div>
+                <button class="btn btn-sm" onclick="generateEcheancier()">Générer auto</button>
+                <button class="btn btn-sm btn-primary" onclick="openAddEcheance()">+ Échéance</button>
+              </div>
+            </div>
+            <table class="data-table" id="hon-echeancier-table">
+              <thead><tr><th>Date</th><th>Phase</th><th>Description</th><th>Montant</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="hon-echeancier-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ CRÉANCES & RELANCES ══ -->
+      <div class="page" id="page-creances">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Finance</div>
+            <h1 class="page-title">Créances & Relances</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sm" onclick="exportAgedBalanceCSV()">Exporter CSV</button>
+            <button class="btn btn-sm btn-primary" onclick="openEnregistrerPaiement()">+ Enregistrer un paiement</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem">
+          <div class="kpi-card"><div class="kpi-label">Total créances</div><div class="kpi-val" id="cr-kpi-total">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Échues (en retard)</div><div class="kpi-val" id="cr-kpi-echues" style="color:var(--red)">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Factures impayées</div><div class="kpi-val" id="cr-kpi-nb">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Trésorerie M+3</div><div class="kpi-val" id="cr-kpi-tresorerie">—</div></div>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem">
+          <button class="tab-btn active" onclick="switchCreancesTab('receivables',this)">Créances clients</button>
+          <button class="tab-btn" onclick="switchCreancesTab('aged',this)">Balance âgée</button>
+          <button class="tab-btn" onclick="switchCreancesTab('cashflow',this)">Trésorerie prévisionnelle</button>
+          <button class="tab-btn" onclick="switchCreancesTab('relances',this)">Historique relances</button>
+        </div>
+
+        <!-- Tab: Receivables -->
+        <div class="creances-tab" id="creances-tab-receivables">
+          <div class="card">
+            <div style="overflow-x:auto">
+            <table class="data-table" id="receivables-table">
+              <thead><tr>
+                <th>Client</th><th>Facture</th><th>Projet</th><th>Montant</th><th>Payé</th><th>Reste</th>
+                <th>Échéance</th><th>Retard</th><th>Statut</th><th></th>
+              </tr></thead>
+              <tbody id="receivables-tbody"></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Aged Balance -->
+        <div class="creances-tab" id="creances-tab-aged" style="display:none">
+          <div class="card">
+            <div style="overflow-x:auto">
+            <table class="data-table" id="aged-balance-table">
+              <thead><tr>
+                <th>Client</th><th>Non échu</th><th>0-30j</th><th>31-60j</th><th>61-90j</th><th>90j+</th><th>Total</th>
+              </tr></thead>
+              <tbody id="aged-balance-tbody"></tbody>
+              <tfoot id="aged-balance-tfoot"></tfoot>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Cash flow -->
+        <div class="creances-tab" id="creances-tab-cashflow" style="display:none">
+          <div class="card">
+            <div class="card-title">Prévision de trésorerie (6 mois)</div>
+            <div style="overflow-x:auto">
+            <table class="data-table" id="cashflow-table">
+              <thead><tr><th>Mois</th><th>Entrées prévues</th><th>Entrées réelles</th><th>Sorties prévues</th><th>Solde prévisionnel</th></tr></thead>
+              <tbody id="cashflow-tbody"></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Reminders -->
+        <div class="creances-tab" id="creances-tab-relances" style="display:none">
+          <div class="card">
+            <table class="data-table" id="relances-table">
+              <thead><tr><th>Date</th><th>Facture</th><th>Client</th><th>Niveau</th><th>Canal</th><th>Statut</th><th>Par</th></tr></thead>
+              <tbody id="relances-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ MODALES PAIEMENTS ═══ -->
+
+      <!-- Modal: Enregistrer un paiement -->
+      <div class="modal-backdrop" id="modal-paiement" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal" style="max-width:540px">
+          <div class="modal-header">
+            <h3 id="paiement-modal-title">Enregistrer un paiement</h3>
+            <button class="modal-close" onclick="document.getElementById('modal-paiement').style.display='none'">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-row">
+              <label class="form-label">Facture</label>
+              <select id="pai-facture-sel" class="form-input" onchange="onPaiFactureChange()">
+                <option value="">— Sélectionner —</option>
+              </select>
+            </div>
+            <div class="form-row" style="display:flex;gap:1rem">
+              <div style="flex:1">
+                <label class="form-label">Montant restant</label>
+                <input type="text" id="pai-reste" class="form-input" readonly style="background:var(--bg-2)">
+              </div>
+              <div style="flex:1">
+                <label class="form-label">Montant reçu *</label>
+                <input type="number" id="pai-montant" class="form-input" step="0.01" min="0.01">
+              </div>
+            </div>
+            <div class="form-row" style="display:flex;gap:1rem">
+              <div style="flex:1">
+                <label class="form-label">Date paiement</label>
+                <input type="date" id="pai-date" class="form-input">
+              </div>
+              <div style="flex:1">
+                <label class="form-label">Mode</label>
+                <select id="pai-mode" class="form-input">
+                  <option value="Virement">Virement</option>
+                  <option value="Chèque">Chèque</option>
+                  <option value="Espèces">Espèces</option>
+                  <option value="Carte">Carte bancaire</option>
+                  <option value="Stripe">Stripe</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Référence (n° chèque, réf. virement...)</label>
+              <input type="text" id="pai-reference" class="form-input">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Notes</label>
+              <textarea id="pai-notes" class="form-input" rows="2"></textarea>
+            </div>
+            <div id="pai-err" style="color:var(--red);font-size:0.82rem;margin-top:0.5rem;display:none"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="document.getElementById('modal-paiement').style.display='none'">Annuler</button>
+            <button class="btn btn-primary" onclick="savePaiement()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Relance manuelle -->
+      <div class="modal-backdrop" id="modal-relance" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal" style="max-width:540px">
+          <div class="modal-header">
+            <h3>Envoyer une relance</h3>
+            <button class="modal-close" onclick="document.getElementById('modal-relance').style.display='none'">&times;</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="rel-facture-id">
+            <div class="form-row">
+              <label class="form-label">Email destinataire</label>
+              <input type="email" id="rel-email" class="form-input">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Niveau de relance</label>
+              <select id="rel-niveau" class="form-input">
+                <option value="1">1 — Courtoise</option>
+                <option value="2">2 — Ferme</option>
+                <option value="3">3 — Urgente</option>
+              </select>
+            </div>
+            <div id="rel-err" style="color:var(--red);font-size:0.82rem;margin-top:0.5rem;display:none"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="document.getElementById('modal-relance').style.display='none'">Annuler</button>
+            <button class="btn btn-primary" onclick="sendRelanceManuelle()">Envoyer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Init honoraires projet -->
+      <div class="modal-backdrop" id="modal-hon-init" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal" style="max-width:500px">
+          <div class="modal-header">
+            <h3>Initialiser les honoraires</h3>
+            <button class="modal-close" onclick="document.getElementById('modal-hon-init').style.display='none'">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-row">
+              <label class="form-label">Mode de calcul</label>
+              <select id="hon-init-mode" class="form-input" onchange="onHonInitModeChange()">
+                <option value="mop">MOP (barème standard)</option>
+                <option value="custom">Personnalisé</option>
+              </select>
+            </div>
+            <div id="hon-init-mop-preview" style="margin-top:1rem"></div>
+            <div id="hon-init-custom-wrap" style="display:none;margin-top:1rem">
+              <div id="hon-init-custom-phases"></div>
+              <button class="btn btn-sm" onclick="addCustomPhase()" style="margin-top:0.5rem">+ Phase</button>
+            </div>
+            <div id="hon-init-err" style="color:var(--red);font-size:0.82rem;margin-top:0.5rem;display:none"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="document.getElementById('modal-hon-init').style.display='none'">Annuler</button>
+            <button class="btn btn-primary" onclick="saveHonInit()">Initialiser</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Éditer phase honoraires -->
+      <div class="modal-backdrop" id="modal-hon-phase" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal" style="max-width:460px">
+          <div class="modal-header">
+            <h3>Éditer la phase</h3>
+            <button class="modal-close" onclick="document.getElementById('modal-hon-phase').style.display='none'">&times;</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="hp-id">
+            <div class="form-row">
+              <label class="form-label">Libellé</label>
+              <input type="text" id="hp-label" class="form-input">
+            </div>
+            <div class="form-row" style="display:flex;gap:1rem">
+              <div style="flex:1">
+                <label class="form-label">Montant prévu</label>
+                <input type="number" id="hp-montant" class="form-input" step="0.01">
+              </div>
+              <div style="flex:1">
+                <label class="form-label">Taux %</label>
+                <input type="number" id="hp-taux" class="form-input" step="0.01">
+              </div>
+            </div>
+            <div class="form-row" style="display:flex;gap:1rem">
+              <div style="flex:1">
+                <label class="form-label">Progression prévue %</label>
+                <input type="number" id="hp-prog-prevue" class="form-input" min="0" max="100">
+              </div>
+              <div style="flex:1">
+                <label class="form-label">Progression réelle %</label>
+                <input type="number" id="hp-prog-reelle" class="form-input" min="0" max="100">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="document.getElementById('modal-hon-phase').style.display='none'">Annuler</button>
+            <button class="btn btn-primary" onclick="saveHonPhase()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Ajouter échéance -->
+      <div class="modal-backdrop" id="modal-echeance" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal" style="max-width:460px">
+          <div class="modal-header">
+            <h3 id="echeance-modal-title">Ajouter une échéance</h3>
+            <button class="modal-close" onclick="document.getElementById('modal-echeance').style.display='none'">&times;</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="ech-id">
+            <div class="form-row">
+              <label class="form-label">Date prévue</label>
+              <input type="date" id="ech-date" class="form-input">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Phase mission</label>
+              <select id="ech-phase" class="form-input">
+                <option value="">—</option>
+                <option value="esquisse">Esquisse</option>
+                <option value="aps">APS</option>
+                <option value="apd">APD</option>
+                <option value="pro_dce">PRO/DCE</option>
+                <option value="suivi_det">Suivi/DET</option>
+                <option value="aor">AOR</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Description</label>
+              <input type="text" id="ech-desc" class="form-input">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Montant prévu</label>
+              <input type="number" id="ech-montant" class="form-input" step="0.01">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="document.getElementById('modal-echeance').style.display='none'">Annuler</button>
+            <button class="btn btn-primary" onclick="saveEcheance()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ══ CORBEILLE ══ -->
       <div class="page" id="page-corbeille">
         <div class="page-header">
