@@ -397,6 +397,9 @@ function start() {
     return;
   }
 
+  addStep('Dest: ' + folders, 'ok');
+  addStep('Template: ' + (templateFolder || '(vide)'), templateFolder ? 'ok' : 'fail');
+  if (subfolders.length) addStep('Sous-dossiers: ' + subfolders.join(', '), 'ok');
   var parts = folders.split('/').filter(function(p) { return p; });
   statusEl.textContent = 'Tentative de creation du dossier...';
 
