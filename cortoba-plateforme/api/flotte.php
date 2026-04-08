@@ -508,8 +508,16 @@ function updateAttribution($id) {
 }
 
 function deleteAttribution($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_attributions WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT collaborateur, type_attribution FROM CA_flotte_attributions WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['type_attribution'] ?? '') . ' — ' . ($row['collaborateur'] ?? '')) : 'Attribution';
+    if (!moveToCorbeille($db, 'CA_flotte_attributions', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
