@@ -8934,8 +8934,9 @@ function openSuiviModal(niveau, parentId, projetId) {
   // Re-populer les missions après que le projet soit défini pour avoir le bon contexte
   if (niveau === 0) _populateMissionsSelect('');
 
-  // Populate assignee select with team members
-  _populateAssigneeSelect('');
+  // Populate assignee select with team members — default to current user
+  var _currentUserName = (window._currentUser || {}).name || '';
+  _populateAssigneeSelect(_currentUserName);
 
   openModal('modal-tache');
 }
