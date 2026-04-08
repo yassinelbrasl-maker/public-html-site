@@ -92,7 +92,7 @@ function getAll() {
 
 function getOne(string $id) {
     $db   = getDB();
-    $stmt = $db->prepare('SELECT t.*, p.nom AS projet_nom, p.code AS projet_code
+    $stmt = $db->prepare('SELECT t.*, p.nom AS projet_nom, p.code AS projet_code, p.client AS projet_client
                           FROM CA_taches t
                           LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = t.projet_id COLLATE utf8mb4_unicode_ci
                           WHERE t.id = ?');
