@@ -265,7 +265,7 @@ function _renderFlotteResaTable() {
       h += '<button class="btn btn-sm" style="color:var(--green)" onclick="flotteResaAction(\''+r.id+'\',\'Approuvée\')">&#10003;</button> ';
       h += '<button class="btn btn-sm" style="color:var(--red)" onclick="flotteResaAction(\''+r.id+'\',\'Refusée\')">&#10005;</button> ';
     }
-    h += '<button class="btn btn-sm" onclick="deleteFlotteResa(\''+r.id+'\')">&#128465;</button></td></tr>';
+    h += (canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteResa(\''+r.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
