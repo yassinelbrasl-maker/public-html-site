@@ -91,4 +91,36 @@ function sanitize($val) {
     return $val;
 }
 
+// ── Journal d'acces membres ──
+
+function ensureMemberActivityLogTable() {
+    static $done = false;
+    if ($done) return;
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_member_activity_log` (
+        `id`         VARCHAR(32)  NOT NULL PRIMARY KEY,
+        `user_id`    VARCHAR(32)  NOT NULL,
+        `user_name`  VARCHAR(200) DEFAULT NULL,
+        `action`     VARCHAR(80)  NOT NULL,
+        `details`    TEXT         DEFAULT NULL,
+        `ip_address` VARCHAR(45)  DEFAULT NULL,
+        `cree_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY `idx_user`  (`user_id`),
+        KEY `idx_date`  (`cree_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $done = true;
+}
+
+function logMemberActivity($userId, $userName, $action, $details = null) {
+    try {
+        ensureMemberActivityLogTable();
+        $db = getDB();
+        $db->prepare("INSERT INTO CA_member_activity_log (id, user_id, user_name, action, details, ip_address)
+                      VALUES (?, ?, ?, ?, ?, ?)")
+           ->execute([bin2hex(random_bytes(16)), $userId, $userName, $action,
+                      $details ? json_encode($details) : null,
+                      $_SERVER['REMOTE_ADDR'] ?? null]);
+    } catch (\Throwable $e) { /* silencieux */ }
+}
+
 setCorsHeaders();
