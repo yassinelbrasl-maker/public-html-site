@@ -6186,25 +6186,63 @@ function renderFiscalitePage() {
 
 // ── Modules disponibles dans la plateforme (cache / fallback) ──
 // La liste réelle est chargée dynamiquement depuis api/modules.php
-var MODULES_PLATEFORME = [
-  { id: 'dashboard',   label: 'Tableau de bord' },
-  { id: 'demandes',    label: 'Demandes' },
-  { id: 'devis',       label: 'Offres & Devis' },
-  { id: 'projets',     label: 'Projets' },
-  { id: 'suivi',       label: 'Suivi' },
-  { id: 'journal',     label: 'Journal quotidien' },
-  { id: 'rendement',   label: 'Rendement' },
-  { id: 'facturation', label: 'Facturation' },
-  { id: 'bilans',      label: 'Bilans' },
-  { id: 'depenses',    label: 'Dépenses' },
-  { id: 'fiscalite',   label: 'Fiscalité' },
-  { id: 'nas',         label: 'Serveur NAS' },
-  { id: 'equipe',      label: 'Équipe' },
-  { id: 'clients',     label: 'Clients' },
-  { id: 'demandes-admin', label: 'Demandes admin' },
-  { id: 'conges',      label: 'Congés' },
-  { id: 'parametres',  label: 'Paramètres' },
+var MODULES_PLATEFORME_SECTIONS = [
+  { section: 'Principal', modules: [
+    { id: 'dashboard',   label: 'Tableau de bord' },
+  ]},
+  { section: 'Activité', modules: [
+    { id: 'demandes',    label: 'Demandes' },
+    { id: 'devis',       label: 'Offres & Devis' },
+    { id: 'projets',     label: 'Projets' },
+    { id: 'suivi',       label: 'Suivi' },
+    { id: 'journal',     label: 'Journal' },
+    { id: 'rendement',   label: 'Rendement' },
+    { id: 'timesheet',   label: 'Timesheet' },
+    { id: 'gantt',       label: 'Gantt' },
+    { id: 'charge',      label: 'Charge de travail' },
+    { id: 'facturation', label: 'Facturation' },
+  ]},
+  { section: 'Finance', modules: [
+    { id: 'bilans',      label: 'Bilans' },
+    { id: 'depenses',    label: 'Dépenses' },
+    { id: 'fiscalite',   label: 'Fiscalité' },
+  ]},
+  { section: 'Ressources', modules: [
+    { id: 'equipe',          label: 'Équipe' },
+    { id: 'clients',         label: 'Clients' },
+    { id: 'conges',          label: 'Congés' },
+    { id: 'demandes-admin',  label: 'Demandes admin' },
+  ]},
+  { section: 'Chantier', modules: [
+    { id: 'chantier',              label: 'Tableau de bord' },
+    { id: 'chantier-journal',      label: 'Journal chantier' },
+    { id: 'chantier-intervenants', label: 'Intervenants' },
+    { id: 'chantier-reunions',     label: 'Réunions & PV' },
+    { id: 'chantier-photos',       label: 'Photos & Médias' },
+    { id: 'chantier-reserves',     label: 'Réserves & RFI' },
+    { id: 'chantier-visas',        label: 'Visas' },
+    { id: 'chantier-securite',     label: 'Sécurité' },
+  ]},
+  { section: 'Flotte véhicules', modules: [
+    { id: 'flotte',             label: 'Tableau de bord' },
+    { id: 'flotte-reservations',label: 'Réservations' },
+    { id: 'flotte-km',          label: 'Km & Carburant' },
+    { id: 'flotte-entretien',   label: 'Entretien' },
+    { id: 'flotte-couts',       label: 'Coûts & TCO' },
+    { id: 'flotte-conformite',  label: 'Conformité' },
+  ]},
+  { section: 'Portail Client', modules: [
+    { id: 'portail',          label: 'Comptes clients' },
+    { id: 'portail-docs',     label: 'Documents partagés' },
+    { id: 'portail-messages', label: 'Messages clients' },
+  ]},
+  { section: 'Paramètres', modules: [
+    { id: 'parametres',  label: 'Paramètres' },
+  ]},
 ];
+// Flat list for backward compat
+var MODULES_PLATEFORME = [];
+MODULES_PLATEFORME_SECTIONS.forEach(function(s){ s.modules.forEach(function(m){ MODULES_PLATEFORME.push(m); }); });
 
 // Charge la liste dynamique depuis l'API (avec fallback cache local)
 function loadModulesFromAPI() {
