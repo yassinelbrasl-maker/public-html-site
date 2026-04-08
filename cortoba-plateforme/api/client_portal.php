@@ -1002,3 +1002,89 @@ function cpProjectTeam($client) {
     $stmt->execute([$projetId]);
     jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  PAIEMENT EN LIGNE (Stripe)
+// ═══════════════════════════════════════════════════════════════
+
+function cpPaymentInit($client) {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST requis', 405);
+
+    $body = getBody();
+    $factureId = $body['facture_id'] ?? '';
+    if (!$factureId) jsonError('facture_id requis');
+
+    $db = getDB();
+
+    // Verify facture belongs to this client
+    $s = $db->prepare("SELECT * FROM CA_factures WHERE id = ? AND client_id = ?");
+    $s->execute([$factureId, $client['client_id']]);
+    $facture = $s->fetch(PDO::FETCH_ASSOC);
+    if (!$facture) jsonError('Facture introuvable ou accès refusé', 404);
+
+    // Delegate to stripe_checkout.php
+    require_once __DIR__ . '/stripe_checkout.php';
+    // The stripe_checkout.php createSession function is already called via its own routing,
+    // so we manually call the Stripe API here
+
+    $config = getStripeConfig();
+    if (empty($config['enabled'])) jsonError('Paiements en ligne non activés');
+    $secretKey = $config['secret_key'] ?? '';
+    if (!$secretKey) jsonError('Stripe non configuré');
+
+    $montantDu = (float)($facture['net_payer'] ?: $facture['montant_ttc']) - (float)($facture['montant_paye'] ?? 0);
+    if ($montantDu <= 0) jsonError('Aucun montant restant');
+
+    $stripeAmount = (int)round($montantDu * 1000); // TND millimes
+
+    $successUrl = ($body['success_url'] ?? '') . '?payment=success&session_id={CHECKOUT_SESSION_ID}';
+    $cancelUrl = ($body['cancel_url'] ?? '') . '?payment=cancel';
+
+    $productName = 'Facture ' . ($facture['numero'] ?? $factureId);
+
+    $postData = http_build_query([
+        'payment_method_types[0]' => 'card',
+        'mode' => 'payment',
+        'success_url' => $successUrl,
+        'cancel_url' => $cancelUrl,
+        'line_items[0][price_data][currency]' => 'tnd',
+        'line_items[0][price_data][unit_amount]' => $stripeAmount,
+        'line_items[0][price_data][product_data][name]' => $productName,
+        'line_items[0][quantity]' => 1,
+        'metadata[facture_id]' => $factureId,
+        'metadata[client_id]' => $client['client_id'],
+        'metadata[projet_id]' => $facture['projet_id'] ?? '',
+        'customer_email' => $client['email'] ?? '',
+    ]);
+
+    $ch = curl_init('https://api.stripe.com/v1/checkout/sessions');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $postData,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $secretKey],
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $session = json_decode($response, true);
+    if ($httpCode !== 200 || empty($session['id'])) {
+        jsonError('Erreur Stripe: ' . ($session['error']['message'] ?? 'inconnue'), 502);
+    }
+
+    jsonOk(['session_id' => $session['id'], 'url' => $session['url']]);
+}
+
+function cpPaymentHistory($client) {
+    $db = getDB();
+    try {
+        $stmt = $db->prepare("SELECT p.*, f.numero AS facture_numero
+            FROM CA_paiements p JOIN CA_factures f ON f.id = p.facture_id
+            WHERE p.client_id = ? ORDER BY p.date_paiement DESC");
+        $stmt->execute([$client['client_id']]);
+        jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch (\Throwable $e) {
+        jsonOk([]); // Table may not exist yet
+    }
+}
