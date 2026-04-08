@@ -10,8 +10,9 @@ $user = requireAuth();
 
 try {
     $action = $_GET['action'] ?? 'all';
-    if ($action === 'diag')     getDiag();
-    elseif ($action === 'all')  getAll();
+    if ($action === 'diag')              getDiag();
+    elseif ($action === 'all')           getAll();
+    elseif ($action === 'member_access_log') getMemberAccessLog();
     else jsonError('Action inconnue', 400);
 } catch (\Throwable $e) {
     jsonError('Erreur serveur : ' . $e->getMessage(), 500);
