@@ -305,3 +305,60 @@ function getDiag() {
 
     jsonOk($diag);
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  JOURNAL D'ACCES MEMBRES
+// ═══════════════════════════════════════════════════════════════
+
+function getMemberAccessLog() {
+    ensureMemberActivityLogTable();
+    $page    = max(1, intval($_GET['page'] ?? 1));
+    $userId  = $_GET['user_id'] ?? '';
+    $limit   = 40;
+    $offset  = ($page - 1) * $limit;
+
+    $db = getDB();
+
+    $where = '';
+    $params = [];
+    if ($userId) {
+        $where = 'WHERE l.user_id = ?';
+        $params[] = $userId;
+    }
+
+    // Total
+    $stmt = $db->prepare("SELECT COUNT(*) FROM CA_member_activity_log l $where");
+    $stmt->execute($params);
+    $total = (int) $stmt->fetchColumn();
+
+    // Entries
+    $stmt = $db->prepare("
+        SELECT l.user_id, l.user_name, l.action, l.details, l.ip_address, l.cree_at
+        FROM CA_member_activity_log l
+        $where
+        ORDER BY l.cree_at DESC
+        LIMIT $limit OFFSET $offset
+    ");
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+    foreach ($rows as &$r) {
+        if ($r['details']) $r['details'] = json_decode($r['details'], true);
+    }
+
+    // User list for filter
+    $members = $db->query("
+        SELECT DISTINCT l.user_id, l.user_name
+        FROM CA_member_activity_log l
+        WHERE l.user_name IS NOT NULL
+        ORDER BY l.user_name
+    ")->fetchAll(\PDO::FETCH_ASSOC);
+
+    jsonOk([
+        'entries'     => $rows,
+        'total'       => $total,
+        'page'        => $page,
+        'total_pages' => max(1, ceil($total / $limit)),
+        'members'     => $members,
+    ]);
+}
