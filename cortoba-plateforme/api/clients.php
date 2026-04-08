@@ -54,17 +54,17 @@ function normalizeClientNames(array &$body) {
     $body['raison']     = forceUpper(stripCommas($body['raison'] ?? null));
 }
 
-// ── Nettoyage ponctuel : supprimer toutes les virgules des noms existants ────
+// ── Nettoyage ponctuel : virgules + majuscules sur tous les noms existants ───
 function cleanupCommas() {
     $db = getDB();
-    // 1. Nettoyer display_nom, nom, prenom dans CA_clients
-    $db->exec("UPDATE CA_clients SET display_nom = REPLACE(display_nom, ',', '') WHERE display_nom LIKE '%,%'");
-    $db->exec("UPDATE CA_clients SET nom = REPLACE(nom, ',', '') WHERE nom LIKE '%,%'");
-    $db->exec("UPDATE CA_clients SET prenom = REPLACE(prenom, ',', '') WHERE prenom LIKE '%,%'");
-    $db->exec("UPDATE CA_clients SET raison = REPLACE(raison, ',', '') WHERE raison LIKE '%,%'");
+    // 1. Supprimer virgules + forcer majuscules dans CA_clients
+    $db->exec("UPDATE CA_clients SET display_nom = UPPER(REPLACE(display_nom, ',', ''))");
+    $db->exec("UPDATE CA_clients SET nom = UPPER(REPLACE(nom, ',', ''))");
+    $db->exec("UPDATE CA_clients SET prenom = UPPER(REPLACE(prenom, ',', ''))");
+    $db->exec("UPDATE CA_clients SET raison = UPPER(REPLACE(raison, ',', ''))");
     // 2. Nettoyer les contacts auxiliaires
-    $db->exec("UPDATE CA_clients_contacts_aux SET nom = REPLACE(nom, ',', '') WHERE nom LIKE '%,%'");
-    $db->exec("UPDATE CA_clients_contacts_aux SET prenom = REPLACE(prenom, ',', '') WHERE prenom LIKE '%,%'");
+    $db->exec("UPDATE CA_clients_contacts_aux SET nom = UPPER(REPLACE(nom, ',', ''))");
+    $db->exec("UPDATE CA_clients_contacts_aux SET prenom = UPPER(REPLACE(prenom, ',', ''))");
     // 3. Synchroniser les noms clients dans les projets
     $stmt = $db->query("SELECT id, code, display_nom FROM CA_clients");
     $clients = $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -74,13 +74,13 @@ function cleanupCommas() {
             $upd->execute([$c['display_nom'], $c['code']]);
         }
     }
-    // 4. Nettoyer aussi le champ client directement dans les projets (cas orphelins)
-    $db->exec("UPDATE CA_projets SET client = REPLACE(client, ',', '') WHERE client LIKE '%,%'");
-    // 5. Nettoyer dans les devis si la table existe
+    // 4. Forcer majuscules dans les projets (cas orphelins)
+    $db->exec("UPDATE CA_projets SET client = UPPER(REPLACE(client, ',', ''))");
+    // 5. Forcer majuscules dans les devis si la table existe
     try {
-        $db->exec("UPDATE CA_devis SET client = REPLACE(client, ',', '') WHERE client LIKE '%,%'");
+        $db->exec("UPDATE CA_devis SET client = UPPER(REPLACE(client, ',', ''))");
     } catch (\Exception $e) { /* table absente */ }
-    jsonOk(['message' => 'Virgules supprimées de tous les noms clients, projets et devis']);
+    jsonOk(['message' => 'Noms clients nettoyés : virgules supprimées et majuscules forcées']);
 }
 
 function getAll() {
