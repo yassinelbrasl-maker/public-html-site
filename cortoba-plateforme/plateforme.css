@@ -682,6 +682,9 @@
       background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px;
       margin-bottom: 0.4rem; overflow: hidden;
     }
+    .suivi-cat-group.collapsed .suivi-cat-body { display: none; }
+    .suivi-cat-group.collapsed .suivi-cat-header .suivi-chevron { transform: rotate(-90deg); }
+
     .suivi-mission-card.collapsed .suivi-children { display: none; }
     .suivi-mission-card.collapsed > .suivi-mission-header .suivi-chevron { transform: rotate(-90deg); }
 
