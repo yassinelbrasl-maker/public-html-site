@@ -9100,6 +9100,14 @@ function saveTache() {
     return;
   }
 
+  // Déterminer la catégorie de la mission sélectionnée (niveau 0 uniquement)
+  var categorie = null;
+  if (niveau === 0 && titre) {
+    var _allMissions = getMissions();
+    var _foundM = _allMissions.find(function(m){ return m.nom === titre; });
+    if (_foundM && _foundM.cat) categorie = _foundM.cat;
+  }
+
   var body = {
     projet_id:     projetId,
     parent_id:     document.getElementById('tache-parent-id').value || null,
@@ -9112,6 +9120,7 @@ function saveTache() {
     progression:   parseInt(document.getElementById('tache-progression').value) || 0,
     date_debut:    document.getElementById('tache-date-debut').value || null,
     date_echeance: document.getElementById('tache-date-echeance').value || null,
+    categorie:     categorie,
     location_type: (document.getElementById('tache-location-type')||{}).value || 'Bureau',
     location_zone: ((document.getElementById('tache-location-zone')||{}).value || '').trim(),
     heures_estimees: heuresEst,
