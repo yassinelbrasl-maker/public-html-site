@@ -8696,44 +8696,21 @@ function _populateMissionsSelect(selectedValue) {
     return opt;
   };
 
-  if (!hasContext) {
-    // Pas de projet sélectionné → groupement classique par catégorie
-    cats.forEach(function(cat) {
-      var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
-      if (catMissions.length === 0) return;
-      var og = document.createElement('optgroup');
-      og.label = cat.label;
-      catMissions.forEach(function(m){ og.appendChild(makeOpt(m, false)); });
-      sel.appendChild(og);
-    });
-    var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
-    if (orphans.length) {
-      var og2 = document.createElement('optgroup');
-      og2.label = 'Autres';
-      orphans.forEach(function(m){ og2.appendChild(makeOpt(m, false)); });
-      sel.appendChild(og2);
-    }
-  } else {
-    // Contexte projet → 2 groupes : affectées / autres
-    var aff = missions.filter(function(m){ return isAffectee(m.nom); });
-    var other = missions.filter(function(m){ return !isAffectee(m.nom); });
-
-    if (aff.length) {
-      var ogA = document.createElement('optgroup');
-      ogA.label = '✓ Affectées à ce projet';
-      aff.forEach(function(m){ ogA.appendChild(makeOpt(m, false)); });
-      sel.appendChild(ogA);
-    } else {
-      var ogEmpty = document.createElement('optgroup');
-      ogEmpty.label = '✓ Affectées à ce projet (aucune pour l\'instant)';
-      sel.appendChild(ogEmpty);
-    }
-    if (other.length) {
-      var ogB = document.createElement('optgroup');
-      ogB.label = '◌ Autres missions disponibles';
-      other.forEach(function(m){ ogB.appendChild(makeOpt(m, true)); });
-      sel.appendChild(ogB);
-    }
+  // Toujours grouper par catégorie
+  cats.forEach(function(cat) {
+    var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
+    if (catMissions.length === 0) return;
+    var og = document.createElement('optgroup');
+    og.label = cat.label;
+    catMissions.forEach(function(m){ og.appendChild(makeOpt(m, !isAffectee(m.nom))); });
+    sel.appendChild(og);
+  });
+  var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
+  if (orphans.length) {
+    var og2 = document.createElement('optgroup');
+    og2.label = 'Autres';
+    orphans.forEach(function(m){ og2.appendChild(makeOpt(m, !isAffectee(m.nom))); });
+    sel.appendChild(og2);
   }
 
   if (selectedValue) sel.value = selectedValue;
