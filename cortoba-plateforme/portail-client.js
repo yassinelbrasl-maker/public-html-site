@@ -1000,7 +1000,7 @@ function loadAccessLog(page) {
           '</tr>';
       });
 
-      html += '</tbody></table></div>';
+      html += '</tbody></table></div></div>';
       container.innerHTML = html;
 
       // Pagination

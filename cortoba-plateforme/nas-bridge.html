@@ -58,13 +58,13 @@ var subfolders = [];
 try { subfolders = params.subfolders ? JSON.parse(params.subfolders) : []; } catch(e) { subfolders = []; }
 
 // Template : si non fourni, deduire depuis le chemin du dossier
-// Ex: folders = "Public/CAS_PROJETS/2026/CODE_Client" → template = "Public/CAS_PROJETS/2026/00-Dossier Type"
+// Le dossier type est a la racine du projets root (ex: Public/CAS_PROJETS/00-Dossier Type)
 var templateFolder = params.template || '';
 if (!templateFolder && folders) {
   var fParts = folders.split('/');
+  // Remonter avant l'année : Public/CAS_PROJETS/00-Dossier Type
   if (fParts.length >= 3) {
-    fParts[fParts.length - 1] = '00-Dossier Type';
-    templateFolder = fParts.join('/');
+    templateFolder = fParts.slice(0, -2).join('/') + '/00-Dossier Type';
   }
 }
 console.log('[NAS-BRIDGE] template=' + templateFolder + ', folders=' + folders);
