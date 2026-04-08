@@ -577,8 +577,16 @@ function updateReservation($id) {
 }
 
 function deleteReservation($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_reservations WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT demandeur, destination FROM CA_flotte_reservations WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['demandeur'] ?? '') . ' — ' . ($row['destination'] ?? '')) : 'Réservation';
+    if (!moveToCorbeille($db, 'CA_flotte_reservations', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
