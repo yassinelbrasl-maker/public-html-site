@@ -13353,6 +13353,19 @@ function cancelConge(id){
     .catch(function(e){ alert('Erreur : ' + e.message); });
 }
 
+function deleteConge(id){
+  if (!confirm('Supprimer définitivement cette demande de congé ?\n\nCette action est irréversible.')) return;
+  apiFetch('api/conges.php?action=delete&id=' + encodeURIComponent(id), { method:'POST', body: {} })
+    .then(function(){
+      showToast('Demande supprimée');
+      renderCongesMine();
+      renderCongesAdmin();
+      refreshCongesPendingBadge();
+    })
+    .catch(function(e){ alert('Erreur : ' + e.message); });
+}
+window.deleteConge = deleteConge;
+
 // ── Vue admin ──
 function renderCongesAdmin(){
   renderCongesHolidays();
