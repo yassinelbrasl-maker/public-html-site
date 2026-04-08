@@ -16741,3 +16741,102 @@ function ncApplyAll() {
     });
   });
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  PORTAIL CLIENT — JOURNAL D'ACCES
+// ═══════════════════════════════════════════════════════════════
+
+var _journalAccesLabels = {
+  login:             'Connexion',
+  logout:            'Déconnexion',
+  view_document:     'Consultation document',
+  download_document: 'Téléchargement document',
+  upload_document:   'Envoi document',
+  chat_send:         'Message envoyé',
+  validate:          'Validation',
+  change_password:   'Changement mot de passe',
+  reset_password:    'Réinitialisation mot de passe'
+};
+
+function journalActionLabel(action) {
+  return _journalAccesLabels[action] || action;
+}
+
+var _journalPage = 1;
+
+function renderPortailJournal(page) {
+  page = page || 1;
+  _journalPage = page;
+  var clientId = document.getElementById('journal-filter-client').value || '';
+  var url = 'api/client_portal_admin.php?action=access_log&page=' + page;
+  if (clientId) url += '&client_id=' + encodeURIComponent(clientId);
+
+  apiFetch(url).then(function(r) {
+    var entries = r.entries || [];
+    var tbody = document.getElementById('journal-acces-tbody');
+    var emptyEl = document.getElementById('journal-acces-empty');
+
+    // Populate client filter (first load)
+    var sel = document.getElementById('journal-filter-client');
+    if (sel.options.length <= 1 && r.clients && r.clients.length) {
+      r.clients.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.display_nom || c.id;
+        sel.appendChild(opt);
+      });
+    }
+
+    if (!entries.length) {
+      tbody.innerHTML = '';
+      emptyEl.style.display = '';
+      document.getElementById('journal-acces-pagination').innerHTML = '';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    tbody.innerHTML = entries.map(function(e) {
+      var detailStr = '—';
+      if (e.details) {
+        if (typeof e.details === 'object') {
+          var parts = [];
+          Object.keys(e.details).forEach(function(k) { parts.push(escH(k) + ': ' + escH(e.details[k])); });
+          detailStr = parts.join(', ');
+        } else {
+          detailStr = escH(String(e.details));
+        }
+      }
+      var dateStr = e.cree_at ? new Date(e.cree_at.replace(' ', 'T')).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+      return '<tr>' +
+        '<td style="white-space:nowrap">' + dateStr + '</td>' +
+        '<td>' + escH(e.client_nom || '—') + '</td>' +
+        '<td>' + escH(e.account_nom || e.account_email || '—') + '</td>' +
+        '<td>' + escH(journalActionLabel(e.action)) + '</td>' +
+        '<td style="font-family:var(--mono,monospace);font-size:0.8rem">' + escH(e.ip_address || '—') + '</td>' +
+        '<td style="font-size:0.78rem;color:var(--text-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detailStr + '</td>' +
+        '</tr>';
+    }).join('');
+
+    // Pagination
+    var pag = document.getElementById('journal-acces-pagination');
+    if (r.total_pages > 1) {
+      var html = '';
+      if (page > 1) html += '<button class="btn btn-sm" onclick="renderPortailJournal(' + (page - 1) + ')">&laquo; Précédent</button>';
+      html += '<span style="font-size:0.82rem;color:var(--text-2)">Page ' + page + ' / ' + r.total_pages + '</span>';
+      if (page < r.total_pages) html += '<button class="btn btn-sm" onclick="renderPortailJournal(' + (page + 1) + ')">Suivant &raquo;</button>';
+      pag.innerHTML = html;
+    } else {
+      pag.innerHTML = '';
+    }
+  }).catch(function(e) {
+    document.getElementById('journal-acces-tbody').innerHTML = '';
+    document.getElementById('journal-acces-empty').style.display = '';
+    document.getElementById('journal-acces-empty').textContent = 'Erreur : ' + (e.message || e);
+  });
+}
+
+// Filter change handler
+document.addEventListener('DOMContentLoaded', function() {
+  var sel = document.getElementById('journal-filter-client');
+  if (sel) sel.addEventListener('change', function() { renderPortailJournal(1); });
+});
