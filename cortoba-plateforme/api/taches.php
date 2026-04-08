@@ -74,7 +74,7 @@ function getAll() {
     if (!empty($_GET['assignee']))              { $where[] = 't.assignee = ?';      $params[] = $_GET['assignee']; }
     if (!empty($_GET['location_type']))         { $where[] = 't.location_type = ?'; $params[] = $_GET['location_type']; }
 
-    $sql  = 'SELECT t.*, p.nom AS projet_nom, p.code AS projet_code,
+    $sql  = 'SELECT t.*, p.nom AS projet_nom, p.code AS projet_code, p.client AS projet_client,
                     COALESCE(lv.total,0) AS livrables_total,
                     COALESCE(lv.done,0)  AS livrables_done
              FROM CA_taches t
