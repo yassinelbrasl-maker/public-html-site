@@ -203,6 +203,7 @@ try {
         $salaire  = $canEditSalary ? (float)($body['salaire_net']      ?? 0) : null;
         $charges  = $canEditSalary ? (float)($body['charges_sociales'] ?? 0) : null;
         $subv     = $canEditSalary ? (float)($body['subventions']      ?? 0) : null;
+        $subvDir  = $canEditSalary ? (int)(!empty($body['subv_directe']) ? 1 : 0) : null;
         $avant    = $canEditSalary ? (float)($body['avantages_nature'] ?? 0) : null;
         $heures   = $canEditSalary ? (float)($body['heures_mois']      ?? 160) : null;
         $dateEmb  = $canEditSalary ? ($body['date_embauche']      ?? null) : null;
