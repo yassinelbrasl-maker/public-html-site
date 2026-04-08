@@ -5339,7 +5339,10 @@
           </div>
         </div>
       </div>
-      <div id="nas-conformite-filters" style="display:none;margin-bottom:0.8rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+      <div id="nas-conformite-filters" style="display:none;margin-bottom:0.8rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+        <select id="nc-filter-annee" class="form-select" style="width:auto;min-width:110px;font-size:0.78rem" onchange="applyNcFilters()">
+          <option value="">Toutes les années</option>
+        </select>
         <button class="btn btn-sm nc-filter active" data-filter="all" onclick="filterNcTable('all',this)">Tous</button>
         <button class="btn btn-sm nc-filter" data-filter="missing_nas" onclick="filterNcTable('missing_nas',this)" style="color:#e07b72">Dossier absent NAS</button>
         <button class="btn btn-sm nc-filter" data-filter="missing_plat" onclick="filterNcTable('missing_plat',this)" style="color:#d4a54a">Absent plateforme</button>
