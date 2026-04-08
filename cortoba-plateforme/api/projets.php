@@ -269,9 +269,16 @@ function remove($id, array $user) {
     $role = $user['role'] ?? '';
     if ($role !== 'admin' && $role !== 'Architecte gérant') jsonError('Seul un Architecte gérant peut supprimer', 403);
     $db = getDB();
+    // Récupérer le label du projet
+    $stmt = $db->prepare('SELECT code, nom FROM CA_projets WHERE id = ?');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['code'] ?? '') . ' ' . ($row['nom'] ?? '')) : 'Projet';
+    if (!moveToCorbeille($db, 'CA_projets', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     $db->prepare('DELETE FROM CA_projets_missions WHERE projet_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM CA_projets_intervenants WHERE projet_id = ?')->execute([$id]);
-    $db->prepare('DELETE FROM CA_projets WHERE id = ?')->execute([$id]);
     jsonOk(['deleted' => $id]);
 }
 
