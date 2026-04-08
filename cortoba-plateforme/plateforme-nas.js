@@ -9071,7 +9071,8 @@ function _populateMissionsSelect(selectedValue) {
       var og2 = document.createElement('optgroup');
       og2.label = 'Autres';
       orphans.forEach(function(m){ og2.appendChild(makeOpt(m, false)); });
-    sel.appendChild(og2);
+      sel.appendChild(og2);
+    }
   }
 
   if (selectedValue) sel.value = selectedValue;
