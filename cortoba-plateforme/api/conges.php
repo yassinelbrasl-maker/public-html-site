@@ -78,25 +78,25 @@ try {
     $cnt = $db->query("SELECT COUNT(*) FROM CA_jours_feries WHERE YEAR(date) = $yr")->fetchColumn();
     if (!$cnt) {
         $feries = [
-            // Fêtes nationales (payées)
-            ["$yr-01-01", 'Nouvel An'],
-            ["$yr-03-20", "Fête de l'Indépendance"],
-            ["$yr-04-09", 'Journée des Martyrs'],
-            ["$yr-05-01", 'Fête du Travail'],
-            ["$yr-07-25", 'Fête de la République'],
-            ["$yr-08-13", 'Journée de la Femme'],
-            ["$yr-10-15", "Fête de l'Évacuation"],
-            ["$yr-12-17", 'Fête de la Révolution'],
-            // Fêtes religieuses (non payées) : dates approximatives à ajuster chaque année
-            ["$yr-03-30", 'Aïd el-Fitr (à ajuster)'],
-            ["$yr-03-31", 'Aïd el-Fitr 2e jour (à ajuster)'],
-            ["$yr-06-06", 'Aïd el-Adha (à ajuster)'],
-            ["$yr-06-07", 'Aïd el-Adha 2e jour (à ajuster)'],
-            ["$yr-06-26", 'Ras El Am El Hijri (à ajuster)'],
-            ["$yr-09-04", 'Mouled (à ajuster)'],
-            ["$yr-09-05", 'Mouled 2e jour (à ajuster)'],
+            // Fêtes nationales (chômées et payées)
+            ["$yr-01-01", 'Nouvel An', 1],
+            ["$yr-03-20", "Fête de l'Indépendance", 1],
+            ["$yr-04-09", 'Journée des Martyrs', 1],
+            ["$yr-05-01", 'Fête du Travail', 1],
+            ["$yr-07-25", 'Fête de la République', 1],
+            ["$yr-08-13", 'Journée de la Femme', 1],
+            ["$yr-10-15", "Fête de l'Évacuation", 1],
+            ["$yr-12-17", 'Fête de la Révolution', 1],
+            // Fêtes religieuses (chômées et non payées) : dates approximatives à ajuster chaque année
+            ["$yr-03-30", 'Aïd el-Fitr (à ajuster)', 0],
+            ["$yr-03-31", 'Aïd el-Fitr 2e jour (à ajuster)', 0],
+            ["$yr-06-06", 'Aïd el-Adha (à ajuster)', 0],
+            ["$yr-06-07", 'Aïd el-Adha 2e jour (à ajuster)', 0],
+            ["$yr-06-26", 'Ras El Am El Hijri (à ajuster)', 0],
+            ["$yr-09-04", 'Mouled (à ajuster)', 0],
+            ["$yr-09-05", 'Mouled 2e jour (à ajuster)', 0],
         ];
-        $ins = $db->prepare("INSERT IGNORE INTO CA_jours_feries (date, libelle) VALUES (?, ?)");
+        $ins = $db->prepare("INSERT IGNORE INTO CA_jours_feries (date, libelle, paye) VALUES (?, ?, ?)");
         foreach ($feries as $f) $ins->execute($f);
     }
 } catch (\Throwable $e) { /* silencieux */ }
