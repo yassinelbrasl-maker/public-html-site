@@ -16890,7 +16890,8 @@ function renderJournalMembres(page) {
   var url = 'api/dashboard.php?action=member_access_log&page=' + page;
   if (userId) url += '&user_id=' + encodeURIComponent(userId);
 
-  apiFetch(url).then(function(r) {
+  apiFetch(url).then(function(res) {
+    var r = res.data || res;
     var entries = r.entries || [];
     var tbody = document.getElementById('journal-membres-tbody');
     var emptyEl = document.getElementById('journal-membres-empty');
