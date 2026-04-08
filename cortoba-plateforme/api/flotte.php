@@ -857,8 +857,16 @@ function updateSinistre($id) {
 }
 
 function deleteSinistre($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_sinistres WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT type_sinistre, date_sinistre FROM CA_flotte_sinistres WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['type_sinistre'] ?? '') . ' ' . ($row['date_sinistre'] ?? '')) : 'Sinistre';
+    if (!moveToCorbeille($db, 'CA_flotte_sinistres', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
