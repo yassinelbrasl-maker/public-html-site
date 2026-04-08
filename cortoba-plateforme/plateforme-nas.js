@@ -2525,19 +2525,22 @@ function buildNasFolderButton(p) {
   var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
   var btnStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem';
-  // Build a button that copies NAS path + offers to create folder if needed
-  return '<button onclick="copyNasPath(this,\'' + esc(nasPath).replace(/'/g, "\\'") + '\')" style="' + btnStyle + '" title="' + esc(nasPath) + '">' +
+  return '<button onclick="openNasFolder(this,\'' + esc(nasPath).replace(/'/g, "\\'") + '\')" style="' + btnStyle + '" title="Ouvrir ' + esc(nasPath) + '">' +
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
     ' Dossier NAS</button>';
 }
-function copyNasPath(btn, path) {
-  navigator.clipboard.writeText(path).then(function() {
-    showToast('Chemin copié : ' + path, 'success');
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copié !';
-    setTimeout(function() {
-      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Dossier NAS';
-    }, 2000);
-  });
+function openNasFolder(btn, uncPath) {
+  // Convertir \\ip\share\path → file://///ip/share/path pour ouvrir dans l'explorateur Windows
+  var fileUrl = 'file:///' + uncPath.replace(/\\/g, '/');
+  var win = window.open(fileUrl, '_blank');
+  if (!win || win.closed) {
+    // Popup bloquée ou protocole file:// bloqué → copier le chemin en fallback
+    navigator.clipboard.writeText(uncPath).then(function() {
+      showToast('Chemin copié — collez dans l\'explorateur : ' + uncPath, 'success');
+    }).catch(function() {
+      showToast(uncPath, 'success');
+    });
+  }
 }
 
 function openProjetDetail(id){
