@@ -221,6 +221,7 @@ CREATE TABLE IF NOT EXISTS `CA_taches` (
   `date_echeance` date DEFAULT NULL,
   `progression` int NOT NULL DEFAULT 0,
   `ordre` int NOT NULL DEFAULT 0,
+  `categorie` varchar(10) DEFAULT NULL COMMENT 'Code catégorie mission (ex: CON, EXE, AMO…)',
   `cree_par` varchar(120) DEFAULT NULL,
   `cree_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `modifie_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
