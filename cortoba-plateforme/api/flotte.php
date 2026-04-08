@@ -927,8 +927,16 @@ function updateAssurance($id) {
 }
 
 function deleteAssurance($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_assurances WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT assureur, numero_police FROM CA_flotte_assurances WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['assureur'] ?? '') . ' ' . ($row['numero_police'] ?? '')) : 'Assurance';
+    if (!moveToCorbeille($db, 'CA_flotte_assurances', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
