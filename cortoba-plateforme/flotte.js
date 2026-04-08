@@ -660,6 +660,7 @@ function editFlotteEntretien(id) {
 }
 
 function deleteFlotteEntretien(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer cet entretien ?')) return;
   apiFetch('api/flotte.php?action=entretien&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteEntretienPage();
