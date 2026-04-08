@@ -4947,6 +4947,13 @@ function applyModuleAccess() {
   var isAdmin = session && session.isAdmin;
   var el = document.getElementById('param-roles-card');
   if (el) el.style.display = isAdmin ? '' : 'none';
+
+  // Masquer les boutons de création pour les stagiaires
+  if (!canCreate()) {
+    document.querySelectorAll('.btn-create-only').forEach(function(b){
+      b.style.display = 'none';
+    });
+  }
 }
 
 // Contrôle d'accès intégré directement dans showPage() ci-dessous
