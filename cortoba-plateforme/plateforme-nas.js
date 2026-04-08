@@ -6759,12 +6759,22 @@ function recomputeCoutEmployeur() {
   var subv    = v('mb-subv');
   var avant   = v('mb-avant');
   var heures  = Math.max(1, v('mb-heures') || 160);
-  var coutTot = (salaire + charges) - subv + avant;
+  var directe = document.getElementById('mb-subv-directe');
+  var isDirecte = directe && directe.checked;
+  // Si versé directement au membre, ne pas déduire la subvention du coût employeur
+  var coutTot = isDirecte ? (salaire + charges + avant) : (salaire + charges) - subv + avant;
   var coutH   = coutTot / heures;
   var ct = document.getElementById('mb-cout-total');
   var ch = document.getElementById('mb-cout-horaire');
   if (ct) ct.textContent = fmtTnd(coutTot);
   if (ch) ch.textContent = fmtTnd(coutH) + '/h';
+  // Mise à jour de la formule affichée et du hint
+  var formule = document.getElementById('mb-cout-formule');
+  if (formule) formule.textContent = isDirecte
+    ? '(Salaire + Charges) + Avantages (subvention versée directement)'
+    : '(Salaire + Charges) − Subventions + Avantages';
+  var hint = document.getElementById('mb-subv-directe-hint');
+  if (hint) hint.style.display = isDirecte ? 'block' : 'none';
   // Re-calcul projection (dépend du salaire)
   recomputeProjectionAugm();
 }
