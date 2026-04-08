@@ -58,6 +58,9 @@ var templateFolder = params.template || '';
 var subfolders = [];
 try { subfolders = params.subfolders ? JSON.parse(params.subfolders) : []; } catch(e) { subfolders = []; }
 
+// Debug : afficher les parametres recus
+console.log('[NAS-BRIDGE] template=' + templateFolder + ', subfolders=' + JSON.stringify(subfolders) + ', folders=' + folders);
+
 function addStep(text, cls) {
   var d = document.createElement('div');
   d.className = 'step ' + (cls||'wait');
