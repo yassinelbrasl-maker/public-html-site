@@ -16710,9 +16710,15 @@ function ncNormalize(str) {
 // Extraire le code projet d'un nom de dossier NAS (format: CODE_NomProjet ou CODE - NomProjet)
 function ncExtractCode(folderName) {
   // Extraire les 3 premiers blocs séparés par "_" : "01_26_GLM" de "01_26_GLM_GUELLALI MOEZ"
+  // Le 3e bloc peut contenir des chiffres de suffixe (ex: BRH001) → on garde tel quel
   var parts = (folderName || '').split('_');
   if (parts.length >= 3) return (parts[0] + '_' + parts[1] + '_' + parts[2]).toUpperCase();
   return '';
+}
+function ncExtractCodeBase(str) {
+  // Extraire la base du code sans suffixe numérique : "15_26_BRH001" → "15_26_BRH"
+  // et "15_26_BRH" → "15_26_BRH"
+  return (str || '').replace(/(\d{2}_\d{2}_[A-Z]+)\d*$/i, '$1').toUpperCase();
 }
 
 // Construire le nom de dossier attendu pour un projet (comme buildNasBridgeUrl)
