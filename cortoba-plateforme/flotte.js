@@ -603,7 +603,7 @@ function _renderFlotteSinistresTable() {
     h += '<tr><td>'+s.date_sinistre+'</td><td>'+s.marque+' '+s.modele+'</td>' +
       '<td>'+s.type_sinistre+'</td><td>'+(s.lieu||'—')+'</td><td>'+(s.conducteur||'—')+'</td>' +
       '<td>'+_flotteFmt(s.montant_degats)+' TND</td><td>'+_flotteStatutBadge(s.statut)+'</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlotteSinistre(\''+s.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteSinistre(\''+s.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
