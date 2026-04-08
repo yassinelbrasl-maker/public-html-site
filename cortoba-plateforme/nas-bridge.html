@@ -417,7 +417,7 @@ function start() {
         }).then(function() {
           notifyParent(true, statusEl.textContent);
           showPath();
-          setTimeout(function() { try { window.close(); } catch(e) {} }, 4000);
+          setTimeout(function() { try { window.close(); } catch(e) {} }, 8000);
         });
       }
       // Essai 2 : QTS API HTTPS (port 443)
@@ -431,7 +431,7 @@ function start() {
           return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
             notifyParent(true, statusEl.textContent);
             showPath();
-            setTimeout(function() { try { window.close(); } catch(e) {} }, 4000);
+            setTimeout(function() { try { window.close(); } catch(e) {} }, 8000);
           });
         }
         // Essai 3 : QTS API HTTP (port 8080)
@@ -445,7 +445,7 @@ function start() {
             return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
               notifyParent(true, statusEl.textContent);
               showPath();
-              setTimeout(function() { try { window.close(); } catch(e) {} }, 4000);
+              setTimeout(function() { try { window.close(); } catch(e) {} }, 8000);
             });
           }
           // Aucune methode n'a fonctionne
