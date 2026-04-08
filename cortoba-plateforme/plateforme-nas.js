@@ -16709,12 +16709,9 @@ function ncNormalize(str) {
 
 // Extraire le code projet d'un nom de dossier NAS (format: CODE_NomProjet ou CODE - NomProjet)
 function ncExtractCode(folderName) {
-  // Patterns courants : "01_26_ABC_Nom" ou "01_26_ABC - Nom" etc.
-  var m = folderName.match(/^(\d{2}_\d{2}_[A-Z0-9]+)/i);
-  if (m) return m[1].toUpperCase();
-  // Essayer aussi avec tiret : "01_26_ABC-..."
-  m = folderName.match(/^(\d{2}_\d{2}_\w+)/i);
-  if (m) return m[1].toUpperCase();
+  // Extraire les 3 premiers blocs séparés par "_" : "01_26_GLM" de "01_26_GLM_GUELLALI MOEZ"
+  var parts = (folderName || '').split('_');
+  if (parts.length >= 3) return (parts[0] + '_' + parts[1] + '_' + parts[2]).toUpperCase();
   return '';
 }
 
