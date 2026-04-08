@@ -124,11 +124,8 @@ function create(array $user) {
     $db   = getDB();
     $id   = bin2hex(random_bytes(16));
 
-    // Supprimer les virgules des noms
-    $body['displayNom'] = stripCommas($body['displayNom'] ?? '');
-    $body['nom']        = stripCommas($body['nom'] ?? null);
-    $body['prenom']     = stripCommas($body['prenom'] ?? null);
-    $body['raison']     = stripCommas($body['raison'] ?? null);
+    // Normaliser les noms : supprimer virgules + forcer majuscules
+    normalizeClientNames($body);
 
     // Sérialiser le groupe en JSON string pour stockage
     $groupeJson = null;
