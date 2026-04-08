@@ -277,16 +277,20 @@ function update($id, array $user) {
 
 function remove($id, array $user) {
     if (!$id) jsonError('ID requis');
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
 
-    $stmt = $db->prepare('SELECT parent_id FROM CA_taches WHERE id = ?');
+    $stmt = $db->prepare('SELECT parent_id, titre FROM CA_taches WHERE id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) jsonError('Tâche introuvable', 404);
     $parentId = $row['parent_id'];
+    $label = $row['titre'] ?? 'Tâche';
 
     deleteChildren($db, $id);
-    $db->prepare('DELETE FROM CA_taches WHERE id = ?')->execute([$id]);
+    if (!moveToCorbeille($db, 'CA_taches', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
 
     if ($parentId) {
         recalcParentProgressionById($db, $parentId);
