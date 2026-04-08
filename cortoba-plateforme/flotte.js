@@ -935,6 +935,7 @@ function deleteFlotteAssurance(id) {
 }
 
 function deleteFlotteControle(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer ce contrôle ?')) return;
   apiFetch('api/flotte.php?action=controles&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteConformitePage();
