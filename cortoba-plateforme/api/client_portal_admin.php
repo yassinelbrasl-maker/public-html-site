@@ -408,3 +408,63 @@ function cpaClientChatSend($user) {
 
     jsonOk(['id' => $msgId]);
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  JOURNAL D'ACCES (admin)
+// ═══════════════════════════════════════════════════════════════
+
+function cpaAccessLog($user) {
+    $page     = max(1, intval($_GET['page'] ?? 1));
+    $clientId = $_GET['client_id'] ?? '';
+    $limit    = 40;
+    $offset   = ($page - 1) * $limit;
+
+    $db = getDB();
+
+    $where = '';
+    $params = [];
+    if ($clientId) {
+        $where = 'WHERE l.client_id = ?';
+        $params[] = $clientId;
+    }
+
+    // Total
+    $stmt = $db->prepare("SELECT COUNT(*) FROM CA_client_activity_log l $where");
+    $stmt->execute($params);
+    $total = (int) $stmt->fetchColumn();
+
+    // Entries
+    $stmt = $db->prepare("
+        SELECT l.action, l.details, l.ip_address, l.cree_at,
+               a.nom AS account_nom, a.email AS account_email,
+               c.display_nom AS client_nom
+        FROM CA_client_activity_log l
+        LEFT JOIN CA_client_accounts a ON a.id = l.account_id
+        LEFT JOIN CA_clients c ON c.id = l.client_id
+        $where
+        ORDER BY l.cree_at DESC
+        LIMIT $limit OFFSET $offset
+    ");
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as &$r) {
+        if ($r['details']) $r['details'] = json_decode($r['details'], true);
+    }
+
+    // Client list for filter
+    $clients = $db->query("
+        SELECT DISTINCT c.id, c.display_nom
+        FROM CA_client_activity_log l
+        JOIN CA_clients c ON c.id = l.client_id
+        ORDER BY c.display_nom
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    jsonOk([
+        'entries'     => $rows,
+        'total'       => $total,
+        'page'        => $page,
+        'total_pages' => max(1, ceil($total / $limit)),
+        'clients'     => $clients,
+    ]);
+}
