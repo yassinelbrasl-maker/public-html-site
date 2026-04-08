@@ -5079,6 +5079,7 @@ function showPage(id){
   if(id==='charge')     setTimeout(function(){ if(typeof renderChargePage==='function') renderChargePage(); },80);
   if(id==='demandes-admin') setTimeout(renderDemandesAdminPage,80);
   if(id==='conges')     setTimeout(function(){ if(typeof renderCongesPage==='function') renderCongesPage(); },80);
+  if(id==='corbeille') setTimeout(function(){ if(typeof renderCorbeillePage==='function') renderCorbeillePage(); },80);
   if(id==='notifications') setTimeout(function(){ if(typeof renderNotificationsPage==='function') renderNotificationsPage(); },40);
   if(id==='nas')        setTimeout(renderNasPage,80);
   if(id==='chantier')   setTimeout(function(){ if(typeof renderChantierDashboard==='function') renderChantierDashboard(); },80);
