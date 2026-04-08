@@ -16632,6 +16632,7 @@ function ncFallbackWebDAV(statusEl) {
       var projets = getProjets().map(function(p) {
         return { id: p.id, code: p.code || '', nom: p.nom || '', annee: p.annee || '', statut: p.statut || '' };
       });
+      _ncRawProjets = projets; _ncRawNasFolders = nasFolders;
       _ncData = buildConformiteData(projets, nasFolders);
       renderConformiteResults();
     } else {
