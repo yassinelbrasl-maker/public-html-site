@@ -8489,6 +8489,7 @@ function renderSuiviTree(items) {
     html += '<svg class="suivi-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
     html += '<span class="suivi-projet-code">' + (proj.code || '') + '</span>';
     html += '<span class="suivi-projet-nom">' + proj.nom + '</span>';
+    if (proj.client) html += '<span class="suivi-projet-client" style="font-size:0.75rem;color:var(--text-3);margin-left:0.5rem">— ' + proj.client + '</span>';
     html += '</div>';
     html += '<div class="suivi-projet-right">';
     html += '<span class="suivi-projet-stats">' + done + '/' + totalTasks + '</span>';
