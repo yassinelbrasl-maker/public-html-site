@@ -779,6 +779,7 @@ function saveFlotteCout() {
 }
 
 function deleteFlotteCout(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer ce coût ?')) return;
   apiFetch('api/flotte.php?action=couts&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteCoutsPage();
