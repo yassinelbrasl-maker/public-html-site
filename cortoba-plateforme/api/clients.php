@@ -121,6 +121,11 @@ function getOne(string $id) {
 }
 
 function create(array $user) {
+    $role = strtolower(trim($user['role'] ?? ''));
+    if ($role === 'stagiaire') {
+        jsonError('Les stagiaires ne sont pas autorisés à créer des clients', 403);
+    }
+
     $body = getBody();
     $db   = getDB();
     $id   = bin2hex(random_bytes(16));
