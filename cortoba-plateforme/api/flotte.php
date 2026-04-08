@@ -1035,8 +1035,16 @@ function updatePermis($id) {
 }
 
 function deletePermis($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_permis WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT collaborateur, numero_permis FROM CA_flotte_permis WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['collaborateur'] ?? '') . ' ' . ($row['numero_permis'] ?? '')) : 'Permis';
+    if (!moveToCorbeille($db, 'CA_flotte_permis', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
