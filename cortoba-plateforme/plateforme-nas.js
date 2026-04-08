@@ -231,8 +231,13 @@ function loadSettings() {
         var svEmpty = (sv === null || sv === undefined || sv === '' || (Array.isArray(sv) && sv.length === 0));
         var lvEmpty = (lv === null || lv === undefined || lv === '' || (Array.isArray(lv) && lv.length === 0));
 
-        if (!svEmpty) {
-          // Serveur a une valeur non-vide → utiliser serveur
+        if (!svEmpty && !lvEmpty && JSON.stringify(sv) !== JSON.stringify(lv)) {
+          // Les deux ont une valeur mais elles diffèrent : garder localStorage
+          // (plus récent dans cette session) et repousser vers le serveur
+          _settingsCache[k] = lv;
+          apiFetch('api/settings.php', {method:'POST', body:{key:k, value:lv}}).catch(function(){});
+        } else if (!svEmpty) {
+          // Serveur a une valeur non-vide (et local identique ou vide) → utiliser serveur
           _settingsCache[k] = sv;
           try { localStorage.setItem(k, JSON.stringify(sv)); } catch(e){}
         } else if (!lvEmpty) {
