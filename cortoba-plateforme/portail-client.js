@@ -713,7 +713,7 @@ function loadChantierAvancement() {
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">' +
           '<strong style="font-size:0.85rem">' + esc(p.nom || p.titre || 'Phase') + '</strong>' +
           '<span style="font-size:0.82rem;font-weight:600">' + pct + '%</span></div>' +
-          '<div class="progress-bar-wrap"><div class="progress-bar" style="width:' + pct + '%"></div></div>';
+          '<div class="progress-bar-wrap"><div class="progress-fill" style="width:' + pct + '%"></div></div>';
         if (p.date_debut || p.date_fin) {
           html += '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.2rem">';
           if (p.date_debut) html += fmtDate(p.date_debut);
