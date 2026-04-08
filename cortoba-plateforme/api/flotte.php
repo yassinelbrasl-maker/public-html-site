@@ -783,8 +783,16 @@ function updateEntretien($id) {
 }
 
 function deleteEntretien($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_entretien WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT titre FROM CA_flotte_entretien WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? ($row['titre'] ?: 'Entretien') : 'Entretien';
+    if (!moveToCorbeille($db, 'CA_flotte_entretien', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
