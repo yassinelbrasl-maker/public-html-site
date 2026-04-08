@@ -16730,7 +16730,7 @@ function applyNcFilters() {
 
 function renderNcTable(filter) {
   var tbody = document.getElementById('nas-conformite-tbody');
-  var items = _ncData;
+  var items = _ncGetFiltered();
   if (filter && filter !== 'all') {
     items = items.filter(function(r) { return r.type === filter; });
   }
