@@ -43,6 +43,9 @@ function getDepenses(){ return _cache.depenses; }
 function getDemandes(){ return _cache.demandes; }
 
 function loadData(){
+  // Réinitialiser les caches de colonnes pour charger les préférences utilisateur
+  _clActiveColumns = null;
+  _pjActiveColumns = null;
   return Promise.all([
     // Charger les paramètres en premier pour que les selects soient prêts
     loadSettings(),
@@ -997,7 +1000,7 @@ function saveClient() {
   } else if (type==='morale') {
     displayNom = raison;
   } else {
-    displayNom = nom + (prenom ? ', '+prenom : '');
+    displayNom = nom + (prenom ? ' '+prenom : '');
   }
 
   var numClient  = _editingClientId
@@ -1024,23 +1027,16 @@ function saveClient() {
     codeGenere = genClientCode(type, prenom, type==='morale' ? raison : nom);
   }
 
-  // Priorité : code manuel > code généré
+  // Priorité : code manuel > code affiché dans le preview > code généré
   var clCodeInput = document.getElementById('cl-code-input');
+  var clCodePreview = document.getElementById('cl-code-preview');
   var manualCode  = (clCodeInput && clCodeInput.dataset.manual === '1') ? clCodeInput.value.trim().toUpperCase() : '';
   var finalCode;
   if (manualCode) {
     finalCode = manualCode;
-  } else if (_editingClientId) {
-    var origClient = clients.find(function(c){ return c.id===_editingClientId; }) || {};
-    var nameChanged = false;
-    if (type === 'morale') {
-      nameChanged = (origClient.raison || '').trim() !== raison;
-    } else if (type === 'groupe') {
-      nameChanged = false; // groupe code is manual
-    } else {
-      nameChanged = (origClient.nom || '').trim() !== nom || (origClient.prenom || '').trim() !== prenom;
-    }
-    finalCode = nameChanged ? codeGenere : (origClient.code || codeGenere);
+  } else if (clCodePreview && clCodePreview.textContent && clCodePreview.textContent !== '—') {
+    // Utiliser le code affiché dans le preview (cohérent avec ce que l'utilisateur voit)
+    finalCode = clCodePreview.textContent.trim();
   } else {
     finalCode = codeGenere;
   }
@@ -1157,19 +1153,28 @@ var ALL_CL_COLUMNS = [
   {key:'type',     label:'Type',     default:false,locked:false,sortable:true, render:function(c){return c.type==='morale'?'Morale':c.type==='groupe'?'Groupe':'Physique';}},
   {key:'tel',      label:'Téléphone',default:false,locked:false,sortable:false,render:function(c){return c.tel||'—';}},
   {key:'adresse',  label:'Adresse',  default:false,locked:false,sortable:true, render:function(c){return c.adresse||'—';}},
-  {key:'projets',  label:'Projets',  default:false,locked:false,sortable:true, render:function(c){return String(c.projets||0);}},
+  {key:'projets',  label:'Projets',  default:false,locked:false,sortable:true, render:function(c){var pjs=getProjets();var count=pjs.filter(function(p){return p.client_code===c.code||(c.id&&(p.client_id===c.id||p.clientId===c.id));}).length;return String(count);}},
   {key:'creeAt',   label:'Créé le',  default:false,locked:false,sortable:true, render:function(c){if(!c.creeAt&&!c.cree_at) return '—'; var d=new Date(c.creeAt||c.cree_at); return isNaN(d)?'—':d.toLocaleDateString('fr-FR');}},
-  {key:'creePar',  label:'Créé par', default:false,locked:false,sortable:true, render:function(c){return c.creePar||c.cree_par||'—';}}
+  {key:'creePar',  label:'Créé par', default:false,locked:false,sortable:true, render:function(c){return c.creePar||c.cree_par||'—';}},
+  {key:'modifiePar',label:'Modifié par',default:false,locked:false,sortable:true, render:function(c){return c.modifie_par||'—';}}
 ];
 var _clActiveColumns = null;
 
+function _userPrefKey(base) {
+  var s = getSession();
+  var uname = (s && s.name) ? s.name.replace(/[^a-zA-Z0-9]/g,'_') : 'default';
+  return base + '_' + uname;
+}
+
 function getClActiveColumns(){
   if(_clActiveColumns) return _clActiveColumns;
-  var saved = getLS('cortoba_cl_col_order', null);
+  var userKey = _userPrefKey('cortoba_cl_col_order');
+  var saved = getSetting(userKey, null);
+  if (!saved) saved = getLS('cortoba_cl_col_order', null); // fallback ancien format
   _clActiveColumns = (saved&&Array.isArray(saved)) ? saved : ALL_CL_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;});
   return _clActiveColumns;
 }
-function saveClColumnPrefs(){ setLS('cortoba_cl_col_order', _clActiveColumns); }
+function saveClColumnPrefs(){ var k=_userPrefKey('cortoba_cl_col_order'); setLS(k,_clActiveColumns); saveSetting(k,_clActiveColumns); }
 function toggleClColumn(key){
   var col=ALL_CL_COLUMNS.find(function(c){return c.key===key;});
   if(col&&col.locked) return;
@@ -1207,6 +1212,15 @@ function openClColumnSelector(){
   document.body.appendChild(ov);
 }
 
+// ── Tri clients ──
+var _clSortKey = 'nom', _clSortDir = 1;
+function sortByClColumn(key) {
+  if (_clSortKey === key) _clSortDir *= -1;
+  else { _clSortKey = key; _clSortDir = 1; }
+  renderClients();
+}
+window.sortByClColumn = sortByClColumn;
+
 // ── Render Clients ──
 function renderClients() {
   var tb = document.getElementById('clients-tbody'); if (!tb) return;
@@ -1216,11 +1230,33 @@ function renderClients() {
   var active = getClActiveColumns();
   var ct = document.getElementById('clients-count');
   if(ct) ct.textContent = clients.length===allClients.length ? clients.length+' client'+(clients.length>1?'s':'') : clients.length+' / '+allClients.length+' clients';
-  // Header
+
+  // Tri des clients
+  var sk = _clSortKey, sd = _clSortDir;
+  clients.sort(function(a, b) {
+    var va, vb;
+    if (sk === 'nom') { va = (a.displayNom||a.nom||a.raison||'').toLowerCase(); vb = (b.displayNom||b.nom||b.raison||'').toLowerCase(); }
+    else if (sk === 'projets') {
+      var pjs = getProjets();
+      va = pjs.filter(function(p){return p.client_code===a.code;}).length;
+      vb = pjs.filter(function(p){return p.client_code===b.code;}).length;
+    }
+    else if (sk === 'creeAt') { va = a.creeAt||a.cree_at||''; vb = b.creeAt||b.cree_at||''; }
+    else { va = (a[sk]||'').toString().toLowerCase(); vb = (b[sk]||'').toString().toLowerCase(); }
+    if (va < vb) return -1 * sd; if (va > vb) return 1 * sd; return 0;
+  });
+
+  // Header avec tri
+  function clSortIcon(key) {
+    if (_clSortKey !== key) return '<span style="margin-left:3px;font-size:0.6rem;color:var(--border);vertical-align:middle">⇅</span>';
+    return '<span style="margin-left:3px;font-size:0.65rem;color:var(--accent);vertical-align:middle">' + (_clSortDir === 1 ? '▲' : '▼') + '</span>';
+  }
   if(th){
     th.innerHTML = active.map(function(key){
       var col=ALL_CL_COLUMNS.find(function(x){return x.key===key;});
-      return col ? '<th style="padding:0.45rem 0.8rem;font-size:0.7rem;white-space:nowrap">'+col.label+'</th>' : '';
+      if(!col) return '';
+      var s = 'padding:0.45rem 0.8rem;font-size:0.7rem;white-space:nowrap;' + (col.sortable ? 'cursor:pointer;user-select:none' : '');
+      return '<th style="'+s+'" '+(col.sortable?'onclick="sortByClColumn(\''+key+'\')"':'')+'>'+col.label+(col.sortable?clSortIcon(key):'')+'</th>';
     }).join('') + '<th style="padding:0.45rem 0.8rem"></th>';
   }
   tb.innerHTML = clients.length === 0
@@ -1248,8 +1284,8 @@ var _editingClientId = null;
 function openClientDetail(id) {
   var c = getClients().find(function(x){ return x.id===id; });
   if (!c) return;
-  var projets = getProjets().filter(function(p){ return p.client===c.displayNom||p.client===(c.nom+(c.prenom?', '+c.prenom:'')); });
-  var devis   = getDevis().filter(function(d){   return d.client===c.displayNom||d.client===(c.nom+(c.prenom?', '+c.prenom:'')); });
+  var projets = getProjets().filter(function(p){ return p.client_code===c.code||p.client===c.displayNom||p.client===(c.nom+(c.prenom?' '+c.prenom:'')); });
+  var devis   = getDevis().filter(function(d){   return d.client===c.displayNom||d.client===(c.nom+(c.prenom?' '+c.prenom:'')); });
   var groupe  = c.groupe ? '<b>Groupe :</b> '+(c.groupe.titre||'—')+' ('+c.groupe.membres.length+' membres)' : '';
   var info = [
     '<b>Code :</b> '+c.code+' · N° '+String(c.numClient||'—').padStart(4,'0'),
@@ -2376,9 +2412,10 @@ function buildCurrentNasPath() {
   var clientSel = document.getElementById('pj-client');
   var clientObj = clientSel ? getClients().find(function(c){ return c.id === clientSel.value; }) : null;
   var clientName = clientObj ? (clientObj.displayNom || clientObj.display_nom || clientObj.nom || clientObj.raison || '') : '';
+  clientName = clientName.replace(/,/g, '');
   var annee = (document.getElementById('pj-annee').value || new Date().getFullYear());
   if (code === '—') code = '';
-  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*,]/g, '_').replace(/\s+/g, ' ').trim();
   return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
 }
 
@@ -2687,17 +2724,21 @@ var ALL_PJ_COLUMNS = [
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
   {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
   {key:'creeAt',    label:'Créé le',    default:false,locked:false,sortable:true, render:function(p){if(!p.cree_at) return '—'; var d=new Date(p.cree_at); return isNaN(d)?'—':d.toLocaleDateString('fr-FR');}},
-  {key:'nasPath',   label:'Dossier NAS',default:false,locked:false,sortable:false,render:function(p){var cfg=getNasConfig();var ip=cfg.local||'192.168.1.165';var fn=(p.code||'')+'_'+(p.client||p.nom||'');var path='\\\\'+ip+'\\Public\\CAS_PROJETS\\'+(p.annee||'')+'\\'+fn;return'<span onclick="event.stopPropagation();navigator.clipboard.writeText(\''+path.replace(/'/g,"\\'")+'\');showToast(\'Chemin copié\',\'success\')" style="cursor:pointer;font-size:0.7rem;color:var(--text-3);text-decoration:underline dotted" title="Cliquer pour copier">'+fn.substring(0,20)+(fn.length>20?'…':'')+'</span>';}}
+  {key:'creePar',   label:'Créé par',   default:false,locked:false,sortable:true, render:function(p){return p.cree_par||'—';}},
+  {key:'modifiePar',label:'Modifié par',default:false,locked:false,sortable:true, render:function(p){return p.modifie_par||'—';}},
+  {key:'nasPath',   label:'Dossier NAS',default:false,locked:false,sortable:false,render:function(p){var cfg=getNasConfig();var ip=cfg.local||'192.168.1.165';var cl=(p.client||p.nom||'').replace(/,/g,'');var fn=(p.code||'')+'_'+cl;var path='\\\\'+ip+'\\Public\\CAS_PROJETS\\'+(p.annee||'')+'\\'+fn;var safeP=path.replace(/\\/g,'\\\\').replace(/'/g,"\\'");return'<span onclick="event.stopPropagation();navigator.clipboard.writeText(\''+safeP+'\');showToast(\'Chemin copié\',\'success\')" style="cursor:pointer;font-size:0.7rem;color:var(--text-3);text-decoration:underline dotted" title="'+path.replace(/"/g,'&quot;')+'">'+fn.substring(0,20)+(fn.length>20?'…':'')+'</span>';}}
 ];
 var _pjActiveColumns = null;
 
 function getPjActiveColumns(){
   if (_pjActiveColumns) return _pjActiveColumns;
-  var saved = getLS('cortoba_pj_col_order', null);
+  var userKey = _userPrefKey('cortoba_pj_col_order');
+  var saved = getSetting(userKey, null);
+  if (!saved) saved = getLS('cortoba_pj_col_order', null); // fallback ancien format
   _pjActiveColumns = (saved&&Array.isArray(saved)) ? saved : ALL_PJ_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;});
   return _pjActiveColumns;
 }
-function savePjColumnPrefs(){ setLS('cortoba_pj_col_order', _pjActiveColumns); }
+function savePjColumnPrefs(){ var k=_userPrefKey('cortoba_pj_col_order'); setLS(k,_pjActiveColumns); saveSetting(k,_pjActiveColumns); }
 function resetPjColumns(){ _pjActiveColumns=ALL_PJ_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;}); savePjColumnPrefs(); renderProjets(); }
 function togglePjColDropdown(e){
   e.stopPropagation(); _pjColDropOpen=!_pjColDropOpen;
@@ -6904,7 +6945,8 @@ function buildNasBridgeUrl(code, clientName, annee) {
   var pass = cfg.pass || 'Cortoba2026';
   var port = cfg.webdavPort || '5005';
 
-  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  clientName = (clientName||'').replace(/,/g, '');
+  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*,]/g, '_').replace(/\s+/g, ' ').trim();
   var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
 
@@ -8166,7 +8208,7 @@ function renderSuiviTree(items) {
       html += '<div class="suivi-actions">';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(1, \'' + m.id + '\', \'' + pid + '\')" title="Ajouter tâche">+ Tâche</button>';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + m.id + '\')" title="Modifier">✎</button>';
-      html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + m.id + '\')" title="Supprimer">✕</button>';
+      if (canDelete()) html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + m.id + '\')" title="Supprimer">✕</button>';
       html += '</div>';
       html += '</div>';
       html += '</div>';
@@ -8199,7 +8241,7 @@ function renderSuiviTree(items) {
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openTimesheetModal(\'' + tache.id + '\')" title="Saisir du temps">⏱</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(2, \'' + tache.id + '\', \'' + pid + '\')" title="Ajouter sous-tâche">+</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + tache.id + '\')" title="Modifier">✎</button>';
-        html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + tache.id + '\')" title="Supprimer">✕</button>';
+        if (canDelete()) html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + tache.id + '\')" title="Supprimer">✕</button>';
         html += '</div>';
         html += '</div>';
         html += '</div>';
@@ -8218,7 +8260,7 @@ function renderSuiviTree(items) {
             html += suiviProgressBar(st.progression || 0);
             if (st.assignee) html += '<span class="suivi-assignee">' + _memberDot(st.assignee) + st.assignee.split(' ')[0] + '</span>';
             html += '<button class="suivi-action-btn" onclick="editTache(\'' + st.id + '\')" title="Modifier">✎</button>';
-            html += '<button class="suivi-action-btn suivi-del" onclick="deleteTache(\'' + st.id + '\')" title="Supprimer">✕</button>';
+            if (canDelete()) html += '<button class="suivi-action-btn suivi-del" onclick="deleteTache(\'' + st.id + '\')" title="Supprimer">✕</button>';
             html += '</div>';
             html += '</div>';
           });
@@ -8509,7 +8551,19 @@ function openSuiviModal(niveau, parentId, projetId) {
 
   // Réinitialiser la barre de recherche projet
   var _sProj = document.getElementById('tache-projet-search');
-  if (_sProj) { _sProj.value = ''; filterTacheProjetSelect(''); }
+  if (_sProj) {
+    if (projetId) {
+      var _pp = getProjets().find(function(p){ return p.id === projetId; });
+      _sProj.value = _pp ? ((_pp.code ? _pp.code + ' — ' : '') + _pp.nom) : '';
+      _sProj.readOnly = !!projetId && niveau > 0;
+    } else {
+      _sProj.value = '';
+      _sProj.readOnly = false;
+    }
+  }
+  // Réinitialiser la recherche mission
+  var _sMiss = document.getElementById('tache-mission-search');
+  if (_sMiss) _sMiss.value = '';
 
   // Re-populer les missions après que le projet soit défini pour avoir le bon contexte
   if (niveau === 0) _populateMissionsSelect('');
@@ -8600,8 +8654,7 @@ function _populateMissionsSelect(selectedValue) {
   var makeOpt = function(m, unaffected){
     var opt = document.createElement('option');
     opt.value = m.nom;
-    var cl = catLabel(m.cat);
-    opt.textContent = (unaffected ? '◌ ' : '') + (cl ? '['+cl+'] ' : '') + m.nom;
+    opt.textContent = (unaffected ? '◌ ' : '') + m.nom;
     if (unaffected) {
       opt.setAttribute('data-unaffected', '1');
       opt.title = 'Non affectée — la sélectionner l\'ajoutera à la fiche projet';
@@ -8653,28 +8706,90 @@ function _populateMissionsSelect(selectedValue) {
 }
 
 // ── Recherche dans le select projet (filtre les <option>) ──
-function filterTacheProjetSelect(query) {
+// ── Searchable dropdown pour le projet dans le modal tâche ──
+var _tacheProjetDropOpen = false;
+function _buildTacheProjetItems() {
+  var projets = getProjets();
+  return projets.map(function(p) {
+    return { id: p.id, label: (p.code ? p.code + ' — ' : '') + p.nom };
+  });
+}
+function openTacheProjetDropdown() {
+  _tacheProjetDropOpen = true;
+  filterTacheProjetDropdown(document.getElementById('tache-projet-search').value);
+}
+function filterTacheProjetDropdown(query) {
+  var dd = document.getElementById('tache-projet-dropdown');
+  if (!dd) return;
+  var q = (query || '').trim().toLowerCase();
+  var items = _buildTacheProjetItems();
+  var filtered = items.filter(function(it) { return !q || it.label.toLowerCase().indexOf(q) !== -1; });
+  dd.innerHTML = filtered.length === 0
+    ? '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.78rem">Aucun projet trouvé</div>'
+    : filtered.map(function(it) {
+        return '<div onmousedown="selectTacheProjet(\'' + it.id + '\',\'' + it.label.replace(/'/g, "\\'") + '\')"' +
+          ' style="padding:0.5rem 0.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background 0.15s"' +
+          ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'\'">' +
+          it.label + '</div>';
+      }).join('');
+  dd.style.display = 'block';
+}
+function selectTacheProjet(id, label) {
   var sel = document.getElementById('tache-projet');
+  var search = document.getElementById('tache-projet-search');
+  var dd = document.getElementById('tache-projet-dropdown');
+  if (sel) { sel.value = id; }
+  if (search) search.value = label;
+  if (dd) dd.style.display = 'none';
+  _tacheProjetDropOpen = false;
+  onTacheProjetChange();
+}
+window.selectTacheProjet = selectTacheProjet;
+window.openTacheProjetDropdown = openTacheProjetDropdown;
+window.filterTacheProjetDropdown = filterTacheProjetDropdown;
+// Fermer dropdown si clic ailleurs
+document.addEventListener('click', function(e) {
+  if (!_tacheProjetDropOpen) return;
+  var search = document.getElementById('tache-projet-search');
+  var dd = document.getElementById('tache-projet-dropdown');
+  if (search && dd && !search.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none'; _tacheProjetDropOpen = false;
+  }
+});
+// Compatibilité ancienne fonction
+function filterTacheProjetSelect(query) { filterTacheProjetDropdown(query); }
+window.filterTacheProjetSelect = filterTacheProjetSelect;
+
+// ── Recherche dans le select des missions ──
+function filterMissionSelect(query) {
+  var sel = document.getElementById('tache-titre-select');
   if (!sel) return;
   var q = (query || '').trim().toLowerCase();
-  var opts = sel.querySelectorAll('option');
-  var firstVisible = null;
-  for (var i = 0; i < opts.length; i++) {
-    var o = opts[i];
-    if (!o.value) { o.hidden = false; continue; }
-    var txt = (o.textContent || '').toLowerCase();
-    var match = !q || txt.indexOf(q) !== -1;
-    o.hidden = !match;
-    if (match && !firstVisible) firstVisible = o;
-  }
-  // Si la sélection courante est masquée, basculer sur le premier visible
-  var cur = sel.options[sel.selectedIndex];
-  if (cur && cur.hidden && firstVisible) {
-    sel.value = firstVisible.value;
-    onTacheProjetChange();
+  // Filtrer les options et les optgroups
+  var optgroups = sel.querySelectorAll('optgroup');
+  if (optgroups.length) {
+    optgroups.forEach(function(og) {
+      var visibleCount = 0;
+      var opts = og.querySelectorAll('option');
+      opts.forEach(function(o) {
+        var txt = (o.textContent || '').toLowerCase();
+        var match = !q || txt.indexOf(q) !== -1;
+        o.hidden = !match;
+        if (match) visibleCount++;
+      });
+      og.hidden = visibleCount === 0;
+    });
+  } else {
+    var opts = sel.querySelectorAll('option');
+    for (var i = 0; i < opts.length; i++) {
+      var o = opts[i];
+      if (!o.value) { o.hidden = false; continue; }
+      var txt = (o.textContent || '').toLowerCase();
+      o.hidden = q && txt.indexOf(q) === -1;
+    }
   }
 }
-window.filterTacheProjetSelect = filterTacheProjetSelect;
+window.filterMissionSelect = filterMissionSelect;
 
 // ── Changement de projet → recharger la liste des missions (demi-teinte à jour) ──
 function onTacheProjetChange() {
@@ -8748,6 +8863,17 @@ function editTache(id) {
   });
   sel.value = t.projet_id;
   sel.disabled = true;
+
+  // Mettre à jour le search input projet
+  var _spE = document.getElementById('tache-projet-search');
+  if (_spE) {
+    var _ppE = getProjets().find(function(p){ return p.id === t.projet_id; });
+    _spE.value = _ppE ? ((_ppE.code ? _ppE.code + ' — ' : '') + _ppE.nom) : (t.projetNom || '');
+    _spE.readOnly = true;
+  }
+  // Réinitialiser la recherche mission
+  var _smE = document.getElementById('tache-mission-search');
+  if (_smE) _smE.value = '';
 
   // Populate assignee select with team members
   _populateAssigneeSelect(t.assignee || '');
@@ -11707,14 +11833,30 @@ function renderGanttPage() {
   }
   var projetId = selP ? selP.value : '';
   loadTaches(projetId || null).then(function(list){
+    // Normaliser les dates au format YYYY-MM-DD strict pour frappe-gantt
+    function normDate(d) {
+      if (!d) return null;
+      var s = String(d).substring(0, 10); // YYYY-MM-DD
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+      return s;
+    }
     var tasks = (list||[]).filter(function(t){
-      return (t.date_debut || t.dateDebut) && (t.date_echeance || t.dateEcheance);
+      var sd = normDate(t.date_debut || t.dateDebut);
+      var ed = normDate(t.date_echeance || t.dateEcheance);
+      return sd && ed && sd <= ed;
     }).map(function(t){
+      var sd = normDate(t.date_debut || t.dateDebut);
+      var ed = normDate(t.date_echeance || t.dateEcheance);
+      // frappe-gantt exige que end soit > start (au moins 1 jour)
+      if (sd === ed) {
+        var d = new Date(ed); d.setDate(d.getDate() + 1);
+        ed = d.toISOString().substring(0, 10);
+      }
       return {
-        id: t.id,
+        id: String(t.id),
         name: (t.projetCode?t.projetCode+' · ':'') + (t.titre||''),
-        start: t.date_debut || t.dateDebut,
-        end:   t.date_echeance || t.dateEcheance,
+        start: sd,
+        end:   ed,
         progress: parseInt(t.progression,10) || 0,
         dependencies: ''
       };
@@ -11735,9 +11877,18 @@ function renderGanttPage() {
       window._ganttInstance = new Gantt('#gantt-svg', tasks, {
         view_mode: (document.getElementById('gantt-scale')||{}).value || 'Week',
         language: 'fr',
-        bar_height: 22,
-        padding: 16,
-        on_click: function(task){ editTache(task.id); }
+        bar_height: 24,
+        padding: 18,
+        column_width: 45,
+        on_click: function(task){ editTache(task.id); },
+        on_date_change: function() {},
+        on_progress_change: function() {},
+        custom_popup_html: function(task) {
+          return '<div class="details-container" style="padding:8px 12px;background:var(--bg-card,#1a1a2e);border:1px solid var(--border,#333);border-radius:6px;color:var(--text-1,#fff);font-size:0.8rem">' +
+            '<b>' + task.name + '</b><br>' +
+            '<span style="color:var(--text-3)">' + task.progress + '% terminé</span>' +
+            '</div>';
+        }
       });
     } catch (e) {
       container.innerHTML = '<div style="color:var(--red);padding:1rem">Erreur Gantt : '+e.message+'</div>';

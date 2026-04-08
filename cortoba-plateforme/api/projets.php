@@ -22,6 +22,21 @@ function ensureProjetsRendementColumns() {
 }
 try { ensureProjetsRendementColumns(); } catch (\Throwable $e) {}
 
+// Migration : colonnes modifie_par, cree_par, cree_at
+try {
+    $db = getDB();
+    $cols = array_column($db->query("SHOW COLUMNS FROM CA_projets")->fetchAll(), 'Field');
+    if (!in_array('modifie_par', $cols)) {
+        $db->exec("ALTER TABLE CA_projets ADD COLUMN modifie_par VARCHAR(120) DEFAULT NULL");
+    }
+    if (!in_array('cree_par', $cols)) {
+        $db->exec("ALTER TABLE CA_projets ADD COLUMN cree_par VARCHAR(120) DEFAULT NULL");
+    }
+    if (!in_array('cree_at', $cols)) {
+        $db->exec("ALTER TABLE CA_projets ADD COLUMN cree_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+    }
+} catch (\Throwable $e) {}
+
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
 $user   = requireAuth();

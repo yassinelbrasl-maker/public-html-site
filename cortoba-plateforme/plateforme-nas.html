@@ -15,6 +15,22 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" />
   <style>
+    /* Gantt dark theme overrides */
+    .gantt .grid-header { fill: var(--bg-card, #1a1a2e) !important; }
+    .gantt .grid-row { fill: var(--bg-1, #16162a) !important; }
+    .gantt .grid-row:nth-child(even) { fill: var(--bg-2, #1e1e3a) !important; }
+    .gantt .row-line { stroke: var(--border, #333) !important; }
+    .gantt .tick { stroke: var(--border, #333) !important; }
+    .gantt .today-highlight { fill: rgba(212,175,55,0.08) !important; }
+    .gantt .bar { fill: var(--accent, #d4af37) !important; }
+    .gantt .bar-progress { fill: #4ecdc4 !important; }
+    .gantt .bar-label { fill: #fff !important; font-size: 11px !important; }
+    .gantt .lower-text, .gantt .upper-text { fill: var(--text-2, #aaa) !important; font-size: 11px !important; }
+    .gantt .header-title { fill: var(--text-1, #fff) !important; }
+    #gantt-container { background: var(--bg-card, #1a1a2e); border-radius: 8px; }
+    #gantt-container svg { width: 100% !important; }
+  </style>
+  <style>
     /* Garantir que l'écran de login est visible immédiatement, avant que le CSS externe charge */
     #login-screen { display: flex !important; }
     #app { display: none; }
@@ -1200,13 +1216,16 @@
             <input type="hidden" id="tache-id" />
             <input type="hidden" id="tache-parent-id" />
             <input type="hidden" id="tache-niveau" value="0" />
-            <div class="form-field">
+            <div class="form-field" style="position:relative">
               <label class="form-label">Projet *</label>
-              <input type="text" id="tache-projet-search" class="form-input" placeholder="🔍 Rechercher un projet…" style="margin-bottom:0.35rem" oninput="filterTacheProjetSelect(this.value)" />
-              <select id="tache-projet" class="form-select" onchange="onTacheProjetChange()"></select>
+              <select id="tache-projet" class="form-select" style="display:none" onchange="onTacheProjetChange()"></select>
+              <input type="text" id="tache-projet-search" class="form-input" placeholder="🔍 Rechercher un projet…" autocomplete="off"
+                     onfocus="openTacheProjetDropdown()" oninput="filterTacheProjetDropdown(this.value)" />
+              <div id="tache-projet-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;max-height:220px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--accent);border-radius:0 0 6px 6px;box-shadow:0 6px 16px rgba(0,0,0,0.3)"></div>
             </div>
             <div class="form-field" id="tache-titre-field-select">
               <label class="form-label">Mission *</label>
+              <input type="text" id="tache-mission-search" class="form-input" placeholder="🔍 Rechercher une mission…" style="margin-bottom:0.35rem" oninput="filterMissionSelect(this.value)" />
               <select id="tache-titre-select" class="form-select" onchange="onTacheTitreSelectChange(this)">
                 <option value="">— Choisir une mission —</option>
               </select>
@@ -4738,8 +4757,8 @@ if (typeof Gantt === 'undefined') {
   document.head.appendChild(_fg);
 }
 </script>
-<script src="plateforme-nas.js?t=20260408c"></script>
-<script src="ergonomie.js?t=20260328e"></script>
+<script src="plateforme-nas.js?t=20260408e"></script>
+<script src="ergonomie.js?t=20260408e"></script>
 <script src="chat.js?t=20260406d"></script>
 <script src="flotte.js?t=20260407a"></script>
 <script>

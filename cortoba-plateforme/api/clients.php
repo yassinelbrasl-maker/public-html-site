@@ -5,6 +5,21 @@
 
 require_once __DIR__ . '/../config/middleware.php';
 
+// Migration auto : ajouter colonnes manquantes
+try {
+    $db = getDB();
+    $cols = array_column($db->query("SHOW COLUMNS FROM CA_clients")->fetchAll(), 'Field');
+    if (!in_array('modifie_par', $cols)) {
+        $db->exec("ALTER TABLE CA_clients ADD COLUMN modifie_par VARCHAR(120) DEFAULT NULL");
+    }
+    if (!in_array('cree_par', $cols)) {
+        $db->exec("ALTER TABLE CA_clients ADD COLUMN cree_par VARCHAR(120) DEFAULT NULL");
+    }
+    if (!in_array('cree_at', $cols)) {
+        $db->exec("ALTER TABLE CA_clients ADD COLUMN cree_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+    }
+} catch (\Exception $e) { /* ignore */ }
+
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
 $user   = requireAuth();

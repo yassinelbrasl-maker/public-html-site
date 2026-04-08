@@ -550,6 +550,10 @@
     var btn = document.getElementById('ergo-theme-toggle');
     if (btn) btn.innerHTML = dark ? '☀️' : '🌙';
     try { localStorage.setItem('cortoba_theme', dark ? 'dark' : 'light'); } catch (e) {}
+    // Sauvegarder par utilisateur si saveSetting est disponible
+    if (typeof _userPrefKey === 'function' && typeof saveSetting === 'function') {
+      try { saveSetting(_userPrefKey('cortoba_theme'), dark ? 'dark' : 'light'); } catch(e){}
+    }
   }
 
   window.toggleTheme = function () { applyTheme(!_isDark); };
@@ -970,9 +974,13 @@
   //  INITIALISATION
   // ════════════════════════════════════════════════════════
   function init() {
-    // Thème sauvegardé
+    // Thème sauvegardé (priorité : préférence utilisateur serveur > localStorage)
     try {
-      var savedTheme = localStorage.getItem('cortoba_theme');
+      var savedTheme = null;
+      if (typeof _userPrefKey === 'function' && typeof getSetting === 'function') {
+        savedTheme = getSetting(_userPrefKey('cortoba_theme'), null);
+      }
+      if (!savedTheme) savedTheme = localStorage.getItem('cortoba_theme');
       if (savedTheme === 'light') applyTheme(false);
     } catch (e) {}
 

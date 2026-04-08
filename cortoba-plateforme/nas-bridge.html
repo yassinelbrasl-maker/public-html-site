@@ -182,18 +182,20 @@ function tryQtsApi(baseUrl, parts) {
     });
 }
 
-// ── Copie du contenu du dossier modele via WebDAV ──
-function copyTemplate(baseUrl, destFolder) {
+// ── Copie du contenu du dossier modele ──
+// Methode 1 : WebDAV COPY
+function copyTemplateWebDAV(baseUrl, destFolder) {
   if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
-  var s = addStep('Copie du modele...', 'wait');
-  // Lister le contenu du dossier modele via PROPFIND
+  var s = addStep('WebDAV COPY modele...', 'wait');
   var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/');
   var headers = { 'Content-Type': 'application/xml', 'Depth': '1' };
   if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
   return fetch(baseUrl + templatePath, { method: 'PROPFIND', headers: headers })
-    .then(function(r) { return r.text(); })
+    .then(function(r) {
+      if (!r.ok && r.status !== 207) throw new Error('PROPFIND status ' + r.status);
+      return r.text();
+    })
     .then(function(xml) {
-      // Extraire les hrefs des enfants (exclure le dossier parent)
       var parser = new DOMParser();
       var doc = parser.parseFromString(xml, 'text/xml');
       var responses = doc.querySelectorAll('response');
@@ -210,9 +212,7 @@ function copyTemplate(baseUrl, destFolder) {
         updateStep(s, 'Modele vide ou introuvable', 'ok');
         return { ok: true, copied: 0 };
       }
-      // Copier chaque enfant via COPY
-      var copied = 0;
-      var idx = 0;
+      var copied = 0; var idx = 0;
       function copyNext() {
         if (idx >= children.length) return Promise.resolve();
         var child = children[idx]; idx++;
@@ -223,19 +223,120 @@ function copyTemplate(baseUrl, destFolder) {
         return fetch(srcUrl, { method: 'COPY', headers: copyHeaders })
           .then(function(r) {
             if (r.status === 201 || r.status === 204) copied++;
+            else if (r.status >= 400) throw new Error('COPY ' + r.status);
             return copyNext();
           })
-          .catch(function() { return copyNext(); });
+          .catch(function(e) {
+            if (copied === 0 && idx <= 1) throw e; // premier echec = abandonner
+            return copyNext();
+          });
       }
       return copyNext().then(function() {
-        updateStep(s, 'Modele copie (' + copied + '/' + children.length + ' elements)', 'ok');
-        return { ok: true, copied: copied };
+        updateStep(s, 'WebDAV COPY : ' + copied + '/' + children.length + ' elements', 'ok');
+        return { ok: copied > 0, copied: copied };
       });
     })
     .catch(function(e) {
-      updateStep(s, 'Copie modele echouee : ' + e.message, 'fail');
+      updateStep(s, 'WebDAV COPY : echec — ' + e.message, 'fail');
       return { ok: false, error: e.message };
     });
+}
+
+// Methode 2 : QTS File Station copy API
+function copyTemplateQTS(qtsBaseUrl, destFolder) {
+  if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
+  var s = addStep('QTS copie modele...', 'wait');
+  // Login QTS
+  var loginUrl = qtsBaseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+               + '&pwd=' + encodeURIComponent(btoa(pass));
+  return fetch(loginUrl, { mode: 'cors', credentials: 'include' })
+    .then(function(r) { return r.text(); })
+    .then(function(xml) {
+      var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
+              xml.match(/<authSid>(.*?)<\/authSid>/);
+      if (!m || !m[1] || m[1].length < 5) throw new Error('Auth echouee');
+      var sid = m[1];
+      // Copier via File Station copy
+      var srcPath = '/' + templateFolder;
+      var dstPath = '/' + destFolder;
+      var copyUrl = qtsBaseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=copy&sid=' + encodeURIComponent(sid);
+      return fetch(copyUrl, {
+        method: 'POST', mode: 'cors', credentials: 'include',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'source_file=' + encodeURIComponent(srcPath) +
+              '&dest_folder=' + encodeURIComponent(dstPath) +
+              '&mode=1&dup=1'
+      })
+      .then(function(r) { return r.text(); })
+      .then(function(t) {
+        try {
+          var j = JSON.parse(t);
+          if (j && (j.status === 1 || j.success)) {
+            updateStep(s, 'QTS copie modele : OK', 'ok');
+            return { ok: true, copied: 1 };
+          }
+        } catch(e) {}
+        // Fallback : copier les sous-dossiers un par un
+        // Lister le contenu du template
+        var listUrl = qtsBaseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=get_list&sid=' + encodeURIComponent(sid)
+          + '&path=' + encodeURIComponent(srcPath) + '&limit=100&start=0';
+        return fetch(listUrl, { mode: 'cors', credentials: 'include' })
+          .then(function(r2) { return r2.text(); })
+          .then(function(t2) {
+            var items = [];
+            try {
+              var data = JSON.parse(t2);
+              if (data && data.datas) items = data.datas;
+            } catch(e) {}
+            if (items.length === 0) {
+              updateStep(s, 'Modele vide ou erreur listing', 'ok');
+              return { ok: true, copied: 0 };
+            }
+            var copied = 0; var idx = 0;
+            function cpNext() {
+              if (idx >= items.length) return Promise.resolve();
+              var item = items[idx]; idx++;
+              var itemPath = srcPath + '/' + item.filename;
+              var cpUrl = qtsBaseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=copy&sid=' + encodeURIComponent(sid);
+              return fetch(cpUrl, {
+                method: 'POST', mode: 'cors', credentials: 'include',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'source_file=' + encodeURIComponent(itemPath) +
+                      '&dest_folder=' + encodeURIComponent(dstPath) +
+                      '&mode=1'
+              })
+              .then(function(r3) { return r3.text(); })
+              .then(function(t3) {
+                try { var j3 = JSON.parse(t3); if (j3 && (j3.status === 1 || j3.success)) copied++; } catch(e) {}
+                return cpNext();
+              })
+              .catch(function() { return cpNext(); });
+            }
+            return cpNext().then(function() {
+              updateStep(s, 'QTS copie : ' + copied + '/' + items.length + ' elements', 'ok');
+              return { ok: copied > 0, copied: copied };
+            });
+          });
+      });
+    })
+    .catch(function(e) {
+      updateStep(s, 'QTS copie modele : echec — ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
+
+// Orchestrer les tentatives de copie
+function copyTemplate(webdavBase, destFolder) {
+  if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
+  return copyTemplateWebDAV(webdavBase, destFolder).then(function(r) {
+    if (r.ok) return r;
+    // Fallback QTS HTTPS
+    return copyTemplateQTS('https://' + ip, destFolder).then(function(r2) {
+      if (r2.ok) return r2;
+      // Fallback QTS HTTP 8080
+      return copyTemplateQTS('http://' + ip + ':8080', destFolder);
+    });
+  });
 }
 
 // ── Demarrage : essayer plusieurs methodes ──
@@ -270,10 +371,12 @@ function start() {
             ? 'Dossier cree avec succes ! (' + r2.created + ' dossier(s))'
             : 'Le dossier existe deja sur le NAS';
           statusEl.style.color = '#4ecdc4';
-          notifyParent(true, statusEl.textContent);
-          showPath();
-          setTimeout(function() { try { window.close(); } catch(e) {} }, 3000);
-          return;
+          // Copier le modele via QTS
+          return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
+            notifyParent(true, statusEl.textContent);
+            showPath();
+            setTimeout(function() { try { window.close(); } catch(e) {} }, 4000);
+          });
         }
         // Essai 3 : QTS API HTTP (port 8080)
         return tryQtsApi('http://' + ip + ':8080', parts).then(function(r3) {
@@ -282,10 +385,12 @@ function start() {
               ? 'Dossier cree avec succes ! (' + r3.created + ' dossier(s))'
               : 'Le dossier existe deja sur le NAS';
             statusEl.style.color = '#4ecdc4';
-            notifyParent(true, statusEl.textContent);
-            showPath();
-            setTimeout(function() { try { window.close(); } catch(e) {} }, 3000);
-            return;
+            // Copier le modele via QTS
+            return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
+              notifyParent(true, statusEl.textContent);
+              showPath();
+              setTimeout(function() { try { window.close(); } catch(e) {} }, 4000);
+            });
           }
           // Aucune methode n'a fonctionne
           statusEl.innerHTML = 'Impossible de creer le dossier automatiquement.<br>' +
