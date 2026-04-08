@@ -4,6 +4,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/corbeille.php';
 
 // Migration auto : ajouter colonnes manquantes
 try {
