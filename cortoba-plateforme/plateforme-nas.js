@@ -2516,31 +2516,35 @@ window.copyNasPathFromInput = copyNasPathFromInput;
 function applyNasPath() { saveNasPath(); }
 
 // ── NAS folder button for project detail ──
-function buildNasFolderButton(p) {
+function _buildNasPath(p) {
   var cfg = getNasConfig();
   var ip = cfg.local || '192.168.1.165';
   var annee = p.annee || new Date().getFullYear();
   var code = p.code || '';
   var client = p.client || p.nom || '';
   var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-  var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
-  var btnStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem';
-  return '<button onclick="openNasFolder(this,\'' + esc(nasPath).replace(/'/g, "\\'") + '\')" style="' + btnStyle + '" title="Ouvrir ' + esc(nasPath) + '">' +
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-    ' Dossier NAS</button>';
+  return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
 }
-function openNasFolder(btn, uncPath) {
-  // Convertir \\ip\share\path → file://///ip/share/path pour ouvrir dans l'explorateur Windows
-  var fileUrl = 'file:///' + uncPath.replace(/\\/g, '/');
-  var win = window.open(fileUrl, '_blank');
-  if (!win || win.closed) {
-    // Popup bloquée ou protocole file:// bloqué → copier le chemin en fallback
-    navigator.clipboard.writeText(uncPath).then(function() {
-      showToast('Chemin copié — collez dans l\'explorateur : ' + uncPath, 'success');
-    }).catch(function() {
-      showToast(uncPath, 'success');
-    });
+function buildNasFolderButton(p) {
+  var nasPath = _buildNasPath(p);
+  // Convertir UNC → file URL : \\ip\path → file://///ip/path
+  var fileUrl = 'file://///' + nasPath.substring(2).replace(/\\/g, '/');
+  var btnStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:0.4rem;text-decoration:none';
+  return '<a href="' + esc(fileUrl) + '" data-nas-path="' + esc(nasPath) + '" onclick="openNasFolder(event,this)" style="' + btnStyle + '" title="' + esc(nasPath) + '">' +
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+    ' Dossier NAS</a>';
+}
+function openNasFolder(e, el) {
+  var uncPath = el.getAttribute('data-nas-path');
+  // Copier le chemin dans le presse-papier en parallèle
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(uncPath).catch(function(){});
   }
+  // Laisser le navigateur tenter d'ouvrir le lien file://
+  // Si ça échoue (bloqué par le navigateur), afficher un toast avec le chemin
+  setTimeout(function() {
+    showToast('Chemin copié : ' + uncPath + ' — Ouvrez l\'Explorateur (Win+E) et collez (Ctrl+V) dans la barre d\'adresse', 'success');
+  }, 300);
 }
 
 function openProjetDetail(id){
