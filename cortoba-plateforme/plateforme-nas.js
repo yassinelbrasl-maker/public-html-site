@@ -5209,6 +5209,10 @@ document.addEventListener('DOMContentLoaded', _initSidebarSections);
 
 // A1 — openModal: modal-projet ouvre correctement sans déclencher modal-client
 function openModal(id){
+  if ((id==='modal-client' || id==='modal-projet') && !canCreate()) {
+    alert('Les stagiaires ne sont pas autorisés à créer des ' + (id==='modal-client' ? 'clients' : 'projets') + '.');
+    return;
+  }
   document.getElementById(id).classList.add('open');
   if(id==='modal-facture'){
     resetFactureForm();
