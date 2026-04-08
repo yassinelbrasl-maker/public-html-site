@@ -25,6 +25,7 @@ try {
         "heures_reelles DECIMAL(6,2) DEFAULT 0",
         "progression_planifiee INT DEFAULT 0",
         "progression_manuelle TINYINT(1) DEFAULT 0",
+        "categorie VARCHAR(10) DEFAULT NULL COMMENT 'Code catégorie mission'",
     ];
     foreach ($addCols as $cdef) {
         try { $db0->exec("ALTER TABLE CA_taches ADD COLUMN IF NOT EXISTS $cdef"); }
