@@ -1086,8 +1086,16 @@ function createCout($user) {
 }
 
 function deleteCout($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_couts WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT libelle, categorie FROM CA_flotte_couts WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['categorie'] ?? '') . ' — ' . ($row['libelle'] ?? '')) : 'Coût';
+    if (!moveToCorbeille($db, 'CA_flotte_couts', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
