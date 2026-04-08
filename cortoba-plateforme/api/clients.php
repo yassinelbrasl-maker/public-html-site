@@ -40,6 +40,20 @@ function stripCommas($val) {
     return str_replace(',', '', $val);
 }
 
+// ── Utilitaire : forcer la majuscule sur les noms ────────────────────────────
+function forceUpper($val) {
+    if (!$val) return $val;
+    return mb_strtoupper($val, 'UTF-8');
+}
+
+// ── Normaliser tous les champs nom d'un body client ─────────────────────────
+function normalizeClientNames(array &$body) {
+    $body['displayNom'] = forceUpper(stripCommas($body['displayNom'] ?? ''));
+    $body['nom']        = forceUpper(stripCommas($body['nom'] ?? null));
+    $body['prenom']     = forceUpper(stripCommas($body['prenom'] ?? null));
+    $body['raison']     = forceUpper(stripCommas($body['raison'] ?? null));
+}
+
 // ── Nettoyage ponctuel : supprimer toutes les virgules des noms existants ────
 function cleanupCommas() {
     $db = getDB();
