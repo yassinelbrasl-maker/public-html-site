@@ -234,8 +234,8 @@ function cpaClientDocuments($user) {
     $db = getDB();
     $sql = "SELECT d.*, p.code AS projet_code, p.nom AS projet_nom, c.display_nom AS client_display
             FROM CA_client_documents d
-            LEFT JOIN CA_projets p ON p.id = d.projet_id
-            LEFT JOIN CA_clients c ON c.id = d.client_id WHERE 1=1";
+            LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = d.projet_id
+            LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = d.client_id WHERE 1=1";
     $params = [];
 
     if ($clientId) { $sql .= " AND d.client_id = ?"; $params[] = $clientId; }
