@@ -4777,7 +4777,19 @@ function _getStartPage(){
 function _openLinkedProjet(){
   try {
     var pid = new URLSearchParams(window.location.search).get('projet');
-    if(pid) setTimeout(function(){ openProjetDetail(pid); }, 300);
+    if(!pid) return;
+    setTimeout(function(){
+      var found = getProjets().find(function(x){ return x.id===pid; });
+      if(found) { openProjetDetail(pid); return; }
+      apiFetch('api/projets.php').then(function(r){
+        _cache.projets = (r.data||[]).map(function(p){
+          if(p.type_bat !== undefined && p.typeBat === undefined) p.typeBat = p.type_bat;
+          if(p.client_id !== undefined && p.clientId === undefined) p.clientId = p.client_id;
+          return p;
+        });
+        openProjetDetail(pid);
+      }).catch(function(){});
+    }, 400);
   } catch(e){}
 }
 var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres',chantier:'Tableau de bord chantier','chantier-journal':'Journal de chantier','chantier-intervenants':'Intervenants','chantier-reunions':'Réunions & PV','chantier-photos':'Photos & Médias','chantier-reserves':'Réserves & RFI','chantier-visas':'Visas d\'exécution','chantier-securite':'Sécurité',flotte:'Tableau de bord flotte','flotte-reservations':'Réservations & Attributions','flotte-km':'Kilométrage & Carburant','flotte-entretien':'Entretien & Maintenance','flotte-couts':'Coûts & TCO','flotte-conformite':'Conformité & Assurances',portail:'Comptes clients','portail-docs':'Documents partagés','portail-messages':'Messages clients'};
