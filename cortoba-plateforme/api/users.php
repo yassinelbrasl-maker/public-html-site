@@ -100,7 +100,7 @@ function filterMemberRow($row, $viewer) {
     if ($sensitive) {
         $public = array_merge($public, array(
             'tel_perso', 'email_perso',
-            'salaire_net', 'charges_sociales', 'subventions', 'avantages_nature',
+            'salaire_net', 'charges_sociales', 'subventions', 'subv_directe', 'avantages_nature',
             'heures_mois', 'date_embauche', 'date_derniere_augm', 'taux_augm_pct',
             // Fiche de paie
             'cin', 'matricule', 'n_cnss', 'situation_familiale', 'enfants_charge',
