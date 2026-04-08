@@ -8302,6 +8302,15 @@ function loadTaches(projetId) {
       t.ordre       = parseInt(t.ordre, 10) || 0;
       t.livrables_total = parseInt(t.livrables_total, 10) || 0;
       t.livrables_done  = parseInt(t.livrables_done,  10) || 0;
+      // Fallback: enrich from cached projects if SQL JOIN didn't resolve
+      if ((!t.projetNom || !t.projetClient) && t.projet_id) {
+        var _cp = getProjets().find(function(p){ return p.id === t.projet_id; });
+        if (_cp) {
+          if (!t.projetNom)    t.projetNom    = _cp.nom  || '';
+          if (!t.projetCode)   t.projetCode   = _cp.code || '';
+          if (!t.projetClient) t.projetClient = _cp.client || '';
+        }
+      }
       return t;
     });
     console.info('[loadTaches] ' + _suiviCache.length + ' tâches chargées');
