@@ -4,8 +4,8 @@
     {
       "name": "plateforme",
       "runtimeExecutable": "C:/Program Files/Git/usr/bin/perl.exe",
-      "runtimeArgs": [".claude/serve.pl", "8080", "cortoba-plateforme"],
-      "port": 8080
+      "runtimeArgs": [".claude/serve.pl", "8082", "cortoba-plateforme"],
+      "port": 8082
     },
     {
       "name": "site",
