@@ -3752,13 +3752,29 @@ function saveDepense(){
 
   // ── Étape A : insérer la dépense immédiate (si applicable) ──
   if (insertImmediateExpense) {
+    var depensePar = (document.getElementById('dep-depense-par')||{value:''}).value || null;
+    var rembToggle = document.getElementById('dep-remboursement-toggle');
+    var isRemb = rembToggle && rembToggle.checked;
+    var rembStatut = null, remboursePar = null;
+    if (isRemb) { rembStatut = 'demande'; }
+    var sess = getSession();
+    if (sess && sess.isAdmin && _editingDepenseId) {
+      var rembStatutEl = document.getElementById('dep-remb-statut');
+      var rembParEl    = document.getElementById('dep-rembourse-par');
+      if (rembStatutEl && rembStatutEl.value) rembStatut = rembStatutEl.value;
+      if (rembParEl && rembParEl.value) remboursePar = rembParEl.value;
+    }
     var body = {
       description: libelle, montant: ttc, dateDep: depDate,
       categorie: cat, reference: ref||null,
       fournisseur: fourn||null, codeTvaFournisseur: codeTva||null,
       montantHt: totalHT, montantTva: totalTVA, timbre: timbre,
       montantTtc: ttc, lignesJson: lignes,
-      templateId: _depFromTemplateId || null
+      templateId: _depFromTemplateId || null,
+      depensePar: depensePar,
+      remboursePar: remboursePar,
+      remboursementStatut: rembStatut,
+      remboursementDate: (rembStatut === 'rembourse') ? new Date().toISOString().slice(0,19).replace('T',' ') : null
     };
     // Si dépense de type salaire → lier au membre + snapshot fiche de paie
     if (cat === 'Salaires & charges' && _currentSalaryMember) {
