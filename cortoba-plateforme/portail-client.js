@@ -974,7 +974,7 @@ function loadAccessLog(page) {
       }
 
       var html = '<div class="card"><div class="card-title">Activite recente</div>' +
-        '<table class="data-table"><thead><tr>' +
+        '<div class="table-responsive"><table class="data-table"><thead><tr>' +
         '<th>Date</th><th>Action</th><th>Utilisateur</th><th>Adresse IP</th><th>Details</th>' +
         '</tr></thead><tbody>';
 
