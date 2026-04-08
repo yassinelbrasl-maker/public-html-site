@@ -6386,6 +6386,23 @@ function escHtml(s) {
 }
 
 // ── Tableau récap accès ──
+function toggleMembreModuleAccess(membreId, moduleId) {
+  var membres = getMembres();
+  var m = membres.find(function(x){ return x.id === membreId; });
+  if (!m) return;
+  if (!Array.isArray(m.modules)) m.modules = [];
+  var idx = m.modules.indexOf(moduleId);
+  if (idx !== -1) {
+    m.modules.splice(idx, 1);
+  } else {
+    m.modules.push(moduleId);
+  }
+  saveMembresData(membres);
+  renderEquipeAccesTable();
+  showToast((idx !== -1 ? 'Accès retiré' : 'Accès accordé'), idx !== -1 ? 'info' : 'success');
+}
+window.toggleMembreModuleAccess = toggleMembreModuleAccess;
+
 function renderEquipeAccesTable() {
   var membres = getMembres();
   var thead = document.getElementById('equipe-acces-thead');
@@ -6402,14 +6419,16 @@ function renderEquipeAccesTable() {
       }).join('')
     + '</tr>';
 
-  // Corps : une ligne par module
+  // Corps : une ligne par module — cellules cliquables pour toggler l'accès
   tbody.innerHTML = MODULES_PLATEFORME.map(function(mod) {
     return '<tr>'
       + '<td style="padding:0.4rem 0.7rem;font-size:0.78rem;color:var(--text-2);border-bottom:1px solid rgba(255,255,255,0.04)">' + mod.label + '</td>'
       + '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="color:var(--accent);font-size:0.85rem">✓</span></td>'
       + membres.map(function(m){
           var ok = Array.isArray(m.modules) && m.modules.indexOf(mod.id) !== -1;
-          return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04)">'
+          return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;user-select:none" '
+            + 'onclick="toggleMembreModuleAccess(\'' + m.id + '\',\'' + mod.id + '\')" '
+            + 'title="Cliquer pour ' + (ok ? 'retirer' : 'accorder') + ' l\'accès">'
             + (ok
               ? '<span style="color:var(--green);font-size:0.85rem">✓</span>'
               : '<span style="color:rgba(255,255,255,0.12);font-size:0.85rem">—</span>')
