@@ -1222,12 +1222,14 @@
                      onfocus="openTacheProjetDropdown()" oninput="filterTacheProjetDropdown(this.value)" />
               <div id="tache-projet-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;max-height:220px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--accent);border-radius:0 0 6px 6px;box-shadow:0 6px 16px rgba(0,0,0,0.3)"></div>
             </div>
-            <div class="form-field" id="tache-titre-field-select">
+            <div class="form-field" id="tache-titre-field-select" style="position:relative">
               <label class="form-label">Mission *</label>
-              <input type="text" id="tache-mission-search" class="form-input" placeholder="🔍 Rechercher une mission…" style="margin-bottom:0.35rem" oninput="filterMissionSelect(this.value)" />
-              <select id="tache-titre-select" class="form-select" onchange="onTacheTitreSelectChange(this)">
+              <select id="tache-titre-select" class="form-select" style="display:none" onchange="onTacheTitreSelectChange(this)">
                 <option value="">— Choisir une mission —</option>
               </select>
+              <input type="text" id="tache-mission-search" class="form-input" placeholder="🔍 Rechercher une mission…" autocomplete="off"
+                     onfocus="openMissionDropdown()" oninput="filterMissionDropdown(this.value)" />
+              <div id="tache-mission-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;max-height:260px;overflow-y:auto;background:var(--bg-card);border:1px solid var(--accent);border-radius:0 0 6px 6px;box-shadow:0 6px 16px rgba(0,0,0,0.3)"></div>
               <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Les missions du groupe « <em>Autres missions</em> » ne sont pas affectées à ce projet — les choisir les ajoutera automatiquement à la fiche projet.</div>
             </div>
             <div class="form-field" id="tache-titre-field-input" style="display:none">
