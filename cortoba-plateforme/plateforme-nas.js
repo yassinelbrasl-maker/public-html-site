@@ -8595,6 +8595,9 @@ function openSuiviModal(niveau, parentId, projetId) {
   // Réinitialiser la recherche mission
   var _sMiss = document.getElementById('tache-mission-search');
   if (_sMiss) _sMiss.value = '';
+  var _ddMiss = document.getElementById('tache-mission-dropdown');
+  if (_ddMiss) _ddMiss.style.display = 'none';
+  _missionDropOpen = false;
 
   // Re-populer les missions après que le projet soit défini pour avoir le bon contexte
   if (niveau === 0) _populateMissionsSelect('');
