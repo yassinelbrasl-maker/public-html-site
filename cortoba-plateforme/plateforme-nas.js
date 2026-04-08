@@ -4182,22 +4182,40 @@ function openEditDepense(id) {
 // ── Render all ──
 function renderAll(){ renderClients(); renderDevisList(); renderProjets(); renderFactures(); renderDepenses(); renderDemandes(); populateProjetSelect(); renderCharts(); renderFiscalAlerts(); }
 
+function _rembBadge(statut, remboursePar){
+  if (!statut) return '<span style="font-size:0.7rem;color:var(--text-3)">—</span>';
+  var colors = {demande:'#e0a020',approuve:'#6fa8d6',refuse:'#e07070',rembourse:'#5aab6e'};
+  var labels = {demande:'En attente',approuve:'Approuvé',refuse:'Refusé',rembourse:'Remboursé'};
+  var c = colors[statut]||'var(--text-3)';
+  var l = labels[statut]||statut;
+  var extra = (statut==='rembourse' && remboursePar) ? '<div style="font-size:0.65rem;color:var(--text-3)">par '+remboursePar+'</div>' : '';
+  return '<span class="badge" style="font-size:0.68rem;background:'+c+'22;color:'+c+';border:1px solid '+c+'44">'+l+'</span>'+extra;
+}
+
 function renderDepenses(){
   var tb=document.getElementById('depenses-tbody'); if(!tb) return;
   var list=getDepenses();
-  tb.innerHTML=list.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:2rem">Aucune dépense.</td></tr>'
+  var sess = getSession();
+  var isAdmin = sess && sess.isAdmin;
+  tb.innerHTML=list.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucune dépense.</td></tr>'
     :list.map(function(d){
-      var ttc = d.montantTTC||d.montant||0;
+      var ttc = d.montantTTC||d.montant_ttc||d.montant||0;
+      var depPar = d.depensePar||d.depense_par||d.creePar||d.cree_par||'—';
+      var rembStatut = d.remboursementStatut||d.remboursement_statut||null;
+      var rembPar = d.remboursePar||d.rembourse_par||null;
+      var actions = '<button class="btn btn-sm" onclick="openEditDepense(\''+d.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>';
+      if (isAdmin) {
+        actions += '<button class="btn btn-sm" onclick="deleteRow(\'depense\',\''+d.id+'\')" style="color:#e07070" title="Supprimer">✕</button>';
+      }
       return'<tr>'+
-        '<td>'+fmtDate(d.date||d.dateDep)+'</td>'+
+        '<td>'+fmtDate(d.date||d.dateDep||d.date_dep)+'</td>'+
         '<td style="font-weight:500">'+(d.libelle||d.description||'—')+'</td>'+
         '<td>'+(d.fournisseur?'<span style="font-size:0.78rem;color:var(--text-2)">'+d.fournisseur+'</span>':'—')+'</td>'+
         '<td><span class="badge badge-blue" style="font-size:0.7rem">'+(d.cat||d.categorie||'—')+'</span></td>'+
+        '<td style="font-size:0.78rem">'+depPar+'</td>'+
         '<td class="inline-val">'+fmtMontant(ttc)+'</td>'+
-        '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+
-          '<button class="btn btn-sm" onclick="openEditDepense(\''+d.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>'+
-          '<button class="btn btn-sm" onclick="deleteRow(\'depense\',\''+d.id+'\')" style="color:#e07070" title="Supprimer">✕</button>'+
-        '</td>'+
+        '<td>'+_rembBadge(rembStatut, rembPar)+'</td>'+
+        '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+actions+'</td>'+
       '</tr>';
     }).join('');
 }
