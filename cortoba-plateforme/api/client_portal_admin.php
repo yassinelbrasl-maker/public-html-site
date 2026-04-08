@@ -82,7 +82,19 @@ function cpaListAccounts($user) {
     $clientId = $_GET['client_id'] ?? '';
 
     $sql = "SELECT a.id, a.client_id, a.email, a.nom, a.statut, a.last_login, a.cree_at,
-                   c.display_nom AS client_display, c.code AS client_code
+                   c.display_nom AS client_display, c.code AS code_plateforme,
+                   (SELECT GROUP_CONCAT(DISTINCT p.client_code SEPARATOR ', ')
+                    FROM CA_projets p
+                    WHERE p.client_code != ''
+                      AND (p.client_code = c.code COLLATE utf8mb4_unicode_ci
+                           OR p.client = c.display_nom COLLATE utf8mb4_unicode_ci)
+                   ) AS code_nas,
+                   (SELECT GROUP_CONCAT(DISTINCT p2.code SEPARATOR ', ')
+                    FROM CA_projets p2
+                    WHERE p2.client_code = c.code COLLATE utf8mb4_unicode_ci
+                       OR p2.client = c.display_nom COLLATE utf8mb4_unicode_ci
+                       OR SUBSTRING_INDEX(p2.code, '_', -1) = c.code COLLATE utf8mb4_unicode_ci
+                   ) AS projets_codes
             FROM CA_client_accounts a
             LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = a.client_id";
     $params = [];
