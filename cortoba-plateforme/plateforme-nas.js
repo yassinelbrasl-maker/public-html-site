@@ -5099,6 +5099,7 @@ function showPage(id){
   if(id==='portail-docs') setTimeout(function(){ if(typeof renderPortailDocs==='function') renderPortailDocs(); },80);
   if(id==='portail-messages') setTimeout(function(){ if(typeof renderPortailMessages==='function') renderPortailMessages(); },80);
   if(id==='portail-journal') setTimeout(function(){ if(typeof renderPortailJournal==='function') renderPortailJournal(); },80);
+  if(id==='journal-membres') setTimeout(function(){ if(typeof renderJournalMembres==='function') renderJournalMembres(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
   if(id==='parametres') {
