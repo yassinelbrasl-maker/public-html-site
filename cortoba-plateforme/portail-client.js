@@ -912,6 +912,103 @@ function infoRow(label, value) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  JOURNAL D'ACCES
+// ═══════════════════════════════════════════════════════════════
+
+var _accessLogLabels = {
+  login:             'Connexion',
+  logout:            'Deconnexion',
+  view_document:     'Consultation document',
+  download_document: 'Telechargement document',
+  upload_document:   'Envoi document',
+  chat_send:         'Message envoye',
+  validate:          'Validation',
+  change_password:   'Changement mot de passe',
+  reset_password:    'Reinitialisation mot de passe'
+};
+
+function accessActionLabel(action) {
+  return _accessLogLabels[action] || action;
+}
+
+function accessActionIcon(action) {
+  switch (action) {
+    case 'login':             return '&#128275;';
+    case 'logout':            return '&#128682;';
+    case 'view_document':     return '&#128065;';
+    case 'download_document': return '&#128229;';
+    case 'upload_document':   return '&#128228;';
+    case 'chat_send':         return '&#128172;';
+    case 'validate':          return '&#9989;';
+    case 'change_password':   return '&#128273;';
+    default:                  return '&#128196;';
+  }
+}
+
+function loadAccessLog(page) {
+  page = page || 1;
+  var container = $('access-log-list');
+  container.innerHTML = '<div class="loading-block"><span class="spinner"></span></div>';
+
+  apiCall('access_log', { params: { page: page } })
+    .then(function (data) {
+      var entries = data.entries || [];
+      if (!entries.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-text">Aucune activite enregistree</div></div>';
+        $('access-log-pagination').innerHTML = '';
+        return;
+      }
+
+      var html = '<div class="card"><div class="card-title">Activite recente</div>' +
+        '<table class="data-table"><thead><tr>' +
+        '<th>Date</th><th>Action</th><th>Utilisateur</th><th>Adresse IP</th><th>Details</th>' +
+        '</tr></thead><tbody>';
+
+      entries.forEach(function (e) {
+        var detailStr = '';
+        if (e.details) {
+          if (typeof e.details === 'object') {
+            var parts = [];
+            Object.keys(e.details).forEach(function (k) {
+              parts.push(esc(k) + ': ' + esc(e.details[k]));
+            });
+            detailStr = parts.join(', ');
+          } else {
+            detailStr = esc(String(e.details));
+          }
+        }
+        html += '<tr>' +
+          '<td class="nowrap">' + fmtDateTime(e.cree_at) + '</td>' +
+          '<td>' + accessActionIcon(e.action) + ' ' + esc(accessActionLabel(e.action)) + '</td>' +
+          '<td>' + esc(e.account_nom || e.account_email || '—') + '</td>' +
+          '<td class="mono">' + esc(e.ip_address || '—') + '</td>' +
+          '<td class="detail-cell">' + (detailStr || '—') + '</td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+
+      // Pagination
+      var pag = '';
+      if (data.total_pages > 1) {
+        pag += '<div class="pag-bar">';
+        if (page > 1) pag += '<button class="btn-sm" data-alpage="' + (page - 1) + '">&laquo; Precedent</button> ';
+        pag += '<span class="pag-info">Page ' + page + ' / ' + data.total_pages + '</span>';
+        if (page < data.total_pages) pag += ' <button class="btn-sm" data-alpage="' + (page + 1) + '">Suivant &raquo;</button>';
+        pag += '</div>';
+      }
+      $('access-log-pagination').innerHTML = pag;
+      $('access-log-pagination').querySelectorAll('[data-alpage]').forEach(function (btn) {
+        btn.addEventListener('click', function () { loadAccessLog(parseInt(this.dataset.alpage)); });
+      });
+    })
+    .catch(function (e) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-text">Erreur : ' + esc(e.message) + '</div></div>';
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  TASKS VIEW (used from dashboard)
 // ═══════════════════════════════════════════════════════════════
 
