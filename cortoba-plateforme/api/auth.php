@@ -57,6 +57,8 @@ function handleLogin(array $body) {
                 'isMember'=> true,
             ));
 
+            logMemberActivity($member['id'], $member['prenom'] . ' ' . $member['nom'], 'login');
+
             jsonOk(array(
                 'token' => $token,
                 'user'  => array(
