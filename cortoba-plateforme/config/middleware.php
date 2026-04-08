@@ -123,4 +123,46 @@ function logMemberActivity($userId, $userName, $action, $details = null) {
     } catch (\Throwable $e) { /* silencieux */ }
 }
 
+// ── Restrictions dynamiques par rôle ──
+
+function getRestrictions() {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+    $defaults = [
+        'stagiaire' => ['creer_projets'=>true,'creer_clients'=>true,'creer_devis'=>true,'creer_factures'=>true,'supprimer'=>true],
+        'membre'    => ['creer_projets'=>false,'creer_clients'=>false,'creer_devis'=>false,'creer_factures'=>false,
+                        'supprimer'=>true,'voir_salaires'=>true,'voir_contacts_perso'=>true,'gerer_parametres'=>true],
+    ];
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT setting_value FROM CA_settings WHERE setting_key = 'cfg_restrictions' LIMIT 1");
+        $stmt->execute();
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if ($row) {
+            $saved = json_decode($row['setting_value'], true);
+            if (is_array($saved)) {
+                foreach ($defaults as $role => $rules) {
+                    foreach ($rules as $key => $def) {
+                        if (isset($saved[$role][$key])) {
+                            $defaults[$role][$key] = (bool)$saved[$role][$key];
+                        }
+                    }
+                }
+            }
+        }
+    } catch (\Throwable $e) { /* use defaults */ }
+    $cache = $defaults;
+    return $cache;
+}
+
+function isRestricted(array $user, string $action): bool {
+    $role = strtolower(trim($user['role'] ?? ''));
+    $isAdmin = ($role === 'admin') || ($role === 'architecte gérant');
+    if ($isAdmin) return false;
+
+    $restrictions = getRestrictions();
+    $group = ($role === 'stagiaire') ? 'stagiaire' : 'membre';
+    return !empty($restrictions[$group][$action]);
+}
+
 setCorsHeaders();
