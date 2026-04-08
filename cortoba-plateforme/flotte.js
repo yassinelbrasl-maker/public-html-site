@@ -419,7 +419,7 @@ function _renderFlotteKmTable() {
     h += '<tr><td>'+k.date_releve+'</td><td>'+k.marque+' '+k.modele+'</td><td>'+(k.conducteur||'—')+'</td>' +
       '<td>'+_flotteFmtInt(k.km_debut)+'</td><td>'+_flotteFmtInt(k.km_fin)+'</td><td><strong>'+_flotteFmtInt(k.distance)+' km</strong></td>' +
       '<td>'+k.type_trajet+'</td><td>'+(k.destination||'—')+'</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlotteKm(\''+k.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteKm(\''+k.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
