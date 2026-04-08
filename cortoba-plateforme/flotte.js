@@ -520,6 +520,7 @@ function saveFlotteCarburant() {
 }
 
 function deleteFlotteKm(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer ce trajet ?')) return;
   apiFetch('api/flotte.php?action=kilometres&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteKmPage();
