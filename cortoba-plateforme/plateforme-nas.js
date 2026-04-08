@@ -1570,7 +1570,7 @@ function saveDevis(){
 
 // ── Filtres et tri projets ──
 var PHASES_ORDER = ['Étude préliminaire','APS','APD','PC','DCE','EXE','Livré'];
-var _pjSortKey='nom', _pjSortDir=1, _pjColDropOpen=false;
+var _pjSortKey='code', _pjSortDir=1, _pjColDropOpen=false;
 var _pjPage=1, _pjPerPage=10, _pjAnneeInitDone=false;
 
 function getFilteredSortedProjets(){
