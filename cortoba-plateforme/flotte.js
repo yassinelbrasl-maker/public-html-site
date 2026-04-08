@@ -839,7 +839,7 @@ function _renderFlotteControlesTable() {
     h += '<tr'+style+'><td>'+c.marque+' '+c.modele+'</td><td>'+c.type_controle+'</td>' +
       '<td>'+c.date_controle+'</td><td'+(expired?' style="color:var(--red);font-weight:600"':'')+'>'+c.date_expiration+'</td>' +
       '<td>'+_flotteStatutBadge(c.resultat)+'</td><td>'+(c.organisme||'—')+'</td><td>'+_flotteFmt(c.montant)+' TND</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlotteControle(\''+c.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteControle(\''+c.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
