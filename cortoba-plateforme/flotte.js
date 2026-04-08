@@ -821,7 +821,7 @@ function _renderFlotteAssurancesTable() {
     h += '<tr'+style+'><td>'+a.marque+' '+a.modele+'</td><td>'+a.assureur+'</td><td>'+(a.numero_police||'—')+'</td>' +
       '<td>'+a.type_couverture+'</td><td>'+a.date_debut+'</td><td'+(expired?' style="color:var(--red);font-weight:600"':'')+'>'+a.date_fin+'</td>' +
       '<td>'+_flotteFmt(a.prime_annuelle)+' TND</td><td>'+_flotteStatutBadge(a.statut)+'</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlotteAssurance(\''+a.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteAssurance(\''+a.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
