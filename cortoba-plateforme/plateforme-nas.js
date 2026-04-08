@@ -9047,7 +9047,6 @@ function filterMissionDropdown(query) {
 
   items.forEach(function(it, idx) {
     if (it.type === 'header') {
-      if (lastHeaderHtml && hasVisibleInGroup) html += lastHeaderHtml;
       lastHeaderHtml = '<div style="padding:0.4rem 0.8rem;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">' + it.label + '</div>';
       hasVisibleInGroup = false;
     } else {
