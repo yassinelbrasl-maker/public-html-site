@@ -249,6 +249,12 @@ a:hover { text-decoration: underline; }
 }
 .data-table tr:hover td { background: var(--accent-bg); }
 .data-table .mono { font-family: var(--mono); font-size: 0.8rem; }
+.data-table .nowrap { white-space: nowrap; }
+.data-table .detail-cell { font-size: 0.78rem; color: var(--text-2); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── PAGINATION ── */
+.pag-bar { display: flex; align-items: center; gap: 0.75rem; justify-content: center; margin-top: 1rem; }
+.pag-info { font-size: 0.82rem; color: var(--text-2); }
 
 /* ── PROGRESS BAR ── */
 .progress-bar {
