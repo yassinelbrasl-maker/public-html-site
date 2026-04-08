@@ -143,9 +143,18 @@ function updateItem($id, array $user) {
 }
 
 function removeItem($id) {
+    global $user;
     if (!$id) jsonError('ID requis');
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare('DELETE FROM CA_tache_livrables WHERE id = ?')->execute([$id]);
+    // Récupérer le label du livrable
+    $stmt = $db->prepare('SELECT label FROM CA_tache_livrables WHERE id = ?');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+    $label = $row ? ($row['label'] ?: 'Livrable') : 'Livrable';
+    if (!moveToCorbeille($db, 'CA_tache_livrables', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => $id]);
 }
 
