@@ -13706,6 +13706,7 @@ function saveHoliday(id){
   var body = {
     date: document.getElementById('hol-date').value,
     libelle: document.getElementById('hol-libelle').value.trim(),
+    paye: document.getElementById('hol-paye').checked ? 1 : 0,
     pont: document.getElementById('hol-pont').checked ? 1 : 0
   };
   if (id) body.id = id;
