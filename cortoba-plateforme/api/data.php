@@ -55,7 +55,8 @@ $TABLES = array(
         'cols'     => array('description','montant','categorie','projet_id','date_dep','justificatif',
                             'fournisseur','reference','code_tva_fournisseur',
                             'montant_ht','montant_tva','timbre','montant_ttc','lignes_json','template_id',
-                            'employe_id','paie_mois','paie_snapshot'),
+                            'employe_id','paie_mois','paie_snapshot',
+                            'depense_par','rembourse_par','remboursement_statut','remboursement_date'),
         'cree_par' => true,
     ),
 );
