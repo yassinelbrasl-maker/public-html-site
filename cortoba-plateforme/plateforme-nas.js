@@ -2444,23 +2444,34 @@ function resetNasPath() {
   if (input) { input.value = buildCurrentNasPath(); input.select(); }
 }
 
-function applyNasPath() {
+function saveNasPath() {
   var input = document.getElementById('pj-nas-path-input');
   var path = input ? input.value.trim() : '';
   if (!path) { showToast('Chemin vide', 'error'); return; }
-  // Sauvegarder le chemin NAS en base si on est en édition
-  if (_editingProjetId) {
-    apiFetch('api/projets.php?id=' + _editingProjetId, {
-      method: 'PUT',
-      body: { nasPath: path }
-    }).catch(function(){});
-  }
-  navigator.clipboard.writeText(path).then(function() {
-    showToast('Chemin NAS sauvegardé et copié', 'success');
+  if (!_editingProjetId) { showToast('Sauvegardez d\'abord le projet', 'error'); return; }
+  apiFetch('api/projets.php?id=' + _editingProjetId, {
+    method: 'PUT',
+    body: { nasPath: path }
+  }).then(function() {
+    showToast('Chemin NAS sauvegardé ✓', 'success');
     var panel = document.getElementById('pj-nas-edit-panel');
     if (panel) panel.style.display = 'none';
+    loadData().then(function(){ renderProjets(); });
+  }).catch(function() { showToast('Erreur de sauvegarde', 'error'); });
+}
+window.saveNasPath = saveNasPath;
+
+function copyNasPathFromInput() {
+  var input = document.getElementById('pj-nas-path-input');
+  var path = input ? input.value.trim() : '';
+  if (!path) { showToast('Chemin vide', 'error'); return; }
+  navigator.clipboard.writeText(path).then(function() {
+    showToast('Chemin NAS copié ✓', 'success');
   });
 }
+window.copyNasPathFromInput = copyNasPathFromInput;
+
+function applyNasPath() { saveNasPath(); }
 
 // ── NAS folder button for project detail ──
 function buildNasFolderButton(p) {
