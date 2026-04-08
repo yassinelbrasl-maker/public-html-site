@@ -3875,10 +3875,60 @@ function resetDepenseForm(){
   if(depDateEl) depDateEl.value = new Date().toISOString().split('T')[0];
   var cat=document.getElementById('dep-categorie'); if(cat) cat.value='';
   var wrap=document.getElementById('dep-lignes-wrap'); if(wrap) wrap.innerHTML='';
+  // Reset reimbursement
+  var rembToggle = document.getElementById('dep-remboursement-toggle');
+  if (rembToggle) rembToggle.checked = false;
+  var rembAdmin = document.getElementById('dep-remb-admin-section');
+  if (rembAdmin) rembAdmin.style.display = 'none';
+  var depParEl = document.getElementById('dep-depense-par');
+  if (depParEl) depParEl.value = '';
+  var rembStatutEl = document.getElementById('dep-remb-statut');
+  if (rembStatutEl) rembStatutEl.value = 'demande';
+  var rembParEl = document.getElementById('dep-rembourse-par');
+  if (rembParEl) rembParEl.value = '';
+  populateDepMemberSelects();
   calcDepTotal();
   initDepDatalist();
   // Ajouter une ligne par défaut
   addDepenseLigne();
+}
+
+// ── Remboursement : toggle section ──
+function toggleRemboursementSection(){
+  var cb = document.getElementById('dep-remboursement-toggle');
+  var wrap = document.getElementById('dep-remb-switch-wrap');
+  if (wrap) {
+    var track = wrap.querySelector('.dep-switch-track');
+    if (track) track.style.background = (cb && cb.checked) ? 'var(--accent)' : '';
+  }
+}
+
+// ── Populate member selects for depense_par / rembourse_par ──
+function populateDepMemberSelects(){
+  var membres = getMembres() || [];
+  var sess = getSession();
+  var depParEl = document.getElementById('dep-depense-par');
+  if (depParEl) {
+    var curVal = depParEl.value;
+    depParEl.innerHTML = '<option value="">— Moi-même (' + (sess ? sess.name : '') + ') —</option>';
+    membres.forEach(function(m){
+      var name = ((m.prenom||'') + ' ' + (m.nom||'')).trim();
+      if (name) depParEl.innerHTML += '<option value="' + name + '">' + name + '</option>';
+    });
+    if (curVal) depParEl.value = curVal;
+  }
+  var rembParEl = document.getElementById('dep-rembourse-par');
+  if (rembParEl) {
+    var curVal2 = rembParEl.value;
+    rembParEl.innerHTML = '<option value="">— Sélectionner —</option>';
+    membres.forEach(function(m){
+      if (m.role === 'Architecte gérant' || m.role === 'admin') {
+        var name = ((m.prenom||'') + ' ' + (m.nom||'')).trim();
+        if (name) rembParEl.innerHTML += '<option value="' + name + '">' + name + '</option>';
+      }
+    });
+    if (curVal2) rembParEl.value = curVal2;
+  }
 }
 
 // ── Scan facture IA ──
