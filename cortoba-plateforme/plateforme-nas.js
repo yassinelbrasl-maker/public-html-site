@@ -1465,6 +1465,12 @@ function canDelete(){
   var s = getSession();
   return s && (s.isAdmin || s.role === 'Architecte gérant');
 }
+function canCreate(){
+  var s = getSession();
+  if (!s) return false;
+  if ((s.role || '').toLowerCase() === 'stagiaire') return false;
+  return true;
+}
 function deleteRow(type, id){
   if (!canDelete()) { alert('Seul un Architecte gérant peut supprimer.'); return; }
   if (!confirm('Supprimer cet élément ?')) return;
