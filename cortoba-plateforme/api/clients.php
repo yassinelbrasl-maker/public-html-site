@@ -34,6 +34,41 @@ elseif ($method === 'PATCH')  patch($id, $user);
 elseif ($method === 'DELETE') remove($id, $user);
 else jsonError('Méthode non supportée', 405);
 
+// ── Utilitaire : supprimer les virgules des noms ─────────────────────────────
+function stripCommas($val) {
+    if (!$val) return $val;
+    return str_replace(',', '', $val);
+}
+
+// ── Nettoyage ponctuel : supprimer toutes les virgules des noms existants ────
+function cleanupCommas() {
+    $db = getDB();
+    // 1. Nettoyer display_nom, nom, prenom dans CA_clients
+    $db->exec("UPDATE CA_clients SET display_nom = REPLACE(display_nom, ',', '') WHERE display_nom LIKE '%,%'");
+    $db->exec("UPDATE CA_clients SET nom = REPLACE(nom, ',', '') WHERE nom LIKE '%,%'");
+    $db->exec("UPDATE CA_clients SET prenom = REPLACE(prenom, ',', '') WHERE prenom LIKE '%,%'");
+    $db->exec("UPDATE CA_clients SET raison = REPLACE(raison, ',', '') WHERE raison LIKE '%,%'");
+    // 2. Nettoyer les contacts auxiliaires
+    $db->exec("UPDATE CA_clients_contacts_aux SET nom = REPLACE(nom, ',', '') WHERE nom LIKE '%,%'");
+    $db->exec("UPDATE CA_clients_contacts_aux SET prenom = REPLACE(prenom, ',', '') WHERE prenom LIKE '%,%'");
+    // 3. Synchroniser les noms clients dans les projets
+    $stmt = $db->query("SELECT id, code, display_nom FROM CA_clients");
+    $clients = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    $upd = $db->prepare("UPDATE CA_projets SET client = ? WHERE client_code = ?");
+    foreach ($clients as $c) {
+        if ($c['code']) {
+            $upd->execute([$c['display_nom'], $c['code']]);
+        }
+    }
+    // 4. Nettoyer aussi le champ client directement dans les projets (cas orphelins)
+    $db->exec("UPDATE CA_projets SET client = REPLACE(client, ',', '') WHERE client LIKE '%,%'");
+    // 5. Nettoyer dans les devis si la table existe
+    try {
+        $db->exec("UPDATE CA_devis SET client = REPLACE(client, ',', '') WHERE client LIKE '%,%'");
+    } catch (\Exception $e) { /* table absente */ }
+    jsonOk(['message' => 'Virgules supprimées de tous les noms clients, projets et devis']);
+}
+
 function getAll() {
     $db = getDB();
     $where = ['1=1'];
