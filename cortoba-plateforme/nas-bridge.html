@@ -227,6 +227,7 @@ function copyTemplateWebDAV(baseUrl, destFolder) {
           children.push({ href: href.textContent, name: name });
         });
       }
+      addStep('PROPFIND: ' + responses.length + ' responses, ' + children.length + ' children', responses.length > 0 ? 'ok' : 'fail');
       if (children.length === 0) {
         updateStep(s, 'Modele vide ou introuvable', 'ok');
         return { ok: true, copied: 0 };
