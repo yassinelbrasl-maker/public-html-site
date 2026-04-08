@@ -1287,10 +1287,14 @@ function showSuccess(nom, code, projetId) {
     var pn = document.getElementById('success-projet-name'); if (pn) pn.textContent = nom;
     var pc = document.getElementById('success-code'); if (pc) pc.textContent = code;
   }
-  // Mettre à jour le lien "Voir dans la plateforme" avec l'ID du projet
-  if (projetId) {
-    _createdProjetId = projetId;
-  }
+  // Stocker l'ID du projet créé pour le bouton "Voir dans la plateforme"
+  _createdProjetId = projetId || null;
+}
+
+function goToProjet() {
+  var url = 'plateforme-nas.html?page=projets';
+  if (_createdProjetId) url += '&projet=' + encodeURIComponent(_createdProjetId);
+  window.location.href = url;
 }
 
 function resetWizard() {
