@@ -533,13 +533,18 @@ function loadFinance() {
     if (!factures.length) {
       $('finance-factures').innerHTML = '<div class="empty-state"><div class="empty-text">Aucune facture</div></div>';
     } else {
-      var h2 = '<div class="table-responsive"><table class="data-table"><thead><tr><th>N.</th><th>Projet</th><th>Montant TTC</th><th>Net a payer</th><th>Statut</th><th>Echeance</th><th>Paiement</th></tr></thead><tbody>';
+      var h2 = '<div class="table-responsive"><table class="data-table"><thead><tr><th>N.</th><th>Projet</th><th>Montant TTC</th><th>Net a payer</th><th>Statut</th><th>Echeance</th><th>Paiement</th><th></th></tr></thead><tbody>';
       factures.forEach(function (f) {
+        var payBtn = '';
+        if (f.statut !== 'Payée' && f.statut !== 'Payee' && f.statut !== 'Annulée') {
+          payBtn = '<button class="btn btn-sm btn-primary" onclick="initStripePayment(\'' + f.id + '\')">Payer en ligne</button>';
+        }
         h2 += '<tr><td class="mono">' + esc(f.numero) + '</td><td>' + esc(f.projet_code || '') + '</td>' +
           '<td class="mono">' + fmtMoney(f.montant_ttc) + '</td><td class="mono">' + fmtMoney(f.net_payer) + '</td>' +
           '<td><span class="badge ' + badgeClass(f.statut) + '">' + esc(f.statut) + '</span></td>' +
           '<td>' + fmtDate(f.date_echeance) + '</td>' +
-          '<td>' + (f.date_paiement ? fmtDate(f.date_paiement) : '—') + '</td></tr>';
+          '<td>' + (f.date_paiement ? fmtDate(f.date_paiement) : '—') + '</td>' +
+          '<td>' + payBtn + '</td></tr>';
       });
       h2 += '</tbody></table></div>';
       $('finance-factures').innerHTML = h2;
