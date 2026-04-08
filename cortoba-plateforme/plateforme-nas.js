@@ -16783,10 +16783,14 @@ function renderNcTable(filter) {
 }
 
 function filterNcTable(filter, btn) {
-  // Mettre à jour les boutons actifs
   var btns = document.querySelectorAll('#nas-conformite-filters .nc-filter');
   btns.forEach(function(b) { b.classList.remove('active'); b.style.background = ''; });
   if (btn) { btn.classList.add('active'); btn.style.background = 'var(--bg-2)'; }
+  // Recalculer le footer info avec le filtre combiné (année + type)
+  var filtered = _ncGetFiltered();
+  if (filter && filter !== 'all') filtered = filtered.filter(function(r){ return r.type === filter; });
+  var footerInfo = document.getElementById('nc-footer-info');
+  if (footerInfo) footerInfo.textContent = filtered.length + ' entrées affichées';
   renderNcTable(filter);
 }
 
