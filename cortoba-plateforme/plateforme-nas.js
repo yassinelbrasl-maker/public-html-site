@@ -1684,8 +1684,6 @@ function renderProjets(){
   if(document.getElementById('page-projets')&&document.getElementById('page-projets').classList.contains('active')){
     if(typeof refreshGlobalMap==='function') setTimeout(refreshGlobalMap,100);
   }
-  var b = document.querySelector('[onclick="showPage(\'projets\')"] .nav-badge');
-  if(b) b.textContent = list.filter(function(p){ return (p.statut||'')==='Actif'; }).length || '';
 }
 
 // ── Pagination projets ──
