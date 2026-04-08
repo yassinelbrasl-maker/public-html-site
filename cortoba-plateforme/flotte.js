@@ -357,6 +357,7 @@ function flotteResaAction(id, statut) {
 }
 
 function deleteFlotteResa(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer cette réservation ?')) return;
   apiFetch('api/flotte.php?action=reservations&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteResaPage();
