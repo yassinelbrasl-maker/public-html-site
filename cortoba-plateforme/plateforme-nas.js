@@ -7010,6 +7010,7 @@ function saveMembre() {
     payload.salaire_net        = num('mb-salaire');
     payload.charges_sociales   = num('mb-charges');
     payload.subventions        = num('mb-subv');
+    payload.subv_directe       = document.getElementById('mb-subv-directe').checked ? 1 : 0;
     payload.avantages_nature   = num('mb-avant');
     payload.heures_mois        = num('mb-heures') || 160;
     payload.date_embauche      = val('mb-date-embauche') || null;
