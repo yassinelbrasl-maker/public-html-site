@@ -4226,6 +4226,25 @@ function openEditDepense(id) {
     var tva = (d.montantTVA && ht) ? Math.round(d.montantTVA/ht*100) : 0;
     addDepenseLigne({desc:d.libelle||d.description||'', ht:ht, tva:tva+'%'});
   }
+  // Restore reimbursement fields
+  var depParEl = document.getElementById('dep-depense-par');
+  if (depParEl) depParEl.value = d.depensePar || d.depense_par || '';
+  var rembStatut = d.remboursementStatut || d.remboursement_statut || null;
+  if (rembStatut) {
+    var rembToggle = document.getElementById('dep-remboursement-toggle');
+    if (rembToggle) rembToggle.checked = true;
+    toggleRemboursementSection();
+    // Show admin section if user is admin
+    var sess2 = getSession();
+    if (sess2 && sess2.isAdmin) {
+      var rembAdminSec = document.getElementById('dep-remb-admin-section');
+      if (rembAdminSec) rembAdminSec.style.display = '';
+      var rembStatutEl = document.getElementById('dep-remb-statut');
+      if (rembStatutEl) rembStatutEl.value = rembStatut;
+      var rembParEl = document.getElementById('dep-rembourse-par');
+      if (rembParEl) rembParEl.value = d.remboursePar || d.rembourse_par || '';
+    }
+  }
   document.getElementById('modal-depense').classList.add('open');
 }
 
