@@ -9618,6 +9618,32 @@ function deleteTache(id) {
     .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
 }
 
+// ── Supprimer toutes les tâches/missions d'un projet dans le suivi ──
+function deleteProjetTaches(projetId) {
+  var items = _suiviCache.filter(function(t){ return t.projet_id === projetId; });
+  if (!items.length) { showToast('Aucune mission à supprimer', 'info'); return; }
+  var proj = items[0];
+  var projLabel = (proj.projetCode ? proj.projetCode + ' — ' : '') + (proj.projetNom || 'ce projet');
+  if (!confirm('Supprimer les ' + items.length + ' mission(s)/tâche(s) du projet :\n' + projLabel + ' ?\n\nCette action est irréversible.')) return;
+
+  // Supprimer toutes les tâches racine (niveau 0) — l'API supprime les enfants en cascade
+  var roots = items.filter(function(t){ return t.niveau === 0; });
+  // Si pas de racines, supprimer tout individuellement
+  var toDelete = roots.length > 0 ? roots : items;
+
+  var promises = toDelete.map(function(t){
+    return apiFetch('api/taches.php?id=' + t.id, { method: 'DELETE' });
+  });
+
+  Promise.all(promises)
+    .then(function() {
+      showToast('✓ ' + items.length + ' élément(s) supprimé(s)');
+      loadTaches().then(function(){ renderSuiviPage(); });
+    })
+    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+window.deleteProjetTaches = deleteProjetTaches;
+
 // ═══════════════════════════════════════════════════════════
 //  JOURNAL QUOTIDIEN — Suivi journalier par membre
 // ═══════════════════════════════════════════════════════════
