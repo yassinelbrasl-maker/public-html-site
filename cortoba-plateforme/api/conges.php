@@ -64,25 +64,29 @@ try {
         UNIQUE KEY `uq_date` (`date`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-    // Pré-alimenter les jours fériés algériens de l'année courante (idempotent)
+    // Pré-alimenter les jours fériés tunisiens de l'année courante (idempotent)
+    // Secteur : Privés soumis au Code du Travail et à la Convention Collective Cadre
     $yr = (int)date('Y');
     $cnt = $db->query("SELECT COUNT(*) FROM CA_jours_feries WHERE YEAR(date) = $yr")->fetchColumn();
     if (!$cnt) {
         $feries = [
+            // Fêtes nationales (payées)
             ["$yr-01-01", 'Nouvel An'],
-            ["$yr-01-12", 'Yennayer (Nouvel An amazigh)'],
-            ["$yr-02-18", "Anniversaire de l'indépendance provisoire"],
-            ["$yr-03-19", 'Fête de la Victoire (19 mars 1962)'],
+            ["$yr-03-20", "Fête de l'Indépendance"],
+            ["$yr-04-09", 'Journée des Martyrs'],
             ["$yr-05-01", 'Fête du Travail'],
-            ["$yr-07-05", "Fête de l'indépendance"],
-            ["$yr-11-01", 'Fête de la Révolution'],
-            // Fêtes religieuses : dates approximatives à ajuster chaque année
+            ["$yr-07-25", 'Fête de la République'],
+            ["$yr-08-13", 'Journée de la Femme'],
+            ["$yr-10-15", "Fête de l'Évacuation"],
+            ["$yr-12-17", 'Fête de la Révolution'],
+            // Fêtes religieuses (non payées) : dates approximatives à ajuster chaque année
             ["$yr-03-30", 'Aïd el-Fitr (à ajuster)'],
             ["$yr-03-31", 'Aïd el-Fitr 2e jour (à ajuster)'],
-            ["$yr-06-07", 'Aïd el-Adha (à ajuster)'],
-            ["$yr-06-08", 'Aïd el-Adha 2e jour (à ajuster)'],
-            ["$yr-06-27", '1er Moharram (à ajuster)'],
-            ["$yr-09-05", 'Mawlid Ennabaoui (à ajuster)'],
+            ["$yr-06-06", 'Aïd el-Adha (à ajuster)'],
+            ["$yr-06-07", 'Aïd el-Adha 2e jour (à ajuster)'],
+            ["$yr-06-26", 'Ras El Am El Hijri (à ajuster)'],
+            ["$yr-09-04", 'Mouled (à ajuster)'],
+            ["$yr-09-05", 'Mouled 2e jour (à ajuster)'],
         ];
         $ins = $db->prepare("INSERT IGNORE INTO CA_jours_feries (date, libelle) VALUES (?, ?)");
         foreach ($feries as $f) $ins->execute($f);
