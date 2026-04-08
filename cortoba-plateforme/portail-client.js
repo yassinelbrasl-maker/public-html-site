@@ -533,7 +533,7 @@ function loadFinance() {
     if (!factures.length) {
       $('finance-factures').innerHTML = '<div class="empty-state"><div class="empty-text">Aucune facture</div></div>';
     } else {
-      var h2 = '<table class="data-table"><thead><tr><th>N.</th><th>Projet</th><th>Montant TTC</th><th>Net a payer</th><th>Statut</th><th>Echeance</th><th>Paiement</th></tr></thead><tbody>';
+      var h2 = '<div class="table-responsive"><table class="data-table"><thead><tr><th>N.</th><th>Projet</th><th>Montant TTC</th><th>Net a payer</th><th>Statut</th><th>Echeance</th><th>Paiement</th></tr></thead><tbody>';
       factures.forEach(function (f) {
         h2 += '<tr><td class="mono">' + esc(f.numero) + '</td><td>' + esc(f.projet_code || '') + '</td>' +
           '<td class="mono">' + fmtMoney(f.montant_ttc) + '</td><td class="mono">' + fmtMoney(f.net_payer) + '</td>' +
@@ -541,7 +541,7 @@ function loadFinance() {
           '<td>' + fmtDate(f.date_echeance) + '</td>' +
           '<td>' + (f.date_paiement ? fmtDate(f.date_paiement) : '—') + '</td></tr>';
       });
-      h2 += '</tbody></table>';
+      h2 += '</tbody></table></div>';
       $('finance-factures').innerHTML = h2;
     }
   }).catch(function (e) {
