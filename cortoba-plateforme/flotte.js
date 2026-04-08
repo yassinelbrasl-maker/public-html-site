@@ -927,6 +927,7 @@ function saveFlottePermis() {
 }
 
 function deleteFlotteAssurance(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer cette assurance ?')) return;
   apiFetch('api/flotte.php?action=assurances&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteConformitePage();
