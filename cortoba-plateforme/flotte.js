@@ -858,7 +858,7 @@ function _renderFlottePermisTable() {
       '<td>'+p.categorie+'</td><td>'+(p.date_delivrance||'—')+'</td>' +
       '<td'+(expired?' style="color:var(--red);font-weight:600"':'')+'>'+((p.date_expiration)||'—')+'</td>' +
       '<td>'+_flotteStatutBadge(p.statut)+'</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlottePermis(\''+p.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlottePermis(\''+p.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
