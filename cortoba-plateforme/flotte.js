@@ -285,7 +285,7 @@ function _renderFlotteAttrTable() {
       '<td>'+(a.date_fin||'—')+'</td>' +
       '<td>'+(parseInt(a.cles_remises)?'Oui':'Non')+'</td>' +
       '<td>'+_flotteStatutBadge(a.statut)+'</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlotteAttr(\''+a.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteAttr(\''+a.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
