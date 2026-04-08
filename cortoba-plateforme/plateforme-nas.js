@@ -5097,14 +5097,21 @@ function applyModuleAccess() {
   // Carte des restrictions visible uniquement pour Admin / Architecte gérant
   var isGerant = isAdmin || (session && session.role === 'Architecte gérant');
   var rCard = document.getElementById('equipe-restrictions-card');
-  if (rCard) rCard.style.display = isGerant ? '' : 'none';
-
-  // Masquer les boutons de création pour les stagiaires
-  if (!canCreate()) {
-    document.querySelectorAll('.btn-create-only').forEach(function(b){
-      b.style.display = 'none';
-    });
+  if (rCard) {
+    rCard.style.display = isGerant ? '' : 'none';
+    if (isGerant) renderRestrictions();
   }
+
+  // Masquer les boutons de création selon les restrictions dynamiques
+  document.querySelectorAll('.btn-create-only').forEach(function(b){
+    var onclick = b.getAttribute('onclick') || '';
+    var action = null;
+    if (onclick.indexOf('modal-projet') !== -1 || onclick.indexOf('openConfigurateur') !== -1) action = 'projet';
+    else if (onclick.indexOf('modal-client') !== -1) action = 'client';
+    else if (onclick.indexOf('modal-devis') !== -1) action = 'devis';
+    else if (onclick.indexOf('modal-facture') !== -1) action = 'facture';
+    b.style.display = (action && !canCreate(action)) ? 'none' : '';
+  });
 }
 
 // Contrôle d'accès intégré directement dans showPage() ci-dessous
