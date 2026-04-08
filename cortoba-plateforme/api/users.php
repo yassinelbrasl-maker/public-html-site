@@ -247,6 +247,7 @@ try {
             $cols['salaire_net']        = $salaire;
             $cols['charges_sociales']   = $charges;
             $cols['subventions']        = $subv;
+            $cols['subv_directe']       = $subvDir;
             $cols['avantages_nature']   = $avant;
             $cols['heures_mois']        = $heures;
             $cols['date_embauche']      = $dateEmb;
