@@ -3819,8 +3819,11 @@
             <span style="color:var(--text-3)">Total TVA</span>
             <span id="dep-total-tva" style="font-family:var(--mono);color:var(--text)">0,000 TND</span>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.4rem">
-            <span style="color:var(--text-3)">Droit de timbre (1%)</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;margin-bottom:0.4rem">
+            <label style="display:flex;align-items:center;gap:0.5rem;color:var(--text-3);cursor:pointer">
+              <input type="checkbox" id="dep-timbre-toggle" checked onchange="calcDepTotal()" style="accent-color:var(--accent)" />
+              Droit de timbre (1 TND)
+            </label>
             <span id="dep-timbre" style="font-family:var(--mono);color:var(--text)">0,000 TND</span>
           </div>
           <div style="height:1px;background:var(--border);margin:0.4rem 0"></div>
