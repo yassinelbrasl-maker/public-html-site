@@ -16750,12 +16750,14 @@ function buildConformiteData(projets, nasFolders) {
     var yearFolders = nasFolders[annee] || [];
 
     if (mode === 'code') {
-      // ── Mode CODE : correspondance uniquement par code projet ──
+      // ── Mode CODE : correspondance par code (3 premiers blocs) ──
+      var codeBase = ncExtractCodeBase(code);
       var codeMatch = null;
       yearFolders.forEach(function(f) {
         if (matchedNasFolders[annee + '/' + f]) return;
         var fCode = ncExtractCode(f);
-        if (fCode && fCode === code) codeMatch = f;
+        var fCodeBase = ncExtractCodeBase(fCode);
+        if (fCodeBase && codeBase && fCodeBase === codeBase) codeMatch = f;
       });
       if (codeMatch) {
         var isExact = (codeMatch === expected);
