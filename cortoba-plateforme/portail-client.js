@@ -379,6 +379,11 @@ function initUpload() {
         selectedFile = null;
         $('upload-form-fields').style.display = 'none';
         zone.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.5rem">&#128228;</div><div>Cliquez ou glissez un fichier ici</div><div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">PDF, JPG, PNG, DOCX, DWG, ZIP — max 20 Mo</div><input type="file" id="upload-input">';
+        // Re-bind file input after DOM replacement
+        input = $('upload-input');
+        input.addEventListener('change', function () {
+          if (input.files.length) { selectedFile = input.files[0]; showUploadFields(selectedFile); }
+        });
         loadDocuments();
       })
       .catch(function (e) { showToast(e.message, 'error'); })
