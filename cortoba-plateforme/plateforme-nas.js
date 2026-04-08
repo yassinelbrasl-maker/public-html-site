@@ -1176,7 +1176,7 @@ var ALL_CL_COLUMNS = [
   {key:'projets',  label:'Projets',  default:false,locked:false,sortable:true, render:function(c){var pjs=getProjets();var count=pjs.filter(function(p){return p.client_code===c.code||(c.id&&(p.client_id===c.id||p.clientId===c.id));}).length;return String(count);}},
   {key:'creeAt',   label:'Créé le',  default:false,locked:false,sortable:true, render:function(c){if(!c.creeAt&&!c.cree_at) return '—'; var d=new Date(c.creeAt||c.cree_at); return isNaN(d)?'—':d.toLocaleDateString('fr-FR');}},
   {key:'creePar',  label:'Créé par', default:false,locked:false,sortable:true, render:function(c){return c.creePar||c.cree_par||'—';}},
-  {key:'modifiePar',label:'Modifié par',default:false,locked:false,sortable:true, render:function(c){return c.modifie_par||'—';}}
+  {key:'modifiePar',label:'Modifié par',default:true,locked:false,sortable:true, render:function(c){return c.modifie_par||'—';}}
 ];
 var _clActiveColumns = null;
 
