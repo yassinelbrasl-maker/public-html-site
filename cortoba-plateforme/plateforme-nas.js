@@ -7486,7 +7486,7 @@ function buildNasBridgeUrl(code, clientName, annee) {
   // Extraire le nom du dossier si chemin UNC ou absolu saisi (ex: \\192.168.1.165\Public\...\00-Dossier Type)
   var tplName = tplRaw.replace(/\\/g, '/').split('/').filter(function(s){return s;}).pop() || '00-Dossier Type';
   var projRoot = getSetting('cortoba_nas_projets_root', '/Public/CAS_PROJETS').replace(/^\//, '');
-  var templateFolder = projRoot + '/' + annee + '/' + tplName;
+  var templateFolder = projRoot + '/' + tplName;
 
   var subfolders = _getNasSubfolders();
 
