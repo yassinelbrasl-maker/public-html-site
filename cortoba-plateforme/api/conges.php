@@ -19,6 +19,7 @@
 
 require_once __DIR__ . '/../config/middleware.php';
 require_once __DIR__ . '/notification_dispatch.php'; // expose dispatchNotification() + notifCreate()
+require_once __DIR__ . '/corbeille.php';
 
 $user   = requireAuth();
 $action = $_GET['action'] ?? 'list';
