@@ -4826,7 +4826,7 @@ function showToast(msg, color){
 // ══════════════════════════════════════════════════════════════
 
 // Liste des modules de la plateforme
-var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','conges','parametres','flotte','flotte-reservations','flotte-km','flotte-entretien','flotte-couts','flotte-conformite'];
+var NAV_MODULE_IDS = MODULES_PLATEFORME.map(function(m){ return m.id; });
 
 // Lire la session courante
 function getSession() {
