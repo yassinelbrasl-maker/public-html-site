@@ -691,6 +691,7 @@ function saveFlotteSinistre() {
 }
 
 function deleteFlotteSinistre(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer ce sinistre ?')) return;
   apiFetch('api/flotte.php?action=sinistres&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteEntretienPage();
