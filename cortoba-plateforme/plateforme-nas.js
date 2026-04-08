@@ -6938,6 +6938,7 @@ function loadNasParams() {
   if (rootEl) rootEl.value = getSetting('cortoba_nas_projets_root', '');
   var tplEl = document.getElementById('param-nas-template-folder');
   if (tplEl) tplEl.value = getSetting('cortoba_nas_template_folder', '00-Dossier Type');
+  renderNasSubfolders();
 }
 
 // ── Sous-dossiers par défaut NAS ──
