@@ -2543,30 +2543,98 @@ function copyNasPath(btn, path) {
 function openProjetDetail(id){
   var p = getProjets().find(function(x){ return x.id===id; }); if(!p) return;
   var typeBatVal = p.typeBat||p.type_bat||'';
-  var rows = [
+
+  // ── Section : Informations générales ──
+  var general = [
     ['Code dossier','<span style="font-family:var(--mono);color:var(--accent);font-weight:700">'+(p.code||'—')+'</span>'],
     ['Statut','<span class="'+badgeClass(p.statut)+'">'+(p.statut||'—')+'</span>'],
+    p.phase ? ['Phase','<span class="'+phaseBadgeClass(p.phase)+'">'+(p.phase)+'</span>'] : null,
     ['Client', p.client||'—'],
     typeBatVal ? ['Type de bâtiment', typeBatVal] : null,
-    p.description ? ['Description','<em style="color:var(--text-2)">'+p.description+'</em>'] : null,
-    ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'],
-    p.budget  ? ['Budget client', fmtMontant(p.budget)] : null,
-    p.surface ? ['Surface', p.surface+' m²'] : null,
-    p.adresse ? ['Lieu', p.adresse] : null
+    p.description ? ['Description','<em style="color:var(--text-2)">'+esc(p.description)+'</em>'] : null,
+    p.adresse ? ['Adresse', esc(p.adresse)] : null,
+    p.annee ? ['Année', p.annee] : null,
+    p.delai ? ['Délai', fmtDate(p.delai)] : null
   ].filter(Boolean);
-  var tr = rows.map(function(r){
-    return '<tr><td style="padding:0.5rem 1rem 0.5rem 0;color:var(--text-3);font-size:0.78rem;white-space:nowrap;vertical-align:top">'+r[0]+'</td>'+
-      '<td style="padding:0.5rem 0;font-size:0.85rem">'+r[1]+'</td></tr>';
-  }).join('');
+
+  // ── Section : Surfaces ──
+  var surfaces = [
+    p.surface ? ['Surface', p.surface+' m²'] : null,
+    (p.surface_shon||p.surfaceShon) ? ['SHON', (p.surface_shon||p.surfaceShon)+' m²'] : null,
+    (p.surface_shob||p.surfaceShob) ? ['SHOB', (p.surface_shob||p.surfaceShob)+' m²'] : null,
+    (p.surface_terrain||p.surfaceTerrain) ? ['Terrain', (p.surface_terrain||p.surfaceTerrain)+' m²'] : null,
+    p.standing ? ['Standing', esc(p.standing)] : null,
+    p.zone ? ['Zone', esc(p.zone)] : null
+  ].filter(Boolean);
+
+  // ── Section : Finances ──
+  var finances = [
+    ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'],
+    p.budget ? ['Budget client', fmtMontant(p.budget)] : null,
+    (p.cout_construction||p.coutConstruction) ? ['Coût construction', fmtMontant(p.cout_construction||p.coutConstruction)] : null,
+    (p.cout_m2||p.coutM2) ? ['Coût / m²', fmtMontant(p.cout_m2||p.coutM2)+'/m²'] : null
+  ].filter(Boolean);
+
+  // ── Section : Missions ──
+  var missionsHtml = '';
+  if (p.missions && p.missions.length) {
+    missionsHtml = '<div style="margin-top:0.3rem;display:flex;flex-wrap:wrap;gap:0.3rem">'+
+      p.missions.map(function(m){
+        var label = (typeof m === 'string') ? m : (m.abbr || m.nom || m.id || '');
+        return '<span style="display:inline-block;padding:0.2rem 0.55rem;background:rgba(200,169,110,0.15);color:var(--accent);border-radius:4px;font-size:0.72rem;font-weight:600">'+esc(label)+'</span>';
+      }).join('')+'</div>';
+  }
+
+  // ── Section : Intervenants ──
+  var intervenantsHtml = '';
+  if (p.intervenants && p.intervenants.length) {
+    intervenantsHtml = '<div style="margin-top:0.3rem">'+
+      p.intervenants.map(function(iv){
+        var nom = iv.nom || iv.name || '';
+        var role = iv.role || iv.fonction || '';
+        return '<div style="display:flex;justify-content:space-between;padding:0.25rem 0;font-size:0.8rem">'+
+          '<span style="color:var(--text)">'+esc(nom)+'</span>'+
+          (role ? '<span style="color:var(--text-3);font-size:0.72rem">'+esc(role)+'</span>' : '')+
+          '</div>';
+      }).join('')+'</div>';
+  }
+
+  function _sect(title, rows) {
+    if (!rows.length) return '';
+    var tr = rows.map(function(r){
+      return '<tr><td style="padding:0.4rem 1rem 0.4rem 0;color:var(--text-3);font-size:0.78rem;white-space:nowrap;vertical-align:top">'+r[0]+'</td>'+
+        '<td style="padding:0.4rem 0;font-size:0.85rem">'+r[1]+'</td></tr>';
+    }).join('');
+    return '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.4rem;font-weight:600">'+title+'</div>'+
+      '<table style="width:100%;border-collapse:collapse">'+tr+'</table></div>';
+  }
+
+  var body = _sect('Informations générales', general)+
+    _sect('Surfaces & Caractéristiques', surfaces)+
+    _sect('Finances', finances);
+
+  if (missionsHtml) {
+    body += '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.4rem;font-weight:600">Missions</div>'+missionsHtml+'</div>';
+  }
+  if (intervenantsHtml) {
+    body += '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.4rem;font-weight:600">Intervenants</div>'+intervenantsHtml+'</div>';
+  }
+
+  // ── Métadonnées ──
+  var meta = [];
+  if (p.cree_par||p.creePar) meta.push('Créé par '+(p.cree_par||p.creePar));
+  if (p.cree_at||p.creeAt) meta.push('le '+fmtDate(p.cree_at||p.creeAt));
+  var metaHtml = meta.length ? '<div style="font-size:0.7rem;color:var(--text-3);margin-bottom:0.8rem">'+meta.join(' ')+'</div>' : '';
+
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center';
-  ov.innerHTML = '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;max-width:560px;width:94%;max-height:85vh;overflow:auto">'+
+  ov.innerHTML = '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;max-width:620px;width:94%;max-height:85vh;overflow:auto">'+
     '<div style="padding:1.2rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
     '<div><div style="font-size:0.62rem;color:var(--text-3);letter-spacing:0.15em;text-transform:uppercase">FICHE PROJET</div>'+
     '<div style="font-size:1.1rem;font-weight:600">'+(p.nom||'')+'</div></div>'+
     '<button onclick="this.closest(\'div[style*=position]\').remove()" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button></div>'+
-    '<div style="padding:1.2rem 1.5rem"><table style="width:100%;border-collapse:collapse">'+tr+'</table>'+
-    '<div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-wrap:wrap">'+
+    '<div style="padding:1.2rem 1.5rem">'+metaHtml+body+
+    '<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-wrap:wrap">'+
     buildNasFolderButton(p)+
     '<button onclick="openCreatePortalAccess(\''+p.id+'\',\''+esc(p.client||'').replace(/'/g,"\\'")+'\',\''+(p.clientId||p.client_id||'')+'\')" style="background:var(--accent);color:#1a1a1a;border:none;border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem">'+
     '<span style="font-size:0.9rem">&#128279;</span> Créer accès portail</button>'+
