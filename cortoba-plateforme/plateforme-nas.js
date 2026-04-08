@@ -13415,6 +13415,7 @@ function renderCongesAdminTable(containerId, list, withActions){
       + '<td style="text-align:right">';
     if (withActions){
       html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem">Décider</button>';
+      html += ' <button class="btn btn-sm" onclick="deleteConge(\'' + r.id + '\')" style="font-size:0.7rem;color:#e07070" title="Supprimer">✕</button>';
     } else {
       if (r.statut === 'Approuvé' || r.statut === 'Refusé') {
         html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem" title="Modifier la décision">✎ Modifier</button> ';
@@ -13428,6 +13429,7 @@ function renderCongesAdminTable(containerId, list, withActions){
       if (r.statut === 'Approuvé' && parseInt(r.partage||0,10) === 0) {
         html += ' <span title="Non partagé avec le calendrier équipe" style="cursor:help;color:var(--text-3);margin-left:4px">🔒</span>';
       }
+      html += ' <button class="btn btn-sm" onclick="deleteConge(\'' + r.id + '\')" style="font-size:0.7rem;color:#e07070" title="Supprimer">✕</button>';
     }
     html += '</td></tr>';
   });
