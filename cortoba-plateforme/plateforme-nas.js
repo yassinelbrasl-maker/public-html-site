@@ -3659,7 +3659,9 @@ function calcDepTotal(){
     totalTVA += ht * tva / 100;
   });
   var ttcBase = totalHT + totalTVA;
-  var timbre  = ttcBase >= 10 ? 1.000 : 0; // 1 TND fixe — loi tunisienne
+  var timbreToggle = document.getElementById('dep-timbre-toggle');
+  var timbreEnabled = timbreToggle ? timbreToggle.checked : true;
+  var timbre  = (timbreEnabled && ttcBase >= 10) ? 1.000 : 0;
   var ttc     = ttcBase + timbre;
   function fmt(n){ return n.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' TND'; }
   var htEl  = document.getElementById('dep-total-ht');   if(htEl)  htEl.textContent  = fmt(totalHT);
