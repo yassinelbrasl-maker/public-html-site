@@ -440,7 +440,7 @@ function cpaAccessLog($user) {
                c.display_nom AS client_nom
         FROM CA_client_activity_log l
         LEFT JOIN CA_client_accounts a ON a.id = l.account_id
-        LEFT JOIN CA_clients c ON c.id = l.client_id
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = l.client_id
         $where
         ORDER BY l.cree_at DESC
         LIMIT $limit OFFSET $offset
