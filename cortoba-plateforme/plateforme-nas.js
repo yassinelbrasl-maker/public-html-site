@@ -3778,12 +3778,13 @@ function saveDepense(){
 
   // ── Étape A : insérer la dépense immédiate (si applicable) ──
   if (insertImmediateExpense) {
-    var depensePar = (document.getElementById('dep-depense-par')||{value:''}).value || null;
+    var sess = getSession();
+    var depenseParVal = (document.getElementById('dep-depense-par')||{value:''}).value;
+    var depensePar = depenseParVal || (sess ? sess.name : null);
     var rembToggle = document.getElementById('dep-remboursement-toggle');
     var isRemb = rembToggle && rembToggle.checked;
     var rembStatut = null, remboursePar = null;
     if (isRemb) { rembStatut = 'demande'; }
-    var sess = getSession();
     if (sess && sess.isAdmin && _editingDepenseId) {
       var rembStatutEl = document.getElementById('dep-remb-statut');
       var rembParEl    = document.getElementById('dep-rembourse-par');
