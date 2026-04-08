@@ -7005,6 +7005,14 @@ function saveNasProjectConfig() {
         .catch(function(e) { console.error('NAS project config save error:', e); return {error:true}; })
     );
   });
+  // Sauvegarder aussi les sous-dossiers
+  var subs = _getNasSubfolders();
+  _settingsCache['cortoba_nas_subfolders'] = subs;
+  setLS('cortoba_nas_subfolders', subs);
+  promises.push(
+    apiFetch('api/settings.php', {method:'POST', body:{key:'cortoba_nas_subfolders', value:subs}})
+      .catch(function(e) { console.error('NAS subfolders save error:', e); return {error:true}; })
+  );
   Promise.all(promises).then(function(results) {
     var errors = results.filter(function(r) { return r && r.error; });
     if (errors.length > 0) {
