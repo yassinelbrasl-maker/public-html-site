@@ -2123,6 +2123,28 @@ function toggleMissionCat(btn, catId){
   btn.textContent = allChecked ? 'tout cocher' : 'tout décocher';
 }
 
+function filterPjMissions() {
+  var q = (document.getElementById('pj-mission-search') || {value:''}).value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  var labels = document.querySelectorAll('#pj-missions-list label');
+  var catHeaders = document.querySelectorAll('#pj-missions-list > div');
+  labels.forEach(function(lbl) {
+    var txt = (lbl.textContent || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    lbl.style.display = (!q || txt.indexOf(q) !== -1) ? '' : 'none';
+  });
+  // Masquer les catégories dont toutes les missions sont cachées
+  catHeaders.forEach(function(catDiv) {
+    var visibleLabels = catDiv.querySelectorAll('label:not([style*="display: none"])');
+    // fallback : compter manuellement
+    var count = 0;
+    catDiv.querySelectorAll('label').forEach(function(l){ if(l.style.display !== 'none') count++; });
+    var header = catDiv.querySelector('div');
+    if (header && catDiv.querySelectorAll('label').length > 0) {
+      catDiv.style.display = count > 0 ? '' : 'none';
+    }
+  });
+}
+window.filterPjMissions = filterPjMissions;
+
 function getSelectedMissions(){
   var checks = document.querySelectorAll('#pj-missions-list input[type=checkbox]:checked');
   return Array.from(checks).map(function(c){ return c.value; });
