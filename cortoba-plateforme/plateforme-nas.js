@@ -3731,7 +3731,9 @@ function saveDepense(){
     lignes.push({desc:(dEl?dEl.value.trim():''), ht:ht, tva:tva});
   });
   var ttcBase = totalHT + totalTVA;
-  var timbre  = ttcBase >= 10 ? 1.000 : 0; // 1 TND fixe — loi tunisienne
+  var timbreToggle = document.getElementById('dep-timbre-toggle');
+  var timbreEnabled = timbreToggle ? timbreToggle.checked : true;
+  var timbre  = (timbreEnabled && ttcBase >= 10) ? 1.000 : 0;
   var ttc     = ttcBase + timbre;
 
   if (lignes.length === 0 || totalHT === 0) { alert('Ajoutez au moins un montant.'); return; }
