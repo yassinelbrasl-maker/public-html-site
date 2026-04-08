@@ -728,13 +728,13 @@ function loadChantierAvancement() {
 
     // Lots
     if (lots.length) {
-      html += '<div class="card"><div class="card-title">Lots</div><div class="data-table"><table>' +
-        '<thead><tr><th>Lot</th><th>Entreprise</th><th>Avancement</th><th>Statut</th></tr></thead><tbody>';
+      html += '<div class="card"><div class="card-title">Lots</div><div class="table-responsive">' +
+        '<table class="data-table"><thead><tr><th>Lot</th><th>Entreprise</th><th>Avancement</th><th>Statut</th></tr></thead><tbody>';
       lots.forEach(function (l) {
         var lpct = l.avancement || 0;
         html += '<tr><td><strong>' + esc(l.nom || l.titre || '') + '</strong></td>' +
           '<td>' + esc(l.entreprise || l.intervenant || '—') + '</td>' +
-          '<td><div style="display:flex;align-items:center;gap:0.5rem"><div class="progress-bar-wrap" style="flex:1;min-width:60px"><div class="progress-bar" style="width:' + lpct + '%"></div></div><span style="font-size:0.8rem">' + lpct + '%</span></div></td>' +
+          '<td><div style="display:flex;align-items:center;gap:0.5rem"><div class="progress-bar-wrap" style="flex:1;min-width:60px"><div class="progress-fill" style="width:' + lpct + '%"></div></div><span style="font-size:0.8rem">' + lpct + '%</span></div></td>' +
           '<td><span class="badge ' + badgeClass(l.statut || '') + '">' + esc(l.statut || '—') + '</span></td></tr>';
       });
       html += '</tbody></table></div></div>';
