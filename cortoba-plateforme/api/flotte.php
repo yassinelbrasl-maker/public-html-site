@@ -980,8 +980,16 @@ function createControle($user) {
 }
 
 function deleteControle($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_controles WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT type_controle, date_controle FROM CA_flotte_controles WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['type_controle'] ?? '') . ' ' . ($row['date_controle'] ?? '')) : 'Contrôle';
+    if (!moveToCorbeille($db, 'CA_flotte_controles', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
