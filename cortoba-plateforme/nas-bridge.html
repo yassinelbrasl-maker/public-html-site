@@ -55,6 +55,8 @@ var port = params.port || '5005';
 var folders = params.folders || '';
 var nasPath = params.nasPath || '';
 var templateFolder = params.template || '';
+var subfolders = [];
+try { subfolders = params.subfolders ? JSON.parse(params.subfolders) : []; } catch(e) { subfolders = []; }
 
 function addStep(text, cls) {
   var d = document.createElement('div');
