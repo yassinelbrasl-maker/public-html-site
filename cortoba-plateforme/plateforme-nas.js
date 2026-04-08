@@ -123,7 +123,14 @@ function loadData(){
     }),
     apiFetch('api/data.php?table=depenses').then(function(r){
       _cache.depenses = (r.data||[]).map(function(d){
-        return{id:d.id,libelle:d.description,montant:d.montant,date:d.date_dep,cat:d.categorie};
+        var o={};
+        for(var k in d) o[k]=d[k];
+        o.libelle=d.description; o.date=d.date_dep; o.cat=d.categorie;
+        // Parse lignes_json
+        if(typeof o.lignes_json==='string'&&o.lignes_json){try{o.lignes=JSON.parse(o.lignes_json);}catch(e){o.lignes=[];}}
+        else if(Array.isArray(o.lignes_json)){o.lignes=o.lignes_json;}
+        else{o.lignes=[];}
+        return o;
       });
       return _cache.depenses;
     }),
