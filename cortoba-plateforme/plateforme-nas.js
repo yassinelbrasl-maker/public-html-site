@@ -8821,30 +8821,23 @@ function _buildMissionDropdownItems() {
     }
   }
   var hasContext = !!affectees;
+  var isAffectee = function(nom) { return !hasContext || affectees.indexOf(nom) !== -1; };
   var items = [];
-  if (!hasContext) {
-    cats.forEach(function(cat) {
-      var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
-      if (catMissions.length === 0) return;
-      items.push({ type: 'header', label: cat.label });
-      catMissions.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
+  // Toujours grouper par catégorie
+  cats.forEach(function(cat) {
+    var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
+    if (catMissions.length === 0) return;
+    items.push({ type: 'header', label: cat.label });
+    catMissions.forEach(function(m) {
+      items.push({ type: 'item', nom: m.nom, unaffected: !isAffectee(m.nom) });
     });
-    var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c) { return c.id === m.cat; }); });
-    if (orphans.length) {
-      items.push({ type: 'header', label: 'Autres' });
-      orphans.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
-    }
-  } else {
-    var aff = missions.filter(function(m) { return affectees.indexOf(m.nom) !== -1; });
-    var other = missions.filter(function(m) { return affectees.indexOf(m.nom) === -1; });
-    if (aff.length) {
-      items.push({ type: 'header', label: '✓ Affectées à ce projet' });
-      aff.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
-    }
-    if (other.length) {
-      items.push({ type: 'header', label: '◌ Autres missions disponibles' });
-      other.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: true }); });
-    }
+  });
+  var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c) { return c.id === m.cat; }); });
+  if (orphans.length) {
+    items.push({ type: 'header', label: 'Autres' });
+    orphans.forEach(function(m) {
+      items.push({ type: 'item', nom: m.nom, unaffected: !isAffectee(m.nom) });
+    });
   }
   return items;
 }
