@@ -24,6 +24,7 @@ register_shutdown_function(function() {
 });
 
 require_once dirname(__FILE__) . '/../config/middleware.php';
+require_once dirname(__FILE__) . '/corbeille.php';
 
 $user   = requireAuth();
 $method = $_SERVER['REQUEST_METHOD'];
