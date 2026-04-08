@@ -607,14 +607,15 @@ try {
             $date    = trim($body['date'] ?? '');
             $libelle = trim($body['libelle'] ?? '');
             $pont    = !empty($body['pont']) ? 1 : 0;
+            $paye    = isset($body['paye']) ? (intval($body['paye']) ? 1 : 0) : 1;
             if (!$date || !$libelle) jsonError('Date et libellé requis');
             $id = $body['id'] ?? null;
             if ($id) {
-                $db->prepare("UPDATE CA_jours_feries SET date=?, libelle=?, pont=? WHERE id=?")
-                   ->execute([$date, $libelle, $pont, $id]);
+                $db->prepare("UPDATE CA_jours_feries SET date=?, libelle=?, pont=?, paye=? WHERE id=?")
+                   ->execute([$date, $libelle, $pont, $paye, $id]);
             } else {
-                $db->prepare("INSERT INTO CA_jours_feries (date, libelle, pont) VALUES (?,?,?) ON DUPLICATE KEY UPDATE libelle=VALUES(libelle), pont=VALUES(pont)")
-                   ->execute([$date, $libelle, $pont]);
+                $db->prepare("INSERT INTO CA_jours_feries (date, libelle, pont, paye) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE libelle=VALUES(libelle), pont=VALUES(pont), paye=VALUES(paye)")
+                   ->execute([$date, $libelle, $pont, $paye]);
                 $id = $db->lastInsertId();
             }
             jsonOk(['id' => $id]);
