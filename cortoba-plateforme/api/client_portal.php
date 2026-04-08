@@ -512,7 +512,7 @@ function cpDocuments($client) {
     $w = implode(' AND ', $where);
     $stmt = $db->prepare("SELECT d.*, p.code AS projet_code, p.nom AS projet_nom
                           FROM CA_client_documents d
-                          LEFT JOIN CA_projets p ON p.id = d.projet_id
+                          LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = d.projet_id
                           WHERE $w ORDER BY d.cree_at DESC");
     $stmt->execute($params);
     jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
