@@ -415,6 +415,12 @@ ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `employe_id`    VARCHAR(32) D
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `paie_mois`     VARCHAR(7)  DEFAULT NULL;
 ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `paie_snapshot` LONGTEXT    DEFAULT NULL;
 
+-- Remboursement : dépensé par, remboursé par, statut
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `depense_par`          VARCHAR(120) DEFAULT NULL COMMENT 'Nom de la personne qui a payé';
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `rembourse_par`        VARCHAR(120) DEFAULT NULL COMMENT 'Admin qui a remboursé';
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `remboursement_statut` VARCHAR(30)  DEFAULT NULL COMMENT 'demande|approuve|refuse|rembourse';
+ALTER TABLE `CA_depenses` ADD COLUMN IF NOT EXISTS `remboursement_date`   DATETIME     DEFAULT NULL;
+
 -- ════════════════════════════════════════════════════════════
 -- MIGRATION : Suivi v3 — Localisation, heures estimées, progression planifiée
 --   + couleur membre + Timesheets + dépendances Gantt + workflow demandes
