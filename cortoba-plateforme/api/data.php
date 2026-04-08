@@ -87,12 +87,17 @@ if ($method === 'GET') {
 function getAll($table) {
     global $user;
     $db = getDB();
-    // Non-admin users only see their own expenses
-    if ($table === 'CA_depenses' && (!isset($user['role']) || $user['role'] !== 'admin')) {
-        $stmt = $db->prepare("SELECT * FROM `$table` WHERE cree_par = ? ORDER BY cree_at DESC");
-        $stmt->execute(array($user['name']));
-        jsonOk($stmt->fetchAll());
-        return;
+    // Non-admin/non-gérant users only see their own expenses
+    if ($table === 'CA_depenses') {
+        $role = isset($user['role']) ? $user['role'] : '';
+        $isMember = !empty($user['isMember']);
+        $isAdmin = ($role === 'admin') || ($role === 'Architecte gérant');
+        if ($isMember && !$isAdmin) {
+            $stmt = $db->prepare("SELECT * FROM `$table` WHERE cree_par = ? ORDER BY cree_at DESC");
+            $stmt->execute(array($user['name']));
+            jsonOk($stmt->fetchAll());
+            return;
+        }
     }
     $stmt = $db->query("SELECT * FROM `$table` ORDER BY cree_at DESC");
     jsonOk($stmt->fetchAll());
