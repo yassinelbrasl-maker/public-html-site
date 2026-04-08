@@ -190,7 +190,7 @@ function mapValue($body, $col) {
 
     // Dates vides → NULL
     $dateCols = array('date_devis','date_expiry','date_facture','date_echeance',
-                      'date_paiement','date_dep','date_emission');
+                      'date_paiement','date_dep','date_emission','remboursement_date');
     if (in_array($col, $dateCols) && ($val === '' || $val === null)) { return null; }
 
     // Champs numériques → float
