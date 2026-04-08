@@ -7071,7 +7071,7 @@ function buildNasBridgeUrl(code, clientName, annee) {
     + '&template=' + encodeURIComponent(templateFolder)
     + (subfolders.length ? '&subfolders=' + encodeURIComponent(JSON.stringify(subfolders)) : '');
 
-  return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge.html#' + hash;
+  return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge.html?v=20260408b#' + hash;
 }
 
 // ── Ping NAS local via Image trick (contourne CORS) ──
