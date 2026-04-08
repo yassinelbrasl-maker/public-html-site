@@ -87,6 +87,11 @@ function getOne(string $id) {
 }
 
 function create(array $user) {
+    $role = strtolower(trim($user['role'] ?? ''));
+    if ($role === 'stagiaire') {
+        jsonError('Les stagiaires ne sont pas autorisés à créer des projets', 403);
+    }
+
     $body = getBody();
     $nom  = trim($body['nom'] ?? '');
     if (!$nom) jsonError('Nom du projet requis');
