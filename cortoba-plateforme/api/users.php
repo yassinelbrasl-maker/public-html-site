@@ -120,9 +120,10 @@ function filterMemberRow($row, $viewer) {
         $salaire  = (float)($row['salaire_net'] ?? 0);
         $charges  = (float)($row['charges_sociales'] ?? 0);
         $subv     = (float)($row['subventions'] ?? 0);
+        $subvDir  = (int)($row['subv_directe'] ?? 0);
         $avant    = (float)($row['avantages_nature'] ?? 0);
         $heures   = max(1, (float)($row['heures_mois'] ?? 160));
-        $coutTot  = ($salaire + $charges) - $subv + $avant;
+        $coutTot  = $subvDir ? ($salaire + $charges + $avant) : (($salaire + $charges) - $subv + $avant);
         $out['cout_total_mensuel'] = round($coutTot, 2);
         $out['cout_horaire']       = round($coutTot / $heures, 2);
     }
