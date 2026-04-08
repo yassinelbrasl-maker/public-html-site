@@ -128,8 +128,8 @@ function handlePut($id, array $user) {
 
         case 'convertir_client':
             $clientId = bin2hex(random_bytes(16));
-            $demande['prenom'] = str_replace(',', '', $demande['prenom'] ?? '');
-            $demande['nom']    = str_replace(',', '', $demande['nom'] ?? '');
+            $demande['prenom'] = mb_strtoupper(str_replace(',', '', $demande['prenom'] ?? ''), 'UTF-8');
+            $demande['nom']    = mb_strtoupper(str_replace(',', '', $demande['nom'] ?? ''), 'UTF-8');
             $displayNom = trim($demande['prenom'] . ' ' . $demande['nom']);
 
             try {
