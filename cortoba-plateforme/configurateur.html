@@ -1199,7 +1199,7 @@ function saveProjet() {
         if (nasPopup) {
           nasPopup.location.href = buildNasBridgeUrl(finalCode, clientNom, annee);
         }
-        showSuccess(v('cfg-nom'), finalCode);
+        showSuccess(v('cfg-nom'), finalCode, projet.id);
       })
       .catch(function(e) {
         if (nasPopup) try { nasPopup.close(); } catch(x) {}
