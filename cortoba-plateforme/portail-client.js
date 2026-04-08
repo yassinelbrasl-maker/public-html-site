@@ -701,8 +701,8 @@ function loadChantierAvancement() {
     if (ch.date_debut) html += '<tr><td>Date de debut</td><td>' + fmtDate(ch.date_debut) + '</td></tr>';
     if (ch.date_fin_prevue) html += '<tr><td>Date de fin prevue</td><td>' + fmtDate(ch.date_fin_prevue) + '</td></tr>';
     if (ch.statut) html += '<tr><td>Statut</td><td><span class="badge ' + badgeClass(ch.statut) + '">' + esc(ch.statut) + '</span></td></tr>';
-    if (ch.avancement_global != null) html += '<tr><td>Avancement global</td><td><div class="progress-bar-wrap"><div class="progress-bar" style="width:' + (ch.avancement_global || 0) + '%"></div></div><span style="margin-left:0.5rem;font-weight:600">' + (ch.avancement_global || 0) + '%</span></td></tr>';
-    html += '</tbody></table></div></div>';
+    if (ch.avancement_global != null) html += '<tr><td>Avancement global</td><td><div class="progress-bar-wrap"><div class="progress-fill" style="width:' + (ch.avancement_global || 0) + '%"></div></div><span style="margin-left:0.5rem;font-weight:600">' + (ch.avancement_global || 0) + '%</span></td></tr>';
+    html += '</tbody></table></div>';
 
     // Phases
     if (phases.length) {
