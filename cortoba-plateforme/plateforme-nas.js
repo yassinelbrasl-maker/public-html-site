@@ -13663,11 +13663,13 @@ function renderCongesHolidays(){
       return;
     }
     var html = '<table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">'
-      + '<th style="padding:0.4rem">Date</th><th>Libellé</th><th>Pont</th><th></th></tr></thead><tbody>';
+      + '<th style="padding:0.4rem">Date</th><th>Libellé</th><th>Statut</th><th>Pont</th><th></th></tr></thead><tbody>';
     list.forEach(function(h){
+      var isPaye = parseInt(h.paye,10);
       html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
         + '<td style="padding:0.45rem 0.4rem">' + _cgFmtDate(h.date) + '</td>'
         + '<td>' + _cgEscape(h.libelle) + '</td>'
+        + '<td>' + (isPaye ? '<span style="color:#4caf50">Chômé & payé</span>' : '<span style="color:#ff9800">Chômé & non payé</span>') + '</td>'
         + '<td>' + (parseInt(h.pont,10) ? '<span style="color:#9b6bd6">Pont</span>' : '—') + '</td>'
         + '<td style="text-align:right">'
         + '<button class="btn btn-sm" onclick="openHolidayForm(' + h.id + ')" style="font-size:0.68rem" title="Modifier">✎</button> '
