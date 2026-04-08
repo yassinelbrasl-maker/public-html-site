@@ -8744,8 +8744,15 @@ function _populateMissionsSelect(selectedValue) {
 var _tacheProjetDropOpen = false;
 function _buildTacheProjetItems() {
   var projets = getProjets();
+  var clients = getClients();
   return projets.map(function(p) {
-    return { id: p.id, label: (p.code ? p.code + ' — ' : '') + p.nom };
+    var clientName = p.client || '';
+    if (!clientName && p.client_code) {
+      var cl = clients.find(function(c){ return c.code === p.client_code; });
+      if (cl) clientName = cl.displayNom || cl.nom || '';
+    }
+    var label = (p.code ? p.code + ' — ' : '') + p.nom;
+    return { id: p.id, label: label, search: (label + ' ' + clientName).toLowerCase(), client: clientName };
   });
 }
 function openTacheProjetDropdown() {
