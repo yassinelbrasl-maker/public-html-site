@@ -8764,14 +8764,16 @@ function filterTacheProjetDropdown(query) {
   if (!dd) return;
   var q = (query || '').trim().toLowerCase();
   var items = _buildTacheProjetItems();
-  var filtered = items.filter(function(it) { return !q || it.label.toLowerCase().indexOf(q) !== -1; });
+  var qNorm = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var filtered = items.filter(function(it) { return !qNorm || it.search.normalize('NFD').replace(/[\u0300-\u036f]/g, '').indexOf(qNorm) !== -1; });
   dd.innerHTML = filtered.length === 0
     ? '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.78rem">Aucun projet trouvé</div>'
     : filtered.map(function(it) {
+        var clientHtml = it.client ? '<span style="font-size:0.72rem;color:var(--text-3);margin-left:0.4rem">' + it.client + '</span>' : '';
         return '<div onmousedown="selectTacheProjet(\'' + it.id + '\',\'' + it.label.replace(/'/g, "\\'") + '\')"' +
           ' style="padding:0.5rem 0.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background 0.15s"' +
           ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'\'">' +
-          it.label + '</div>';
+          it.label + clientHtml + '</div>';
       }).join('');
   dd.style.display = 'block';
 }
