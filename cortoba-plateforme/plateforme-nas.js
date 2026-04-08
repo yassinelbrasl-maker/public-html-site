@@ -8984,9 +8984,13 @@ function editTache(id) {
     _spE.value = _ppE ? ((_ppE.code ? _ppE.code + ' — ' : '') + _ppE.nom) : (t.projetNom || '');
     _spE.readOnly = true;
   }
-  // Réinitialiser la recherche mission
+  // Pré-remplir la recherche mission avec le titre existant
   var _smE = document.getElementById('tache-mission-search');
-  if (_smE) _smE.value = '';
+  if (_smE) _smE.value = (t.niveau === 0 && t.titre) ? t.titre : '';
+  // Fermer le dropdown mission
+  var _ddM = document.getElementById('tache-mission-dropdown');
+  if (_ddM) _ddM.style.display = 'none';
+  _missionDropOpen = false;
 
   // Populate assignee select with team members
   _populateAssigneeSelect(t.assignee || '');
