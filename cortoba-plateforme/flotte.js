@@ -153,7 +153,7 @@ function _renderFlotteVehiculeTable() {
       '<td>'+_flotteStatutBadge(v.statut)+'</td>' +
       '<td>'+(attrMap[v.id]||'—')+'</td>' +
       '<td>'+(v.departement||'—')+'</td>' +
-      '<td><button class="btn btn-sm" onclick="editFlotteVehicule(\''+v.id+'\')">&#9998;</button> <button class="btn btn-sm" onclick="deleteFlotteVehicule(\''+v.id+'\')">&#128465;</button></td>' +
+      '<td><button class="btn btn-sm" onclick="editFlotteVehicule(\''+v.id+'\')">&#9998;</button> '+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteVehicule(\''+v.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td>' +
       '</tr>';
   });
   tbody.innerHTML = h;
