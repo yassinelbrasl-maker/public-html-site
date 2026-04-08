@@ -169,6 +169,13 @@ function showPage(page) {
   var nav = document.querySelector('.nav-item[data-page="' + page + '"]');
   if (nav) nav.classList.add('active');
 
+  // Stop chat polling when leaving communication page
+  if (page !== 'communication' && _chatPollTimer) {
+    clearInterval(_chatPollTimer);
+    _chatPollTimer = null;
+    _currentRoom = null;
+  }
+
   // Load page data
   switch (page) {
     case 'dashboard': loadDashboard(); break;
