@@ -55,6 +55,8 @@ try {
         // Finance
         case 'devis':               cpDevis($client); break;
         case 'factures':            cpFactures($client); break;
+        case 'payment_init':        cpPaymentInit($client); break;
+        case 'payment_history':     cpPaymentHistory($client); break;
 
         // Validations
         case 'pending_validations': cpPendingValidations($client); break;
