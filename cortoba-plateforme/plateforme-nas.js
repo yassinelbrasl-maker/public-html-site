@@ -865,8 +865,8 @@ function addGroupeMembre() {
       '<button type="button" class="btn btn-sm" style="color:#e07070;padding:0.2rem 0.5rem" onclick="document.getElementById(\'cl-gm-'+n+'\').remove()">✕</button>'+
     '</div>'+
     '<div class="form-grid">'+
-      '<div class="form-field"><label class="form-label">Prénom <span style="color:#e07070">*</span></label><input class="form-input cl-gm-prenom" placeholder="Prénom" /></div>'+
-      '<div class="form-field"><label class="form-label">Nom de famille <span style="color:#e07070">*</span></label><input class="form-input cl-gm-nom" placeholder="Nom" /></div>'+
+      '<div class="form-field"><label class="form-label">Prénom <span style="color:#e07070">*</span></label><input class="form-input cl-gm-prenom" placeholder="Prénom" style="text-transform:uppercase" /></div>'+
+      '<div class="form-field"><label class="form-label">Nom de famille <span style="color:#e07070">*</span></label><input class="form-input cl-gm-nom" placeholder="Nom" style="text-transform:uppercase" /></div>'+
       '<div class="form-field"><label class="form-label">Rôle</label><input class="form-input cl-gm-role" placeholder="héritier, associé, gérant…" /></div>'+
       '<div class="form-field"><label class="form-label">Téléphone</label><input class="form-input cl-gm-tel" type="tel" placeholder="+216…" /></div>'+
       '<div class="form-field full"><label class="form-label">Ou lier à un client existant (prénom + nom)</label><select class="form-select cl-gm-id" onchange="prefillMembreFromClient(this,\''+n+'\')">'+opts+'</select></div>'+
