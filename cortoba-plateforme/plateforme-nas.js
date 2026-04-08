@@ -8294,12 +8294,41 @@ function renderSuiviTree(items) {
     html += '</div>';
     html += '</div>';
 
-    // Missions (niveau 0)
+    // Missions (niveau 0) groupées par catégorie
     var missionsList = projItems.filter(function(t){ return t.niveau === 0; });
     missionsList.sort(function(a,b){ return a.ordre - b.ordre; });
 
-    html += '<div class="suivi-projet-body">';
+    // Grouper par catégorie
+    var cats = getMissionCategories();
+    var catOrder = cats.map(function(c){ return c.id; });
+    var catMap = {};
     missionsList.forEach(function(m) {
+      var catId = m.categorie || '_other';
+      if (!catMap[catId]) catMap[catId] = [];
+      catMap[catId].push(m);
+    });
+    // Trier les catégories selon l'ordre défini, puis "Autres" à la fin
+    var catKeys = Object.keys(catMap).sort(function(a,b){
+      var ia = catOrder.indexOf(a), ib = catOrder.indexOf(b);
+      if (ia === -1) ia = 9999;
+      if (ib === -1) ib = 9999;
+      return ia - ib;
+    });
+
+    html += '<div class="suivi-projet-body">';
+    catKeys.forEach(function(catId) {
+      var catMissions = catMap[catId];
+      var catObj = cats.find(function(c){ return c.id === catId; });
+      var catLabel = catObj ? catObj.label : 'Autres';
+      // En-tête catégorie
+      html += '<div class="suivi-cat-group">';
+      html += '<div class="suivi-cat-header" onclick="this.parentElement.classList.toggle(\'collapsed\')" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.5rem;margin:0.3rem 0 0.15rem 0.8rem;cursor:pointer;font-size:0.75rem;font-weight:600;color:var(--accent);letter-spacing:0.06em;text-transform:uppercase;border-left:2px solid var(--accent);border-radius:0 2px 2px 0;background:var(--bg-2);user-select:none">';
+      html += '<svg class="suivi-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>';
+      html += '<span>' + (catObj ? catId + ' — ' : '') + catLabel + '</span>';
+      html += '<span style="font-weight:400;color:var(--text-3);font-size:0.7rem">(' + catMissions.length + ')</span>';
+      html += '</div>';
+      html += '<div class="suivi-cat-body">';
+    catMissions.forEach(function(m) {
       var children = projItems.filter(function(t){ return t.parent_id === m.id && t.niveau === 1; });
       children.sort(function(a,b){ return a.ordre - b.ordre; });
 
