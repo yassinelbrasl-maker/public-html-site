@@ -742,7 +742,7 @@ function cpFactures($client) {
                f.objet, f.mode_paiement, f.net_payer, f.lignes_json,
                p.code AS projet_code, p.nom AS projet_nom
         FROM CA_factures f
-        LEFT JOIN CA_projets p ON p.id = f.projet_id
+        LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = f.projet_id
         WHERE f.projet_id IN ($ph)
         ORDER BY f.date_facture DESC
     ");
