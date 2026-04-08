@@ -4851,7 +4851,7 @@ function getAllowedModules() {
 function applyModuleAccess() {
   var allowed = getAllowedModules(); // null = tout, [] = rien, [...] = liste
 
-  NAV_MODULE_IDS.forEach(function(moduleId) {
+  getNavModuleIds().forEach(function(moduleId) {
     var allNavBtns = document.querySelectorAll('.nav-item');
     var btn = null;
     for (var i = 0; i < allNavBtns.length; i++) {
