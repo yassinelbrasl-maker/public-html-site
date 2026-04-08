@@ -16842,4 +16842,94 @@ function renderPortailJournal(page) {
 document.addEventListener('DOMContentLoaded', function() {
   var sel = document.getElementById('journal-filter-client');
   if (sel) sel.addEventListener('change', function() { renderPortailJournal(1); });
+  var sel2 = document.getElementById('journal-membres-filter');
+  if (sel2) sel2.addEventListener('change', function() { renderJournalMembres(1); });
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  JOURNAL D'ACCES MEMBRES
+// ═══════════════════════════════════════════════════════════════
+
+var _journalMembresLabels = {
+  login:             'Connexion',
+  logout:            'Déconnexion',
+  view_page:         'Consultation page',
+  create:            'Création',
+  update:            'Modification',
+  delete:            'Suppression',
+  export:            'Export',
+  import:            'Import'
+};
+
+function journalMembreLabel(action) {
+  return _journalMembresLabels[action] || action;
+}
+
+function renderJournalMembres(page) {
+  page = page || 1;
+  var userId = document.getElementById('journal-membres-filter').value || '';
+  var url = 'api/dashboard.php?action=member_access_log&page=' + page;
+  if (userId) url += '&user_id=' + encodeURIComponent(userId);
+
+  apiFetch(url).then(function(r) {
+    var entries = r.entries || [];
+    var tbody = document.getElementById('journal-membres-tbody');
+    var emptyEl = document.getElementById('journal-membres-empty');
+
+    // Populate member filter (first load)
+    var sel = document.getElementById('journal-membres-filter');
+    if (sel.options.length <= 1 && r.members && r.members.length) {
+      r.members.forEach(function(m) {
+        var opt = document.createElement('option');
+        opt.value = m.user_id;
+        opt.textContent = m.user_name || m.user_id;
+        sel.appendChild(opt);
+      });
+    }
+
+    if (!entries.length) {
+      tbody.innerHTML = '';
+      emptyEl.style.display = '';
+      document.getElementById('journal-membres-pagination').innerHTML = '';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    tbody.innerHTML = entries.map(function(e) {
+      var detailStr = '—';
+      if (e.details) {
+        if (typeof e.details === 'object') {
+          var parts = [];
+          Object.keys(e.details).forEach(function(k) { parts.push(escHtml(k) + ': ' + escHtml(e.details[k])); });
+          detailStr = parts.join(', ');
+        } else {
+          detailStr = escHtml(String(e.details));
+        }
+      }
+      var dateStr = e.cree_at ? new Date(e.cree_at.replace(' ', 'T')).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+      return '<tr>' +
+        '<td style="white-space:nowrap">' + dateStr + '</td>' +
+        '<td>' + escHtml(e.user_name || '—') + '</td>' +
+        '<td>' + escHtml(journalMembreLabel(e.action)) + '</td>' +
+        '<td style="font-family:var(--mono,monospace);font-size:0.8rem">' + escHtml(e.ip_address || '—') + '</td>' +
+        '<td style="font-size:0.78rem;color:var(--text-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detailStr + '</td>' +
+        '</tr>';
+    }).join('');
+
+    // Pagination
+    var pag = document.getElementById('journal-membres-pagination');
+    if (r.total_pages > 1) {
+      var html = '';
+      if (page > 1) html += '<button class="btn btn-sm" onclick="renderJournalMembres(' + (page - 1) + ')">&laquo; Précédent</button>';
+      html += '<span style="font-size:0.82rem;color:var(--text-2)">Page ' + page + ' / ' + r.total_pages + '</span>';
+      if (page < r.total_pages) html += '<button class="btn btn-sm" onclick="renderJournalMembres(' + (page + 1) + ')">Suivant &raquo;</button>';
+      pag.innerHTML = html;
+    } else {
+      pag.innerHTML = '';
+    }
+  }).catch(function(e) {
+    document.getElementById('journal-membres-tbody').innerHTML = '';
+    document.getElementById('journal-membres-empty').style.display = '';
+    document.getElementById('journal-membres-empty').textContent = 'Erreur : ' + (e.message || e);
+  });
+}
