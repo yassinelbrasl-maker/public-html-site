@@ -90,6 +90,8 @@ function handleLogin(array $body) {
 
     $db->prepare('UPDATE CA_accounts SET last_login = NOW() WHERE id = ?')->execute(array($user['id']));
 
+    logMemberActivity($user['id'], $user['name'], 'login', ['role' => $user['role']]);
+
     $token = jwtEncode(array(
         'id'    => $user['id'],
         'email' => $user['email'],
