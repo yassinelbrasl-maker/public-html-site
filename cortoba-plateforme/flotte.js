@@ -365,6 +365,7 @@ function deleteFlotteResa(id) {
 }
 
 function deleteFlotteAttr(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer cette attribution ?')) return;
   apiFetch('api/flotte.php?action=attributions&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteResaPage();
