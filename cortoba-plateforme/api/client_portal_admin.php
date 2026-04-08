@@ -84,7 +84,7 @@ function cpaListAccounts($user) {
     $sql = "SELECT a.id, a.client_id, a.email, a.nom, a.statut, a.last_login, a.cree_at,
                    c.display_nom AS client_display, c.code AS client_code
             FROM CA_client_accounts a
-            LEFT JOIN CA_clients c ON c.id = a.client_id";
+            LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = a.client_id";
     $params = [];
 
     if ($clientId) {
