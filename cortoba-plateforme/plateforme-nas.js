@@ -8447,6 +8447,7 @@ function renderSuiviTree(items) {
       projetMap[pid] = {
         nom: t.projetNom || 'Projet inconnu',
         code: t.projetCode || '',
+        client: t.projetClient || '',
         year: _extractProjetYear(t.projetCode, t.creeAt || t.cree_at),
         items: []
       };
