@@ -626,15 +626,19 @@ try {
             break;
         }
 
-        // ────────────────────────────── DELETE (admin — supprimer définitivement une demande)
+        // ────────────────────────────── DELETE (admin — déplacer vers la corbeille)
         case 'delete': {
-            if (!isManager($user)) jsonError('Accès refusé', 403);
+            if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
             $id = $_GET['id'] ?? '';
             if (!$id) jsonError('ID requis');
-            $stmt = $db->prepare('SELECT id FROM CA_leave_requests WHERE id = ?');
+            $stmt = $db->prepare('SELECT * FROM CA_leave_requests WHERE id = ?');
             $stmt->execute([$id]);
-            if (!$stmt->fetch()) jsonError('Demande introuvable', 404);
-            $db->prepare("DELETE FROM CA_leave_requests WHERE id = ?")->execute([$id]);
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+            if (!$row) jsonError('Demande introuvable', 404);
+            $label = ($row['user_name'] ?? '') . ' — ' . ($row['type'] ?? '') . ' ' . ($row['date_debut'] ?? '') . ' → ' . ($row['date_fin'] ?? '');
+            if (!moveToCorbeille($db, 'CA_leave_requests', $id, $label, $user['name'] ?? 'unknown')) {
+                jsonError('Impossible de déplacer vers la corbeille', 500);
+            }
             jsonOk(['deleted' => $id]);
             break;
         }
