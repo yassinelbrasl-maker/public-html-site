@@ -51,9 +51,11 @@ function getDemandes(){ return _cache.demandes; }
 })();
 
 function loadData(){
-  // Réinitialiser les caches de colonnes pour charger les préférences utilisateur
-  _clActiveColumns = null;
-  _pjActiveColumns = null;
+  // NB : ne PAS réinitialiser _clActiveColumns / _pjActiveColumns ici —
+  // elles sont correctement mises en cache après le premier chargement ou
+  // après un toggle utilisateur. Les remettre à null provoquait une course
+  // entre le POST de sauvegarde et le GET de loadSettings(), où le serveur
+  // renvoyait l'ancienne valeur et écrasait la préférence locale.
   return Promise.all([
     // Charger les paramètres en premier pour que les selects soient prêts
     loadSettings(),
