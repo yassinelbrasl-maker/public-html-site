@@ -3373,7 +3373,10 @@
         </div>
       </div>
       <div id="pj-panel-missions" class="pj-tab-panel" style="display:none">
-        <div style="font-size:0.75rem;color:var(--text-3);margin-bottom:1rem">Cochez les missions confiées.</div>
+        <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1rem;flex-wrap:wrap">
+          <span style="font-size:0.75rem;color:var(--text-3)">Cochez les missions confiées.</span>
+          <input id="pj-mission-search" class="form-input" type="text" placeholder="🔍 Rechercher une mission..." oninput="filterPjMissions()" style="flex:1;min-width:200px;max-width:350px;font-size:0.78rem;padding:0.4rem 0.7rem" />
+        </div>
         <div id="pj-missions-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.5rem"></div>
       </div>
       <div id="pj-panel-intervenants" class="pj-tab-panel" style="display:none">
