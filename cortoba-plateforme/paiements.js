@@ -350,3 +350,104 @@ function exportAgedBalanceCSV() {
     var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='balance_agee_'+new Date().toISOString().split('T')[0]+'.csv';a.click();URL.revokeObjectURL(a.href);showToast('Export CSV téléchargé');
   }).catch(function(e){showToast('Erreur: '+e.message,'var(--red)');});
 }
+
+// ── Dashboard Widgets ──
+
+function renderDashCreancesWidget() {
+  var el = document.getElementById('dash-creances-widget');
+  if (!el) return;
+  apiFetch('api/paiements.php?action=aged_balance').then(function(r) {
+    var t = r.data.totals || {};
+    var total = t.total || 0;
+    var echu = (t.tranche_0_30||0) + (t.tranche_31_60||0) + (t.tranche_61_90||0) + (t.tranche_90_plus||0);
+    var grave = (t.tranche_61_90||0) + (t.tranche_90_plus||0);
+    var clients = r.data.clients || [];
+    var nbRetard = clients.filter(function(c){ return (c.tranche_61_90||0)+(c.tranche_90_plus||0) > 0; }).length;
+    el.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1rem">' +
+        '<div style="text-align:center;padding:0.6rem;background:var(--bg-2);border-radius:8px">' +
+          '<div style="font-size:1.4rem;font-weight:700;color:var(--text-1)">' + (typeof fmtMontant==='function'?fmtMontant(total):Math.round(total)) + '</div>' +
+          '<div style="font-size:0.7rem;color:var(--text-3)">Total créances</div>' +
+        '</div>' +
+        '<div style="text-align:center;padding:0.6rem;background:var(--bg-2);border-radius:8px">' +
+          '<div style="font-size:1.4rem;font-weight:700;color:' + (grave>0?'var(--red)':'var(--green)') + '">' + (typeof fmtMontant==='function'?fmtMontant(echu):Math.round(echu)) + '</div>' +
+          '<div style="font-size:0.7rem;color:var(--text-3)">Échues</div>' +
+        '</div>' +
+      '</div>' +
+      (nbRetard > 0 ? '<div style="font-size:0.75rem;color:var(--red);margin-bottom:0.5rem">' + nbRetard + ' client(s) avec retard &gt; 60 jours</div>' : '') +
+      '<button class="btn btn-sm" onclick="showPage(\'creances\')" style="width:100%">Voir détails</button>';
+  }).catch(function() {
+    el.innerHTML = '<div style="font-size:0.8rem;color:var(--text-3)">Données non disponibles</div>';
+  });
+}
+
+function renderDashHonorairesWidget() {
+  var el = document.getElementById('dash-honoraires-widget');
+  if (!el) return;
+  apiFetch('api/honoraires.php?action=dashboard').then(function(r) {
+    var d = r.data || {};
+    var projets = d.projets || [];
+    var alertes = projets.filter(function(p){ return p.alerte_budget && p.alerte_budget !== 'green'; });
+    var html = '';
+    if (alertes.length === 0) {
+      html = '<div style="text-align:center;padding:1.5rem">' +
+        '<div style="font-size:1.8rem;margin-bottom:0.5rem">&#9989;</div>' +
+        '<div style="font-size:0.85rem;color:var(--green);font-weight:600">Tous les budgets sont en ordre</div>' +
+      '</div>';
+    } else {
+      html = '<div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">' + alertes.length + ' projet(s) en alerte</div>';
+      alertes.slice(0, 4).forEach(function(p) {
+        var color = p.alerte_budget === 'red' ? 'var(--red)' : (p.alerte_budget === 'orange' ? '#e67e22' : '#f1c40f');
+        var pct = p.honoraires_prevus > 0 ? Math.round(p.honoraires_factures / p.honoraires_prevus * 100) : 0;
+        html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--border)">' +
+          '<span style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>' +
+          '<span style="flex:1;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (p.nom || p.code || '') + '</span>' +
+          '<span style="font-size:0.75rem;font-weight:600;color:' + color + '">' + pct + '%</span>' +
+        '</div>';
+      });
+      if (alertes.length > 4) html += '<div style="font-size:0.7rem;color:var(--text-3);margin-top:0.4rem">+' + (alertes.length-4) + ' autres</div>';
+    }
+    html += '<button class="btn btn-sm" onclick="showPage(\'honoraires\')" style="width:100%;margin-top:0.8rem">Voir honoraires</button>';
+    el.innerHTML = html;
+  }).catch(function() {
+    el.innerHTML = '<div style="font-size:0.8rem;color:var(--text-3)">Données non disponibles</div>';
+  });
+}
+
+// Auto-load widgets when dashboard renders
+(function() {
+  var origRender = window.renderDashboard;
+  if (origRender) {
+    window.renderDashboard = function() {
+      origRender.apply(this, arguments);
+      setTimeout(function() { renderDashCreancesWidget(); renderDashHonorairesWidget(); }, 200);
+    };
+  }
+})();
+
+// ── Devis Acceptance Hook ──
+// When a devis status changes to 'Accepté', refresh projet honoraires
+
+(function() {
+  var origSaveDevis = window.saveDevis;
+  if (!origSaveDevis) return;
+  // Hook into devis status update flow via data table inline edit
+  var origApiFetch = window.apiFetch;
+  if (!origApiFetch) return;
+
+  // Monitor PUT requests on devis that set statut=Accepté
+  window._paiementsOrigApiFetch = origApiFetch;
+  window.apiFetch = function(url, opts) {
+    var result = origApiFetch.apply(this, arguments);
+    if (url && url.indexOf('table=devis') !== -1 && opts && (opts.method === 'PUT' || opts.method === 'put')) {
+      result.then(function(r) {
+        var body = opts.body || {};
+        if (body.statut === 'Accepté' && body.projet_id) {
+          // Refresh honoraires for the linked project
+          origApiFetch('api/honoraires.php?action=projet_refresh', {method:'POST', body:{projet_id: body.projet_id}}).catch(function(){});
+        }
+      });
+    }
+    return result;
+  };
+})();
