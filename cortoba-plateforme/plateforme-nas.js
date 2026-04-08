@@ -3861,13 +3861,43 @@ function saveDepense(){
     });
   }
 
+  // ── Étape D : notifications de remboursement ──
+  if (insertImmediateExpense) {
+    var _rembStatut = rembStatut;
+    var _isEditing  = !!_editingDepenseId;
+    var _editId     = _editingDepenseId;
+    var _desc       = libelle;
+    var _ttc        = ttc;
+    var _sess       = getSession();
+
+    p = p.then(function(response) {
+      var savedId = (response && response.data && response.data.id) ? response.data.id : (_editId || null);
+      if (!savedId) return;
+
+      // Nouveau remboursement demandé par un membre
+      if (_rembStatut === 'demande' && !_isEditing) {
+        return apiFetch('api/remboursement.php?action=demander', {
+          method: 'POST',
+          body: { depense_id: savedId, description: _desc, montant: _ttc }
+        });
+      }
+      // Admin change le statut d'un remboursement existant
+      if (_isEditing && _sess && _sess.isAdmin && _rembStatut && _rembStatut !== 'demande') {
+        return apiFetch('api/remboursement.php?action=statut', {
+          method: 'POST',
+          body: { depense_id: savedId, statut: _rembStatut }
+        });
+      }
+    });
+  }
+
   // ── Finalisation ──
   p.then(function(){
     return loadData();
   })
   .then(function(){
     if (typeof renderDepenses === 'function') renderDepenses();
-    refreshNotifBadge(); // rafraîchir la cloche
+    refreshNotifBadge();
     closeModal('modal-depense');
     resetDepenseForm();
     showToast(isRecurrent ? 'Dépense + modèle récurrent enregistrés ✓' : 'Dépense enregistrée ✓');
