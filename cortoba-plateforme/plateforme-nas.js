@@ -7040,13 +7040,16 @@ function buildNasBridgeUrl(code, clientName, annee) {
   var projRoot = getSetting('cortoba_nas_projets_root', '/Public/CAS_PROJETS').replace(/^\//, '');
   var templateFolder = projRoot + '/' + annee + '/' + tplName;
 
+  var subfolders = _getNasSubfolders();
+
   var hash = 'ip=' + encodeURIComponent(ip)
     + '&user=' + encodeURIComponent(user)
     + '&pass=' + encodeURIComponent(pass)
     + '&port=' + port
     + '&folders=' + encodeURIComponent(folders)
     + '&nasPath=' + encodeURIComponent(nasPath)
-    + '&template=' + encodeURIComponent(templateFolder);
+    + '&template=' + encodeURIComponent(templateFolder)
+    + (subfolders.length ? '&subfolders=' + encodeURIComponent(JSON.stringify(subfolders)) : '');
 
   return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge.html#' + hash;
 }
