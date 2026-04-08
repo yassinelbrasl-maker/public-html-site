@@ -42,11 +42,11 @@ function getFactures(){ return _cache.factures; }
 function getDepenses(){ return _cache.depenses; }
 function getDemandes(){ return _cache.demandes; }
 
-// Migration ponctuelle : supprimer les virgules des noms clients existants
+// Migration ponctuelle : supprimer virgules + forcer majuscules sur les noms clients
 (function(){
-  if (sessionStorage.getItem('commas_cleaned')) return;
+  if (sessionStorage.getItem('names_normalized_v2')) return;
   apiFetch('api/clients.php?action=cleanup-commas', {method:'POST', body:{}})
-    .then(function(){ sessionStorage.setItem('commas_cleaned','1'); })
+    .then(function(){ sessionStorage.setItem('names_normalized_v2','1'); })
     .catch(function(){});
 })();
 
