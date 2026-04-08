@@ -2882,14 +2882,14 @@ function togglePjColDropdown(e){
     renderPjColDropdown();
     if(dd&&btn){
       var rect=btn.getBoundingClientRect();
-      var spaceAbove=rect.top-10;
+      var spaceBelow=window.innerHeight-rect.bottom-10;
       dd.style.position='fixed';
+      dd.style.top=(rect.bottom+4)+'px';
       dd.style.right=(window.innerWidth-rect.right)+'px';
       dd.style.left='auto';
+      dd.style.bottom='auto';
       dd.style.overflowY='auto';
-      dd.style.bottom=(window.innerHeight-rect.top+4)+'px';
-      dd.style.top='auto';
-      dd.style.maxHeight=Math.max(spaceAbove,200)+'px';
+      dd.style.maxHeight=Math.max(spaceBelow,200)+'px';
       dd.style.display='block';
     }
     if(btn){btn.style.color='var(--accent)';btn.style.opacity='1';}
