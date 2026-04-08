@@ -528,6 +528,7 @@ function deleteFlotteKm(id) {
 }
 
 function deleteFlotteCarb(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer ce plein ?')) return;
   apiFetch('api/flotte.php?action=carburant&id='+id, { method: 'DELETE' }).then(function() {
     showToast('Supprimé', 'success'); renderFlotteKmPage();
