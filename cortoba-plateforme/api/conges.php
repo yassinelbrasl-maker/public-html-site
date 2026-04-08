@@ -60,9 +60,17 @@ try {
         `date` DATE NOT NULL,
         `libelle` VARCHAR(200) NOT NULL,
         `pont` TINYINT(1) NOT NULL DEFAULT 0,
+        `paye` TINYINT(1) NOT NULL DEFAULT 1,
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY `uq_date` (`date`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Migration : ajouter colonne paye si absente
+    try {
+        $col = $db->query("SHOW COLUMNS FROM CA_jours_feries LIKE 'paye'")->fetch();
+        if (!$col) {
+            $db->exec("ALTER TABLE CA_jours_feries ADD COLUMN `paye` TINYINT(1) NOT NULL DEFAULT 1 AFTER `pont`");
+        }
+    } catch (\Throwable $e) { /* silencieux */ }
 
     // Pré-alimenter les jours fériés tunisiens de l'année courante (idempotent)
     // Secteur : Privés soumis au Code du Travail et à la Convention Collective Cadre
