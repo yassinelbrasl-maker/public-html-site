@@ -360,6 +360,172 @@ try {
     echo "ERREUR : " . $e->getMessage() . "\n";
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  8. RELANCES AUTOMATIQUES
+// ═══════════════════════════════════════════════════════════════
+$counts['relances_auto'] = 0;
+try {
+    // Load relance config
+    $stmt = $db->prepare("SELECT valeur FROM CA_parametres WHERE cle = 'relance_config'");
+    $stmt->execute();
+    $relanceConfig = json_decode($stmt->fetchColumn() ?: '{}', true);
+    $enabled = $relanceConfig['enabled'] ?? false;
+
+    if ($enabled) {
+        $delays = $relanceConfig['delays'] ?? [7, 14, 30]; // days after due date
+        echo "--- 8. Relances automatiques (délais: " . implode(',', $delays) . "j) ---\n";
+
+        // Ensure relances table exists
+        $db->exec("CREATE TABLE IF NOT EXISTS `CA_relances` (
+          `id` int unsigned NOT NULL AUTO_INCREMENT,
+          `facture_id` varchar(32) NOT NULL,
+          `client_id` varchar(32) DEFAULT NULL,
+          `type` enum('auto','manual') NOT NULL DEFAULT 'auto',
+          `canal` varchar(20) NOT NULL DEFAULT 'email',
+          `niveau` tinyint NOT NULL DEFAULT 1,
+          `date_envoi` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          `email_to` varchar(200) DEFAULT NULL,
+          `template_used` varchar(80) DEFAULT NULL,
+          `statut` varchar(40) DEFAULT 'sent',
+          `cree_par` varchar(120) DEFAULT NULL,
+          PRIMARY KEY (`id`), KEY `facture_id` (`facture_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        // Get overdue unpaid invoices
+        $stmt = $db->query("SELECT f.id, f.numero, f.client_id, f.date_echeance, f.relance_niveau, f.derniere_relance,
+            DATEDIFF(CURDATE(), f.date_echeance) AS jours_retard,
+            c.display_nom AS client_nom, c.email AS client_email
+            FROM CA_factures f LEFT JOIN CA_clients c ON c.id = f.client_id
+            WHERE f.statut IN ('Impayée', 'Partiellement payée', 'Émise')
+            AND f.date_echeance IS NOT NULL AND f.date_echeance < CURDATE()
+            ORDER BY jours_retard DESC");
+        $overdue = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        foreach ($overdue as $f) {
+            $jours = (int)$f['jours_retard'];
+            $currentNiveau = (int)($f['relance_niveau'] ?? 0);
+
+            // Determine if we should send a relance
+            $shouldSend = false;
+            $targetNiveau = 0;
+            foreach ($delays as $i => $delay) {
+                if ($jours >= $delay && $currentNiveau <= $i) {
+                    $shouldSend = true;
+                    $targetNiveau = $i + 1;
+                }
+            }
+
+            // Check last relance was at least 7 days ago
+            if ($shouldSend && $f['derniere_relance']) {
+                $lastRelance = new \DateTime($f['derniere_relance']);
+                $diff = (new \DateTime())->diff($lastRelance)->days;
+                if ($diff < 7) $shouldSend = false;
+            }
+
+            if ($shouldSend && !empty($f['client_email'])) {
+                $niveau = min($targetNiveau, 3);
+                $templates = [
+                    1 => "Cher(e) {nom},\n\nNous vous rappelons que la facture n° {numero} d'un montant dû reste impayée (échéance: {echeance}).\n\nCordialement,\nCORTOBA Architecture",
+                    2 => "Cher(e) {nom},\n\nMalgré notre relance, la facture n° {numero} reste impayée ({jours} jours de retard).\n\nNous vous prions de régulariser sous 7 jours.\n\nCordialement,\nCORTOBA Architecture",
+                    3 => "Cher(e) {nom},\n\nLa facture n° {numero} demeure impayée ({jours} jours de retard).\n\nSans règlement sous 48h, nous engagerons les procédures de recouvrement.\n\nCordialement,\nCORTOBA Architecture",
+                ];
+                $msg = str_replace(['{nom}', '{numero}', '{echeance}', '{jours}'],
+                    [$f['client_nom'] ?? '', $f['numero'] ?? '', $f['date_echeance'], $jours],
+                    $templates[$niveau] ?? $templates[1]);
+
+                $subject = "Relance - Facture n° " . ($f['numero'] ?? '') . " - CORTOBA Architecture";
+                $headers = "From: CORTOBA Architecture <noreply@cortobaarchitecture.com>\r\nContent-Type: text/plain; charset=UTF-8\r\n";
+                $sent = @mail($f['client_email'], $subject, $msg, $headers);
+
+                // Log
+                $db->prepare("INSERT INTO CA_relances (facture_id, client_id, type, canal, niveau, email_to, statut, cree_par) VALUES (?,?,'auto','email',?,?,?,?)")
+                   ->execute([$f['id'], $f['client_id'], $niveau, $f['client_email'], $sent ? 'sent' : 'failed', 'cron']);
+
+                try { $db->exec("ALTER TABLE CA_factures ADD COLUMN IF NOT EXISTS relance_niveau tinyint DEFAULT 0"); } catch(\Throwable $e){}
+                try { $db->exec("ALTER TABLE CA_factures ADD COLUMN IF NOT EXISTS derniere_relance datetime DEFAULT NULL"); } catch(\Throwable $e){}
+
+                $db->prepare("UPDATE CA_factures SET relance_niveau = ?, derniere_relance = NOW() WHERE id = ?")
+                   ->execute([$niveau, $f['id']]);
+
+                $counts['relances_auto']++;
+                echo "  Relance niveau $niveau envoyée pour facture " . ($f['numero'] ?? $f['id']) . " à " . $f['client_email'] . "\n";
+
+                // Notify managers
+                foreach (getManagerIds($db) as $mgr) {
+                    dispatchNotification($db, $mgr, 'relance_sent', 'Relance auto envoyée',
+                        'Relance niveau ' . $niveau . ' pour facture ' . ($f['numero'] ?? '') . ' (' . $jours . 'j retard)',
+                        'creances', null, 'cron');
+                }
+            }
+        }
+    } else {
+        echo "--- 8. Relances automatiques : désactivées ---\n";
+    }
+} catch (\Throwable $e) {
+    echo "ERREUR relances: " . $e->getMessage() . "\n";
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  9. ALERTES DÉPASSEMENT BUDGET (HONORAIRES)
+// ═══════════════════════════════════════════════════════════════
+$counts['alertes_budget'] = 0;
+try {
+    echo "--- 9. Alertes dépassement budget ---\n";
+
+    // Load thresholds
+    $stmt = $db->prepare("SELECT valeur FROM CA_parametres WHERE cle = 'alert_thresholds'");
+    $stmt->execute();
+    $thresholds = json_decode($stmt->fetchColumn() ?: '{}', true);
+    $warning = $thresholds['warning'] ?? 80;
+    $danger = $thresholds['danger'] ?? 90;
+    $critical = $thresholds['critical'] ?? 100;
+
+    // Check projects with honoraires tracking
+    try {
+        $stmt = $db->query("SELECT id, code, nom, honoraires_prevus, honoraires_factures, alerte_budget
+            FROM CA_projets WHERE statut IN ('En cours','Actif') AND honoraires_prevus > 0");
+        $projets = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        foreach ($projets as $p) {
+            $prevu = (float)$p['honoraires_prevus'];
+            $facture = (float)$p['honoraires_factures'];
+            if ($prevu <= 0) continue;
+
+            $ratio = ($facture / $prevu) * 100;
+            $newLevel = 'green';
+            if ($ratio >= $critical) $newLevel = 'red';
+            elseif ($ratio >= $danger) $newLevel = 'orange';
+            elseif ($ratio >= $warning) $newLevel = 'yellow';
+
+            $oldLevel = $p['alerte_budget'] ?? 'green';
+
+            // Update level
+            $db->prepare("UPDATE CA_projets SET alerte_budget = ? WHERE id = ?")
+               ->execute([$newLevel, $p['id']]);
+
+            // Notify if level worsened
+            $severity = ['green' => 0, 'yellow' => 1, 'orange' => 2, 'red' => 3];
+            if (($severity[$newLevel] ?? 0) > ($severity[$oldLevel] ?? 0)) {
+                $labels = ['yellow' => 'Attention', 'orange' => 'Alerte', 'red' => 'Critique'];
+                $msg = 'Projet ' . ($p['code'] ?? '') . ' ' . ($p['nom'] ?? '') . ' : ' . round($ratio) . '% des honoraires prévus atteints (' . ($labels[$newLevel] ?? $newLevel) . ')';
+                echo "  " . $msg . "\n";
+
+                foreach (getManagerIds($db) as $mgr) {
+                    if (!alreadySentToday($db, $mgr, 'budget_warning', $p['id'])) {
+                        dispatchNotification($db, $mgr, 'budget_warning', 'Alerte budget', $msg, 'honoraires', $p['id'], 'cron');
+                        $counts['alertes_budget']++;
+                    }
+                }
+            }
+        }
+    } catch (\Throwable $e) {
+        // honoraires columns may not exist yet
+        echo "  (colonnes honoraires non encore créées)\n";
+    }
+} catch (\Throwable $e) {
+    echo "ERREUR alertes budget: " . $e->getMessage() . "\n";
+}
+
 // ── Résumé ──
 echo "=== Résumé ===\n";
 foreach ($counts as $k => $v) echo "  $k : $v notification(s) envoyée(s)\n";
