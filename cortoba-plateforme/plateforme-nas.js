@@ -16579,6 +16579,8 @@ function sendPortailMsg() {
 // ══════════════════════════════════════════════════════════
 
 var _ncData = []; // résultats de la comparaison
+var _ncRawProjets = [];
+var _ncRawNasFolders = {};
 
 function openNasConformite() {
   openModal('modal-nas-conformite');
