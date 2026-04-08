@@ -2871,7 +2871,20 @@ function resetPjColumns(){ _pjActiveColumns=ALL_PJ_COLUMNS.filter(function(c){re
 function togglePjColDropdown(e){
   e.stopPropagation(); _pjColDropOpen=!_pjColDropOpen;
   var dd=document.getElementById('pj-col-dropdown'); var btn=document.getElementById('pj-col-burger');
-  if(_pjColDropOpen){ renderPjColDropdown(); if(dd)dd.style.display='block'; if(btn){btn.style.color='var(--accent)';btn.style.opacity='1';} }
+  if(_pjColDropOpen){
+    renderPjColDropdown();
+    if(dd&&btn){
+      var rect=btn.getBoundingClientRect();
+      dd.style.position='fixed';
+      dd.style.top=(rect.bottom+4)+'px';
+      dd.style.right=(window.innerWidth-rect.right)+'px';
+      dd.style.left='auto';
+      dd.style.maxHeight=(window.innerHeight-rect.bottom-20)+'px';
+      dd.style.overflowY='auto';
+      dd.style.display='block';
+    }
+    if(btn){btn.style.color='var(--accent)';btn.style.opacity='1';}
+  }
   else { if(dd)dd.style.display='none'; if(btn){btn.style.color='';btn.style.opacity='';} }
 }
 function renderPjColDropdown(){
