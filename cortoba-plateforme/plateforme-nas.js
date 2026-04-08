@@ -6282,6 +6282,7 @@ var MODULES_PLATEFORME_SECTIONS = [
     { id: 'clients',         label: 'Clients' },
     { id: 'conges',          label: 'Congés' },
     { id: 'demandes-admin',  label: 'Demandes admin' },
+    { id: 'journal-membres', label: "Journal acces membres" },
   ]},
   { section: 'Chantier', modules: [
     { id: 'chantier',              label: 'Tableau de bord' },
