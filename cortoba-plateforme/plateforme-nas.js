@@ -42,6 +42,14 @@ function getFactures(){ return _cache.factures; }
 function getDepenses(){ return _cache.depenses; }
 function getDemandes(){ return _cache.demandes; }
 
+// Migration ponctuelle : supprimer les virgules des noms clients existants
+(function(){
+  if (sessionStorage.getItem('commas_cleaned')) return;
+  apiFetch('api/clients.php?action=cleanup-commas', {method:'POST', body:{}})
+    .then(function(){ sessionStorage.setItem('commas_cleaned','1'); })
+    .catch(function(){});
+})();
+
 function loadData(){
   // Réinitialiser les caches de colonnes pour charger les préférences utilisateur
   _clActiveColumns = null;
