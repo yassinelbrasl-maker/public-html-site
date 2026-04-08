@@ -211,7 +211,9 @@ function loadProjects() {
 // ═══════════════════════════════════════════════════════════════
 
 function loadDashboard() {
-  apiCall('dashboard').then(function (d) {
+  var params = {};
+  if (CURRENT_PROJECT) params.projet_id = CURRENT_PROJECT;
+  apiCall('dashboard', { params: params }).then(function (d) {
     // Stats
     $('dash-stats').innerHTML =
       '<div class="stat-card accent"><div class="stat-value">' + d.projects_count + '</div><div class="stat-label">Projets</div></div>' +
