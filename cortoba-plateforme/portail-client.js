@@ -1175,8 +1175,56 @@ document.addEventListener('DOMContentLoaded', function () {
   // Upload
   initUpload();
 
+  // Check payment return from Stripe
+  checkPaymentReturn();
+
   // Check session
   checkSession();
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  STRIPE PAYMENT
+// ═══════════════════════════════════════════════════════════════
+
+window.initStripePayment = function(factureId) {
+  if (!factureId) return;
+  var btn = event ? event.target : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Chargement...'; }
+
+  var successUrl = window.location.href.split('?')[0];
+  var cancelUrl = successUrl;
+
+  apiCall('payment_init', {
+    method: 'POST',
+    body: { facture_id: factureId, success_url: successUrl, cancel_url: cancelUrl }
+  }).then(function(data) {
+    if (data && data.url) {
+      window.location.href = data.url;
+    } else {
+      showToast('Erreur: URL de paiement non disponible', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Payer en ligne'; }
+    }
+  }).catch(function(e) {
+    showToast('Erreur: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Payer en ligne'; }
+  });
+};
+
+function checkPaymentReturn() {
+  var params = new URLSearchParams(window.location.search);
+  var payment = params.get('payment');
+  if (payment === 'success') {
+    setTimeout(function() {
+      showToast('Paiement effectué avec succès !');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }, 500);
+  } else if (payment === 'cancel') {
+    setTimeout(function() {
+      showToast('Paiement annulé', 'error');
+      window.history.replaceState({}, '', window.location.pathname);
+    }, 500);
+  }
+}
 
 })();
