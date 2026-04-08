@@ -6875,13 +6875,20 @@ function renderModulesCheckboxes(preChecked) {
   preChecked = preChecked || [];
 
   function doRender() {
-    wrap.innerHTML = MODULES_PLATEFORME.map(function(mod) {
-      var checked = preChecked.indexOf(mod.id) !== -1;
-      return '<label style="display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;background:var(--bg-2)" '
-        + 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
-        + '<input type="checkbox" name="mb-mod" value="'+mod.id+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">'
-        + '<span style="font-size:0.8rem;color:var(--text-2)">'+escHtml(mod.label)+'</span>'
-        + '</label>';
+    wrap.innerHTML = MODULES_PLATEFORME_SECTIONS.map(function(sec) {
+      var secHtml = '<div style="margin-bottom:0.6rem">';
+      secHtml += '<div style="font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;padding:0.3rem 0;margin-bottom:0.3rem;border-bottom:1px solid var(--border)">' + escHtml(sec.section) + '</div>';
+      secHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.35rem">';
+      secHtml += sec.modules.map(function(mod) {
+        var checked = preChecked.indexOf(mod.id) !== -1;
+        return '<label style="display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.7rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;background:var(--bg-2)" '
+          + 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+          + '<input type="checkbox" name="mb-mod" value="'+mod.id+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">'
+          + '<span style="font-size:0.78rem;color:var(--text-2)">'+escHtml(mod.label)+'</span>'
+          + '</label>';
+      }).join('');
+      secHtml += '</div></div>';
+      return secHtml;
     }).join('');
   }
 
