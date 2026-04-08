@@ -625,6 +625,19 @@ try {
             break;
         }
 
+        // ────────────────────────────── DELETE (admin — supprimer définitivement une demande)
+        case 'delete': {
+            if (!isManager($user)) jsonError('Accès refusé', 403);
+            $id = $_GET['id'] ?? '';
+            if (!$id) jsonError('ID requis');
+            $stmt = $db->prepare('SELECT id FROM CA_leave_requests WHERE id = ?');
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) jsonError('Demande introuvable', 404);
+            $db->prepare("DELETE FROM CA_leave_requests WHERE id = ?")->execute([$id]);
+            jsonOk(['deleted' => $id]);
+            break;
+        }
+
         // ────────────────────────────── HOLIDAYS DELETE (admin)
         case 'holidays_delete': {
             if (!isManager($user)) jsonError('Accès refusé', 403);
