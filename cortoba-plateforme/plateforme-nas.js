@@ -7037,7 +7037,9 @@ function buildNasBridgeUrl(code, clientName, annee) {
   var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
 
-  var tplName = getSetting('cortoba_nas_template_folder', '00-Dossier Type') || '00-Dossier Type';
+  var tplRaw = getSetting('cortoba_nas_template_folder', '00-Dossier Type') || '00-Dossier Type';
+  // Extraire le nom du dossier si chemin UNC ou absolu saisi (ex: \\192.168.1.165\Public\...\00-Dossier Type)
+  var tplName = tplRaw.replace(/\\/g, '/').split('/').filter(function(s){return s;}).pop() || '00-Dossier Type';
   var projRoot = getSetting('cortoba_nas_projets_root', '/Public/CAS_PROJETS').replace(/^\//, '');
   var templateFolder = projRoot + '/' + annee + '/' + tplName;
 
