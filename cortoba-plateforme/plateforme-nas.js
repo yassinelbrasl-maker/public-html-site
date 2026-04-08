@@ -2525,7 +2525,7 @@ function _buildNasPaths(p) {
   var client = p.client || p.nom || '';
   var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
   var uncPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
-  var webdavUrl = 'http://' + ip + ':' + wdPort + '/Public/CAS_PROJETS/' + annee + '/' + encodeURIComponent(folderName) + '/';
+  var webdavUrl = 'http://' + ip + '/Public/CAS_PROJETS/' + annee + '/' + encodeURIComponent(folderName) + '/';
   return { unc: uncPath, webdav: webdavUrl };
 }
 function buildNasFolderButton(p) {
