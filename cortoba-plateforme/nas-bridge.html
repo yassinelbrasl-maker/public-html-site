@@ -188,6 +188,7 @@ function tryQtsApi(baseUrl, parts) {
 // Methode 1 : WebDAV COPY
 function copyTemplateWebDAV(baseUrl, destFolder) {
   if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
+  addStep('Template: ' + templateFolder, 'ok');
   var s = addStep('WebDAV COPY modele...', 'wait');
   var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/');
   var headers = { 'Content-Type': 'application/xml', 'Depth': '1' };
