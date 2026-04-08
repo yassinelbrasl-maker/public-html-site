@@ -949,6 +949,47 @@ function cpChantierReserves($client) {
 //  INFOS PROJET
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+//  JOURNAL D'ACCES
+// ═══════════════════════════════════════════════════════════════
+
+function cpAccessLog($client) {
+    $page   = max(1, intval($_GET['page'] ?? 1));
+    $limit  = 30;
+    $offset = ($page - 1) * $limit;
+
+    $db = getDB();
+
+    // Total count
+    $stmt = $db->prepare("SELECT COUNT(*) FROM CA_client_activity_log WHERE client_id = ?");
+    $stmt->execute([$client['client_id']]);
+    $total = (int) $stmt->fetchColumn();
+
+    // Entries
+    $stmt = $db->prepare("
+        SELECT l.action, l.details, l.ip_address, l.cree_at,
+               a.nom AS account_nom, a.email AS account_email
+        FROM CA_client_activity_log l
+        LEFT JOIN CA_client_accounts a ON a.id = l.account_id
+        WHERE l.client_id = ?
+        ORDER BY l.cree_at DESC
+        LIMIT $limit OFFSET $offset
+    ");
+    $stmt->execute([$client['client_id']]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as &$r) {
+        if ($r['details']) $r['details'] = json_decode($r['details'], true);
+    }
+
+    jsonOk([
+        'entries'      => $rows,
+        'total'        => $total,
+        'page'         => $page,
+        'total_pages'  => max(1, ceil($total / $limit)),
+    ]);
+}
+
 function cpProjectTeam($client) {
     $projetId = $_GET['projet_id'] ?? '';
     if (!$projetId) jsonError('projet_id requis');
