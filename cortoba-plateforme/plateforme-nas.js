@@ -2318,6 +2318,7 @@ function resetProjetForm(){
 
 // ── Ouvrir le configurateur dans un nouvel onglet ──
 function openConfigurateur(){
+  if (!canCreate()) { alert('Les stagiaires ne sont pas autorisés à créer des projets.'); return; }
   var token=sessionStorage.getItem('cortoba_token');
   if(token){
     localStorage.setItem('cortoba_xfer_token',JSON.stringify({token:token,ts:Date.now()}));
