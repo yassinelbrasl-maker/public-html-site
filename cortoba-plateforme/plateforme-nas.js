@@ -16208,17 +16208,24 @@ function renderPortailAccounts() {
         '<div class="kpi-card"><div class="kpi-value" style="color:var(--text-3)">' + (_portalAccounts.length - actifs) + '</div><div class="kpi-label">Inactifs</div></div>';
     }
     if (_portalAccounts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:2rem">Aucun compte client</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucun compte client</td></tr>';
       return;
     }
     tbody.innerHTML = _portalAccounts.map(function(a) {
       var badge = a.statut === 'actif' ? 'badge-green' : 'badge-gray';
+      var codePlat = a.code_plateforme || '—';
+      var codeNas = a.code_nas || '—';
+      var projetsCodes = a.projets_codes || '—';
+      var codeMatch = (codePlat !== '—' && codeNas !== '—' && codePlat === codeNas);
+      var codeStyle = codeMatch ? 'color:var(--green)' : (codePlat === '—' || codeNas === '—' ? 'color:var(--text-3)' : 'color:var(--red)');
       return '<tr>' +
         '<td><strong>' + esc(a.nom) + '</strong><div style="font-size:0.72rem;color:var(--text-3)">' + esc(a.client_display || '') + '</div></td>' +
         '<td><span style="font-family:var(--mono);font-size:0.8rem">' + esc(a.email) + '</span></td>' +
+        '<td><span style="font-family:var(--mono);font-size:0.78rem;' + codeStyle + '">' + esc(codePlat) + '</span></td>' +
+        '<td><span style="font-family:var(--mono);font-size:0.78rem;' + codeStyle + '">' + esc(codeNas) + '</span></td>' +
+        '<td><span style="font-family:var(--mono);font-size:0.72rem;color:var(--text-2);max-width:160px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(projetsCodes) + '</span></td>' +
         '<td><span class="badge ' + badge + '">' + esc(a.statut) + '</span></td>' +
         '<td>' + (a.last_login ? fmtDate(a.last_login) : '<span style="color:var(--text-3)">Jamais</span>') + '</td>' +
-        '<td>' + fmtDate(a.cree_at) + '</td>' +
         '<td><button class="btn-icon" onclick="editPortailAccount(\'' + a.id + '\')" title="Modifier">✏️</button>' +
         '<button class="btn-icon" onclick="deletePortailAccount(\'' + a.id + '\',\'' + esc(a.nom).replace(/'/g, "\\'") + '\')" title="Supprimer" style="color:var(--red)">🗑️</button></td></tr>';
     }).join('');
