@@ -6310,6 +6310,7 @@ var MODULES_PLATEFORME_SECTIONS = [
     { id: 'portail-journal', label: "Journal acces clients" },
   ]},
   { section: 'Paramètres', modules: [
+    { id: 'corbeille',   label: 'Corbeille' },
     { id: 'parametres',  label: 'Paramètres' },
   ]},
 ];
