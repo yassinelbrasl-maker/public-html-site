@@ -16725,61 +16725,80 @@ function ncExpectedFolder(p) {
   return (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
 }
 
-function buildConformiteData(projets, nasFolders) {
-  var results = [];
-  var matchedNasFolders = {}; // année/folder => true
+function _ncGetCompareMode() {
+  return (document.getElementById('nc-compare-mode') || {}).value || 'nom';
+}
 
-  // Pour chaque projet de la plateforme
+function ncChangeCompareMode() {
+  if (!_ncRawProjets.length && !Object.keys(_ncRawNasFolders).length) return;
+  _ncData = buildConformiteData(_ncRawProjets, _ncRawNasFolders);
+  renderConformiteResults();
+}
+
+function buildConformiteData(projets, nasFolders) {
+  var mode = _ncGetCompareMode();
+  var results = [];
+  var matchedNasFolders = {};
+
   projets.forEach(function(p) {
     var annee = p.annee || '';
     var code = (p.code || '').toUpperCase();
     var expected = ncExpectedFolder(p);
     var yearFolders = nasFolders[annee] || [];
 
-    // Chercher correspondance exacte
-    var exactMatch = yearFolders.find(function(f) { return f === expected; });
-    if (exactMatch) {
-      results.push({ type: 'ok', annee: annee, projet: p, nasFolder: exactMatch, expected: expected });
-      matchedNasFolders[annee + '/' + exactMatch] = true;
-      return;
-    }
-
-    // Chercher par code projet
-    var codeMatch = null;
-    yearFolders.forEach(function(f) {
-      if (matchedNasFolders[annee + '/' + f]) return;
-      var fCode = ncExtractCode(f);
-      if (fCode && fCode === code) {
-        codeMatch = f;
+    if (mode === 'code') {
+      // ── Mode CODE : correspondance uniquement par code projet ──
+      var codeMatch = null;
+      yearFolders.forEach(function(f) {
+        if (matchedNasFolders[annee + '/' + f]) return;
+        var fCode = ncExtractCode(f);
+        if (fCode && fCode === code) codeMatch = f;
+      });
+      if (codeMatch) {
+        var isExact = (codeMatch === expected);
+        results.push({ type: isExact ? 'ok' : 'mismatch', annee: annee, projet: p, nasFolder: codeMatch, expected: expected });
+        matchedNasFolders[annee + '/' + codeMatch] = true;
+      } else {
+        results.push({ type: 'missing_nas', annee: annee, projet: p, nasFolder: null, expected: expected });
       }
-    });
-
-    if (codeMatch) {
-      // Même code mais nom différent
-      results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: codeMatch, expected: expected });
-      matchedNasFolders[annee + '/' + codeMatch] = true;
-      return;
-    }
-
-    // Chercher par similarité de nom normalisé
-    var normExpected = ncNormalize(expected);
-    var fuzzyMatch = null;
-    yearFolders.forEach(function(f) {
-      if (matchedNasFolders[annee + '/' + f]) return;
-      var normF = ncNormalize(f);
-      if (normF === normExpected || (normExpected.length > 8 && normF.indexOf(normExpected) !== -1) || (normF.length > 8 && normExpected.indexOf(normF) !== -1)) {
-        fuzzyMatch = f;
+    } else {
+      // ── Mode NOM : correspondance exacte, puis code, puis similarité ──
+      var exactMatch = yearFolders.find(function(f) { return f === expected; });
+      if (exactMatch) {
+        results.push({ type: 'ok', annee: annee, projet: p, nasFolder: exactMatch, expected: expected });
+        matchedNasFolders[annee + '/' + exactMatch] = true;
+        return;
       }
-    });
 
-    if (fuzzyMatch) {
-      results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: fuzzyMatch, expected: expected });
-      matchedNasFolders[annee + '/' + fuzzyMatch] = true;
-      return;
+      var codeMatch2 = null;
+      yearFolders.forEach(function(f) {
+        if (matchedNasFolders[annee + '/' + f]) return;
+        var fCode = ncExtractCode(f);
+        if (fCode && fCode === code) codeMatch2 = f;
+      });
+      if (codeMatch2) {
+        results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: codeMatch2, expected: expected });
+        matchedNasFolders[annee + '/' + codeMatch2] = true;
+        return;
+      }
+
+      var normExpected = ncNormalize(expected);
+      var fuzzyMatch = null;
+      yearFolders.forEach(function(f) {
+        if (matchedNasFolders[annee + '/' + f]) return;
+        var normF = ncNormalize(f);
+        if (normF === normExpected || (normExpected.length > 8 && normF.indexOf(normExpected) !== -1) || (normF.length > 8 && normExpected.indexOf(normF) !== -1)) {
+          fuzzyMatch = f;
+        }
+      });
+      if (fuzzyMatch) {
+        results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: fuzzyMatch, expected: expected });
+        matchedNasFolders[annee + '/' + fuzzyMatch] = true;
+        return;
+      }
+
+      results.push({ type: 'missing_nas', annee: annee, projet: p, nasFolder: null, expected: expected });
     }
-
-    // Pas de correspondance → dossier absent sur le NAS
-    results.push({ type: 'missing_nas', annee: annee, projet: p, nasFolder: null, expected: expected });
   });
 
   // Dossiers NAS sans projet correspondant sur la plateforme
