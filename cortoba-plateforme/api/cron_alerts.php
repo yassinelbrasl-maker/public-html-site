@@ -31,7 +31,8 @@ if ($providedKey !== CRON_ALERTS_SECRET) {
 
 $db = getDB();
 $counts = ['taches_retard' => 0, 'livrables_retard' => 0, 'budget_depasse' => 0,
-           'echeances_proches' => 0, 'factures_impayees' => 0, 'depenses_due' => 0];
+           'echeances_proches' => 0, 'factures_impayees' => 0, 'depenses_due' => 0,
+           'jours_feries' => 0];
 
 echo "=== Cron alertes critiques — " . date('Y-m-d H:i:s') . " ===\n\n";
 
