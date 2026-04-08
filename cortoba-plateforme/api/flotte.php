@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/corbeille.php';
 setCorsHeaders();
 
 // Helper : nettoyer le body — convertir '' en null pour éviter les erreurs MySQL sur DATE/INT
