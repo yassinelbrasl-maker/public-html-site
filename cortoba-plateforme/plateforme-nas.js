@@ -4724,7 +4724,7 @@ function doLogin(){
       loadModulesFromAPI(); // peupler la liste des modules dès la connexion
       loadData().then(function(){
         renderAll();
-        showPage('dashboard');
+        showPage(_getStartPage());
         refreshNotifBadge();
         setTimeout(function(){ try { if (typeof checkDeadlinesPopup === 'function') checkDeadlinesPopup(); } catch(e) {} }, 1200);
       });
