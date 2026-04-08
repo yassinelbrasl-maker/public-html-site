@@ -292,6 +292,69 @@ try {
     }
     echo "  Total : " . count($dues) . " dépense(s) due(s)\n\n";
 
+    // ══════════════════════════════════════════
+    // 7. JOURS FÉRIÉS — Rappel 48h avant
+    // ══════════════════════════════════════════
+    echo "--- Jours fériés (rappel 48h) ---\n";
+
+    // Chercher les jours fériés dans les 2 prochains jours (48h)
+    $stmtHol = $db->query("
+        SELECT id, date, libelle, paye
+        FROM CA_jours_feries
+        WHERE date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+        ORDER BY date ASC
+    ");
+    $holidays = $stmtHol->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!empty($holidays)) {
+        // Regrouper les jours fériés consécutifs (ex: Aïd 2 jours)
+        $groups = [];
+        $current = null;
+        foreach ($holidays as $h) {
+            if ($current && strtotime($h['date']) - strtotime(end($current['items'])['date']) <= 86400) {
+                $current['items'][] = $h;
+            } else {
+                if ($current) $groups[] = $current;
+                $current = ['items' => [$h]];
+            }
+        }
+        if ($current) $groups[] = $current;
+
+        // Récupérer tous les membres actifs
+        $allUsers = $db->query("SELECT id FROM cortoba_users WHERE statut <> 'Inactif'")->fetchAll(PDO::FETCH_COLUMN);
+
+        foreach ($groups as $g) {
+            $nbJours = count($g['items']);
+            $first = $g['items'][0];
+            $isPaye = (int)$first['paye'];
+            $statut = $isPaye ? 'chômé et payé' : 'chômé et non payé';
+
+            // Construire le libellé (regrouper si plusieurs jours)
+            $noms = array_map(function($h){ return $h['libelle']; }, $g['items']);
+            $dateDebut = date('d/m/Y', strtotime($first['date']));
+            $linkId = 'hol_' . $first['date'];
+
+            if ($nbJours > 1) {
+                $dateFin = date('d/m/Y', strtotime(end($g['items'])['date']));
+                $title = "📅 Jour férié : " . $first['libelle'] . " ({$nbJours} jours)";
+                $msg = "Du {$dateDebut} au {$dateFin} — {$nbJours} jour(s) {$statut}"
+                     . "\n" . implode(', ', $noms);
+            } else {
+                $title = "📅 Jour férié : " . $first['libelle'];
+                $msg = "Le {$dateDebut} — {$nbJours} jour {$statut}";
+            }
+
+            foreach ($allUsers as $uid) {
+                if (!alreadyNotifiedToday($db, $uid, 'holiday_reminder', $linkId)) {
+                    dispatchNotification($db, $uid, 'holiday_reminder', $title, $msg, 'conges', $linkId, 'Système');
+                    $counts['jours_feries']++;
+                }
+            }
+            echo "  → {$first['libelle']} ({$dateDebut}) — {$nbJours}j {$statut}\n";
+        }
+    }
+    echo "  Total : " . count($holidays) . " jour(s) férié(s) dans les 48h\n\n";
+
 } catch (\Throwable $e) {
     echo "ERREUR : " . $e->getMessage() . "\n";
 }
