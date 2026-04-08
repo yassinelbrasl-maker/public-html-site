@@ -6642,6 +6642,8 @@ function editMembre(id) {
   setVal('mb-salaire', m.salaire_net);
   setVal('mb-charges', m.charges_sociales);
   setVal('mb-subv',    m.subventions);
+  var cbDir = document.getElementById('mb-subv-directe');
+  if (cbDir) cbDir.checked = !!parseInt(m.subv_directe);
   setVal('mb-avant',   m.avantages_nature);
   setVal('mb-heures',  m.heures_mois || 160);
   // Projection
