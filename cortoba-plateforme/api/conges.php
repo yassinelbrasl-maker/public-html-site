@@ -87,14 +87,11 @@ try {
             ["$yr-08-13", 'Journée de la Femme', 1],
             ["$yr-10-15", "Fête de l'Évacuation", 1],
             ["$yr-12-17", 'Fête de la Révolution', 1],
-            // Fêtes religieuses (chômées et non payées) : dates approximatives à ajuster chaque année
+            // Fêtes religieuses (chômées et non payées, 2j chacune) : dates approximatives à ajuster chaque année
             ["$yr-03-30", 'Aïd el-Fitr (à ajuster)', 0],
             ["$yr-03-31", 'Aïd el-Fitr 2e jour (à ajuster)', 0],
             ["$yr-06-06", 'Aïd el-Adha (à ajuster)', 0],
             ["$yr-06-07", 'Aïd el-Adha 2e jour (à ajuster)', 0],
-            ["$yr-06-26", 'Ras El Am El Hijri (à ajuster)', 0],
-            ["$yr-09-04", 'Mouled (à ajuster)', 0],
-            ["$yr-09-05", 'Mouled 2e jour (à ajuster)', 0],
         ];
         $ins = $db->prepare("INSERT IGNORE INTO CA_jours_feries (date, libelle, paye) VALUES (?, ?, ?)");
         foreach ($feries as $f) $ins->execute($f);
