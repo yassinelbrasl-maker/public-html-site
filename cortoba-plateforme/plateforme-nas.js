@@ -9183,7 +9183,11 @@ function filterMissionDropdown(query) {
   var hasVisibleInGroup = false;
 
   items.forEach(function(it, idx) {
-    if (it.type === 'header') {
+    if (it.type === 'separator') {
+      html += '<div style="padding:0.5rem 0.8rem;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;background:var(--bg-1);border-top:2px solid var(--border);border-bottom:1px solid var(--border);margin-top:0.3rem">' + it.label + '</div>';
+      lastHeaderHtml = '';
+      hasVisibleInGroup = false;
+    } else if (it.type === 'header') {
       lastHeaderHtml = '<div style="padding:0.4rem 0.8rem;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">' + it.label + '</div>';
       hasVisibleInGroup = false;
     } else {
