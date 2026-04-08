@@ -283,7 +283,7 @@ function cpMe($client) {
     $stmt = $db->prepare("SELECT a.id, a.client_id, a.email, a.nom, a.statut, a.last_login,
                                   c.display_nom AS client_display, c.tel, c.adresse
                           FROM CA_client_accounts a
-                          LEFT JOIN CA_clients c ON c.id = a.client_id
+                          LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = a.client_id
                           WHERE a.id = ? LIMIT 1");
     $stmt->execute([$client['id']]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
