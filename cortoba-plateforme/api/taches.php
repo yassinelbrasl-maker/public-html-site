@@ -10,6 +10,7 @@
 require_once __DIR__ . '/../config/middleware.php';
 require_once __DIR__ . '/chat_helpers.php';
 require_once __DIR__ . '/notification_dispatch.php';
+require_once __DIR__ . '/corbeille.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
