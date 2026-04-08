@@ -3879,6 +3879,9 @@ function resetDepenseForm(){
   if(depDateEl) depDateEl.value = new Date().toISOString().split('T')[0];
   var cat=document.getElementById('dep-categorie'); if(cat) cat.value='';
   var wrap=document.getElementById('dep-lignes-wrap'); if(wrap) wrap.innerHTML='';
+  // Reset timbre toggle
+  var timbreToggle = document.getElementById('dep-timbre-toggle');
+  if (timbreToggle) timbreToggle.checked = true;
   // Reset reimbursement
   var rembToggle = document.getElementById('dep-remboursement-toggle');
   if (rembToggle) rembToggle.checked = false;
