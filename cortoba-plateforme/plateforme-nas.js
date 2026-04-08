@@ -9005,10 +9005,10 @@ function editTache(id) {
 function saveTache() {
   var id       = document.getElementById('tache-id').value;
   var niveau   = parseInt(document.getElementById('tache-niveau').value) || 0;
-  // Titre : select si mission (0) ou tâche-type (1 avec liste), sinon input libre
+  // Titre : dropdown mission (0) ou tâche-type (1 avec liste), sinon input libre
   var selectVisible = document.getElementById('tache-titre-field-select').style.display !== 'none';
   var titre = selectVisible
-    ? document.getElementById('tache-titre-select').value.trim()
+    ? (document.getElementById('tache-titre-select').value.trim() || document.getElementById('tache-mission-search').value.trim())
     : document.getElementById('tache-titre').value.trim();
   var projetId = document.getElementById('tache-projet').value;
   var errEl    = document.getElementById('tache-err');
