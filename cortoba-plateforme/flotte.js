@@ -211,6 +211,7 @@ function editFlotteVehicule(id) {
 }
 
 function deleteFlotteVehicule(id) {
+  if (!canDelete()) { alert('Seul un administrateur peut supprimer.'); return; }
   if (!confirm('Supprimer ce véhicule ?')) return;
   apiFetch('api/flotte.php?id='+id, { method: 'DELETE' }).then(function() {
     showToast('Véhicule supprimé', 'success'); renderFlotteDashboard();
