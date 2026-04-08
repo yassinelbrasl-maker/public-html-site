@@ -637,8 +637,16 @@ function createKilometrage($user) {
 }
 
 function deleteKilometrage($id) {
+    global $user;
+    if (($user['role'] ?? '') !== 'admin') jsonError('Admin requis', 403);
     $db = getDB();
-    $db->prepare("DELETE FROM CA_flotte_kilometres WHERE id=?")->execute([$id]);
+    $stmt = $db->prepare("SELECT date_releve, destination FROM CA_flotte_kilometres WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = $row ? trim(($row['date_releve'] ?? '') . ' ' . ($row['destination'] ?? '')) : 'Kilométrage';
+    if (!moveToCorbeille($db, 'CA_flotte_kilometres', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => true]);
 }
 
