@@ -5361,9 +5361,10 @@ document.addEventListener('DOMContentLoaded', _initSidebarSections);
 
 // A1 — openModal: modal-projet ouvre correctement sans déclencher modal-client
 function openModal(id){
-  var _createModals = {'modal-client':'clients','modal-projet':'projets','modal-devis':'devis','modal-facture':'factures'};
-  if (_createModals[id] && !canCreate()) {
-    alert('Les stagiaires ne sont pas autorisés à créer des ' + _createModals[id] + '.');
+  var _createModalMap = {'modal-client':'client','modal-projet':'projet','modal-devis':'devis','modal-facture':'facture'};
+  var _createModalLabels = {'modal-client':'clients','modal-projet':'projets','modal-devis':'devis','modal-facture':'factures'};
+  if (_createModalMap[id] && !canCreate(_createModalMap[id])) {
+    alert('Vous n\'êtes pas autorisé à créer des ' + _createModalLabels[id] + '.');
     return;
   }
   document.getElementById(id).classList.add('open');
