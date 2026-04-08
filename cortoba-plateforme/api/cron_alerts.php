@@ -9,6 +9,7 @@
 //   4. Échéances proches (tâches/factures dans les 3 prochains jours)
 //   5. Factures impayées (date_echeance dépassée, non payées)
 //   6. Dépenses récurrentes à payer
+//   7. Jours fériés — rappel 48h avant (tous les membres)
 //
 //  Configuration côté cPanel → Cron Jobs :
 //    curl -s "https://cortobaarchitecture.com/cortoba-plateforme/api/cron_alerts.php?key=CORTOBA_CRON_2026"
