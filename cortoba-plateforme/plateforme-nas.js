@@ -9016,20 +9016,61 @@ function _populateMissionsSelect(selectedValue) {
     return opt;
   };
 
-  // Toujours grouper par catégorie
-  cats.forEach(function(cat) {
-    var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
-    if (catMissions.length === 0) return;
-    var og = document.createElement('optgroup');
-    og.label = cat.label;
-    catMissions.forEach(function(m){ og.appendChild(makeOpt(m, !isAffectee(m.nom))); });
-    sel.appendChild(og);
-  });
-  var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
-  if (orphans.length) {
-    var og2 = document.createElement('optgroup');
-    og2.label = 'Autres';
-    orphans.forEach(function(m){ og2.appendChild(makeOpt(m, !isAffectee(m.nom))); });
+  if (hasContext) {
+    // 1) Missions affectées au projet en tête, groupées par catégorie
+    cats.forEach(function(cat) {
+      var catAff = missions.filter(function(m) { return m.cat === cat.id && isAffectee(m.nom); });
+      if (catAff.length === 0) return;
+      var og = document.createElement('optgroup');
+      og.label = cat.label;
+      catAff.forEach(function(m){ og.appendChild(makeOpt(m, false)); });
+      sel.appendChild(og);
+    });
+    var orphAff = missions.filter(function(m) { return (!m.cat || !cats.find(function(c){ return c.id === m.cat; })) && isAffectee(m.nom); });
+    if (orphAff.length) {
+      var ogOA = document.createElement('optgroup');
+      ogOA.label = 'Autres';
+      orphAff.forEach(function(m){ ogOA.appendChild(makeOpt(m, false)); });
+      sel.appendChild(ogOA);
+    }
+    // 2) Séparateur + missions non affectées
+    var hasUnaff = missions.some(function(m) { return !isAffectee(m.nom); });
+    if (hasUnaff) {
+      var ogSep = document.createElement('optgroup');
+      ogSep.label = '── Autres missions ──';
+      ogSep.disabled = true;
+      sel.appendChild(ogSep);
+      cats.forEach(function(cat) {
+        var catUnaff = missions.filter(function(m) { return m.cat === cat.id && !isAffectee(m.nom); });
+        if (catUnaff.length === 0) return;
+        var og = document.createElement('optgroup');
+        og.label = cat.label;
+        catUnaff.forEach(function(m){ og.appendChild(makeOpt(m, true)); });
+        sel.appendChild(og);
+      });
+      var orphUnaff = missions.filter(function(m) { return (!m.cat || !cats.find(function(c){ return c.id === m.cat; })) && !isAffectee(m.nom); });
+      if (orphUnaff.length) {
+        var ogOU = document.createElement('optgroup');
+        ogOU.label = 'Autres';
+        orphUnaff.forEach(function(m){ ogOU.appendChild(makeOpt(m, true)); });
+        sel.appendChild(ogOU);
+      }
+    }
+  } else {
+    // Pas de contexte projet : toutes les missions groupées par catégorie
+    cats.forEach(function(cat) {
+      var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
+      if (catMissions.length === 0) return;
+      var og = document.createElement('optgroup');
+      og.label = cat.label;
+      catMissions.forEach(function(m){ og.appendChild(makeOpt(m, false)); });
+      sel.appendChild(og);
+    });
+    var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c){ return c.id === m.cat; }); });
+    if (orphans.length) {
+      var og2 = document.createElement('optgroup');
+      og2.label = 'Autres';
+      orphans.forEach(function(m){ og2.appendChild(makeOpt(m, false)); });
     sel.appendChild(og2);
   }
 
