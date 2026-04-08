@@ -37,6 +37,7 @@ function ensureUsersTable() {
         "salaire_net         DECIMAL(12,2) DEFAULT 0",
         "charges_sociales    DECIMAL(12,2) DEFAULT 0",
         "subventions         DECIMAL(12,2) DEFAULT 0",
+        "subv_directe       TINYINT(1)    DEFAULT 0",
         "avantages_nature    DECIMAL(12,2) DEFAULT 0",
         "heures_mois         DECIMAL(6,2)  DEFAULT 160",
         "date_embauche       DATE         DEFAULT NULL",
