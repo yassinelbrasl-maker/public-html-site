@@ -5124,6 +5124,8 @@ function showPage(id){
   if(id==='journal-membres') setTimeout(function(){ if(typeof renderJournalMembres==='function') renderJournalMembres(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
+  if(id==='honoraires') setTimeout(function(){ if(typeof renderHonorairesPage==='function') renderHonorairesPage(); },80);
+  if(id==='creances')   setTimeout(function(){ if(typeof renderCreancesPage==='function') renderCreancesPage(); },80);
   if(id==='parametres') {
     // Attendre que loadSettings soit terminé avant de remplir les champs
     var fillParams = function(){
