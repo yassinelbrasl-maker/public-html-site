@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<title>Création dossier NAS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',system-ui,sans-serif;background:#111;color:#eee;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:32px;max-width:480px;width:100%;text-align:center}
+h2{font-size:1.1rem;margin-bottom:16px;color:#4ecdc4}
+#status{font-size:0.9rem;color:#aaa;margin:12px 0;min-height:40px;line-height:1.5}
+.step{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:0.85rem;color:#888;text-align:left}
+.step.ok{color:#4ecdc4}
+.step.fail{color:#e74c3c}
+.step.wait{color:#f39c12}
+.step::before{content:'○';font-size:1rem;min-width:18px;text-align:center}
+.step.ok::before{content:'✓';color:#4ecdc4}
+.step.fail::before{content:'✗';color:#e74c3c}
+.step.wait::before{content:'◌';color:#f39c12}
+#path-box{background:#0d0d0d;border:1px solid #333;border-radius:8px;padding:12px;margin:16px 0;font-family:'DM Mono',monospace;font-size:0.78rem;color:#f39c12;word-break:break-all;display:none}
+.btn{padding:8px 20px;border:none;border-radius:6px;font-size:0.85rem;cursor:pointer;font-family:inherit}
+.btn-copy{background:#333;color:#eee;margin-top:12px}
+.btn-copy:hover{background:#444}
+.btn-close{background:#4ecdc4;color:#111;margin-top:8px;font-weight:600}
+.btn-close:hover{background:#3dbdb5}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Création dossier NAS</h2>
+  <div id="steps"></div>
+  <div id="status">Initialisation...</div>
+  <div id="path-box"></div>
+  <div id="actions" style="display:none">
+    <button class="btn btn-copy" onclick="copyPath()">Copier le chemin</button><br>
+    <button class="btn btn-close" onclick="window.close()">Fermer</button>
+  </div>
+</div>
+
+<script>
+var stepsEl = document.getElementById('steps');
+var statusEl = document.getElementById('status');
+var pathBox = document.getElementById('path-box');
+var actionsEl = document.getElementById('actions');
+
+// Lire les parametres depuis le hash (pas envoyes au serveur)
+var hash = location.hash.substring(1);
+var params = {};
+hash.split('&').forEach(function(p){ var kv=p.split('='); if(kv[0]) params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]||''); });
+
+var ip = params.ip || '';
+var user = params.user || '';
+var pass = params.pass || '';
+var port = params.port || '5005';
+var folders = params.folders || '';
+var nasPath = params.nasPath || '';
+var subfolders = [];
+try { subfolders = params.subfolders ? JSON.parse(params.subfolders) : []; } catch(e) { subfolders = []; }
+
+// Template : si non fourni, deduire depuis le chemin du dossier
+// Ex: folders = "Public/CAS_PROJETS/2026/CODE_Client" → template = "Public/CAS_PROJETS/2026/00-Dossier Type"
+var templateFolder = params.template || '';
+if (!templateFolder && folders) {
+  var fParts = folders.split('/');
+  if (fParts.length >= 3) {
+    fParts[fParts.length - 1] = '00-Dossier Type';
+    templateFolder = fParts.join('/');
+  }
+}
+console.log('[NAS-BRIDGE] template=' + templateFolder + ', folders=' + folders);
+
+function addStep(text, cls) {
+  var d = document.createElement('div');
+  d.className = 'step ' + (cls||'wait');
+  d.textContent = text;
+  stepsEl.appendChild(d);
+  return d;
+}
+
+function updateStep(el, text, cls) {
+  if (el) { el.textContent = text; el.className = 'step ' + cls; }
+}
+
+function showPath() {
+  pathBox.textContent = nasPath || ('\\\\' + ip + '\\' + folders.replace(/\//g, '\\'));
+  pathBox.style.display = 'block';
+  actionsEl.style.display = 'block';
+}
+
+function copyPath() {
+  var t = pathBox.textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(t).then(function(){ statusEl.textContent = 'Chemin copie !'; });
+  } else {
+    var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    statusEl.textContent = 'Chemin copie !';
+  }
+}
+
+function notifyParent(success, msg) {
+  try {
+    if (window.opener && window.opener.postMessage) {
+      window.opener.postMessage({type:'nas-folder-result', success:success, message:msg}, '*');
+    }
+  } catch(e){}
+}
+
+// ── Methode 1 : WebDAV MKCOL direct (fonctionne si page ouverte en HTTP) ──
+function tryWebDAV(baseUrl, parts) {
+  var s1 = addStep('WebDAV : connexion a ' + baseUrl + '...', 'wait');
+  var created = 0;
+  var idx = 0;
+
+  function mkNext() {
+    if (idx >= parts.length) {
+      updateStep(s1, 'WebDAV : ' + created + ' dossier(s) cree(s)', 'ok');
+      return Promise.resolve(created);
+    }
+    var path = '/' + parts.slice(0, idx + 1).join('/');
+    idx++;
+    var url = baseUrl + path.split('/').map(encodeURIComponent).join('/');
+    var headers = {};
+    if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+
+    return fetch(url, { method: 'MKCOL', headers: headers })
+      .then(function(r) {
+        if (r.status === 201) created++;
+        // 201=cree, 405=existe, 301=redirect — tous OK
+        return mkNext();
+      });
+  }
+  return mkNext()
+    .then(function(c) { return { ok: true, created: c }; })
+    .catch(function(e) {
+      updateStep(s1, 'WebDAV : echec — ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
+
+// ── Methode 2 : QTS File Station API ──
+function tryQtsApi(baseUrl, parts) {
+  var s1 = addStep('QTS API : connexion a ' + baseUrl + '...', 'wait');
+
+  var loginUrl = baseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+               + '&pwd=' + encodeURIComponent(btoa(pass));
+
+  return fetch(loginUrl, { mode: 'cors', credentials: 'include' })
+    .then(function(r) { return r.text(); })
+    .then(function(xml) {
+      var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
+              xml.match(/<authSid>(.*?)<\/authSid>/);
+      if (!m || !m[1] || m[1].length < 5) throw new Error('Auth echouee');
+      var sid = m[1];
+      updateStep(s1, 'QTS API : connecte', 'ok');
+
+      var created = 0;
+      var idx = 0;
+
+      function mkNext() {
+        if (idx >= parts.length) return Promise.resolve(created);
+        var parentPath = (idx === 0) ? '/' : '/' + parts.slice(0, idx).join('/');
+        var childName = parts[idx];
+        idx++;
+        var sN = addStep('Creation: ' + childName + '...', 'wait');
+        var mkUrl = baseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=createdir&sid=' + encodeURIComponent(sid);
+        return fetch(mkUrl, {
+          method: 'POST', mode: 'cors', credentials: 'include',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'dest_folder=' + encodeURIComponent(parentPath) + '&dest_path=' + encodeURIComponent(childName)
+        })
+          .then(function(r) { return r.text(); })
+          .then(function(t) {
+            var ok = false;
+            try {
+              var j = JSON.parse(t);
+              if (j && (j.status === 1 || j.status === 2 || j.success)) ok = true;
+              if (j && j.status === 1) created++;
+            } catch(e) {
+              if (t.indexOf('error') === -1) ok = true;
+            }
+            updateStep(sN, childName + (ok ? ' OK' : ' (existe)'), 'ok');
+            return mkNext();
+          })
+          .catch(function(e) {
+            updateStep(sN, childName + ' — erreur: ' + e.message, 'fail');
+            return mkNext();
+          });
+      }
+      return mkNext().then(function(c) { return { ok: true, created: c }; });
+    })
+    .catch(function(e) {
+      updateStep(s1, 'QTS API : echec — ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
+
+// ── Copie du contenu du dossier modele ──
+// Methode 1 : WebDAV PROPFIND + COPY/MKCOL (essaye port WebDAV puis port 80)
+function copyTemplateWebDAV(baseUrl, destFolder) {
+  if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
+  addStep('Template: ' + templateFolder, 'ok');
+  var s = addStep('Copie du modele...', 'wait');
+  var authHeaders = {};
+  if (user) authHeaders['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+
+  // Essayer d'abord le baseUrl fourni, puis fallback sur le port 80 (HTTP standard)
+  var httpBase = 'http://' + ip;
+  var urlsToTry = [baseUrl];
+  if (baseUrl !== httpBase) urlsToTry.push(httpBase);
+
+  var urlIdx = 0;
+  function tryNextUrl() {
+    if (urlIdx >= urlsToTry.length) {
+      // Aucun PROPFIND n'a fonctionne → fallback MKCOL direct
+      return mkcolFromTemplate(baseUrl, destFolder, s, authHeaders);
+    }
+    var tryBase = urlsToTry[urlIdx]; urlIdx++;
+    var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/') + '/';
+    var propHeaders = { 'Content-Type': 'application/xml', 'Depth': '1' };
+    if (user) propHeaders['Authorization'] = authHeaders['Authorization'];
+
+    return fetch(tryBase + templatePath, { method: 'PROPFIND', headers: propHeaders })
+      .then(function(r) {
+        if (!r.ok && r.status !== 207) throw new Error('PROPFIND ' + r.status);
+        return r.text();
+      })
+      .then(function(xml) {
+        var hrefPattern = /<[^>]*href[^>]*>([^<]+)<\/[^>]*href>/gi;
+        var match; var children = [];
+        var tplName = (templateFolder || '').split('/').pop();
+        while ((match = hrefPattern.exec(xml)) !== null) {
+          var rawHref = match[1].trim();
+          var decoded = decodeURIComponent(rawHref).replace(/\/$/, '');
+          var name = decoded.split('/').pop();
+          if (!name || name === tplName) continue;
+          children.push({ href: rawHref, name: name });
+        }
+        if (children.length === 0) {
+          // PROPFIND OK mais vide → essayer URL suivante ou fallback
+          return tryNextUrl();
+        }
+        addStep('Template contient ' + children.length + ' elements', 'ok');
+
+        // COPY chaque element, avec fallback MKCOL
+        var copied = 0; var idx = 0;
+        // Utiliser le port WebDAV pour MKCOL (plus fiable pour ecriture)
+        var writeBase = baseUrl;
+        function copyNext() {
+          if (idx >= children.length) return Promise.resolve();
+          var child = children[idx]; idx++;
+          var srcUrl = tryBase + child.href;
+          var destPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(child.name) + '/';
+
+          var copyHeaders = { 'Destination': writeBase + destPath, 'Depth': 'infinity', 'Overwrite': 'F' };
+          if (user) copyHeaders['Authorization'] = authHeaders['Authorization'];
+          return fetch(srcUrl, { method: 'COPY', headers: copyHeaders })
+            .then(function(r) {
+              if (r.status === 201 || r.status === 204) { copied++; return copyNext(); }
+              return mkcolFallback(child.name);
+            })
+            .catch(function() { return mkcolFallback(child.name); });
+
+          function mkcolFallback(folderName) {
+            var mkPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(folderName) + '/';
+            return fetch(writeBase + mkPath, { method: 'MKCOL', headers: authHeaders })
+              .then(function(r2) {
+                if (r2.status === 201 || r2.status === 405) copied++;
+                return copyNext();
+              })
+              .catch(function() { return copyNext(); });
+          }
+        }
+        return copyNext().then(function() {
+          updateStep(s, copied + '/' + children.length + ' sous-dossiers crees', copied > 0 ? 'ok' : 'fail');
+          return { ok: copied > 0, copied: copied };
+        });
+      })
+      .catch(function() {
+        // Cette URL a echoue, essayer la suivante
+        return tryNextUrl();
+      });
+  }
+  return tryNextUrl();
+}
+
+// Fallback : lister le template via HTTP GET (index) et creer les sous-dossiers via MKCOL
+function mkcolFromTemplate(writeBase, destFolder, stepEl, authHeaders) {
+  var httpBase = 'http://' + ip;
+  var templatePath = '/' + templateFolder.split('/').map(encodeURIComponent).join('/') + '/';
+  var s2 = addStep('Listing template via HTTP...', 'wait');
+
+  return fetch(httpBase + templatePath)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function(html) {
+      // Parser la page d'index du NAS pour extraire les noms de sous-dossiers
+      var children = [];
+      // Pattern : <a href="...">NOM/</a> — le listing QNAP affiche les noms des dossiers
+      var linkPattern = /<a[^>]+href="([^"]*)"[^>]*>([^<]+)<\/a>/gi;
+      var m;
+      while ((m = linkPattern.exec(html)) !== null) {
+        var linkText = m[2].trim();
+        // Ignorer les liens de navigation (répertoire parent, etc.)
+        if (linkText === '[répertoire parent]' || linkText === '[parent directory]' ||
+            linkText === '../' || linkText === '..' || linkText === '.') continue;
+        var name = linkText.replace(/\/$/, '');
+        if (name) children.push(name);
+      }
+      updateStep(s2, 'Template : ' + children.length + ' sous-dossiers trouves', children.length > 0 ? 'ok' : 'fail');
+
+      if (children.length === 0) {
+        updateStep(stepEl, 'Modele vide ou introuvable', 'fail');
+        return { ok: false, copied: 0 };
+      }
+
+      // Creer chaque sous-dossier via MKCOL
+      var created = 0; var idx = 0;
+      function mkNext() {
+        if (idx >= children.length) return Promise.resolve();
+        var name = children[idx]; idx++;
+        var mkPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(name) + '/';
+        return fetch(writeBase + mkPath, { method: 'MKCOL', headers: authHeaders })
+          .then(function(r) {
+            if (r.status === 201 || r.status === 405) created++;
+            return mkNext();
+          })
+          .catch(function() { return mkNext(); });
+      }
+      return mkNext().then(function() {
+        updateStep(stepEl, created + '/' + children.length + ' sous-dossiers crees', created > 0 ? 'ok' : 'fail');
+        return { ok: created > 0, copied: created };
+      });
+    })
+    .catch(function(e) {
+      updateStep(stepEl, 'Echec copie modele: ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
+
+// Methode 2 : QTS File Station copy API
+function copyTemplateQTS(qtsBaseUrl, destFolder) {
+  if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
+  var s = addStep('QTS copie modele...', 'wait');
+  // Login QTS
+  var loginUrl = qtsBaseUrl + '/cgi-bin/authLogin.cgi?user=' + encodeURIComponent(user)
+               + '&pwd=' + encodeURIComponent(btoa(pass));
+  return fetch(loginUrl, { mode: 'cors', credentials: 'include' })
+    .then(function(r) { return r.text(); })
+    .then(function(xml) {
+      var m = xml.match(/<authSid><!\[CDATA\[(.*?)\]\]><\/authSid>/) ||
+              xml.match(/<authSid>(.*?)<\/authSid>/);
+      if (!m || !m[1] || m[1].length < 5) throw new Error('Auth echouee');
+      var sid = m[1];
+      // Copier via File Station copy
+      var srcPath = '/' + templateFolder;
+      var dstPath = '/' + destFolder;
+      var copyUrl = qtsBaseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=copy&sid=' + encodeURIComponent(sid);
+      return fetch(copyUrl, {
+        method: 'POST', mode: 'cors', credentials: 'include',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'source_file=' + encodeURIComponent(srcPath) +
+              '&dest_folder=' + encodeURIComponent(dstPath) +
+              '&mode=1&dup=1'
+      })
+      .then(function(r) { return r.text(); })
+      .then(function(t) {
+        try {
+          var j = JSON.parse(t);
+          if (j && (j.status === 1 || j.success)) {
+            updateStep(s, 'QTS copie modele : OK', 'ok');
+            return { ok: true, copied: 1 };
+          }
+        } catch(e) {}
+        // Fallback : copier les sous-dossiers un par un
+        // Lister le contenu du template
+        var listUrl = qtsBaseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=get_list&sid=' + encodeURIComponent(sid)
+          + '&path=' + encodeURIComponent(srcPath) + '&limit=100&start=0';
+        return fetch(listUrl, { mode: 'cors', credentials: 'include' })
+          .then(function(r2) { return r2.text(); })
+          .then(function(t2) {
+            var items = [];
+            try {
+              var data = JSON.parse(t2);
+              if (data && data.datas) items = data.datas;
+            } catch(e) {}
+            if (items.length === 0) {
+              updateStep(s, 'Modele vide ou erreur listing', 'ok');
+              return { ok: true, copied: 0 };
+            }
+            var copied = 0; var idx = 0;
+            function cpNext() {
+              if (idx >= items.length) return Promise.resolve();
+              var item = items[idx]; idx++;
+              var itemPath = srcPath + '/' + item.filename;
+              var cpUrl = qtsBaseUrl + '/cgi-bin/filemanager/utilRequest.cgi?func=copy&sid=' + encodeURIComponent(sid);
+              return fetch(cpUrl, {
+                method: 'POST', mode: 'cors', credentials: 'include',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'source_file=' + encodeURIComponent(itemPath) +
+                      '&dest_folder=' + encodeURIComponent(dstPath) +
+                      '&mode=1'
+              })
+              .then(function(r3) { return r3.text(); })
+              .then(function(t3) {
+                try { var j3 = JSON.parse(t3); if (j3 && (j3.status === 1 || j3.success)) copied++; } catch(e) {}
+                return cpNext();
+              })
+              .catch(function() { return cpNext(); });
+            }
+            return cpNext().then(function() {
+              updateStep(s, 'QTS copie : ' + copied + '/' + items.length + ' elements', 'ok');
+              return { ok: copied > 0, copied: copied };
+            });
+          });
+      });
+    })
+    .catch(function(e) {
+      updateStep(s, 'QTS copie modele : echec — ' + e.message, 'fail');
+      return { ok: false, error: e.message };
+    });
+}
+
+// Orchestrer les tentatives de copie
+function copyTemplate(webdavBase, destFolder) {
+  if (!templateFolder) return Promise.resolve({ ok: true, skipped: true });
+  return copyTemplateWebDAV(webdavBase, destFolder).then(function(r) {
+    if (r.ok) return r;
+    // Fallback QTS HTTPS
+    return copyTemplateQTS('https://' + ip, destFolder).then(function(r2) {
+      if (r2.ok) return r2;
+      // Fallback QTS HTTP 8080
+      return copyTemplateQTS('http://' + ip + ':8080', destFolder);
+    });
+  });
+}
+
+// ── Creation des sous-dossiers configures ──
+function createSubfolders(webdavBase, destFolder) {
+  if (!subfolders || subfolders.length === 0) return Promise.resolve();
+  var s = addStep('Creation des sous-dossiers...', 'wait');
+  var created = 0;
+  var idx = 0;
+  function nextSub() {
+    if (idx >= subfolders.length) return Promise.resolve();
+    var name = subfolders[idx]; idx++;
+    var subPath = '/' + destFolder.split('/').map(encodeURIComponent).join('/') + '/' + encodeURIComponent(name);
+    var headers = {};
+    if (user) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+    return fetch(webdavBase + subPath, { method: 'MKCOL', headers: headers })
+      .then(function(r) {
+        if (r.status === 201) created++;
+        // 405 = deja existe, on continue
+        return nextSub();
+      })
+      .catch(function() { return nextSub(); });
+  }
+  return nextSub().then(function() {
+    updateStep(s, 'Sous-dossiers : ' + created + '/' + subfolders.length + ' crees', 'ok');
+  });
+}
+
+// ── Demarrage : essayer plusieurs methodes ──
+function start() {
+  if (!ip || !user || !folders) {
+    statusEl.textContent = 'Parametres manquants (ip, user, folders)';
+    return;
+  }
+
+  addStep('Dest: ' + folders, 'ok');
+  addStep('Template: ' + (templateFolder || '(vide)'), templateFolder ? 'ok' : 'fail');
+  if (subfolders.length) addStep('Sous-dossiers: ' + subfolders.join(', '), 'ok');
+  var parts = folders.split('/').filter(function(p) { return p; });
+  statusEl.textContent = 'Tentative de creation du dossier...';
+
+  // Essai 1 : WebDAV HTTP (port 5005)
+  tryWebDAV('http://' + ip + ':' + port, parts)
+    .then(function(r1) {
+      if (r1.ok) {
+        statusEl.textContent = r1.created > 0
+          ? 'Dossier cree avec succes ! (' + r1.created + ' dossier(s))'
+          : 'Le dossier existe deja sur le NAS';
+        statusEl.style.color = '#4ecdc4';
+        // Copier le modele si disponible
+        return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
+          return createSubfolders('http://' + ip + ':' + port, folders);
+        }).then(function() {
+          notifyParent(true, statusEl.textContent);
+          showPath();
+          setTimeout(function() { try { window.close(); } catch(e) {} }, 8000);
+        });
+      }
+      // Essai 2 : QTS API HTTPS (port 443)
+      return tryQtsApi('https://' + ip, parts).then(function(r2) {
+        if (r2.ok) {
+          statusEl.textContent = r2.created > 0
+            ? 'Dossier cree avec succes ! (' + r2.created + ' dossier(s))'
+            : 'Le dossier existe deja sur le NAS';
+          statusEl.style.color = '#4ecdc4';
+          // Copier le modele via QTS
+          return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
+            notifyParent(true, statusEl.textContent);
+            showPath();
+            setTimeout(function() { try { window.close(); } catch(e) {} }, 8000);
+          });
+        }
+        // Essai 3 : QTS API HTTP (port 8080)
+        return tryQtsApi('http://' + ip + ':8080', parts).then(function(r3) {
+          if (r3.ok) {
+            statusEl.textContent = r3.created > 0
+              ? 'Dossier cree avec succes ! (' + r3.created + ' dossier(s))'
+              : 'Le dossier existe deja sur le NAS';
+            statusEl.style.color = '#4ecdc4';
+            // Copier le modele via QTS
+            return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
+              notifyParent(true, statusEl.textContent);
+              showPath();
+              setTimeout(function() { try { window.close(); } catch(e) {} }, 8000);
+            });
+          }
+          // Aucune methode n'a fonctionne
+          statusEl.innerHTML = 'Impossible de creer le dossier automatiquement.<br>' +
+            '<span style="font-size:0.78rem;color:var(--text-3)">Verifiez que vous etes sur le reseau local et que le NAS est allume.</span>';
+          statusEl.style.color = '#e74c3c';
+          addStep('Creez le dossier manuellement :', 'fail');
+          showPath();
+          notifyParent(false, 'Toutes les methodes ont echoue');
+        });
+      });
+    });
+}
+
+start();
+</script>
+</body>
+</html>

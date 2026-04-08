@@ -5044,6 +5044,8 @@ function _openLinkedProjet(){
           if(p.client_id !== undefined && p.clientId === undefined) p.clientId = p.client_id;
           return p;
         });
+        if(typeof populateAnneeFilter==='function') populateAnneeFilter();
+        if(typeof renderProjets==='function') renderProjets();
         openProjetDetail(pid);
       }).catch(function(){});
     }, 400);
