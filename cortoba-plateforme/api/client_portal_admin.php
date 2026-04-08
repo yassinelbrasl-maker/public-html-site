@@ -255,7 +255,7 @@ function cpaClientValidations($user) {
     $sql = "SELECT v.*, d.titre AS doc_titre, p.code AS projet_code, p.nom AS projet_nom
             FROM CA_client_validations v
             LEFT JOIN CA_client_documents d ON d.id = v.document_id
-            LEFT JOIN CA_projets p ON p.id = v.projet_id WHERE 1=1";
+            LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = v.projet_id WHERE 1=1";
     $params = [];
 
     if ($clientId) { $sql .= " AND v.client_id = ?"; $params[] = $clientId; }
