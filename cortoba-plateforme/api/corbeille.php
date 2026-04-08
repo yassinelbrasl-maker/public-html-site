@@ -21,17 +21,20 @@ try {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 } catch (\Exception $e) { /* ignore */ }
 
-$method = $_SERVER['REQUEST_METHOD'];
-$id     = $_GET['id'] ?? null;
-$action = $_GET['action'] ?? null;
-$user   = requireAuth();
+// Routing uniquement si le fichier est appelé directement (pas via require_once)
+if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'corbeille.php') {
+    $method = $_SERVER['REQUEST_METHOD'];
+    $id     = $_GET['id'] ?? null;
+    $action = $_GET['action'] ?? null;
+    $user   = requireAuth();
 
-// ── Routing ─────────────────────────────────────────────────────────────────
-if ($method === 'GET')                             getAll();
-elseif ($method === 'POST' && $action === 'restore') restoreItem($id, $user);
-elseif ($method === 'POST' && $action === 'purge')   purgeOld($user);
-elseif ($method === 'DELETE')                        permanentDelete($id, $user);
-else jsonError('Méthode non supportée', 405);
+    // ── Routing ─────────────────────────────────────────────────────────────────
+    if ($method === 'GET')                             getAll();
+    elseif ($method === 'POST' && $action === 'restore') restoreItem($id, $user);
+    elseif ($method === 'POST' && $action === 'purge')   purgeOld($user);
+    elseif ($method === 'DELETE')                        permanentDelete($id, $user);
+    else jsonError('Méthode non supportée', 405);
+}
 
 // ── LIST : tous les éléments de la corbeille ────────────────────────────────
 function getAll() {
