@@ -386,6 +386,8 @@ function start() {
         statusEl.style.color = '#4ecdc4';
         // Copier le modele si disponible
         return copyTemplate('http://' + ip + ':' + port, folders).then(function() {
+          return createSubfolders('http://' + ip + ':' + port, folders);
+        }).then(function() {
           notifyParent(true, statusEl.textContent);
           showPath();
           setTimeout(function() { try { window.close(); } catch(e) {} }, 4000);
