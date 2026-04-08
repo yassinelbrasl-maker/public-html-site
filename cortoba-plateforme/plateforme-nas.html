@@ -3830,6 +3830,41 @@
           </div>
         </div>
       </div>
+      <!-- ── Demande de remboursement ── -->
+      <div style="margin-top:1.2rem;padding:0.9rem 1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+        <label style="display:flex;align-items:center;gap:0.8rem;cursor:pointer">
+          <div class="dep-switch" id="dep-remb-switch-wrap">
+            <input type="checkbox" id="dep-remboursement-toggle" onchange="toggleRemboursementSection()" style="display:none">
+            <div class="dep-switch-track"><div class="dep-switch-thumb"></div></div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:0.85rem;color:var(--text);font-weight:500">Demander un remboursement</div>
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:2px">Achat personnel pour le bureau — un administrateur doit valider le remboursement</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- ── Section statut remboursement (visible par les admins sur les dépenses existantes) ── -->
+      <div id="dep-remb-admin-section" style="display:none;margin-top:1rem;padding:0.9rem 1rem;background:rgba(200,169,110,0.06);border:1px solid var(--border);border-radius:6px">
+        <div style="font-size:0.78rem;font-weight:500;color:var(--accent);margin-bottom:0.6rem">Gestion du remboursement</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Statut</label>
+            <select id="dep-remb-statut" class="form-select">
+              <option value="demande">En attente</option>
+              <option value="approuve">Approuvé</option>
+              <option value="refuse">Refusé</option>
+              <option value="rembourse">Remboursé</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Remboursé par</label>
+            <select id="dep-rembourse-par" class="form-select">
+              <option value="">— Sélectionner —</option>
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-depense')">Annuler</button>
