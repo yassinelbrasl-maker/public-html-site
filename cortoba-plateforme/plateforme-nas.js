@@ -6441,11 +6441,33 @@ function toggleMembreModuleAccess(membreId, moduleId) {
 }
 window.toggleMembreModuleAccess = toggleMembreModuleAccess;
 
+function _toggleSectionModules(membreId, sectionIdx) {
+  var membres = getMembres();
+  var m = membres.find(function(x){ return x.id === membreId; });
+  if (!m) return;
+  if (!Array.isArray(m.modules)) m.modules = [];
+  var sec = MODULES_PLATEFORME_SECTIONS[sectionIdx];
+  if (!sec) return;
+  // Si tous les modules de la section sont déjà cochés → tout décocher, sinon tout cocher
+  var allOn = sec.modules.every(function(mod){ return m.modules.indexOf(mod.id) !== -1; });
+  sec.modules.forEach(function(mod){
+    var idx = m.modules.indexOf(mod.id);
+    if (allOn) { if (idx !== -1) m.modules.splice(idx, 1); }
+    else       { if (idx === -1) m.modules.push(mod.id); }
+  });
+  saveMembresData(membres);
+  renderEquipeAccesTable();
+  showToast(allOn ? 'Section désactivée' : 'Section activée', allOn ? 'info' : 'success');
+}
+window._toggleSectionModules = _toggleSectionModules;
+
 function renderEquipeAccesTable() {
   var membres = getMembres();
   var thead = document.getElementById('equipe-acces-thead');
   var tbody = document.getElementById('equipe-acces-tbody');
   if (!thead || !tbody) return;
+
+  var colCount = 2 + membres.length; // Module + Admin + membres
 
   // En-tête : Module | Admin | Membre1 | Membre2 ...
   thead.innerHTML = '<tr>'
@@ -6457,23 +6479,50 @@ function renderEquipeAccesTable() {
       }).join('')
     + '</tr>';
 
-  // Corps : une ligne par module — cellules cliquables pour toggler l'accès
-  tbody.innerHTML = MODULES_PLATEFORME.map(function(mod) {
-    return '<tr>'
-      + '<td style="padding:0.4rem 0.7rem;font-size:0.78rem;color:var(--text-2);border-bottom:1px solid rgba(255,255,255,0.04)">' + mod.label + '</td>'
-      + '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="color:var(--accent);font-size:0.85rem">✓</span></td>'
+  // Corps : groupé par section avec en-tête de section
+  var rows = '';
+  MODULES_PLATEFORME_SECTIONS.forEach(function(sec, secIdx) {
+    // Ligne en-tête de section
+    rows += '<tr>'
+      + '<td colspan="2" style="padding:0.55rem 0.7rem;font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.12em;border-bottom:1px solid var(--border);background:var(--bg-2)">'
+      + escHtml(sec.section) + ' <span style="font-weight:400;color:var(--text-3);font-size:0.65rem">(' + sec.modules.length + ')</span></td>'
       + membres.map(function(m){
-          var ok = Array.isArray(m.modules) && m.modules.indexOf(mod.id) !== -1;
-          return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;user-select:none" '
-            + 'onclick="toggleMembreModuleAccess(\'' + m.id + '\',\'' + mod.id + '\')" '
-            + 'title="Cliquer pour ' + (ok ? 'retirer' : 'accorder') + ' l\'accès">'
-            + (ok
-              ? '<span style="color:var(--green);font-size:0.85rem">✓</span>'
-              : '<span style="color:rgba(255,255,255,0.12);font-size:0.85rem">—</span>')
+          // Checkbox section : cocher/décocher tout le groupe
+          var mods = m.modules || [];
+          var countOn = sec.modules.filter(function(mod){ return mods.indexOf(mod.id) !== -1; }).length;
+          var allOn = countOn === sec.modules.length;
+          var someOn = countOn > 0 && !allOn;
+          return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid var(--border);background:var(--bg-2);cursor:pointer;user-select:none" '
+            + 'onclick="_toggleSectionModules(\'' + m.id + '\',' + secIdx + ')" '
+            + 'title="' + (allOn ? 'Retirer toute la section' : 'Accorder toute la section') + '">'
+            + (allOn
+              ? '<span style="color:var(--green);font-size:0.8rem;font-weight:700">✓</span>'
+              : someOn
+                ? '<span style="color:var(--yellow, #e2b93d);font-size:0.8rem">◐</span>'
+                : '<span style="color:rgba(255,255,255,0.12);font-size:0.8rem">—</span>')
             + '</td>';
         }).join('')
       + '</tr>';
-  }).join('');
+
+    // Lignes modules de cette section
+    sec.modules.forEach(function(mod) {
+      rows += '<tr>'
+        + '<td style="padding:0.4rem 0.7rem 0.4rem 1.4rem;font-size:0.78rem;color:var(--text-2);border-bottom:1px solid rgba(255,255,255,0.04)">' + escHtml(mod.label) + '</td>'
+        + '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="color:var(--accent);font-size:0.85rem">✓</span></td>'
+        + membres.map(function(m){
+            var ok = Array.isArray(m.modules) && m.modules.indexOf(mod.id) !== -1;
+            return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;user-select:none" '
+              + 'onclick="toggleMembreModuleAccess(\'' + m.id + '\',\'' + mod.id + '\')" '
+              + 'title="Cliquer pour ' + (ok ? 'retirer' : 'accorder') + ' l\'accès">'
+              + (ok
+                ? '<span style="color:var(--green);font-size:0.85rem">✓</span>'
+                : '<span style="color:rgba(255,255,255,0.12);font-size:0.85rem">—</span>')
+              + '</td>';
+          }).join('')
+        + '</tr>';
+    });
+  });
+  tbody.innerHTML = rows;
 }
 
 // ── Modal membre : ouvrir / éditer ──
