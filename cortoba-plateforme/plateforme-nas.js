@@ -5341,7 +5341,7 @@ document.addEventListener('DOMContentLoaded',function(){
         if (appEl)       appEl.style.display       = 'block';
         applyModuleAccess();
         loadModulesFromAPI();
-        loadData().then(function(){ renderAll(); showPage(_getStartPage()); refreshNotifBadge(); });
+        loadData().then(function(){ renderAll(); showPage(_getStartPage()); _openLinkedProjet(); refreshNotifBadge(); });
       })
       .catch(function(){
         // Token invalide ou API inaccessible → retour au login sans bloquer
