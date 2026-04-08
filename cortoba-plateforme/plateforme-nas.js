@@ -2516,35 +2516,37 @@ window.copyNasPathFromInput = copyNasPathFromInput;
 function applyNasPath() { saveNasPath(); }
 
 // ── NAS folder button for project detail ──
-function _buildNasPath(p) {
+function _buildNasPaths(p) {
   var cfg = getNasConfig();
   var ip = cfg.local || '192.168.1.165';
+  var wdPort = cfg.webdavPort || '5005';
   var annee = p.annee || new Date().getFullYear();
   var code = p.code || '';
   var client = p.client || p.nom || '';
   var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-  return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+  var uncPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+  var webdavUrl = 'http://' + ip + ':' + wdPort + '/Public/CAS_PROJETS/' + annee + '/' + encodeURIComponent(folderName) + '/';
+  return { unc: uncPath, webdav: webdavUrl };
 }
 function buildNasFolderButton(p) {
-  var nasPath = _buildNasPath(p);
-  // Convertir UNC → file URL : \\ip\path → file://///ip/path
-  var fileUrl = 'file://///' + nasPath.substring(2).replace(/\\/g, '/');
+  var paths = _buildNasPaths(p);
   var btnStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:0.4rem;text-decoration:none';
-  return '<a href="' + esc(fileUrl) + '" data-nas-path="' + esc(nasPath) + '" onclick="openNasFolder(event,this)" style="' + btnStyle + '" title="' + esc(nasPath) + '">' +
+  var copyStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-3);border-radius:5px;padding:0.45rem 0.6rem;font-size:0.78rem;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center';
+  return '<a href="' + esc(paths.webdav) + '" target="_blank" style="' + btnStyle + '" title="Ouvrir dans le navigateur">' +
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-    ' Dossier NAS</a>';
+    ' Dossier NAS</a>' +
+    '<button onclick="copyNasUncPath(this)" data-unc="' + esc(paths.unc) + '" style="' + copyStyle + '" title="Copier le chemin réseau">' +
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
 }
-function openNasFolder(e, el) {
-  var uncPath = el.getAttribute('data-nas-path');
-  // Copier le chemin dans le presse-papier en parallèle
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(uncPath).catch(function(){});
-  }
-  // Laisser le navigateur tenter d'ouvrir le lien file://
-  // Si ça échoue (bloqué par le navigateur), afficher un toast avec le chemin
-  setTimeout(function() {
-    showToast('Chemin copié : ' + uncPath + ' — Ouvrez l\'Explorateur (Win+E) et collez (Ctrl+V) dans la barre d\'adresse', 'success');
-  }, 300);
+function copyNasUncPath(btn) {
+  var unc = btn.getAttribute('data-unc');
+  navigator.clipboard.writeText(unc).then(function() {
+    showToast('Chemin copié : ' + unc, 'success');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+    setTimeout(function() {
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    }, 2000);
+  }).catch(function() { showToast(unc, 'success'); });
 }
 
 function openProjetDetail(id){
