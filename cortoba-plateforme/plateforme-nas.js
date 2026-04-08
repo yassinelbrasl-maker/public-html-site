@@ -16955,3 +16955,92 @@ function renderJournalMembres(page) {
     document.getElementById('journal-membres-empty').textContent = 'Erreur : ' + (e.message || e);
   });
 }
+
+// ═══════════════════════════════════════════════════════════
+//  CORBEILLE — Éléments supprimés
+// ═══════════════════════════════════════════════════════════
+
+var _tableLabels = {
+  'CA_clients': 'Client', 'CA_projets': 'Projet', 'CA_devis': 'Devis',
+  'CA_factures': 'Facture', 'CA_depenses': 'Dépense', 'CA_taches': 'Mission/Tâche',
+  'CA_leave_requests': 'Congé', 'CA_tache_livrables': 'Livrable',
+  'CA_flotte_vehicules': 'Véhicule', 'CA_flotte_reservations': 'Réservation',
+  'CA_flotte_attributions': 'Attribution', 'CA_flotte_kilometres': 'Kilométrage',
+  'CA_flotte_carburant': 'Carburant', 'CA_flotte_entretien': 'Entretien',
+  'CA_flotte_sinistres': 'Sinistre', 'CA_flotte_assurances': 'Assurance',
+  'CA_flotte_controles': 'Contrôle technique', 'CA_flotte_permis': 'Permis',
+  'CA_flotte_couts': 'Coût'
+};
+
+function renderCorbeillePage() {
+  var wrap = document.getElementById('corbeille-wrap');
+  if (!wrap) return;
+  apiFetch('api/corbeille.php').then(function(r) {
+    var list = r.data || [];
+    if (!list.length) {
+      wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem;text-align:center;padding:2rem">La corbeille est vide.</div>';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">';
+    html += '<thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">';
+    html += '<th style="padding:0.5rem 0.4rem">Type</th><th>Libellé</th><th>Supprimé par</th><th>Date</th><th>Expiration</th><th></th>';
+    html += '</tr></thead><tbody>';
+    var now = new Date();
+    list.forEach(function(item) {
+      var typeLabel = _tableLabels[item.table_source] || item.table_source;
+      var deletedAt = new Date(item.deleted_at);
+      var expiresAt = new Date(deletedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+      var daysLeft = Math.max(0, Math.ceil((expiresAt - now) / 86400000));
+      var daysColor = daysLeft <= 7 ? '#c0392b' : daysLeft <= 14 ? '#d18e1e' : 'var(--text-3)';
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">';
+      html += '<td style="padding:0.5rem 0.4rem"><span class="badge badge-blue" style="font-size:0.68rem">' + escHtml(typeLabel) + '</span></td>';
+      html += '<td style="font-weight:500">' + escHtml(item.label || item.item_id) + '</td>';
+      html += '<td style="color:var(--text-3)">' + escHtml(item.deleted_by || '—') + '</td>';
+      html += '<td style="color:var(--text-3)">' + fmtDate(item.deleted_at) + '</td>';
+      html += '<td><span style="color:' + daysColor + ';font-weight:600">' + daysLeft + 'j</span></td>';
+      html += '<td style="text-align:right;white-space:nowrap">';
+      html += '<button class="btn btn-sm" onclick="restoreCorbeille(\'' + item.id + '\')" style="color:var(--green);font-size:0.72rem" title="Restaurer">&#8617; Restaurer</button> ';
+      html += '<button class="btn btn-sm" onclick="permanentDeleteCorbeille(\'' + item.id + '\')" style="color:#e07070;font-size:0.72rem" title="Supprimer définitivement">&#10005;</button>';
+      html += '</td></tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }).catch(function(e) {
+    wrap.innerHTML = '<div style="color:var(--red);padding:1rem">Erreur : ' + escHtml(e.message) + '</div>';
+  });
+}
+
+function restoreCorbeille(id) {
+  if (!confirm('Restaurer cet élément ?')) return;
+  apiFetch('api/corbeille.php?action=restore&id=' + id, { method: 'POST', body: {} })
+    .then(function() {
+      showToast('Élément restauré');
+      renderCorbeillePage();
+    })
+    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+function permanentDeleteCorbeille(id) {
+  if (!confirm('Supprimer DÉFINITIVEMENT cet élément ?\n\nCette action est irréversible.')) return;
+  apiFetch('api/corbeille.php?id=' + id, { method: 'DELETE' })
+    .then(function() {
+      showToast('Supprimé définitivement');
+      renderCorbeillePage();
+    })
+    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+function purgeCorbeille() {
+  if (!confirm('Purger tous les éléments de plus de 30 jours ?')) return;
+  apiFetch('api/corbeille.php?action=purge', { method: 'POST', body: {} })
+    .then(function(r) {
+      var n = (r.data && r.data.purged) || 0;
+      showToast(n + ' élément(s) purgé(s)');
+      renderCorbeillePage();
+    })
+    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+window.renderCorbeillePage = renderCorbeillePage;
+window.restoreCorbeille = restoreCorbeille;
+window.permanentDeleteCorbeille = permanentDeleteCorbeille;
+window.purgeCorbeille = purgeCorbeille;
