@@ -6981,7 +6981,9 @@ function buildNasBridgeUrl(code, clientName, annee) {
   var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
   var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
 
-  var templateFolder = 'Public/CAS_PROJETS/' + annee + '/00-Dossier Type';
+  var tplName = getSetting('cortoba_nas_template_folder', '00-Dossier Type') || '00-Dossier Type';
+  var projRoot = getSetting('cortoba_nas_projets_root', '/Public/CAS_PROJETS').replace(/^\//, '');
+  var templateFolder = projRoot + '/' + annee + '/' + tplName;
 
   var hash = 'ip=' + encodeURIComponent(ip)
     + '&user=' + encodeURIComponent(user)
