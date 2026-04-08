@@ -456,7 +456,7 @@ function cpaAccessLog($user) {
     $clients = $db->query("
         SELECT DISTINCT c.id, c.display_nom
         FROM CA_client_activity_log l
-        JOIN CA_clients c ON c.id = l.client_id
+        JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = l.client_id
         ORDER BY c.display_nom
     ")->fetchAll(PDO::FETCH_ASSOC);
 
