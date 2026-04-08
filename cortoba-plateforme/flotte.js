@@ -751,7 +751,7 @@ function _renderFlotteCoutsTable() {
   list.forEach(function(c) {
     h += '<tr><td>'+c.date_cout+'</td><td>'+c.marque+' '+c.modele+'</td><td>'+c.categorie+'</td>' +
       '<td>'+c.libelle+'</td><td>'+_flotteFmt(c.montant)+' TND</td>' +
-      '<td><button class="btn btn-sm" onclick="deleteFlotteCout(\''+c.id+'\')">&#128465;</button></td></tr>';
+      '<td>'+(canDelete() ? '<button class="btn btn-sm" onclick="deleteFlotteCout(\''+c.id+'\')" style="color:#e07070" title="Supprimer">&#10005;</button>' : '')+'</td></tr>';
   });
   tbody.innerHTML = h;
 }
