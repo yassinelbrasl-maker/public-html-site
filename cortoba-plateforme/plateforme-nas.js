@@ -16775,11 +16775,12 @@ function buildConformiteData(projets, nasFolders) {
         return;
       }
 
+      var codeBase2 = ncExtractCodeBase(code);
       var codeMatch2 = null;
       yearFolders.forEach(function(f) {
         if (matchedNasFolders[annee + '/' + f]) return;
-        var fCode = ncExtractCode(f);
-        if (fCode && fCode === code) codeMatch2 = f;
+        var fCodeBase = ncExtractCodeBase(ncExtractCode(f));
+        if (fCodeBase && codeBase2 && fCodeBase === codeBase2) codeMatch2 = f;
       });
       if (codeMatch2) {
         results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: codeMatch2, expected: expected });
