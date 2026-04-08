@@ -1010,11 +1010,11 @@ function saveClient() {
   } else {
     displayNom = nom + (prenom ? ' '+prenom : '');
   }
-  // Supprimer toutes les virgules des noms
-  displayNom = displayNom.replace(/,/g, '');
-  nom    = nom    ? nom.replace(/,/g, '')    : nom;
-  prenom = prenom ? prenom.replace(/,/g, '') : prenom;
-  raison = raison ? raison.replace(/,/g, '') : raison;
+  // Normaliser : supprimer virgules + forcer majuscules
+  displayNom = displayNom.replace(/,/g, '').toUpperCase();
+  nom    = nom    ? nom.replace(/,/g, '').toUpperCase()    : nom;
+  prenom = prenom ? prenom.replace(/,/g, '').toUpperCase() : prenom;
+  raison = raison ? raison.replace(/,/g, '').toUpperCase() : raison;
 
   var numClient  = _editingClientId
     ? (clients.find(function(c){ return c.id===_editingClientId; })||{}).numClient || clients.length + 1
