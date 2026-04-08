@@ -205,13 +205,45 @@ function cpLogActivity($clientId, $accountId, $action, $details = null) {
 /** Retourne les IDs de projets accessibles par ce client */
 function cpGetClientProjectIds($clientId) {
     $db = getDB();
-    $stmt = $db->prepare("
-        SELECT p.id FROM CA_projets p
-        JOIN CA_clients c ON p.client_code = c.code COLLATE utf8mb4_unicode_ci
-        WHERE c.id = ?
-    ");
+
+    // Récupérer les infos du client
+    $stmt = $db->prepare("SELECT code, display_nom FROM CA_clients WHERE id = ?");
     $stmt->execute([$clientId]);
-    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $client = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$client) return [];
+
+    $code = trim($client['code'] ?? '');
+    $displayNom = trim($client['display_nom'] ?? '');
+
+    // Stratégie 1 : match exact par client_code = code
+    if ($code !== '') {
+        $stmt = $db->prepare("SELECT p.id FROM CA_projets p WHERE p.client_code = ? COLLATE utf8mb4_unicode_ci");
+        $stmt->execute([$code]);
+        $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (!empty($ids)) return $ids;
+
+        // Stratégie 2 : le code client est le 3ème segment du code projet (ex: code projet=01_26_GLM → client_code=GLM)
+        $stmt = $db->prepare("SELECT p.id FROM CA_projets p WHERE SUBSTRING_INDEX(p.code, '_', -1) = ? COLLATE utf8mb4_unicode_ci");
+        $stmt->execute([$code]);
+        $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (!empty($ids)) return $ids;
+    }
+
+    // Stratégie 3 : match par nom du client
+    if ($displayNom !== '') {
+        $stmt = $db->prepare("SELECT p.id FROM CA_projets p WHERE p.client = ? COLLATE utf8mb4_unicode_ci");
+        $stmt->execute([$displayNom]);
+        $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (!empty($ids)) return $ids;
+
+        // Stratégie 4 : match partiel par nom
+        $stmt = $db->prepare("SELECT p.id FROM CA_projets p WHERE p.client LIKE ? COLLATE utf8mb4_unicode_ci");
+        $stmt->execute(['%' . $displayNom . '%']);
+        $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (!empty($ids)) return $ids;
+    }
+
+    return [];
 }
 
 /** Retourne le code client depuis client_id */
