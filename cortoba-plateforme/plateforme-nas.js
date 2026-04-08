@@ -16792,7 +16792,8 @@ function renderPortailJournal(page) {
   var url = 'api/client_portal_admin.php?action=access_log&page=' + page;
   if (clientId) url += '&client_id=' + encodeURIComponent(clientId);
 
-  apiFetch(url).then(function(r) {
+  apiFetch(url).then(function(res) {
+    var r = res.data || res;
     var entries = r.entries || [];
     var tbody = document.getElementById('journal-acces-tbody');
     var emptyEl = document.getElementById('journal-acces-empty');
