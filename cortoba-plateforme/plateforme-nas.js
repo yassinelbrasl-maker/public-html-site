@@ -4761,6 +4761,8 @@ function doLogin(){
 function doLogout(){
   sessionStorage.removeItem('cortoba_token');
   sessionStorage.removeItem('cortoba_session');
+  _clActiveColumns = null;
+  _pjActiveColumns = null;
   applyModuleAccess(); // reset sidebar
   var ls = document.getElementById('login-screen');
   var ap = document.getElementById('app');
