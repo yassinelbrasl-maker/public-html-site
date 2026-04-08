@@ -5285,6 +5285,10 @@
         <select id="nc-filter-annee" class="form-select" style="width:auto;min-width:110px;font-size:0.78rem" onchange="applyNcFilters()">
           <option value="">Toutes les années</option>
         </select>
+        <select id="nc-compare-mode" class="form-select" style="width:auto;min-width:160px;font-size:0.78rem" onchange="ncChangeCompareMode()">
+          <option value="nom">Comparer par nom</option>
+          <option value="code">Comparer par code</option>
+        </select>
         <button class="btn btn-sm nc-filter active" data-filter="all" onclick="filterNcTable('all',this)">Tous</button>
         <button class="btn btn-sm nc-filter" data-filter="missing_nas" onclick="filterNcTable('missing_nas',this)" style="color:#e07b72">Dossier absent NAS</button>
         <button class="btn btn-sm nc-filter" data-filter="missing_plat" onclick="filterNcTable('missing_plat',this)" style="color:#d4a54a">Absent plateforme</button>
