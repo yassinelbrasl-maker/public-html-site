@@ -4738,6 +4738,7 @@ function doLogin(){
       loadData().then(function(){
         renderAll();
         showPage(_getStartPage());
+        _openLinkedProjet();
         refreshNotifBadge();
         setTimeout(function(){ try { if (typeof checkDeadlinesPopup === 'function') checkDeadlinesPopup(); } catch(e) {} }, 1200);
       });
