@@ -6940,6 +6940,53 @@ function loadNasParams() {
   if (tplEl) tplEl.value = getSetting('cortoba_nas_template_folder', '00-Dossier Type');
 }
 
+// ── Sous-dossiers par défaut NAS ──
+function _getNasSubfolders() {
+  var val = getSetting('cortoba_nas_subfolders', []);
+  return Array.isArray(val) ? val : [];
+}
+function renderNasSubfolders() {
+  var list = document.getElementById('param-nas-subfolders-list');
+  if (!list) return;
+  var subs = _getNasSubfolders();
+  if (subs.length === 0) {
+    list.innerHTML = '<span style="font-size:0.75rem;color:var(--text-3);font-style:italic">Aucun sous-dossier configuré</span>';
+    return;
+  }
+  list.innerHTML = subs.map(function(s, i) {
+    return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;background:var(--bg-2);border-radius:5px;border:1px solid var(--border)">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+      '<span style="flex:1;font-size:0.8rem">' + s + '</span>' +
+      '<button class="btn btn-sm" onclick="removeNasSubfolder(' + i + ')" style="color:#e07070;padding:0.1rem 0.3rem;font-size:0.7rem" title="Supprimer">✕</button>' +
+      '</div>';
+  }).join('');
+}
+window.renderNasSubfolders = renderNasSubfolders;
+
+function addNasSubfolder() {
+  var input = document.getElementById('param-nas-subfolder-input');
+  if (!input) return;
+  var name = input.value.trim().replace(/[<>:"\/\\|?*]/g, '_');
+  if (!name) return;
+  var subs = _getNasSubfolders();
+  if (subs.indexOf(name) !== -1) { showToast('Ce sous-dossier existe déjà', 'error'); return; }
+  subs.push(name);
+  _settingsCache['cortoba_nas_subfolders'] = subs;
+  setLS('cortoba_nas_subfolders', subs);
+  input.value = '';
+  renderNasSubfolders();
+}
+window.addNasSubfolder = addNasSubfolder;
+
+function removeNasSubfolder(idx) {
+  var subs = _getNasSubfolders();
+  subs.splice(idx, 1);
+  _settingsCache['cortoba_nas_subfolders'] = subs;
+  setLS('cortoba_nas_subfolders', subs);
+  renderNasSubfolders();
+}
+window.removeNasSubfolder = removeNasSubfolder;
+
 // ── Sauvegarder config dossiers projets NAS ──
 function saveNasProjectConfig() {
   var fields = {
