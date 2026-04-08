@@ -155,7 +155,22 @@ function updateRow($cfg, $id, $user) {
 function removeRow($table, $id, $user) {
     if (!$id) { jsonError('ID requis'); }
     if (!isset($user['role']) || $user['role'] !== 'admin') { jsonError('Admin requis', 403); }
-    getDB()->prepare("DELETE FROM `$table` WHERE id=?")->execute(array($id));
+    $db = getDB();
+    // Récupérer un label significatif depuis la ligne
+    $stmt = $db->prepare("SELECT * FROM `$table` WHERE id = ?");
+    $stmt->execute(array($id));
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $label = '';
+    if ($row) {
+        foreach (array('numero', 'libelle', 'nom', 'objet', 'description') as $f) {
+            if (!empty($row[$f])) { $label = $row[$f]; break; }
+        }
+    }
+    if (!$label) { $label = $table . ' #' . substr($id, 0, 8); }
+    $userName = isset($user['name']) ? $user['name'] : 'unknown';
+    if (!moveToCorbeille($db, $table, $id, $label, $userName)) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(array('deleted' => $id));
 }
 
