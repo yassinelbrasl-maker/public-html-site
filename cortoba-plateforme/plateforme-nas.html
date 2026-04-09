@@ -159,17 +159,17 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           Charge de travail
         </button>
-        <button class="nav-item" onclick="showPage('facturation')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          Facturation
-          <span class="nav-badge" style="background:var(--red-bg);color:var(--red);border-color:rgba(224,123,114,0.25)">2</span>
-        </button>
         </div>
       </div>
 
       <div class="sidebar-section" data-section="finance">
         <div class="sidebar-label" onclick="toggleSidebarSection(this)"><svg class="sidebar-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Finance</div>
         <div class="sidebar-group">
+        <button class="nav-item" onclick="showPage('facturation')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Facturation & Paiements
+          <span class="nav-badge" id="creances-badge" style="display:none;background:var(--red-bg);color:var(--red);border-color:rgba(224,123,114,0.25)"></span>
+        </button>
         <button class="nav-item" onclick="showPage('bilans')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Bilans
