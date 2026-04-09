@@ -17130,6 +17130,70 @@ function ncRenamePlat(idx) {
     });
 }
 
+// Sync code : Plateforme → NAS (renommer le dossier NAS avec le code plateforme)
+function ncSyncCodeToNas(idx) {
+  var r = _ncData[idx]; if (!r || !r.projet || !r.nasFolder) return;
+  var codePlat = r.projet.code || '';
+  var codeNas = ncExtractCode(r.nasFolder);
+  if (!codePlat || !codeNas) return;
+
+  // Remplacer le code NAS par le code plateforme dans le nom du dossier
+  var parts = r.nasFolder.split('_');
+  if (parts.length >= 3) {
+    var platParts = codePlat.split('_');
+    if (platParts.length >= 3) {
+      parts[0] = platParts[0];
+      parts[1] = platParts[1];
+      parts[2] = platParts[2];
+    }
+  }
+  var newName = parts.join('_');
+  if (newName === r.nasFolder) { showToast('Les noms sont déjà identiques', 'success'); return; }
+
+  if (!confirm('Renommer le dossier NAS :\n\nCode « ' + codeNas + ' » → « ' + codePlat + ' »\n\n« ' + r.nasFolder + ' »\n→ « ' + newName + ' »')) return;
+
+  apiFetch('api/nas-rename.php', {
+    method: 'POST',
+    body: { annee: r.annee, oldName: r.nasFolder, newName: newName }
+  }).then(function(res) {
+    if (res.data && res.data.renamed) {
+      r.nasFolder = newName;
+      r.expected = ncExpectedFolder(r.projet);
+      if (newName === r.expected) r.type = 'ok';
+      showToast('Code NAS mis à jour → ' + codePlat, 'success');
+      renderConformiteResults();
+    } else {
+      showToast('Échec du renommage NAS', 'error');
+    }
+  }).catch(function(e) { showToast('Erreur : ' + (e.message || ''), 'error'); });
+}
+
+// Sync code : NAS → Plateforme (mettre le code NAS dans la fiche projet)
+function ncSyncCodeToPlat(idx) {
+  var r = _ncData[idx]; if (!r || !r.projet || !r.nasFolder) return;
+  var codeNas = ncExtractCode(r.nasFolder);
+  var codePlat = r.projet.code || '';
+  if (!codeNas || codeNas === codePlat.toUpperCase()) { showToast('Les codes sont déjà identiques', 'success'); return; }
+
+  if (!confirm('Modifier le code du projet sur la plateforme :\n\n« ' + codePlat + ' » → « ' + codeNas + ' »')) return;
+
+  apiFetch('api/projets.php?id=' + r.projet.id)
+    .then(function(res) {
+      var p = res.data;
+      p.code = codeNas;
+      return apiFetch('api/projets.php?id=' + r.projet.id, { method: 'PUT', body: p });
+    })
+    .then(function() {
+      r.projet.code = codeNas;
+      r.expected = ncExpectedFolder(r.projet);
+      if (r.nasFolder === r.expected) r.type = 'ok';
+      showToast('Code plateforme mis à jour → ' + codeNas, 'success');
+      renderConformiteResults();
+      loadData().then(function() { renderProjets(); });
+    })
+    .catch(function(e) { showToast('Erreur : ' + (e.message || ''), 'error'); });
+}
+
 // Appliquer toutes les actions (créer les dossiers manquants sur le NAS)
 function ncApplyAll() {
   var missingNas = _ncData.filter(function(r) { return r.type === 'missing_nas'; });
