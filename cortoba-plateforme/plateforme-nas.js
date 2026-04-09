@@ -11811,49 +11811,126 @@ function _daPopulateProjets(selectedProjetId, clientId) {
   });
 }
 
-// Remplit le select des clients en appliquant la recherche courante
+// ── Dropdown search client pour demandes admin ──
+var _daClientDropdownOpen = false;
+
 function _daPopulateClients(selectedClientId) {
   var cSel = document.getElementById('da-client');
   if (!cSel) return;
-  _daEnsureClientSearch();
-  var q = ((document.getElementById('da-client-search') || {}).value || '').trim().toLowerCase();
+  // Remplir le select caché pour compatibilité (saveDemandeAdmin lit da-client.value)
   cSel.innerHTML = '<option value="">-- Aucun --</option>';
-  var list = (getClients() || []).slice().sort(function(a, b) {
-    return String(a.display_nom || a.nom || '').localeCompare(String(b.display_nom || b.nom || ''), 'fr', { sensitivity: 'base' });
-  });
-  if (q) {
-    list = list.filter(function(c) {
-      var hay = ((c.code || '') + ' ' + (c.display_nom || '') + ' ' + (c.nom || '') + ' ' + (c.raison || '') + ' ' + (c.email || '') + ' ' + (c.tel || '')).toLowerCase();
-      return hay.indexOf(q) !== -1;
-    });
-  }
-  list.forEach(function(c) {
+  (getClients() || []).forEach(function(c) {
     var o = document.createElement('option');
     o.value = c.id;
     o.textContent = (c.code ? c.code + ' — ' : '') + (c.display_nom || c.nom || c.raison || '—');
     if (selectedClientId && c.id === selectedClientId) o.selected = true;
     cSel.appendChild(o);
   });
-  var info = document.getElementById('da-client-count');
-  if (info) info.textContent = list.length + ' client(s)';
+  // Mettre à jour l'input de recherche avec le nom du client sélectionné
+  var input = document.getElementById('da-client-search');
+  var clearBtn = document.getElementById('da-client-clear');
+  if (input) {
+    if (selectedClientId && cSel.selectedOptions[0] && cSel.selectedOptions[0].value) {
+      input.value = cSel.selectedOptions[0].textContent;
+      if (clearBtn) clearBtn.style.display = 'block';
+    } else {
+      input.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+  }
 }
 
-// Injecte (une seule fois) un input de recherche au-dessus du select client
-function _daEnsureClientSearch() {
-  if (document.getElementById('da-client-search')) return;
-  var cSel = document.getElementById('da-client');
-  if (!cSel) return;
-  var wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.3rem';
-  wrap.innerHTML =
-    '<input id="da-client-search" class="form-input" placeholder="Rechercher un client…" style="flex:1;font-size:0.8rem" />' +
-    '<span id="da-client-count" style="font-size:0.72rem;color:var(--text-3);white-space:nowrap"></span>';
-  cSel.parentNode.insertBefore(wrap, cSel);
-  document.getElementById('da-client-search').addEventListener('input', function() {
-    var current = cSel.value;
-    _daPopulateClients(current);
-  });
+function _daFilterClientDropdown() {
+  var input = document.getElementById('da-client-search');
+  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var clearBtn = document.getElementById('da-client-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  _daRenderClientDropdown(q);
+  _daShowClientDropdown();
 }
+
+function _daShowClientDropdown() {
+  var dd = document.getElementById('da-client-dropdown');
+  if (!dd) return;
+  dd.style.display = 'block';
+  _daClientDropdownOpen = true;
+  var q = ((document.getElementById('da-client-search') || {}).value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  _daRenderClientDropdown(q);
+}
+
+function _daHideClientDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('da-client-dropdown');
+    if (dd) dd.style.display = 'none';
+    _daClientDropdownOpen = false;
+  }, 200);
+}
+
+function _daRenderClientDropdown(q) {
+  var dd = document.getElementById('da-client-dropdown');
+  if (!dd) return;
+  var clients = (getClients() || []).slice().sort(function(a, b) {
+    return String(a.display_nom || a.nom || '').localeCompare(String(b.display_nom || b.nom || ''), 'fr', { sensitivity: 'base' });
+  });
+  var filtered = clients.filter(function(c) {
+    if (!q) return true;
+    var hay = ((c.code || '') + ' ' + (c.display_nom || '') + ' ' + (c.nom || '') + ' ' + (c.raison || '') + ' ' + (c.email || '') + ' ' + (c.tel || '')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return hay.indexOf(q) !== -1;
+  });
+
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucun client trouv\u00e9</div>';
+    return;
+  }
+
+  dd.innerHTML = filtered.map(function(c) {
+    var nom = c.display_nom || c.nom || c.raison || '';
+    var code = c.code || '';
+    return '<div class="da-client-dd-item" onmousedown="_daSelectClient(\'' + c.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'">' +
+      '<span style="color:var(--text-1)">' + nom + '</span>' +
+      (code ? ' <span style="color:var(--text-3);font-size:0.72rem">(' + code + ')</span>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function _daSelectClient(clientId) {
+  var sel = document.getElementById('da-client');
+  var input = document.getElementById('da-client-search');
+  var clearBtn = document.getElementById('da-client-clear');
+  sel.value = clientId;
+  var selectedOpt = sel.selectedOptions[0];
+  if (selectedOpt && clientId) {
+    input.value = selectedOpt.textContent;
+  } else {
+    input.value = '';
+  }
+  if (clearBtn) clearBtn.style.display = clientId ? 'block' : 'none';
+  _daHideClientDropdown();
+  _daOnClientChange();
+}
+
+function _daClearClientSearch() {
+  var input = document.getElementById('da-client-search');
+  var sel = document.getElementById('da-client');
+  var clearBtn = document.getElementById('da-client-clear');
+  input.value = '';
+  sel.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  input.focus();
+  _daShowClientDropdown();
+  _daOnClientChange();
+}
+
+// Fermer dropdown client DA au clic extérieur
+document.addEventListener('click', function(e) {
+  if (!_daClientDropdownOpen) return;
+  var container = document.getElementById('da-client-search');
+  var dd = document.getElementById('da-client-dropdown');
+  if (container && dd && !container.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
+    _daClientDropdownOpen = false;
+  }
+});
 
 function _daOnClientChange() {
   var cSel = document.getElementById('da-client');
