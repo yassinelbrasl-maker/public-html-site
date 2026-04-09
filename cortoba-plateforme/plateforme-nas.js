@@ -16973,10 +16973,20 @@ function renderNcTable(filter) {
         break;
     }
 
+    // Boutons sync code (seulement si les codes diffèrent et les deux existent)
+    var syncHtml = '';
+    if (!codeMatch && codePlat !== '—' && codeNas !== '—') {
+      syncHtml = '<div style="display:flex;gap:2px;justify-content:center">' +
+        '<button class="btn btn-sm" style="font-size:0.65rem;padding:0.2rem 0.4rem" onclick="ncSyncCodeToNas(' + idx + ')" title="Renommer le dossier NAS avec le code plateforme">→</button>' +
+        '<button class="btn btn-sm" style="font-size:0.65rem;padding:0.2rem 0.4rem" onclick="ncSyncCodeToPlat(' + idx + ')" title="Mettre le code NAS dans la plateforme">←</button>' +
+        '</div>';
+    }
+
     var rowStyle = r.type === 'ok' ? 'opacity:0.6;' : '';
     return '<tr data-nc-type="' + r.type + '" style="' + rowStyle + '">' +
       '<td style="white-space:nowrap">' + annee + '</td>' +
       '<td style="' + codePlatStyle + '">' + codePlat + '</td>' +
+      '<td style="text-align:center">' + syncHtml + '</td>' +
       '<td style="' + codeNasStyle + '">' + codeNas + '</td>' +
       '<td>' + nomPlat + '</td>' +
       '<td style="font-size:0.82rem">' + nasFolder + '</td>' +
