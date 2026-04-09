@@ -9181,6 +9181,7 @@ function renderSuiviTree(items) {
     html += '<div class="suivi-projet-right">';
     html += '<span class="suivi-projet-stats">' + done + '/' + totalTasks + '</span>';
     html += suiviProgressBar(projProg);
+    html += '<button class="btn btn-sm" onclick="event.stopPropagation();openReassignProjetModal(\'' + pid + '\')" title="Réassigner le projet" style="font-size:0.7rem">✎ Projet</button>';
     html += '<button class="btn btn-sm" onclick="event.stopPropagation();openSuiviModal(0, null, \'' + pid + '\')" title="Ajouter une mission">+ Mission</button>';
     if (canDelete()) html += '<button class="btn btn-sm suivi-del" onclick="event.stopPropagation();deleteProjetTaches(\'' + pid + '\')" title="Supprimer toutes les missions de ce projet" style="color:#c0392b;border-color:rgba(192,57,43,0.3)">✕</button>';
     html += '</div>';
