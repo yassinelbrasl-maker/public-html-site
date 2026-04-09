@@ -6,6 +6,100 @@
 var _honProjetId = '';
 var _honPhases = [];
 var _honEcheancier = [];
+var _honDropdownOpen = false;
+
+// ── Searchable project dropdown for Honoraires ──
+
+function filterHonProjetDropdown() {
+  var input = document.getElementById('hon-projet-search');
+  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var clearBtn = document.getElementById('hon-projet-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  renderHonProjetDropdown(q);
+  showHonProjetDropdown();
+}
+
+function showHonProjetDropdown() {
+  var dd = document.getElementById('hon-projet-dropdown');
+  if (!dd) return;
+  dd.style.display = 'block';
+  _honDropdownOpen = true;
+  var q = (document.getElementById('hon-projet-search').value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  renderHonProjetDropdown(q);
+}
+
+function hideHonProjetDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('hon-projet-dropdown');
+    if (dd) dd.style.display = 'none';
+    _honDropdownOpen = false;
+  }, 200);
+}
+
+function renderHonProjetDropdown(q) {
+  var dd = document.getElementById('hon-projet-dropdown');
+  if (!dd) return;
+  var projets = getProjets ? getProjets() : [];
+  // Add "all projects" option
+  var items = [{ id: '', label: '— Tous les projets (vue globale) —', code: '', nom: '' }];
+  projets.forEach(function(p) {
+    items.push({ id: p.id, label: (p.code ? p.code + ' — ' : '') + (p.nom || ''), code: p.code || '', nom: p.nom || '' });
+  });
+
+  var filtered = items.filter(function(item) {
+    if (!q) return true;
+    if (!item.id) return true; // always show "all projects"
+    var nom = (item.nom).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var code = (item.code).toLowerCase();
+    var label = (item.label).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return nom.indexOf(q) !== -1 || code.indexOf(q) !== -1 || label.indexOf(q) !== -1;
+  });
+
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucun projet trouvé</div>';
+    return;
+  }
+
+  dd.innerHTML = filtered.map(function(item) {
+    var isCurrent = (item.id === _honProjetId) || (!item.id && !_honProjetId);
+    return '<div class="hon-dd-item" onmousedown="selectHonProjet(\'' + item.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s;' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : 'none') + '\'">' +
+      '<span style="color:var(--text-1)">' + item.label + '</span></div>';
+  }).join('');
+}
+
+function selectHonProjet(projetId) {
+  var sel = document.getElementById('hon-projet-sel');
+  var input = document.getElementById('hon-projet-search');
+  var clearBtn = document.getElementById('hon-projet-clear');
+  sel.value = projetId;
+  _honProjetId = projetId;
+
+  if (projetId) {
+    var projets = getProjets ? getProjets() : [];
+    var found = projets.filter(function(p) { return p.id == projetId; })[0];
+    if (found) {
+      input.value = (found.code ? found.code + ' — ' : '') + (found.nom || '');
+    }
+    if (clearBtn) clearBtn.style.display = 'block';
+  } else {
+    input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+  hideHonProjetDropdown();
+  loadHonorairesProjet();
+}
+
+function clearHonProjetSearch() {
+  var input = document.getElementById('hon-projet-search');
+  var clearBtn = document.getElementById('hon-projet-clear');
+  input.value = '';
+  _honProjetId = '';
+  document.getElementById('hon-projet-sel').value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  input.focus();
+  showHonProjetDropdown();
+  loadHonorairesDashboard();
+}
 
 // ── HONORAIRES ──
 
