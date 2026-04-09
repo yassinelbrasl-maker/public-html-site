@@ -3598,8 +3598,11 @@ function renderFactures(){
           '<td><span class="'+badgeClass(f.statut)+'">'+f.statut+'</span></td>'+
           '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+modBtn+pdfBtn+printBtn+delBtn+'</td></tr>';
       }).join('');
-  var b=document.querySelector('[onclick="showPage(\'facturation\')"] .nav-badge');
-  if(b)b.textContent=list.filter(function(f){return f.statut==='Impayée';}).length||'';
+  // Update nav badge
+  var b=document.getElementById('creances-badge');
+  if(b){var nb=list.filter(function(f){return f.statut==='Impayée';}).length; if(nb>0){b.textContent=nb;b.style.display='';}else{b.style.display='none';}}
+  // Update facturation KPIs
+  if(typeof renderFacturationKPIs==='function') renderFacturationKPIs();
 }
 
 // Logo dans Paramètres
