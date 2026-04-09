@@ -5283,7 +5283,7 @@ function showPage(id){
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
   if(id==='honoraires') setTimeout(function(){ if(typeof renderHonorairesPage==='function') renderHonorairesPage(); },80);
-  if(id==='creances')   setTimeout(function(){ if(typeof renderCreancesPage==='function') renderCreancesPage(); },80);
+  if(id==='creances') { id='facturation'; showPage('facturation'); setTimeout(function(){ if(typeof switchFacturationTab==='function') switchFacturationTab('receivables',document.querySelector('#facturation-tabs .tab-btn:nth-child(2)')); },150); return; }
   if(id==='parametres') {
     // Attendre que loadSettings soit terminé avant de remplir les champs
     var fillParams = function(){
