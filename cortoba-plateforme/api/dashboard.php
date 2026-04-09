@@ -229,6 +229,31 @@ function getAll() {
         $depensesParCat = $stmt->fetchAll(\PDO::FETCH_ASSOC);
     } catch (\Throwable $e) {}
 
+    // ── Soldes projets (total avance reçue, reste à payer) ──
+    $totalHonoPrevus = 0; $totalHonoFacture = 0; $totalHonoEncaisse = 0;
+    $soldesProjets = [];
+    try {
+        $stmt = $db->query("SELECT id, code, nom, client, phase,
+            COALESCE(honoraires_prevus,0) AS honoraires_prevus,
+            COALESCE(honoraires_factures,0) AS honoraires_factures,
+            COALESCE(honoraires_encaisses,0) AS honoraires_encaisses
+            FROM CA_projets WHERE statut IN ('En cours','Actif') AND COALESCE(honoraires_prevus,0) > 0
+            ORDER BY (COALESCE(honoraires_factures,0) - COALESCE(honoraires_encaisses,0)) DESC LIMIT 10");
+        $soldesProjets = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        foreach ($soldesProjets as $sp) {
+            $totalHonoPrevus   += (float)$sp['honoraires_prevus'];
+            $totalHonoFacture  += (float)$sp['honoraires_factures'];
+            $totalHonoEncaisse += (float)$sp['honoraires_encaisses'];
+        }
+    } catch (\Throwable $e) {}
+
+    // ── Demandes configurateur récentes ──
+    $demandesRecentes = 0;
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM CA_demandes WHERE statut = 'nouvelle'");
+        $demandesRecentes = (int)$stmt->fetchColumn();
+    } catch (\Throwable $e) {}
+
     jsonOk([
         'kpis' => [
             'ca_ytd'            => $caYtd,
@@ -245,12 +270,18 @@ function getAll() {
             'taux_occupation'   => $tauxOccupation,
             'heures_saisies'    => $heuresSaisies,
             'heures_dispo'      => $heuresDispo,
+            'demandes_nouvelles' => $demandesRecentes,
+            'total_hono_prevus'  => $totalHonoPrevus,
+            'total_hono_facture' => $totalHonoFacture,
+            'total_hono_encaisse' => $totalHonoEncaisse,
+            'total_reste_a_payer' => round($totalHonoFacture - $totalHonoEncaisse, 2),
         ],
         'ca_mensuel'       => $caMensuel,
         'ca_mensuel_prev'  => $caMensuelPrev,
         'projets_actifs'   => $projetsActifs,
         'activity'         => $activity,
         'depenses_par_cat' => $depensesParCat,
+        'soldes_projets'   => $soldesProjets,
         'annee'            => (int)$year,
         'mois_courant'     => (int)$month,
     ]);
