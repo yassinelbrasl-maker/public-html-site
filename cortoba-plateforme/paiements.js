@@ -346,14 +346,13 @@ function switchFacturationTab(tab,btn) {
   if(panel) panel.style.display='';
   if(btn) btn.classList.add('active');
 
-  // Show/hide contextual action buttons
+  // Show/hide contextual action buttons (paiement is always visible)
   var showForFactures = (tab === 'factures');
   var showForCreances = (tab !== 'factures');
   var el;
   el = document.getElementById('fa-action-export-pdf');   if(el) el.style.display = showForFactures ? '' : 'none';
   el = document.getElementById('fa-action-new-facture');   if(el) el.style.display = showForFactures ? '' : 'none';
   el = document.getElementById('fa-action-export-csv');    if(el) el.style.display = showForCreances ? '' : 'none';
-  el = document.getElementById('fa-action-paiement');      if(el) el.style.display = showForCreances ? '' : 'none';
 
   // Lazy-load tab data
   if(tab==='receivables') loadReceivables();
