@@ -243,7 +243,7 @@
       { id: 'dashboard',   label: 'Tableau de bord', icon: '◻' },
       { id: 'devis',       label: 'Offres & Devis',  icon: '📄' },
       { id: 'projets',     label: 'Projets',          icon: '📐' },
-      { id: 'facturation', label: 'Facturation',       icon: '💶' },
+      { id: 'facturation', label: 'Facturation & Paiements', icon: '💶' },
       { id: 'bilans',      label: 'Bilans',            icon: '📊' },
       { id: 'depenses',    label: 'Dépenses',          icon: '💸' },
       { id: 'fiscalite',   label: 'Fiscalité',         icon: '🧾' },
