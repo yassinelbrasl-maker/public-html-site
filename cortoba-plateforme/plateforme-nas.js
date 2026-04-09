@@ -8478,6 +8478,19 @@ function openDemande(id) {
   if (btnProjet) btnProjet.disabled = !d.client_id || !!d.projet_id;
   if (btnDevis)  btnDevis.disabled  = !d.projet_id;
 
+  // Accept button state
+  var btnAccept = document.getElementById('dem-btn-accepter');
+  var acceptBlock = document.getElementById('dem-accept-block');
+  var acceptResult = document.getElementById('dem-accept-result');
+  if (acceptResult) acceptResult.style.display = 'none';
+  if (d.devis_id || d.statut === 'devis_cree') {
+    if (btnAccept) { btnAccept.disabled = true; btnAccept.textContent = 'Déjà acceptée'; }
+    if (acceptBlock) { acceptBlock.style.borderColor = 'rgba(90,171,110,0.4)'; acceptBlock.style.background = 'rgba(90,171,110,0.06)'; }
+  } else {
+    if (btnAccept) { btnAccept.disabled = false; btnAccept.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Accepter en 1 clic'; }
+    if (acceptBlock) { acceptBlock.style.borderColor = 'rgba(200,169,110,0.25)'; acceptBlock.style.background = 'linear-gradient(135deg,rgba(200,169,110,0.08),rgba(200,169,110,0.02))'; }
+  }
+
   openModal('modal-demande');
 }
 
