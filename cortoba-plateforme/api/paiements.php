@@ -165,6 +165,10 @@ try {
             requireAuth();
             getRelanceLog();
             break;
+        case 'receipt':
+            requireAuth();
+            getReceiptData();
+            break;
         default:
             jsonError('Action inconnue: ' . $action, 400);
     }
