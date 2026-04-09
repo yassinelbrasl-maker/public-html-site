@@ -282,9 +282,10 @@ function renderFacturationKPIs() {
 function loadReceivables() {
   apiFetch('api/paiements.php?action=receivables').then(function(r) {
     var d=r.data;
-    document.getElementById('cr-kpi-total').textContent=fmtMontant(d.summary.total_creances);
-    document.getElementById('cr-kpi-echues').textContent=fmtMontant(d.summary.total_echues);
-    document.getElementById('cr-kpi-nb').textContent=d.summary.nb_factures;
+    var _kpi;
+    _kpi=document.getElementById('cr-kpi-total');   if(_kpi) _kpi.textContent=fmtMontant(d.summary.total_creances);
+    _kpi=document.getElementById('cr-kpi-echues');  if(_kpi) _kpi.textContent=fmtMontant(d.summary.total_echues);
+    _kpi=document.getElementById('cr-kpi-nb');      if(_kpi) _kpi.textContent=d.summary.nb_factures;
     var tbody=document.getElementById('receivables-tbody');
     if(!d.factures||d.factures.length===0){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text-3)">Aucune créance</td></tr>';return;}
     var html='';
