@@ -2736,8 +2736,12 @@ function openProjetDetail(id){
   ].filter(Boolean);
 
   // ── Section : Finances ──
+  var _honAlert = p.alerte_budget || '';
+  var _honColor = _honAlert==='red'?'#e74c3c':(_honAlert==='orange'?'#e67e22':(_honAlert==='yellow'?'#f1c40f':'#2ecc71'));
+  var _honDot = _honAlert ? ' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+_honColor+';margin-left:6px" title="Alerte budget: '+_honAlert+'"></span>' : '';
+  var _honLink = ' <a href="#" onclick="event.preventDefault();showPage(\'honoraires\');setTimeout(function(){var s=document.getElementById(\'hon-projet-sel\');if(s){s.value=\''+p.id+'\';s.dispatchEvent(new Event(\'change\'))}},200)" style="font-size:0.72rem;color:var(--accent);margin-left:8px">Voir honoraires</a>';
   var finances = [
-    ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'],
+    ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'+_honDot+_honLink],
     p.budget ? ['Budget client', fmtMontant(p.budget)] : null,
     (p.cout_construction||p.coutConstruction) ? ['Coût construction', fmtMontant(p.cout_construction||p.coutConstruction)] : null,
     (p.cout_m2||p.coutM2) ? ['Coût / m²', fmtMontant(p.cout_m2||p.coutM2)+'/m²'] : null
