@@ -1591,9 +1591,13 @@
             <h1 class="page-title">Suivi des Honoraires</h1>
           </div>
           <div class="page-actions">
-            <select id="hon-projet-sel" class="form-input" style="width:280px" onchange="loadHonorairesProjet()">
-              <option value="">— Choisir un projet —</option>
-            </select>
+            <div style="position:relative;width:320px">
+              <select id="hon-projet-sel" style="display:none" onchange="loadHonorairesProjet()"></select>
+              <input type="text" id="hon-projet-search" class="form-input" style="width:100%;padding-right:2.2rem" placeholder="🔍 Rechercher un projet…" autocomplete="off"
+                     onfocus="showHonProjetDropdown()" oninput="filterHonProjetDropdown()" onblur="hideHonProjetDropdown()" />
+              <span id="hon-projet-clear" onclick="clearHonProjetSearch()" style="display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1">&times;</span>
+              <div id="hon-projet-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:260px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:200"></div>
+            </div>
             <button class="btn btn-sm" onclick="openHonInit()" id="hon-init-btn" style="display:none">Initialiser honoraires</button>
           </div>
         </div>
