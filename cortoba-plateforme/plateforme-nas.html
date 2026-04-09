@@ -1273,6 +1273,31 @@
         </div>
       </div>
 
+      <!-- Modal Réassigner projet (rapide) -->
+      <div class="modal-overlay" id="modal-reassign-projet">
+        <div class="modal" style="max-width:420px">
+          <div class="modal-header">
+            <h2 class="modal-title">Réassigner le projet</h2>
+            <button class="modal-close" onclick="closeModal('modal-reassign-projet')">&times;</button>
+          </div>
+          <div class="modal-body" style="display:flex;flex-direction:column;gap:1rem">
+            <input type="hidden" id="reassign-old-projet-id" />
+            <div class="form-field" style="position:relative">
+              <label class="form-label">Nouveau projet *</label>
+              <select id="reassign-projet-select" class="form-select"></select>
+              <input type="text" id="reassign-projet-search" class="form-input" placeholder="🔍 Rechercher un projet…" autocomplete="off"
+                     onfocus="openReassignProjetDropdown()" oninput="filterReassignProjetDropdown(this.value)" style="margin-top:0.4rem" />
+              <div id="reassign-projet-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:999;max-height:220px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--accent);border-radius:0 0 6px 6px;box-shadow:0 8px 24px rgba(0,0,0,0.6)"></div>
+            </div>
+            <div id="reassign-err" style="color:var(--red);font-size:0.8rem;display:none"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modal-reassign-projet')">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmReassignProjet()">Réassigner</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Modal Tâche/Mission -->
       <div class="modal-overlay" id="modal-tache">
         <div class="modal" style="max-width:560px">
