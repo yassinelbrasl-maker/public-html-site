@@ -426,6 +426,25 @@ function renderDashHonorairesWidget() {
   }
 })();
 
+// ── Reçu de paiement ──
+
+function openRecuListForFacture(factureId) {
+  apiFetch('api/paiements.php?action=list&facture_id=' + factureId).then(function(r) {
+    var paiements = r.data || [];
+    if (paiements.length === 0) { showToast('Aucun paiement enregistré pour cette facture', 'var(--red)'); return; }
+    if (paiements.length === 1) { genRecuPaiementPDF(paiements[0].id); return; }
+    // Multiple payments: let user choose
+    var msg = 'Plusieurs paiements trouvés. Choisissez :\n';
+    paiements.forEach(function(p, i) {
+      msg += '\n' + (i+1) + ') ' + (parseFloat(p.montant)||0).toFixed(3) + ' TND — ' + (p.date_paiement||'') + ' — ' + (p.mode_paiement||'');
+    });
+    msg += '\n\nEntrez le numéro (1-' + paiements.length + ') :';
+    var choice = prompt(msg);
+    var idx = parseInt(choice) - 1;
+    if (idx >= 0 && idx < paiements.length) { genRecuPaiementPDF(paiements[idx].id); }
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'var(--red)'); });
+}
+
 // ── Reçu de paiement PDF ──
 
 function genRecuPaiementPDF(paiementId) {
