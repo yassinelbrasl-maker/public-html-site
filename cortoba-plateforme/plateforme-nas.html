@@ -605,6 +605,97 @@
         </div>
       </div>
 
+      <!-- ══ PAIEMENTS CLIENTS ══ -->
+      <div class="page" id="page-paiements-clients">
+        <div class="page-header">
+          <div class="page-title-group">
+            <div class="page-eyebrow">Finance</div>
+            <h1 class="page-title">Paiements clients</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openPaiementClientModal()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Enregistrer un paiement
+            </button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));margin-bottom:1.5rem">
+          <div class="kpi-card">
+            <div class="kpi-label">Encaissé ce mois</div>
+            <div class="kpi-value" id="pc-kpi-mois" style="color:var(--green)">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Encaissé cette année</div>
+            <div class="kpi-value" id="pc-kpi-annee">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Devis en cours de paiement</div>
+            <div class="kpi-value" id="pc-kpi-encours">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Prêts à facturer</div>
+            <div class="kpi-value" id="pc-kpi-afacturer" style="color:var(--accent)">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Reste à encaisser</div>
+            <div class="kpi-value" id="pc-kpi-reste" style="color:var(--orange)">—</div>
+          </div>
+        </div>
+
+        <!-- Table des devis avec suivi paiement -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+            <div class="card-title" style="margin-bottom:0">Suivi des paiements par devis</div>
+            <input id="pc-search" class="form-input" placeholder="Rechercher…" style="width:200px;font-size:0.8rem;padding:0.4rem 0.8rem" oninput="filterPaiementsClients()" />
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:0.82rem" id="pc-devis-table">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <th style="text-align:left;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Devis</th>
+                  <th style="text-align:left;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Client</th>
+                  <th style="text-align:left;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Projet</th>
+                  <th style="text-align:right;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Montant TTC</th>
+                  <th style="text-align:right;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Payé</th>
+                  <th style="text-align:right;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Reste</th>
+                  <th style="padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Avancement</th>
+                  <th style="padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Tranches</th>
+                  <th style="padding:0.5rem 0.6rem"></th>
+                </tr>
+              </thead>
+              <tbody id="pc-devis-tbody">
+                <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-3)">Chargement…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Historique des paiements récents -->
+        <div class="card">
+          <div class="card-title">Derniers paiements reçus</div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <th style="text-align:left;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Date</th>
+                  <th style="text-align:left;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Client</th>
+                  <th style="text-align:left;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Devis</th>
+                  <th style="text-align:right;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Montant</th>
+                  <th style="padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Type</th>
+                  <th style="text-align:left;padding:0.5rem 0.6rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Mode</th>
+                  <th style="padding:0.5rem 0.6rem"></th>
+                </tr>
+              </thead>
+              <tbody id="pc-history-tbody">
+                <tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text-3)">Chargement…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- ══ FACTURATION ══ -->
       <div class="page" id="page-facturation">
         <div class="page-header">
