@@ -27,6 +27,7 @@ try {
         "progression_planifiee INT DEFAULT 0",
         "progression_manuelle TINYINT(1) DEFAULT 0",
         "categorie VARCHAR(10) DEFAULT NULL COMMENT 'Code catégorie mission'",
+        "demande_admin_id VARCHAR(32) DEFAULT NULL COMMENT 'Lien vers CA_demandes_admin'",
     ];
     foreach ($addCols as $cdef) {
         try { $db0->exec("ALTER TABLE CA_taches ADD COLUMN IF NOT EXISTS $cdef"); }
