@@ -113,6 +113,17 @@ function renderHonorairesPage() {
     opts += '<option value="' + p.id + '"' + selected + '>' + (p.code ? p.code + ' — ' : '') + (p.nom || '') + '</option>';
   });
   sel.innerHTML = opts;
+  // Sync search input with current selection
+  var input = document.getElementById('hon-projet-search');
+  var clearBtn = document.getElementById('hon-projet-clear');
+  if (input && _honProjetId) {
+    var found = projets.filter(function(p) { return p.id === _honProjetId; })[0];
+    if (found) input.value = (found.code ? found.code + ' — ' : '') + (found.nom || '');
+    if (clearBtn) clearBtn.style.display = 'block';
+  } else if (input) {
+    input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
   if (_honProjetId) { loadHonorairesProjet(); } else { loadHonorairesDashboard(); }
 }
 
