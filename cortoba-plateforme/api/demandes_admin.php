@@ -21,6 +21,9 @@ try {
         "reponse_type        VARCHAR(20)  DEFAULT NULL",
         "parent_demande_id   VARCHAR(32)  DEFAULT NULL",
     ];
+    // S'assurer que CA_taches a la colonne demande_admin_id
+    try { $db0->exec("ALTER TABLE CA_taches ADD COLUMN IF NOT EXISTS demande_admin_id VARCHAR(32) DEFAULT NULL COMMENT 'Lien vers CA_demandes_admin'"); }
+    catch (\Throwable $e) {}
     foreach ($extra as $cdef) {
         try { $db0->exec("ALTER TABLE CA_demandes_admin ADD COLUMN IF NOT EXISTS $cdef"); }
         catch (\Throwable $e) {}
