@@ -41,18 +41,16 @@ function renderHonProjetDropdown(q) {
   if (!dd) return;
   var projets = getProjets ? getProjets() : [];
   // Add "all projects" option
-  var items = [{ id: '', label: '— Tous les projets (vue globale) —', code: '', nom: '' }];
+  var items = [{ id: '', label: '— Tous les projets (vue globale) —', code: '', nom: '', client: '' }];
   projets.forEach(function(p) {
-    items.push({ id: p.id, label: (p.code ? p.code + ' — ' : '') + (p.nom || ''), code: p.code || '', nom: p.nom || '' });
+    items.push({ id: p.id, label: (p.code ? p.code + ' — ' : '') + (p.nom || ''), code: p.code || '', nom: p.nom || '', client: p.client || '' });
   });
 
   var filtered = items.filter(function(item) {
     if (!q) return true;
     if (!item.id) return true; // always show "all projects"
-    var nom = (item.nom).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    var code = (item.code).toLowerCase();
-    var label = (item.label).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return nom.indexOf(q) !== -1 || code.indexOf(q) !== -1 || label.indexOf(q) !== -1;
+    var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+    return norm(item.nom).indexOf(q) !== -1 || norm(item.code).indexOf(q) !== -1 || norm(item.client).indexOf(q) !== -1;
   });
 
   if (filtered.length === 0) {
@@ -63,7 +61,9 @@ function renderHonProjetDropdown(q) {
   dd.innerHTML = filtered.map(function(item) {
     var isCurrent = (item.id === _honProjetId) || (!item.id && !_honProjetId);
     return '<div class="hon-dd-item" onmousedown="selectHonProjet(\'' + item.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s;' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : 'none') + '\'">' +
-      '<span style="color:var(--text-1)">' + item.label + '</span></div>';
+      '<span style="color:var(--text-1)">' + item.label + '</span>' +
+      (item.client ? ' <span style="color:var(--text-3);font-size:0.72rem">(' + item.client + ')</span>' : '') +
+      '</div>';
   }).join('');
 }
 
