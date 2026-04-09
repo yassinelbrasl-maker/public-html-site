@@ -231,14 +231,52 @@ function saveHonPhase() {
 //  MODULE : CRÉANCES & RELANCES
 // ============================================================
 
-function renderCreancesPage(){loadReceivables();loadCashflowForKPI();}
+function renderCreancesPage(){loadReceivables();loadCashflowForKPI();renderFacturationKPIs();}
 
-function switchCreancesTab(tab,btn) {
-  document.querySelectorAll('.creances-tab').forEach(function(t){t.style.display='none';});
-  document.querySelectorAll('#page-creances .tab-btn').forEach(function(b){b.classList.remove('active');});
-  document.getElementById('creances-tab-'+tab).style.display='';
+// Unified tab switcher for Facturation & Paiements page
+function switchFacturationTab(tab,btn) {
+  document.querySelectorAll('.facturation-tab').forEach(function(t){t.style.display='none';});
+  document.querySelectorAll('#facturation-tabs .tab-btn').forEach(function(b){b.classList.remove('active');});
+  var panel = document.getElementById('facturation-tab-'+tab);
+  if(panel) panel.style.display='';
   if(btn) btn.classList.add('active');
-  if(tab==='aged') loadAgedBalance(); if(tab==='cashflow') loadCashflow(); if(tab==='relances') loadRelancesHistory();
+
+  // Show/hide contextual action buttons
+  var showForFactures = (tab === 'factures');
+  var showForCreances = (tab !== 'factures');
+  var el;
+  el = document.getElementById('fa-action-export-pdf');   if(el) el.style.display = showForFactures ? '' : 'none';
+  el = document.getElementById('fa-action-new-facture');   if(el) el.style.display = showForFactures ? '' : 'none';
+  el = document.getElementById('fa-action-export-csv');    if(el) el.style.display = showForCreances ? '' : 'none';
+  el = document.getElementById('fa-action-paiement');      if(el) el.style.display = showForCreances ? '' : 'none';
+
+  // Lazy-load tab data
+  if(tab==='receivables') loadReceivables();
+  if(tab==='aged') loadAgedBalance();
+  if(tab==='cashflow') loadCashflow();
+  if(tab==='relances') loadRelancesHistory();
+}
+
+// Backward compat alias
+function switchCreancesTab(tab,btn){ switchFacturationTab(tab,btn); }
+
+// Render unified KPIs from invoice data
+function renderFacturationKPIs() {
+  var factures = typeof getFactures==='function' ? getFactures() : [];
+  var totalFacture = 0, encaisse = 0;
+  var yr = new Date().getFullYear();
+  factures.forEach(function(f){
+    var d = f.dateEmission||f.date_emission||f.date_facture||'';
+    if(d && d.indexOf(yr)===0) {
+      var ttc = parseFloat(f.montantTtc||f.montant_ttc||f.montant||0);
+      totalFacture += ttc;
+      if(f.statut==='Payée') encaisse += ttc;
+      else encaisse += parseFloat(f.montant_paye||f.montantPaye||0);
+    }
+  });
+  var el;
+  el = document.getElementById('fa-kpi-total');    if(el) el.textContent = fmtMontant(totalFacture);
+  el = document.getElementById('fa-kpi-encaisse'); if(el) el.textContent = fmtMontant(encaisse);
 }
 
 function loadReceivables() {
