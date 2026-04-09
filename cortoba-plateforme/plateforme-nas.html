@@ -402,6 +402,32 @@
             </div>
           </div>
         </div>
+
+        <!-- Soldes projets -->
+        <div class="card" style="margin-bottom:2rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+            <div class="card-title" style="margin-bottom:0">Solde par projet</div>
+            <div style="display:flex;gap:1rem;font-size:0.72rem;color:var(--text-3)" id="dash-soldes-totaux"></div>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:0.8rem" id="dash-soldes-table">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <th style="text-align:left;padding:0.5rem 0.8rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Projet</th>
+                  <th style="text-align:left;padding:0.5rem 0.8rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Client</th>
+                  <th style="text-align:right;padding:0.5rem 0.8rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Honoraires prévus</th>
+                  <th style="text-align:right;padding:0.5rem 0.8rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Facturé</th>
+                  <th style="text-align:right;padding:0.5rem 0.8rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Encaissé</th>
+                  <th style="text-align:right;padding:0.5rem 0.8rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Reste à payer</th>
+                  <th style="padding:0.5rem 0.8rem;font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Avancement</th>
+                </tr>
+              </thead>
+              <tbody id="dash-soldes-tbody">
+                <tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text-3)">Chargement…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- ══ DEVIS ══ -->
