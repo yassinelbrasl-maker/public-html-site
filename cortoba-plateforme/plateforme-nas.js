@@ -10304,6 +10304,100 @@ function deleteProjetTaches(projetId) {
 }
 window.deleteProjetTaches = deleteProjetTaches;
 
+// ── Réassigner toutes les missions d'un projet vers un autre projet ──
+function openReassignProjetModal(oldProjetId) {
+  document.getElementById('reassign-old-projet-id').value = oldProjetId;
+  var sel = document.getElementById('reassign-projet-select');
+  sel.innerHTML = '<option value="">— Choisir un projet —</option>';
+  getProjets().forEach(function(p) {
+    if (p.id === oldProjetId) return; // Exclure le projet actuel
+    var opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
+    sel.appendChild(opt);
+  });
+  var searchEl = document.getElementById('reassign-projet-search');
+  if (searchEl) searchEl.value = '';
+  var ddEl = document.getElementById('reassign-projet-dropdown');
+  if (ddEl) ddEl.style.display = 'none';
+  var errEl = document.getElementById('reassign-err');
+  if (errEl) errEl.style.display = 'none';
+  openModal('modal-reassign-projet');
+}
+window.openReassignProjetModal = openReassignProjetModal;
+
+function openReassignProjetDropdown() {
+  var dd = document.getElementById('reassign-projet-dropdown');
+  var sel = document.getElementById('reassign-projet-select');
+  var opts = Array.from(sel.options).filter(function(o){ return o.value; });
+  var html = '';
+  opts.forEach(function(o) {
+    html += '<div style="padding:0.5rem 0.7rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'" onclick="selectReassignProjet(\'' + o.value + '\',\'' + o.textContent.replace(/'/g,"\\'") + '\')">' + o.textContent + '</div>';
+  });
+  dd.innerHTML = html || '<div style="padding:0.5rem;font-size:0.8rem;color:var(--text-3)">Aucun projet</div>';
+  dd.style.display = 'block';
+}
+window.openReassignProjetDropdown = openReassignProjetDropdown;
+
+function filterReassignProjetDropdown(q) {
+  var dd = document.getElementById('reassign-projet-dropdown');
+  var sel = document.getElementById('reassign-projet-select');
+  var opts = Array.from(sel.options).filter(function(o){ return o.value; });
+  q = (q||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  var html = '';
+  opts.forEach(function(o) {
+    var text = o.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if (q && text.indexOf(q) === -1) return;
+    html += '<div style="padding:0.5rem 0.7rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'" onclick="selectReassignProjet(\'' + o.value + '\',\'' + o.textContent.replace(/'/g,"\\'") + '\')">' + o.textContent + '</div>';
+  });
+  dd.innerHTML = html || '<div style="padding:0.5rem;font-size:0.8rem;color:var(--text-3)">Aucun résultat</div>';
+  dd.style.display = 'block';
+}
+window.filterReassignProjetDropdown = filterReassignProjetDropdown;
+
+function selectReassignProjet(id, label) {
+  document.getElementById('reassign-projet-select').value = id;
+  document.getElementById('reassign-projet-search').value = label;
+  document.getElementById('reassign-projet-dropdown').style.display = 'none';
+}
+window.selectReassignProjet = selectReassignProjet;
+
+function confirmReassignProjet() {
+  var oldId = document.getElementById('reassign-old-projet-id').value;
+  var newId = document.getElementById('reassign-projet-select').value;
+  var errEl = document.getElementById('reassign-err');
+
+  if (!newId) { errEl.textContent = 'Veuillez choisir un projet.'; errEl.style.display = 'block'; return; }
+
+  var items = _suiviCache.filter(function(t){ return t.projet_id === oldId; });
+  if (!items.length) { closeModal('modal-reassign-projet'); return; }
+
+  // Mettre à jour chaque tâche racine (niveau 0) avec le nouveau projet
+  var roots = items.filter(function(t){ return t.niveau === 0; });
+  var toUpdate = roots.length > 0 ? roots : items;
+
+  var promises = toUpdate.map(function(t) {
+    return apiFetch('api/taches.php?id=' + t.id, { method: 'PUT', body: { projet_id: newId } });
+  });
+  // Mettre aussi à jour les enfants (niveau 1, 2) qui ont l'ancien projet_id
+  var children = items.filter(function(t){ return t.niveau > 0; });
+  children.forEach(function(t) {
+    promises.push(apiFetch('api/taches.php?id=' + t.id, { method: 'PUT', body: { projet_id: newId } }));
+  });
+
+  Promise.all(promises)
+    .then(function() {
+      closeModal('modal-reassign-projet');
+      showToast('✓ ' + items.length + ' mission(s) réassignée(s)');
+      loadTaches().then(function(){ renderSuiviPage(); });
+    })
+    .catch(function(e) {
+      errEl.textContent = e.message || 'Erreur lors de la réassignation';
+      errEl.style.display = 'block';
+    });
+}
+window.confirmReassignProjet = confirmReassignProjet;
+
 // ═══════════════════════════════════════════════════════════
 //  JOURNAL QUOTIDIEN — Suivi journalier par membre
 // ═══════════════════════════════════════════════════════════
