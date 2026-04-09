@@ -3612,7 +3612,7 @@ function renderFactures(){
           '<td class="inline-val" style="color:var(--accent)">'+fmtMontant(ttc)+'</td>'+
           '<td>'+fmtDate(f.echeance||f.dateEcheance||f.date_echeance)+'</td>'+
           '<td><span class="'+badgeClass(f.statut)+'">'+f.statut+'</span></td>'+
-          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+modBtn+pdfBtn+printBtn+delBtn+'</td></tr>';
+          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+modBtn+pdfBtn+emailBtn+delBtn+'</td></tr>';
       }).join('');
   // Update nav badge
   var b=document.getElementById('creances-badge');
