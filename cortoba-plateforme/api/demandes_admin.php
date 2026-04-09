@@ -149,6 +149,38 @@ function create(array $user) {
         $user['name'] ?? $user['email'] ?? null,
     ]);
 
+    // ── Auto-créer une mission "En cours" dans le suivi ──
+    $projetId = $body['projet_id'] ?? null;
+    if ($projetId) {
+        $missionId = bin2hex(random_bytes(16));
+        // Calcul ordre suivant
+        $stOrd = $db->prepare('SELECT COALESCE(MAX(ordre),0)+1 AS next_ord FROM CA_taches WHERE projet_id = ? AND parent_id IS NULL');
+        $stOrd->execute([$projetId]);
+        $nextOrd = intval($stOrd->fetch()['next_ord']);
+
+        $missionTitre = '[Demande admin] ' . $objet;
+        $db->prepare('
+            INSERT INTO CA_taches (id, projet_id, parent_id, niveau, titre, description,
+                statut, priorite, assignee, date_debut, date_echeance, progression, ordre,
+                categorie, location_type, location_zone, heures_estimees, heures_reelles,
+                progression_planifiee, progression_manuelle, cree_par, demande_admin_id)
+            VALUES (?,?,NULL,0,?,?,?,?,NULL,?,NULL,0,?,NULL,?,?,0,0,0,0,?,?)
+        ')->execute([
+            $missionId,
+            $projetId,
+            $missionTitre,
+            'Demande ' . $typeDemande . ' — ' . $administration,
+            'En cours',
+            'Normale',
+            $body['date_demande'] ?? date('Y-m-d'),
+            $nextOrd,
+            'Administration',
+            $body['gouvernorat'] ?? '',
+            $user['name'] ?? $user['email'] ?? null,
+            $id,
+        ]);
+    }
+
     jsonOk(['id' => $id]);
 }
 
