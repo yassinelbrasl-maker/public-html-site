@@ -522,3 +522,35 @@ function getRelanceLog() {
     $stmt->execute($params);
     jsonOk($stmt->fetchAll(\PDO::FETCH_ASSOC));
 }
+
+// ── Receipt data for PDF generation ──
+function getReceiptData() {
+    $db = getDB();
+    $paiementId = $_GET['id'] ?? '';
+    if (!$paiementId) jsonError('id requis');
+
+    $stmt = $db->prepare("
+        SELECT p.*,
+               f.numero AS facture_numero, f.objet AS facture_objet,
+               f.montant_ht, f.montant_ttc, f.net_payer, f.montant_paye,
+               f.statut AS facture_statut,
+               c.display_nom AS client_nom, c.adresse AS client_adresse,
+               c.mf AS client_mf, c.email AS client_email, c.telephone AS client_tel,
+               pr.nom AS projet_nom, pr.code AS projet_code
+        FROM CA_paiements p
+        LEFT JOIN CA_factures f ON f.id = p.facture_id
+        LEFT JOIN CA_clients c ON c.id = p.client_id
+        LEFT JOIN CA_projets pr ON pr.id = p.projet_id
+        WHERE p.id = ?
+    ");
+    $stmt->execute([$paiementId]);
+    $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+    if (!$row) jsonError('Paiement introuvable', 404);
+
+    // Get total paid on this invoice (all payments)
+    $s2 = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements WHERE facture_id = ?");
+    $s2->execute([$row['facture_id']]);
+    $row['total_paye_facture'] = (float)$s2->fetchColumn();
+
+    jsonOk($row);
+}
