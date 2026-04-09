@@ -1653,7 +1653,12 @@ function openDevisDetail(id){
     + '<tr><td style="padding:0.4rem 0.8rem 0.4rem 0;color:var(--text-3);font-size:0.78rem">Date</td><td style="padding:0.4rem 0;font-size:0.85rem">'+fmtDate(d.date)+'</td></tr>'
     + '<tr><td style="padding:0.4rem 0.8rem 0.4rem 0;color:var(--text-3);font-size:0.78rem">Statut</td><td style="padding:0.4rem 0">'+badge+'</td></tr>'
     + '</table>'
-    + '<div style="margin-top:1.2rem;display:flex;gap:0.6rem;justify-content:flex-end">'
+    + '<div style="margin-top:1.2rem;display:flex;gap:0.6rem;flex-wrap:wrap">'
+    + (d.statut === 'Accepté' ? '<button id="devis-to-facture-btn" class="btn btn-sm btn-primary">Convertir en facture</button>' : '')
+    + (d.statut !== 'Accepté' && d.statut !== 'Facturé' ? '<button id="devis-to-facture-force-btn" class="btn btn-sm" style="color:var(--accent)">Forcer la conversion</button>' : '')
+    + '<button id="devis-pdf-btn" class="btn btn-sm">PDF</button>'
+    + '<button id="devis-email-btn" class="btn btn-sm">Envoyer</button>'
+    + '<div style="flex:1"></div>'
     + '<button id="close-devis-btn" class="btn btn-sm">Fermer</button>'
     + '<button id="del-devis-btn" class="btn btn-sm" style="color:#e07070">\u2715 Supprimer</button>'
     + '</div></div>';
