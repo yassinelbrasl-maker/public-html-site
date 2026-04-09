@@ -5474,6 +5474,7 @@ function renderDashboard(){
     _renderDashActivity(_dashData.activity);
     _renderDashProjets(_dashData.projets_actifs);
     _renderDashDepenses(_dashData.depenses_par_cat, _dashData.kpis.depenses_mois);
+    renderDashSoldes(_dashData);
     // Mettre à jour le label mois
     var MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
     var el = document.getElementById('dash-current-month');
