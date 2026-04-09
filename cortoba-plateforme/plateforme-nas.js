@@ -3604,6 +3604,17 @@ function renderFactures(){
         var pdfBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();generateDocumentPDF(\'facture\',\''+f.id+'\')" style="color:#6fa8d6;margin-right:3px" title="PDF">⬇ PDF</button>';
         var emailBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();sendDocumentByEmail(\'facture\',\''+f.id+'\')" style="color:var(--text-2);margin-right:3px" title="Envoyer par email">✉</button>';
         var delBtn   = '<button class="btn btn-sm" onclick="deleteRow(\'facture\',\''+f.id+'\')" style="color:#e07070" title="Supprimer">✕</button>';
+        // Bouton paiement pour factures non payées
+        var payBtn   = '';
+        var reste    = (parseFloat(f.net_payer||f.netPayer||ttc)||0) - (parseFloat(f.montant_paye||f.montantPaye)||0);
+        if(f.statut!=='Payée' && f.statut!=='Annulée' && reste > 0 && typeof openPaiementForFacture==='function'){
+          payBtn = '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openPaiementForFacture(\''+f.id+'\','+reste+')" style="margin-right:3px" title="Enregistrer un paiement">$</button>';
+        }
+        // Bouton reçu si déjà payé partiellement
+        var recuBtn  = '';
+        if(parseFloat(f.montant_paye||f.montantPaye||0) > 0 && typeof openRecuListForFacture==='function'){
+          recuBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();openRecuListForFacture(\''+f.id+'\')" style="color:#2d7a50;margin-right:3px" title="Reçu de paiement">&#9998;</button>';
+        }
         return '<tr>'+
           '<td class="inline-val" style="font-family:var(--mono);font-size:0.78rem">'+(f.num||f.numero||'—')+'</td>'+
           '<td style="font-weight:500">'+(f.client||'—')+'</td>'+
@@ -3612,7 +3623,7 @@ function renderFactures(){
           '<td class="inline-val" style="color:var(--accent)">'+fmtMontant(ttc)+'</td>'+
           '<td>'+fmtDate(f.echeance||f.dateEcheance||f.date_echeance)+'</td>'+
           '<td><span class="'+badgeClass(f.statut)+'">'+f.statut+'</span></td>'+
-          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+modBtn+pdfBtn+emailBtn+delBtn+'</td></tr>';
+          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+payBtn+recuBtn+modBtn+pdfBtn+emailBtn+delBtn+'</td></tr>';
       }).join('');
   // Update nav badge
   var b=document.getElementById('creances-badge');
