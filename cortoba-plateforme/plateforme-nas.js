@@ -10326,31 +10326,31 @@ function openReassignProjetModal(oldProjetId) {
 }
 window.openReassignProjetModal = openReassignProjetModal;
 
-function openReassignProjetDropdown() {
-  var dd = document.getElementById('reassign-projet-dropdown');
-  var sel = document.getElementById('reassign-projet-select');
-  var opts = Array.from(sel.options).filter(function(o){ return o.value; });
-  var html = '';
-  opts.forEach(function(o) {
-    html += '<div style="padding:0.5rem 0.7rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'" onclick="selectReassignProjet(\'' + o.value + '\',\'' + o.textContent.replace(/'/g,"\\'") + '\')">' + o.textContent + '</div>';
-  });
-  dd.innerHTML = html || '<div style="padding:0.5rem;font-size:0.8rem;color:var(--text-3)">Aucun projet</div>';
-  dd.style.display = 'block';
+function _buildReassignProjetItems(excludeId) {
+  var items = _buildTacheProjetItems();
+  return items.filter(function(it){ return it.id !== excludeId; });
 }
-window.openReassignProjetDropdown = openReassignProjetDropdown;
+
+function openReassignProjetDropdown() {
+  filterReassignProjetDropdown('');
+}
 
 function filterReassignProjetDropdown(q) {
   var dd = document.getElementById('reassign-projet-dropdown');
-  var sel = document.getElementById('reassign-projet-select');
-  var opts = Array.from(sel.options).filter(function(o){ return o.value; });
-  q = (q||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  var html = '';
-  opts.forEach(function(o) {
-    var text = o.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    if (q && text.indexOf(q) === -1) return;
-    html += '<div style="padding:0.5rem 0.7rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'" onclick="selectReassignProjet(\'' + o.value + '\',\'' + o.textContent.replace(/'/g,"\\'") + '\')">' + o.textContent + '</div>';
-  });
-  dd.innerHTML = html || '<div style="padding:0.5rem;font-size:0.8rem;color:var(--text-3)">Aucun résultat</div>';
+  if (!dd) return;
+  var oldId = document.getElementById('reassign-old-projet-id').value;
+  var items = _buildReassignProjetItems(oldId);
+  var qNorm = (q||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  var filtered = items.filter(function(it){ return !qNorm || it.search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').indexOf(qNorm) !== -1; });
+  dd.innerHTML = filtered.length === 0
+    ? '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.78rem">Aucun projet trouvé</div>'
+    : filtered.map(function(it) {
+        var clientHtml = it.client ? '<span style="font-size:0.72rem;color:var(--text-3);margin-left:0.4rem">' + it.client + '</span>' : '';
+        return '<div onmousedown="selectReassignProjet(\'' + it.id + '\',\'' + it.label.replace(/'/g, "\\'") + '\')"' +
+          ' style="padding:0.5rem 0.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background 0.15s"' +
+          ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'\'">' +
+          it.label + clientHtml + '</div>';
+      }).join('');
   dd.style.display = 'block';
 }
 window.filterReassignProjetDropdown = filterReassignProjetDropdown;
