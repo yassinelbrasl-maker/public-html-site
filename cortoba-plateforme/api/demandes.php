@@ -252,6 +252,7 @@ function handlePut($id, array $user) {
                ->execute([$projetId, 'projet_cree', $user['name'], $id]);
 
             jsonOk(['id' => $id, 'projet_id' => $projetId]);
+            break;
 
         case 'creer_devis':
             // Stub : mettre à jour le devis_id si fourni
