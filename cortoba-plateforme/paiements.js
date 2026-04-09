@@ -425,6 +425,153 @@ function renderDashHonorairesWidget() {
   }
 })();
 
+// ── Reçu de paiement PDF ──
+
+function genRecuPaiementPDF(paiementId) {
+  apiFetch('api/paiements.php?action=receipt&id=' + paiementId).then(function(r) {
+    var p = r.data;
+    var ag = {
+      raison:  getSetting('cortoba_agence_raison','Cortoba Architecture Studio'),
+      adresse: getSetting('cortoba_agence_adresse','Midoun, Djerba, Tunisie'),
+      tel:     getSetting('cortoba_agence_tel',''),
+      email:   getSetting('cortoba_agence_email',''),
+      mf:      getSetting('cortoba_agence_mf',''),
+      cnoa:    getSetting('cortoba_agence_cnoa',''),
+      banque:  getSetting('cortoba_banque',''),
+      rib:     getSetting('cortoba_rib','')
+    };
+    var logo = getSetting('cortoba_logo','');
+    var logoH = logo
+      ? '<img src="'+logo+'" style="max-height:55px;max-width:180px;object-fit:contain" />'
+      : '<div style="font-size:1.2rem;font-weight:700;color:#111">'+ag.raison+'</div>';
+
+    function fN(n){ return (parseFloat(n)||0).toFixed(3).replace('.',',')+' TND'; }
+    function fD(d){ if(!d) return '\u2014'; try{ return new Date(d).toLocaleDateString('fr-FR'); }catch(e){return String(d);} }
+
+    var recuNum = 'REC-' + (p.facture_numero || '').replace(/^FA-?/i,'') + '-' + (p.date_paiement||'').replace(/-/g,'').slice(4);
+
+    var netFacture = parseFloat(p.net_payer) || parseFloat(p.montant_ttc) || 0;
+    var resteApayer = Math.max(0, netFacture - (parseFloat(p.total_paye_facture)||0));
+
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reçu de paiement — '+ag.raison+'</title><style>'
+      + '@page{size:A4;margin:14mm 13mm 16mm}*{box-sizing:border-box}'
+      + 'body{font-family:Helvetica,Arial,sans-serif;font-size:9pt;color:#222;margin:0}'
+      + '.page{max-width:184mm;margin:0 auto}'
+      + '.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10pt}'
+      + '.hdr-r{text-align:right}'
+      + '.agaddr{display:flex;flex-direction:column;gap:1pt;margin-top:5pt}'
+      + '.agaddr span{font-size:7.5pt;color:#555}'
+      + '.recunum{font-size:18pt;font-weight:700;color:#2d7a50}'
+      + '.sl{border-top:1.5pt solid #2d7a50;margin:10pt 0}'
+      + '.parties{display:flex;gap:18pt;margin-bottom:14pt}'
+      + '.party{flex:1;padding:8pt;background:#f9f9f9;border-radius:3pt}'
+      + '.pdest{background:#e8f5e9}'
+      + '.plbl{font-size:6.5pt;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4pt}'
+      + '.section-title{font-size:10pt;font-weight:700;color:#2d7a50;margin:14pt 0 8pt;padding-bottom:4pt;border-bottom:1pt solid #c8e6c9}'
+      + '.detail-table{width:100%;border-collapse:collapse;margin-bottom:12pt}'
+      + '.detail-table td{padding:5pt 8pt;font-size:8.5pt;border-bottom:.5pt solid #eee}'
+      + '.detail-table td:first-child{color:#555;width:40%}'
+      + '.detail-table td:last-child{font-weight:600}'
+      + '.amount-box{background:#e8f5e9;border:1.5pt solid #2d7a50;border-radius:6pt;padding:12pt 16pt;text-align:center;margin:16pt 0}'
+      + '.amount-box .label{font-size:8pt;color:#555;margin-bottom:4pt}'
+      + '.amount-box .value{font-size:20pt;font-weight:700;color:#2d7a50}'
+      + '.summary-table{width:260pt;margin-left:auto;border-collapse:collapse;margin-bottom:14pt}'
+      + '.summary-table td{padding:3pt 6pt;font-size:8.5pt}'
+      + '.summary-table .sep td{border-top:1pt solid #2d7a50;padding-top:4pt}'
+      + '.stamp{margin-top:20pt;display:flex;justify-content:space-between;align-items:flex-end}'
+      + '.stamp-box{text-align:center;padding:8pt 16pt;border:1pt dashed #aaa;border-radius:4pt;min-width:160pt;min-height:70pt}'
+      + '.stamp-box .lbl{font-size:7pt;color:#888;text-transform:uppercase;letter-spacing:.1em}'
+      + '.footer-note{margin-top:16pt;font-size:7.5pt;color:#888;border-top:.5pt solid #eee;padding-top:5pt}'
+      + '.fw{font-weight:700}.gray{color:#777}.sm{font-size:7.5pt}.green{color:#2d7a50}'
+      + '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+      + '</style></head><body>'
+      + '<div class="page">'
+
+      // Header
+      + '<div class="hdr"><div>'+logoH
+      + '<div class="agaddr">'
+      + (ag.adresse?'<span>'+ag.adresse+'</span>':'')
+      + (ag.tel?'<span>'+ag.tel+'</span>':'')
+      + (ag.email?'<span>'+ag.email+'</span>':'')
+      + (ag.mf?'<span>MF\u00a0: '+ag.mf+'</span>':'')
+      + (ag.cnoa?'<span>CNOA\u00a0: '+ag.cnoa+'</span>':'')
+      + '</div></div>'
+      + '<div class="hdr-r">'
+      + '<div class="recunum">'+recuNum+'</div>'
+      + '<div class="gray sm">Date\u00a0: '+fD(p.date_paiement)+'</div>'
+      + '<div style="display:inline-block;margin-top:4pt;padding:2pt 7pt;border:1pt solid #2d7a50;border-radius:3pt;font-size:7.5pt;font-weight:600;color:#2d7a50">REÇU DE PAIEMENT</div>'
+      + '</div></div>'
+
+      + '<div class="sl"></div>'
+
+      // Parties
+      + '<div class="parties">'
+      + '<div class="party"><div class="plbl">Émetteur</div><div class="fw">'+ag.raison+'</div>'
+      + (ag.adresse?'<div class="gray sm">'+ag.adresse+'</div>':'')
+      + '</div>'
+      + '<div class="party pdest"><div class="plbl">Payeur</div>'
+      + '<div class="fw">'+(p.client_nom||'\u2014')+'</div>'
+      + (p.client_adresse?'<div class="gray sm">'+p.client_adresse+'</div>':'')
+      + (p.client_mf?'<div class="gray sm">MF\u00a0: '+p.client_mf+'</div>':'')
+      + '</div></div>'
+
+      // Amount box
+      + '<div class="amount-box">'
+      + '<div class="label">Montant reçu</div>'
+      + '<div class="value">'+fN(p.montant)+'</div>'
+      + '</div>'
+
+      // Payment details
+      + '<div class="section-title">Détails du paiement</div>'
+      + '<table class="detail-table"><tbody>'
+      + '<tr><td>Mode de paiement</td><td>'+(p.mode_paiement||'\u2014')+'</td></tr>'
+      + '<tr><td>Date du paiement</td><td>'+fD(p.date_paiement)+'</td></tr>'
+      + (p.reference?'<tr><td>Référence</td><td>'+p.reference+'</td></tr>':'')
+      + (p.notes?'<tr><td>Notes</td><td>'+p.notes+'</td></tr>':'')
+      + '</tbody></table>'
+
+      // Invoice reference
+      + '<div class="section-title">Facture associée</div>'
+      + '<table class="detail-table"><tbody>'
+      + '<tr><td>Numéro de facture</td><td>'+(p.facture_numero||'\u2014')+'</td></tr>'
+      + (p.facture_objet?'<tr><td>Objet</td><td>'+p.facture_objet+'</td></tr>':'')
+      + ((p.projet_code||p.projet_nom)?'<tr><td>Projet</td><td>'+(p.projet_code?p.projet_code+' — ':'')+(p.projet_nom||'')+'</td></tr>':'')
+      + '</tbody></table>'
+
+      // Financial summary
+      + '<table class="summary-table"><tbody>'
+      + '<tr><td class="gray">Montant facture</td><td style="text-align:right">'+fN(netFacture)+'</td></tr>'
+      + '<tr><td class="gray">Total payé à ce jour</td><td style="text-align:right;color:#2d7a50;font-weight:600">'+fN(p.total_paye_facture)+'</td></tr>'
+      + '<tr class="sep"><td class="fw">Reste à payer</td><td style="text-align:right;font-weight:700;color:'+(resteApayer>0?'#c0392b':'#2d7a50')+'">'+fN(resteApayer)+'</td></tr>'
+      + '</tbody></table>'
+
+      // Stamp and signature
+      + '<div class="stamp">'
+      + '<div class="stamp-box"><div class="lbl">Cachet & Signature</div></div>'
+      + '<div style="text-align:right;font-size:8pt;color:#555">Fait à '+(ag.adresse?ag.adresse.split(',')[0]:'')+'<br>Le '+fD(p.date_paiement)+'</div>'
+      + '</div>'
+
+      + '<div class="footer-note">Ce reçu atteste du paiement indiqué ci-dessus. Il ne constitue pas une facture et ne remplace pas la facture correspondante.</div>'
+
+      + '</div>'
+      + '<scr'+'ipt>window.addEventListener("load",function(){setTimeout(function(){window.print();},400);});<\/scr'+'ipt>'
+      + '</body></html>';
+
+    var win = null;
+    try { win = window.open('','_blank'); } catch(e){}
+    if(win && win.document){ win.document.write(html); win.document.close(); }
+    else {
+      var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+      var blobUrl = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href=blobUrl; a.target='_blank'; a.rel='noopener';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 10000);
+    }
+  }).catch(function(e){
+    showToast('Erreur chargement reçu: '+e.message, 'var(--red)');
+  });
+}
+
 // ── Devis Acceptance Hook ──
 // When a devis status changes to 'Accepté', refresh projet honoraires
 
