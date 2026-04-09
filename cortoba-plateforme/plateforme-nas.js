@@ -5281,6 +5281,7 @@ function showPage(id){
   if(id==='portail-journal') setTimeout(function(){ if(typeof renderPortailJournal==='function') renderPortailJournal(); },80);
   if(id==='journal-membres') setTimeout(function(){ if(typeof renderJournalMembres==='function') renderJournalMembres(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
+  if(id==='facturation') setTimeout(function(){ if(typeof renderCreancesPage==='function') renderCreancesPage(); },80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
   if(id==='honoraires') setTimeout(function(){ if(typeof renderHonorairesPage==='function') renderHonorairesPage(); },80);
   if(id==='creances') { id='facturation'; showPage('facturation'); setTimeout(function(){ if(typeof switchFacturationTab==='function') switchFacturationTab('receivables',document.querySelector('#facturation-tabs .tab-btn:nth-child(2)')); },150); return; }
