@@ -196,6 +196,7 @@ function handlePut($id, array $user) {
                ->execute([$clientId, 'client_cree', $user['name'], $id]);
 
             jsonOk(['id' => $id, 'client_id' => $clientId]);
+            break;
 
         case 'convertir_projet':
             if (empty($demande['client_id'])) jsonError('Le client doit être créé en premier (convertir_client)');
