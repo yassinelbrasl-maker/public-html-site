@@ -447,7 +447,7 @@ function loadRelancesHistory() {
 function openEnregistrerPaiement() {
   var sel=document.getElementById('pai-facture-sel'), factures=typeof getFactures==='function'?getFactures():[];
   var opts='<option value="">— Sélectionner une facture —</option>';
-  factures.forEach(function(f){if(f.statut==='Payée'||f.statut==='Annulée') return; var l=(f.numero||f.ref||'')+' — '+(f.client||'')+' — '+fmtMontant(f.montant_ttc||f.montantTtc||0); var reste=(parseFloat(f.net_payer||f.netPayer||f.montant_ttc||f.montantTtc)||0)-(parseFloat(f.montant_paye||f.montantPaye)||0); opts+='<option value="'+f.id+'" data-reste="'+reste+'">'+l+'</option>';});
+  factures.forEach(function(f){if(f.statut==='Annulée') return; var ttc=parseFloat(f.montant_ttc||f.montantTtc||f.montant||0); var reste=(parseFloat(f.net_payer||f.netPayer||ttc)||0)-(parseFloat(f.montant_paye||f.montantPaye)||0); var l=(f.numero||f.ref||'')+' — '+(f.client||'')+' — '+fmtMontant(ttc)+(f.statut==='Payée'?' [Payée]':(reste>0?' (reste: '+fmtMontant(reste)+')':'')); opts+='<option value="'+f.id+'" data-reste="'+Math.max(reste,0)+'">'+l+'</option>';});
   sel.innerHTML=opts; document.getElementById('pai-reste').value=''; document.getElementById('pai-montant').value='';
   document.getElementById('pai-date').value=new Date().toISOString().split('T')[0]; document.getElementById('pai-mode').value='Virement';
   document.getElementById('pai-reference').value=''; document.getElementById('pai-notes').value=''; document.getElementById('pai-err').style.display='none';
