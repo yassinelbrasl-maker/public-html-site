@@ -1668,6 +1668,17 @@ function openDevisDetail(id){
   ov.querySelector('#del-devis-btn').addEventListener('click', function(){
     if(confirm('Supprimer ce devis ?')){ deleteRow('devis', d.id); ov.remove(); }
   });
+  // Convertir en facture
+  var facBtn = ov.querySelector('#devis-to-facture-btn');
+  if (facBtn) facBtn.addEventListener('click', function(){ ov.remove(); convertDevisToFacture(d.id, false); });
+  var facForceBtn = ov.querySelector('#devis-to-facture-force-btn');
+  if (facForceBtn) facForceBtn.addEventListener('click', function(){ ov.remove(); convertDevisToFacture(d.id, true); });
+  // PDF
+  var pdfBtn = ov.querySelector('#devis-pdf-btn');
+  if (pdfBtn) pdfBtn.addEventListener('click', function(){ generateDocumentPDF('devis', d.id); });
+  // Email
+  var emailBtn = ov.querySelector('#devis-email-btn');
+  if (emailBtn) emailBtn.addEventListener('click', function(){ sendDocumentByEmail('devis', d.id); });
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
 }
