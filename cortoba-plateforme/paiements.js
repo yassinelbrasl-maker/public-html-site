@@ -146,7 +146,7 @@ function loadHonorairesDashboard() {
     var html = '';
     d.projets.forEach(function(p) {
       var dot = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + _alertColor(p.alerte_budget) + '"></span>';
-      html += '<tr><td><a href="#" onclick="document.getElementById(\'hon-projet-sel\').value=\'' + p.id + '\';loadHonorairesProjet();return false">' + (p.code || '') + ' ' + (p.nom || '') + '</a></td>' +
+      html += '<tr><td><a href="#" onclick="selectHonProjet(\'' + p.id + '\');return false">' + (p.code || '') + ' ' + (p.nom || '') + '</a></td>' +
         '<td style="text-align:right">' + fmtMontant(p.honoraires_prevus || 0) + '</td>' +
         '<td style="text-align:right">' + fmtMontant(p.honoraires_engages || 0) + '</td>' +
         '<td style="text-align:right">' + fmtMontant(p.honoraires_factures || 0) + '</td>' +
