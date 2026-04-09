@@ -414,7 +414,7 @@ function renderDashCreancesWidget() {
         '</div>' +
       '</div>' +
       (nbRetard > 0 ? '<div style="font-size:0.75rem;color:var(--red);margin-bottom:0.5rem">' + nbRetard + ' client(s) avec retard &gt; 60 jours</div>' : '') +
-      '<button class="btn btn-sm" onclick="showPage(\'creances\')" style="width:100%">Voir détails</button>';
+      '<button class="btn btn-sm" onclick="showPage(\'facturation\');setTimeout(function(){switchFacturationTab(\'receivables\',document.querySelector(\'#facturation-tabs .tab-btn:nth-child(2)\'));},150)" style="width:100%">Voir détails</button>';
   }).catch(function() {
     el.innerHTML = '<div style="font-size:0.8rem;color:var(--text-3)">Données non disponibles</div>';
   });
