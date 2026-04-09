@@ -584,108 +584,113 @@
         <div class="page-header">
           <div class="page-title-group">
             <div class="page-eyebrow">Finance</div>
-            <h1 class="page-title">Facturation</h1>
+            <h1 class="page-title">Facturation & Paiements</h1>
           </div>
-          <div class="page-actions">
-            <button class="btn" onclick="openExportFactures()">⬇️ Exporter PDF</button>
-            <button class="btn btn-primary btn-create-only" onclick="openModal('modal-facture')">
+          <div class="page-actions" id="facturation-page-actions">
+            <button class="btn" onclick="openExportFactures()" id="fa-action-export-pdf">⬇️ Exporter PDF</button>
+            <button class="btn" onclick="exportAgedBalanceCSV()" id="fa-action-export-csv" style="display:none">⬇️ Exporter CSV</button>
+            <button class="btn btn-sm btn-primary" onclick="openEnregistrerPaiement()" id="fa-action-paiement" style="display:none">+ Enregistrer un paiement</button>
+            <button class="btn btn-primary btn-create-only" onclick="openModal('modal-facture')" id="fa-action-new-facture">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Nouvelle facture
             </button>
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem">
-          <div class="kpi-card">
-            <div class="kpi-label">Total facturé 2026</div>
-            <div class="kpi-value">148<span class="kpi-unit">k</span></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Encaissé</div>
-            <div class="kpi-value" style="color:var(--green)">135.6<span class="kpi-unit">k</span></div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">En attente / impayé</div>
-            <div class="kpi-value" style="color:var(--red)">12.4<span class="kpi-unit">k</span></div>
+        <!-- KPIs unifiés -->
+        <div class="kpi-grid" id="facturation-kpis" style="grid-template-columns:repeat(5,1fr);margin-bottom:1.5rem">
+          <div class="kpi-card"><div class="kpi-label">Total facturé 2026</div><div class="kpi-val" id="fa-kpi-total">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Encaissé</div><div class="kpi-val" id="fa-kpi-encaisse" style="color:var(--green)">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Créances</div><div class="kpi-val" id="cr-kpi-total">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Échues (en retard)</div><div class="kpi-val" id="cr-kpi-echues" style="color:var(--red)">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Trésorerie M+3</div><div class="kpi-val" id="cr-kpi-tresorerie">—</div></div>
+        </div>
+
+        <!-- Tabs unifiés -->
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem" id="facturation-tabs">
+          <button class="tab-btn active" onclick="switchFacturationTab('factures',this)">Factures</button>
+          <button class="tab-btn" onclick="switchFacturationTab('receivables',this)">Créances clients</button>
+          <button class="tab-btn" onclick="switchFacturationTab('aged',this)">Balance âgée</button>
+          <button class="tab-btn" onclick="switchFacturationTab('cashflow',this)">Trésorerie</button>
+          <button class="tab-btn" onclick="switchFacturationTab('relances',this)">Relances</button>
+        </div>
+
+        <!-- Tab: Factures -->
+        <div class="facturation-tab" id="facturation-tab-factures">
+          <div class="table-wrap">
+            <div class="table-header">
+              <span class="table-title">Factures 2026</span>
+              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-2026')" title="Exporter en CSV">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                CSV
+              </button>
+            </div>
+            <table id="factures-table">
+              <thead><tr>
+                <th>N° Facture</th><th>Client</th><th>Projet</th><th>Montant HT</th><th>Total TTC</th><th>Échéance</th><th>Statut</th><th></th>
+              </tr></thead>
+              <tbody id="factures-tbody"></tbody>
+            </table>
+            <div id="factures-bulk-bar" class="ergo-bulk-bar">
+              <span class="ergo-bulk-count">0 sélectionné</span>
+              <div class="ergo-bulk-actions">
+                <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-selection')">Exporter CSV</button>
+                <button class="btn btn-sm" style="color:var(--orange)" onclick="alert('Relance groupée — fonctionnalité à connecter à l\'API')">Relancer</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="table-wrap">
-          <div class="table-header">
-            <span class="table-title">Factures 2026</span>
-            <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-2026')" title="Exporter en CSV">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              CSV
-            </button>
-          </div>
-          <table id="factures-table">
-            <thead><tr>
-              <th>N° Facture</th><th>Client</th><th>Projet</th><th>Montant HT</th><th>TVA</th><th>Total TTC</th><th>Échéance</th><th>Statut</th><th></th>
-            </tr></thead>
-            <tbody id="factures-tbody">
-              <tr>
-                <td class="inline-val">F-2026-021</td>
-                <td>Ben Salah, Karim</td>
-                <td>Villa Hammamet</td>
-                <td>6 000 TND</td>
-                <td>7%</td>
-                <td class="inline-val">6 420 TND</td>
-                <td>31 Mar 2026</td>
-                <td><span class="badge badge-orange">Envoyée</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
-              </tr>
-              <tr>
-                <td class="inline-val">F-2026-020</td>
-                <td>Hamdi, Leila</td>
-                <td>Villa Nabeul</td>
-                <td>5 600 TND</td>
-                <td>7%</td>
-                <td class="inline-val">5 992 TND</td>
-                <td>06 Mar 2026</td>
-                <td><span class="badge badge-red">Impayée</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
-              </tr>
-              <tr>
-                <td class="inline-val">F-2026-019</td>
-                <td>Invest Djerba</td>
-                <td>Étude préliminaire</td>
-                <td>3 500 TND</td>
-                <td>7%</td>
-                <td class="inline-val">3 745 TND</td>
-                <td>28 Fév 2026</td>
-                <td><span class="badge badge-red">Impayée</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
-              </tr>
-              <tr>
-                <td class="inline-val">F-2026-018</td>
-                <td>Ben Salem, Hatem</td>
-                <td>Villa Djerba</td>
-                <td>6 000 TND</td>
-                <td>7%</td>
-                <td class="inline-val">6 420 TND</td>
-                <td>20 Fév 2026</td>
-                <td><span class="badge badge-green">Payée</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
-              </tr>
-              <tr>
-                <td class="inline-val">F-2026-015</td>
-                <td>Mahjoub SCI</td>
-                <td>Résidence Sfax</td>
-                <td>12 000 TND</td>
-                <td>7%</td>
-                <td class="inline-val">12 840 TND</td>
-                <td>15 Jan 2026</td>
-                <td><span class="badge badge-green">Payée</span></td>
-                <td><button class="btn btn-sm">Voir</button></td>
-              </tr>
-            </tbody>
-          </table>
-          <div id="factures-bulk-bar" class="ergo-bulk-bar">
-            <span class="ergo-bulk-count">0 sélectionné</span>
-            <div class="ergo-bulk-actions">
-              <button class="btn btn-sm" onclick="exportTableCSV(document.getElementById('factures-table'),'factures-selection')">Exporter CSV</button>
-              <button class="btn btn-sm" style="color:var(--orange)" onclick="alert('Relance groupée — fonctionnalité à connecter à l\'API')">Relancer</button>
+        <!-- Tab: Créances clients -->
+        <div class="facturation-tab" id="facturation-tab-receivables" style="display:none">
+          <div class="card">
+            <div style="overflow-x:auto">
+            <table class="data-table" id="receivables-table">
+              <thead><tr>
+                <th>Client</th><th>Facture</th><th>Projet</th><th>Montant</th><th>Payé</th><th>Reste</th>
+                <th>Échéance</th><th>Retard</th><th>Statut</th><th></th>
+              </tr></thead>
+              <tbody id="receivables-tbody"></tbody>
+            </table>
             </div>
+          </div>
+        </div>
+
+        <!-- Tab: Balance âgée -->
+        <div class="facturation-tab" id="facturation-tab-aged" style="display:none">
+          <div class="card">
+            <div style="overflow-x:auto">
+            <table class="data-table" id="aged-balance-table">
+              <thead><tr>
+                <th>Client</th><th>Non échu</th><th>0-30j</th><th>31-60j</th><th>61-90j</th><th>90j+</th><th>Total</th>
+              </tr></thead>
+              <tbody id="aged-balance-tbody"></tbody>
+              <tfoot id="aged-balance-tfoot"></tfoot>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Trésorerie prévisionnelle -->
+        <div class="facturation-tab" id="facturation-tab-cashflow" style="display:none">
+          <div class="card">
+            <div class="card-title">Prévision de trésorerie (6 mois)</div>
+            <div style="overflow-x:auto">
+            <table class="data-table" id="cashflow-table">
+              <thead><tr><th>Mois</th><th>Entrées prévues</th><th>Entrées réelles</th><th>Sorties prévues</th><th>Solde prévisionnel</th></tr></thead>
+              <tbody id="cashflow-tbody"></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Historique relances -->
+        <div class="facturation-tab" id="facturation-tab-relances" style="display:none">
+          <div class="card">
+            <table class="data-table" id="relances-table">
+              <thead><tr><th>Date</th><th>Facture</th><th>Client</th><th>Niveau</th><th>Canal</th><th>Statut</th><th>Par</th></tr></thead>
+              <tbody id="relances-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
