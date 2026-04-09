@@ -5235,8 +5235,10 @@ var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & 
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   // ('notifications' est toujours accessible : ouvert depuis la cloche)
+  // Alias: 'creances' → 'facturation' (modules fusionnés)
   var _allowed = getAllowedModules();
-  if (id !== 'notifications' && _allowed !== null && _allowed.indexOf(id) === -1) {
+  var _checkId = (id === 'creances') ? 'facturation' : id;
+  if (_checkId !== 'notifications' && _allowed !== null && _allowed.indexOf(_checkId) === -1 && _allowed.indexOf(id) === -1) {
     var _first = _allowed[0] || 'dashboard';
     if (_first !== id) showPage(_first);
     return;
