@@ -323,7 +323,7 @@ function onPaiFactureChange() {
 function savePaiement() {
   var fid=document.getElementById('pai-facture-sel').value, mt=parseFloat(document.getElementById('pai-montant').value), errEl=document.getElementById('pai-err');
   if(!fid){errEl.textContent='Sélectionnez une facture';errEl.style.display='';return;} if(!mt||mt<=0){errEl.textContent='Montant invalide';errEl.style.display='';return;}
-  apiFetch('api/paiements.php?action=create',{method:'POST',body:{facture_id:fid,montant:mt,date_paiement:document.getElementById('pai-date').value,mode_paiement:document.getElementById('pai-mode').value,reference:document.getElementById('pai-reference').value,notes:document.getElementById('pai-notes').value}}).then(function(){document.getElementById('modal-paiement').style.display='none';showToast('Paiement enregistré');loadReceivables();if(typeof loadData==='function') loadData();}).catch(function(e){errEl.textContent=e.message;errEl.style.display='';});
+  apiFetch('api/paiements.php?action=create',{method:'POST',body:{facture_id:fid,montant:mt,date_paiement:document.getElementById('pai-date').value,mode_paiement:document.getElementById('pai-mode').value,reference:document.getElementById('pai-reference').value,notes:document.getElementById('pai-notes').value}}).then(function(r){document.getElementById('modal-paiement').style.display='none';showToast('Paiement enregistré');loadReceivables();if(typeof loadData==='function') loadData();var pid=r&&r.data&&r.data.id;if(pid&&confirm('Paiement enregistré avec succès.\n\nVoulez-vous imprimer le reçu de paiement ?')){genRecuPaiementPDF(pid);}}).catch(function(e){errEl.textContent=e.message;errEl.style.display='';});
 }
 
 // ── Relance modal ──
