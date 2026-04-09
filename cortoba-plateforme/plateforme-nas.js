@@ -8562,6 +8562,250 @@ function archiveDemande() {
 }
 
 // ══════════════════════════════════════════════════════════
+//  WORKFLOW : ACCEPTER DEMANDE (1 clic)
+// ══════════════════════════════════════════════════════════
+
+function accepterDemande() {
+  if (!_openDemandeId) return;
+  var d = getDemandes().find(function(x) { return x.id === _openDemandeId; });
+  if (d && d.devis_id) {
+    showToast('Cette demande a déjà été acceptée', 'error');
+    return;
+  }
+  var btn = document.getElementById('dem-btn-accepter');
+  if (btn) { btn.disabled = true; btn.textContent = 'Traitement en cours…'; }
+  var resultEl = document.getElementById('dem-accept-result');
+
+  apiFetch('api/demandes.php?id=' + _openDemandeId, {
+    method: 'PUT',
+    body: { action: 'accepter_demande' }
+  }).then(function(r) {
+    var data = r.data || r;
+    if (resultEl) {
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = '<strong>Demande acceptée avec succès !</strong><br>'
+        + 'Client créé · Projet créé · Devis <strong>' + (data.devis_numero || '') + '</strong> généré<br>'
+        + 'Montant HT : ' + fmtMontant(data.montant_ht || 0) + ' — TTC : ' + fmtMontant(data.montant_ttc || 0)
+        + '<br><span style="font-size:0.72rem;color:var(--text-3)">Le client a été notifié par email.</span>';
+    }
+    showToast('Demande acceptée — Client, projet et devis créés automatiquement');
+    return loadData();
+  }).then(function() {
+    renderAll();
+    // Update button states
+    var btnClient = document.getElementById('dem-btn-client');
+    var btnProjet = document.getElementById('dem-btn-projet');
+    var btnDevis = document.getElementById('dem-btn-devis');
+    if (btnClient) btnClient.disabled = true;
+    if (btnProjet) btnProjet.disabled = true;
+    if (btnDevis) btnDevis.disabled = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Déjà acceptée'; }
+    // Hide accept block
+    var block = document.getElementById('dem-accept-block');
+    if (block) { block.style.borderColor = 'rgba(90,171,110,0.4)'; block.style.background = 'rgba(90,171,110,0.06)'; }
+  }).catch(function(e) {
+    showToast('Erreur : ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Accepter en 1 clic'; }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  WORKFLOW : DEVIS → FACTURE
+// ══════════════════════════════════════════════════════════
+
+function convertDevisToFacture(devisId, force) {
+  if (!devisId) return;
+  if (!confirm('Convertir ce devis en facture ? Une facture sera créée et le client sera notifié par email.')) return;
+
+  apiFetch('api/workflow.php?action=devis_to_facture', {
+    method: 'POST',
+    body: { devis_id: devisId, force: !!force }
+  }).then(function(r) {
+    var f = r.data || r;
+    showToast('Facture ' + (f.numero || '') + ' créée depuis le devis');
+    loadData().then(function() {
+      renderDevisList();
+      renderFactures();
+    });
+  }).catch(function(e) {
+    showToast('Erreur : ' + e.message, 'error');
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  WORKFLOW : PDF GENERATION
+// ══════════════════════════════════════════════════════════
+
+function generateDocumentPDF(type, id) {
+  apiFetch('api/workflow.php?action=generate_pdf&type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id))
+    .then(function(r) {
+      var doc = r.data || r;
+      _openPDFPreview(doc);
+    }).catch(function(e) {
+      showToast('Erreur PDF : ' + e.message, 'error');
+    });
+}
+
+function _openPDFPreview(doc) {
+  var type = doc._type || 'document';
+  var title = doc._title || 'Document';
+  var company = doc._company || {};
+  var lignes = doc._lignes || [];
+
+  // Build HTML for print
+  var lignesHtml = '';
+  if (lignes.length > 0) {
+    lignesHtml = '<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:12px">'
+      + '<thead><tr style="background:#f5f0e8;border-bottom:2px solid #c8a96e">'
+      + '<th style="text-align:left;padding:8px">Description</th>'
+      + '<th style="text-align:center;padding:8px">Qté</th>'
+      + '<th style="text-align:right;padding:8px">P.U.</th>'
+      + '<th style="text-align:right;padding:8px">Montant</th></tr></thead><tbody>';
+    lignes.forEach(function(l) {
+      lignesHtml += '<tr style="border-bottom:1px solid #eee">'
+        + '<td style="padding:6px 8px">' + (l.description || '') + '</td>'
+        + '<td style="text-align:center;padding:6px 8px">' + (l.quantite || 1) + '</td>'
+        + '<td style="text-align:right;padding:6px 8px">' + fmtMontant(l.prix_unitaire || 0) + '</td>'
+        + '<td style="text-align:right;padding:6px 8px">' + fmtMontant(l.montant || 0) + '</td></tr>';
+    });
+    lignesHtml += '</tbody></table>';
+  }
+
+  // Totals section
+  var totalsHtml = '<table style="width:50%;margin-left:auto;border-collapse:collapse;font-size:12px">';
+  if (type === 'recu') {
+    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Montant payé</td><td style="text-align:right;padding:4px 8px;font-weight:bold;color:#c8a96e">' + fmtMontant(doc.montant || 0) + ' TND</td></tr>';
+    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Total payé sur la facture</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.total_paye_facture || 0) + ' TND</td></tr>';
+    totalsHtml += '<tr style="border-top:2px solid #c8a96e"><td style="padding:6px 8px;font-weight:bold">Reste à payer</td><td style="text-align:right;padding:6px 8px;font-weight:bold">' + fmtMontant(doc._reste || 0) + ' TND</td></tr>';
+  } else {
+    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Montant HT</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.montant_ht || 0) + ' TND</td></tr>';
+    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">TVA</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.tva || 0) + ' TND</td></tr>';
+    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Montant TTC</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.montant_ttc || 0) + ' TND</td></tr>';
+    if (doc.timbre) totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Timbre</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.timbre) + ' TND</td></tr>';
+    if (doc.ras_amt) totalsHtml += '<tr><td style="padding:4px 8px;color:#666">RAS (' + (doc.ras_taux||10) + '%)</td><td style="text-align:right;padding:4px 8px">-' + fmtMontant(doc.ras_amt) + ' TND</td></tr>';
+    if (doc.net_payer) totalsHtml += '<tr style="border-top:2px solid #c8a96e"><td style="padding:6px 8px;font-weight:bold">Net à payer</td><td style="text-align:right;padding:6px 8px;font-weight:bold;font-size:14px">' + fmtMontant(doc.net_payer) + ' TND</td></tr>';
+  }
+  totalsHtml += '</table>';
+
+  // Client info
+  var clientName = doc.client_nom || doc.client_nom_full || doc.client || '';
+  var clientAddr = doc.client_adresse || '';
+  var clientMF = doc.client_mf || '';
+
+  // Specific fields for recu
+  var recuHtml = '';
+  if (type === 'recu') {
+    recuHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin:16px 0">'
+      + '<tr><td style="padding:4px 8px;color:#666;width:40%">Facture</td><td style="padding:4px 8px">' + (doc.facture_numero || '') + '</td></tr>'
+      + '<tr><td style="padding:4px 8px;color:#666">Projet</td><td style="padding:4px 8px">' + (doc.projet_nom || '') + '</td></tr>'
+      + '<tr><td style="padding:4px 8px;color:#666">Date de paiement</td><td style="padding:4px 8px">' + (doc.date_paiement || '') + '</td></tr>'
+      + '<tr><td style="padding:4px 8px;color:#666">Mode de paiement</td><td style="padding:4px 8px">' + (doc.mode_paiement || '') + '</td></tr>'
+      + '<tr><td style="padding:4px 8px;color:#666">Référence</td><td style="padding:4px 8px">' + (doc.reference || '-') + '</td></tr>'
+      + '</table>';
+  }
+
+  var printHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + title + '</title>'
+    + '<style>@page{size:A4;margin:20mm}body{font-family:Arial,sans-serif;color:#333;margin:0;padding:20px}'
+    + '.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #c8a96e;padding-bottom:16px;margin-bottom:24px}'
+    + '.logo-side h1{color:#c8a96e;font-size:18px;margin:0}.logo-side p{color:#888;font-size:11px;margin:2px 0}'
+    + '.doc-label{text-align:right}.doc-label h2{color:#222;font-size:15px;margin:0 0 4px}.doc-label p{font-size:11px;color:#666;margin:2px 0}'
+    + '.client-box{background:#f9f7f3;border:1px solid #e8e0d0;border-radius:6px;padding:12px 16px;margin-bottom:20px}'
+    + '.client-box strong{display:block;font-size:13px;margin-bottom:4px}.client-box span{font-size:11px;color:#666}'
+    + '.notes{margin-top:20px;padding:12px;background:#f8f8f8;border-radius:4px;font-size:11px;color:#666;white-space:pre-wrap}'
+    + '.footer{margin-top:40px;border-top:1px solid #ddd;padding-top:12px;font-size:10px;color:#999;text-align:center}'
+    + '@media print{body{padding:0}}</style></head><body>'
+    + '<div class="header"><div class="logo-side"><h1>' + (company.nom || 'CORTOBA Architecture') + '</h1>'
+    + '<p>' + (company.adresse || '') + '</p><p>' + (company.email || '') + '</p>'
+    + (company.mf ? '<p>MF : ' + company.mf + '</p>' : '') + '</div>'
+    + '<div class="doc-label"><h2>' + title + '</h2>'
+    + '<p>Date : ' + (doc.date_devis || doc.date_facture || doc.date_paiement || new Date().toISOString().split('T')[0]) + '</p>'
+    + (doc.date_expiry ? '<p>Validité : ' + doc.date_expiry + '</p>' : '')
+    + (doc.date_echeance ? '<p>Échéance : ' + doc.date_echeance + '</p>' : '')
+    + '</div></div>'
+    + '<div class="client-box"><strong>' + clientName + '</strong>'
+    + (clientAddr ? '<span>' + clientAddr + '</span><br>' : '')
+    + (clientMF ? '<span>MF : ' + clientMF + '</span>' : '')
+    + '</div>'
+    + (doc.objet || doc.facture_objet ? '<p style="margin-bottom:16px"><strong>Objet : </strong>' + (doc.objet || doc.facture_objet || '') + '</p>' : '')
+    + recuHtml
+    + lignesHtml
+    + totalsHtml
+    + (doc.montant_lettres ? '<p style="margin-top:12px;font-size:12px;font-style:italic">Arrêté la présente à la somme de : <strong>' + doc.montant_lettres + '</strong></p>' : '')
+    + '<div class="footer">' + (company.nom || 'CORTOBA Architecture') + ' · ' + (company.adresse || '') + ' · ' + (company.email || '') + '</div>'
+    + '</body></html>';
+
+  var win = window.open('', '_blank');
+  if (win) {
+    win.document.write(printHtml);
+    win.document.close();
+    setTimeout(function() { win.print(); }, 500);
+  }
+}
+
+function sendDocumentByEmail(type, id) {
+  var email = prompt('Envoyer par email à :');
+  if (!email) return;
+  var message = prompt('Message personnalisé (optionnel) :') || '';
+
+  apiFetch('api/workflow.php?action=send_document', {
+    method: 'POST',
+    body: { type: type, id: id, email: email, message: message }
+  }).then(function(r) {
+    showToast('Document envoyé à ' + (r.data ? r.data.email : email));
+  }).catch(function(e) {
+    showToast('Erreur envoi : ' + e.message, 'error');
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  DASHBOARD : SOLDES PROJETS
+// ══════════════════════════════════════════════════════════
+
+function renderDashSoldes(data) {
+  var soldes = (data && data.soldes_projets) || [];
+  var kpis = (data && data.kpis) || {};
+  var tbody = document.getElementById('dash-soldes-tbody');
+  var totauxEl = document.getElementById('dash-soldes-totaux');
+
+  if (!tbody) return;
+
+  if (soldes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text-3);font-size:0.8rem">Aucun projet avec honoraires configurés</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = soldes.map(function(p) {
+    var prevus = parseFloat(p.honoraires_prevus) || 0;
+    var facture = parseFloat(p.honoraires_factures) || 0;
+    var encaisse = parseFloat(p.honoraires_encaisses) || 0;
+    var reste = facture - encaisse;
+    var pct = prevus > 0 ? Math.round(encaisse / prevus * 100) : 0;
+    var barColor = pct >= 80 ? 'var(--green)' : (pct >= 40 ? 'var(--accent)' : 'var(--orange)');
+
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:0.5rem 0.8rem;font-weight:500;font-size:0.82rem">' + (p.nom || '—') + '<div style="font-size:0.68rem;color:var(--text-3)">' + (p.phase || '') + '</div></td>'
+      + '<td style="padding:0.5rem 0.8rem;font-size:0.82rem;color:var(--text-2)">' + (p.client || '—') + '</td>'
+      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">' + fmtMontant(prevus) + '</td>'
+      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">' + fmtMontant(facture) + '</td>'
+      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono);color:var(--green)">' + fmtMontant(encaisse) + '</td>'
+      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono);font-weight:600;color:' + (reste > 0 ? 'var(--orange)' : 'var(--green)') + '">' + fmtMontant(reste) + '</td>'
+      + '<td style="padding:0.5rem 0.8rem;width:100px"><div style="height:6px;background:var(--bg-3);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.5s"></div></div><div style="font-size:0.65rem;color:var(--text-3);text-align:center;margin-top:2px">' + pct + '%</div></td>'
+      + '</tr>';
+  }).join('');
+
+  if (totauxEl) {
+    var tp = parseFloat(kpis.total_hono_prevus) || 0;
+    var tf = parseFloat(kpis.total_hono_facture) || 0;
+    var te = parseFloat(kpis.total_hono_encaisse) || 0;
+    var tr = parseFloat(kpis.total_reste_a_payer) || 0;
+    totauxEl.innerHTML = '<span>Prévu : <strong style="color:var(--text)">' + fmtMontant(tp) + '</strong></span>'
+      + '<span>Facturé : <strong style="color:var(--text)">' + fmtMontant(tf) + '</strong></span>'
+      + '<span>Encaissé : <strong style="color:var(--green)">' + fmtMontant(te) + '</strong></span>'
+      + '<span>Reste : <strong style="color:var(--orange)">' + fmtMontant(tr) + '</strong></span>';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 //  PARAMÈTRES CONFIGURATEUR
 // ══════════════════════════════════════════════════════════
 
