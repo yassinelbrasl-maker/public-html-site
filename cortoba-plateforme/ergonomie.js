@@ -506,7 +506,7 @@
     dashboard:   { section: '',            label: 'Tableau de bord' },
     devis:       { section: 'Activité',    label: 'Offres & Devis' },
     projets:     { section: 'Activité',    label: 'Projets' },
-    facturation: { section: 'Activité',    label: 'Facturation' },
+    facturation: { section: 'Finance',      label: 'Facturation & Paiements' },
     bilans:      { section: 'Finance',     label: 'Bilans' },
     depenses:    { section: 'Finance',     label: 'Dépenses' },
     fiscalite:   { section: 'Finance',     label: 'Fiscalité' },
