@@ -10138,14 +10138,14 @@ function editTache(id) {
     sel.appendChild(opt);
   });
   sel.value = t.projet_id;
-  sel.disabled = true;
+  sel.disabled = false;
 
   // Mettre à jour le search input projet
   var _spE = document.getElementById('tache-projet-search');
   if (_spE) {
     var _ppE = getProjets().find(function(p){ return p.id === t.projet_id; });
     _spE.value = _ppE ? ((_ppE.code ? _ppE.code + ' — ' : '') + _ppE.nom) : (t.projetNom || '');
-    _spE.readOnly = true;
+    _spE.readOnly = false;
   }
   // Pré-remplir la recherche mission avec le titre existant
   var _smE = document.getElementById('tache-mission-search');
