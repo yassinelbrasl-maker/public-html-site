@@ -199,7 +199,7 @@ function update($id, array $user) {
     $fields = [];
     $params = [];
 
-    $allowed = ['titre','description','statut','priorite','assignee','date_debut','date_echeance',
+    $allowed = ['projet_id','titre','description','statut','priorite','assignee','date_debut','date_echeance',
                 'progression','ordre','parent_id','categorie','location_type','location_zone',
                 'heures_estimees','heures_reelles','progression_planifiee','progression_manuelle'];
 
