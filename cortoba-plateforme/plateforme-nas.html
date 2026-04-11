@@ -1819,7 +1819,7 @@
       <!-- ═══ MODALES PAIEMENTS ═══ -->
 
       <!-- Modal: Enregistrer un paiement (fenêtre flottante) -->
-      <div class="modal-backdrop" id="modal-paiement" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal-backdrop" id="modal-paiement" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:960px;width:96%">
           <div class="modal-header">
             <h3 id="paiement-modal-title">Enregistrer un paiement client</h3>
@@ -1917,7 +1917,7 @@
       </div>
 
       <!-- Modal: Paiement client (lié à un devis) -->
-      <div class="modal-backdrop" id="modal-paiement-client" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal-backdrop" id="modal-paiement-client" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:600px">
           <div class="modal-header">
             <h3 id="pc-modal-title">Enregistrer un paiement client</h3>
@@ -1994,7 +1994,7 @@
       </div>
 
       <!-- Modal: Relance manuelle -->
-      <div class="modal-backdrop" id="modal-relance" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal-backdrop" id="modal-relance" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:540px">
           <div class="modal-header">
             <h3>Envoyer une relance</h3>
@@ -2024,7 +2024,7 @@
       </div>
 
       <!-- Modal: Init honoraires projet -->
-      <div class="modal-backdrop" id="modal-hon-init" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal-backdrop" id="modal-hon-init" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:500px">
           <div class="modal-header">
             <h3>Initialiser les honoraires</h3>
@@ -2053,7 +2053,7 @@
       </div>
 
       <!-- Modal: Éditer phase honoraires -->
-      <div class="modal-backdrop" id="modal-hon-phase" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal-backdrop" id="modal-hon-phase" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:460px">
           <div class="modal-header">
             <h3>Éditer la phase</h3>
@@ -2094,7 +2094,7 @@
       </div>
 
       <!-- Modal: Ajouter échéance -->
-      <div class="modal-backdrop" id="modal-echeance" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal-backdrop" id="modal-echeance" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:460px">
           <div class="modal-header">
             <h3 id="echeance-modal-title">Ajouter une échéance</h3>
