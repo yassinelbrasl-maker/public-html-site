@@ -211,50 +211,89 @@ function getPaiementsByProjet() {
 function createPaiementClient($user) {
     $body = getBody();
     $devisId = $body['devis_id'] ?? '';
+    $projetIdBody = $body['projet_id'] ?? '';
+    $missionPhase = $body['mission_phase'] ?? null;
     $montant = (float)($body['montant'] ?? 0);
 
-    if (!$devisId) jsonError('devis_id requis');
+    if (!$devisId && !$projetIdBody) jsonError('devis_id ou projet_id requis');
     if ($montant <= 0) jsonError('Montant requis et > 0');
 
     $db = getDB();
 
-    // Get devis
-    $s = $db->prepare("SELECT * FROM CA_devis WHERE id = ?");
-    $s->execute([$devisId]);
-    $devis = $s->fetch(\PDO::FETCH_ASSOC);
-    if (!$devis) jsonError('Devis introuvable', 404);
+    // ── Mode A : devis_id fourni → flow historique (lié à un devis) ──
+    // ── Mode B : projet_id seul → on essaie d'auto-résoudre le devis validé du projet ──
+    $devis = null;
+    if ($devisId) {
+        $s = $db->prepare("SELECT * FROM CA_devis WHERE id = ?");
+        $s->execute([$devisId]);
+        $devis = $s->fetch(\PDO::FETCH_ASSOC);
+        if (!$devis) jsonError('Devis introuvable', 404);
+    } else {
+        // Auto-resolve : derniers devis acceptés/validés du projet
+        $s = $db->prepare("SELECT * FROM CA_devis WHERE projet_id = ? AND statut IN ('Accepté','Accepte','Validé','Valide','Facturé') ORDER BY cree_at DESC LIMIT 1");
+        $s->execute([$projetIdBody]);
+        $devis = $s->fetch(\PDO::FETCH_ASSOC);
+        if ($devis) {
+            $devisId = $devis['id'];
+        }
+    }
 
-    $montantDevis = (float)($devis['montant_ttc'] ?? 0);
-    $dejaPayeCol = (float)($devis['montant_paye'] ?? 0);
+    $projetId = $devis['projet_id'] ?? $projetIdBody ?? null;
+    $clientId = $devis['client_id'] ?? ($body['client_id'] ?? null);
+
+    // Si pas de client_id mais on a un projet → résoudre via projet
+    if (!$clientId && $projetId) {
+        try {
+            $s = $db->prepare("SELECT client_id FROM CA_projets WHERE id = ?");
+            $s->execute([$projetId]);
+            $cid = $s->fetchColumn();
+            if ($cid) $clientId = $cid;
+        } catch (\Throwable $e) {}
+    }
+
+    $montantDevis = $devis ? (float)($devis['montant_ttc'] ?? 0) : 0;
 
     // Recalculate from actual payments
-    $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE devis_id = ?");
-    $s->execute([$devisId]);
-    $dejaPaye = (float)$s->fetchColumn();
+    $dejaPaye = 0;
+    if ($devisId) {
+        $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE devis_id = ?");
+        $s->execute([$devisId]);
+        $dejaPaye = (float)$s->fetchColumn();
+    } elseif ($projetId) {
+        $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE projet_id = ?");
+        $s->execute([$projetId]);
+        $dejaPaye = (float)$s->fetchColumn();
+    }
 
-    $resteAvant = $montantDevis - $dejaPaye;
-    if ($montant > $resteAvant + 0.01) {
-        jsonError('Le montant (' . number_format($montant, 2) . ') dépasse le reste à payer (' . number_format($resteAvant, 2) . ')');
+    // Plafond : si on a un devis, le montant ne doit pas dépasser le reste
+    if ($devis && $montantDevis > 0) {
+        $resteAvant = $montantDevis - $dejaPaye;
+        if ($montant > $resteAvant + 0.01) {
+            jsonError('Le montant (' . number_format($montant, 2) . ') dépasse le reste à payer (' . number_format($resteAvant, 2) . ')');
+        }
     }
 
     // Determine type
     $typePaiement = $body['type_paiement'] ?? 'tranche';
-    if ($dejaPaye == 0 && $montant >= $montantDevis - 0.01) {
-        $typePaiement = 'total';
-    } elseif ($dejaPaye == 0) {
-        $typePaiement = 'avance';
-    } elseif ($dejaPaye + $montant >= $montantDevis - 0.01) {
-        $typePaiement = 'solde';
+    if ($montantDevis > 0) {
+        if ($dejaPaye == 0 && $montant >= $montantDevis - 0.01) {
+            $typePaiement = 'total';
+        } elseif ($dejaPaye == 0) {
+            $typePaiement = 'avance';
+        } elseif ($dejaPaye + $montant >= $montantDevis - 0.01) {
+            $typePaiement = 'solde';
+        }
     }
 
     $id = bin2hex(random_bytes(16));
-    $db->prepare("INSERT INTO CA_paiements_clients (id, devis_id, projet_id, client_id, montant, date_paiement, mode_paiement, reference, type_paiement, notes, cree_par)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+    $db->prepare("INSERT INTO CA_paiements_clients (id, devis_id, projet_id, client_id, mission_phase, montant, date_paiement, mode_paiement, reference, type_paiement, notes, cree_par)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
         ->execute([
             $id,
-            $devisId,
-            $devis['projet_id'] ?? $body['projet_id'] ?? null,
-            $devis['client_id'] ?? $body['client_id'] ?? null,
+            $devisId ?: null,
+            $projetId,
+            $clientId,
+            $missionPhase,
             $montant,
             $body['date_paiement'] ?? date('Y-m-d'),
             $body['mode_paiement'] ?? null,
@@ -264,17 +303,19 @@ function createPaiementClient($user) {
             $user['name'] ?? null,
         ]);
 
-    // Update devis totals
+    // Update devis totals (uniquement si on est rattaché à un devis)
     $nouveauTotal = $dejaPaye + $montant;
     $statut = 'non_paye';
-    if ($nouveauTotal >= $montantDevis - 0.01) {
+    if ($montantDevis > 0 && $nouveauTotal >= $montantDevis - 0.01) {
         $statut = 'solde';
     } elseif ($nouveauTotal > 0) {
         $statut = 'partiel';
     }
 
-    $db->prepare("UPDATE CA_devis SET montant_paye = ?, paiement_statut = ? WHERE id = ?")
-       ->execute([$nouveauTotal, $statut, $devisId]);
+    if ($devisId) {
+        $db->prepare("UPDATE CA_devis SET montant_paye = ?, paiement_statut = ? WHERE id = ?")
+           ->execute([$nouveauTotal, $statut, $devisId]);
+    }
 
     // Notify
     try {
