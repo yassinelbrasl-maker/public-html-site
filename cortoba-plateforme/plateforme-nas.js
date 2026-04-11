@@ -16947,16 +16947,34 @@ function pdocUpdateProjetNasLink() {
   var p = getProjets().find(function(x){ return x.id === projetId; });
   if (!p) { linkBox.innerHTML = ''; return; }
   var paths = _buildNasPaths(p);
-  // Utiliser le chemin custom du projet s'il existe
   var customPath = p.nas_path || p.nasPath || '';
   var webdav = paths.webdav;
   var unc = customPath || paths.unc;
-  linkBox.innerHTML =
-    '<a href="' + esc(webdav) + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem" title="Ouvrir le dossier NAS dans un nouvel onglet">' +
-    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-    ' Ouvrir le dossier NAS du projet</a>' +
-    ' <span style="color:var(--text-3);margin-left:0.4rem">·</span> ' +
-    '<a href="#" onclick="event.preventDefault();navigator.clipboard.writeText(' + JSON.stringify(unc) + ').then(function(){showToast(\'Chemin UNC copié\', \'success\');});" style="color:var(--text-3);text-decoration:none" title="Copier le chemin réseau Windows (UNC)">📋 UNC</a>';
+  // Utiliser createElement pour éviter les problèmes d'échappement avec les backslashes UNC
+  linkBox.innerHTML = '';
+  var a = document.createElement('a');
+  a.href = webdav;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.title = 'Ouvrir le dossier NAS dans un nouvel onglet';
+  a.style.cssText = 'color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem';
+  a.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Ouvrir le dossier NAS du projet';
+  linkBox.appendChild(a);
+  linkBox.appendChild(document.createTextNode(' '));
+  var sep = document.createElement('span');
+  sep.style.cssText = 'color:var(--text-3);margin-left:0.4rem;margin-right:0.4rem';
+  sep.textContent = '·';
+  linkBox.appendChild(sep);
+  var copyA = document.createElement('a');
+  copyA.href = '#';
+  copyA.title = 'Copier le chemin réseau Windows (UNC)';
+  copyA.style.cssText = 'color:var(--text-3);text-decoration:none';
+  copyA.textContent = '📋 UNC';
+  copyA.addEventListener('click', function(e) {
+    e.preventDefault();
+    navigator.clipboard.writeText(unc).then(function(){ showToast('Chemin UNC copié : ' + unc, 'success'); });
+  });
+  linkBox.appendChild(copyA);
   // Pré-remplir le chemin NAS si source nas
   if (nasPathInput && !nasPathInput.value) nasPathInput.value = webdav;
 }
