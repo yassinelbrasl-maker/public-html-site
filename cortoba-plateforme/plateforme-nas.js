@@ -5844,11 +5844,19 @@ function renderBarChart(containerId,data,unit,isGreen){
   });
 }
 
+// ── Confirmation avant fermeture d'une fenêtre par clic extérieur ──
+function _confirmCloseModal() {
+  return confirm('Voulez-vous vraiment fermer cette fenêtre ? Les modifications non enregistrées seront perdues.');
+}
+window._confirmCloseModal = _confirmCloseModal;
+
 // ── Init ──
 document.addEventListener('DOMContentLoaded',function(){
-  // Fermer les modals en cliquant le fond
+  // Fermer les modals en cliquant le fond (avec confirmation)
   document.querySelectorAll('.modal-overlay').forEach(function(m){
-    m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('open'); });
+    m.addEventListener('click',function(e){
+      if(e.target===m && _confirmCloseModal()) m.classList.remove('open');
+    });
   });
 
   // S'assurer que le login-screen est visible par défaut
