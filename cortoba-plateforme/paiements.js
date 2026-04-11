@@ -772,7 +772,7 @@ function savePaiement() {
   var mt = parseFloat(document.getElementById('pai-montant').value), errEl = document.getElementById('pai-err');
   if (!_paiProjetId) { errEl.textContent = 'Sélectionnez un projet'; errEl.style.display = ''; return; }
   if (!mt || mt <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display = ''; return; }
-  apiFetch('api/paiements.php?action=create', {
+  apiFetch('api/paiements_clients.php?action=create', {
     method: 'POST',
     body: {
       projet_id: _paiProjetId,
@@ -787,15 +787,17 @@ function savePaiement() {
     showToast('Paiement enregistré');
     if (typeof loadReceivables === 'function') loadReceivables();
     if (typeof loadData === 'function') loadData();
+    if (typeof renderPaiementsClientsPage === 'function') renderPaiementsClientsPage();
     // Refresh history panel inside modal
     if (_paiProjetId) loadPaiementHistoryForProjet(_paiProjetId);
     // Reset form fields for next entry, keep modal open
     document.getElementById('pai-montant').value = '';
     document.getElementById('pai-reference').value = '';
     document.getElementById('pai-notes').value = '';
-    var pid = r && r.data && r.data.id;
+    var paiement = r && r.data && r.data.paiement;
+    var pid = paiement && paiement.id;
     if (pid && confirm('Paiement enregistré avec succès.\n\nVoulez-vous imprimer le reçu de paiement ?')) {
-      genRecuPaiementPDF(pid);
+      genRecuPaiementClientPDF(pid);
     }
   }).catch(function(e) { errEl.textContent = e.message; errEl.style.display = ''; });
 }
