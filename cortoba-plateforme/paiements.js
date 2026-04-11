@@ -652,19 +652,6 @@ function selectPaiMission(missionNom) {
   if (input) input.value = _paiMissionNom;
   if (clearBtn) clearBtn.style.display = _paiMissionNom ? 'block' : 'none';
   hidePaiMissionDropdown();
-
-  // Filter factures: by projet first, then narrow to mission_phase if any
-  var factSel = document.getElementById('pai-facture-sel');
-  if (!factSel) return;
-  renderPaiFactureOptions(_paiProjetId);
-  if (_paiMissionNom) {
-    var opts = factSel.querySelectorAll('option');
-    opts.forEach(function(o) {
-      if (!o.value) return;
-      var mp = o.getAttribute('data-mission') || '';
-      if (mp && mp !== _paiMissionNom) o.style.display = 'none';
-    });
-  }
 }
 
 function clearPaiMissionSearch() {
