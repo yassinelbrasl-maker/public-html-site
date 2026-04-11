@@ -547,11 +547,6 @@ function selectPaiProjet(projetId) {
   }
   hidePaiProjetDropdown();
 
-  // Refresh facture options scoped to projet
-  renderPaiFactureOptions(_paiProjetId);
-  document.getElementById('pai-reste').value = '';
-  document.getElementById('pai-montant').value = '';
-
   // Reset & enable mission dropdown
   _paiMissionNom = '';
   var mSel = document.getElementById('pai-mission-sel'); if (mSel) mSel.value = '';
