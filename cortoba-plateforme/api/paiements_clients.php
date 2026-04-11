@@ -627,11 +627,26 @@ function getRecuPaiementClient() {
     $row = $s->fetch(\PDO::FETCH_ASSOC);
     if (!$row) jsonError('Paiement introuvable', 404);
 
-    // Total paid on this devis
-    $s2 = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE devis_id = ?");
-    $s2->execute([$row['devis_id']]);
-    $row['total_paye_devis'] = (float)$s2->fetchColumn();
-    $row['reste_devis'] = round((float)($row['devis_montant'] ?? 0) - $row['total_paye_devis'], 2);
+    // Total paid on this devis (ou sur le projet si pas de devis)
+    if (!empty($row['devis_id'])) {
+        $s2 = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE devis_id = ?");
+        $s2->execute([$row['devis_id']]);
+        $row['total_paye_devis'] = (float)$s2->fetchColumn();
+        $row['reste_devis'] = round((float)($row['devis_montant'] ?? 0) - $row['total_paye_devis'], 2);
+    } else if (!empty($row['projet_id'])) {
+        $s2 = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE projet_id = ?");
+        $s2->execute([$row['projet_id']]);
+        $row['total_paye_devis'] = (float)$s2->fetchColumn();
+        // Reste sur la base des devis validés du projet
+        $s3 = $db->prepare("SELECT COALESCE(SUM(montant_ttc),0) FROM CA_devis WHERE projet_id = ? AND statut IN ('Accepté','Accepte','Validé','Valide','Facturé')");
+        $s3->execute([$row['projet_id']]);
+        $totalDevisProjet = (float)$s3->fetchColumn();
+        $row['devis_montant'] = $totalDevisProjet;
+        $row['reste_devis'] = round(max(0, $totalDevisProjet - $row['total_paye_devis']), 2);
+    } else {
+        $row['total_paye_devis'] = (float)$row['montant'];
+        $row['reste_devis'] = 0;
+    }
 
     jsonOk($row);
 }
