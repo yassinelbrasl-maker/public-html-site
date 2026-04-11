@@ -735,6 +735,354 @@ function genRecuPaiementPDF(paiementId) {
   });
 }
 
+// ============================================================
+//  PAIEMENTS CLIENTS — Module dédié (paiement contre devis)
+//  Permet d'enregistrer des tranches/totalité de paiements
+//  liés à un devis. La facture est générée à la demande après.
+// ============================================================
+
+var _pcCache = { devis: [], summary: null, history: [] };
+var _pcFilter = '';
+
+function renderPaiementsClientsPage() {
+  // Load summary (KPIs + devis tracking) and history in parallel
+  var sumProm = apiFetch('api/paiements_clients.php?action=summary').catch(function(e){ console.error('[pc] summary', e); return null; });
+  var histProm = apiFetch('api/paiements_clients.php?action=list').catch(function(e){ console.error('[pc] list', e); return null; });
+
+  Promise.all([sumProm, histProm]).then(function(res) {
+    var sum = res[0] && res[0].data ? res[0].data : { kpis:{}, devis:[] };
+    var hist = res[1] && res[1].data ? res[1].data : [];
+
+    _pcCache.summary = sum;
+    _pcCache.devis = sum.devis || [];
+    _pcCache.history = hist || [];
+
+    // KPIs
+    var k = sum.kpis || {};
+    var elMois = document.getElementById('pc-kpi-mois');
+    var elAnnee = document.getElementById('pc-kpi-annee');
+    var elEncours = document.getElementById('pc-kpi-encours');
+    var elAFact = document.getElementById('pc-kpi-afacturer');
+    var elReste = document.getElementById('pc-kpi-reste');
+    if (elMois)   elMois.textContent = fmtTND(k.total_mois || 0);
+    if (elAnnee)  elAnnee.textContent = fmtTND(k.total_annee || 0);
+    if (elEncours)elEncours.textContent = (k.nb_en_cours || 0);
+    if (elAFact)  elAFact.textContent = (k.nb_a_facturer || 0);
+    if (elReste)  elReste.textContent = fmtTND(k.total_reste || 0);
+
+    renderPcDevisTable();
+    renderPcHistoryTable();
+  });
+}
+
+function renderPcDevisTable() {
+  var tbody = document.getElementById('pc-devis-tbody');
+  if (!tbody) return;
+  var devis = _pcCache.devis || [];
+  if (_pcFilter) {
+    var q = _pcFilter.toLowerCase();
+    devis = devis.filter(function(d){
+      return ((d.numero||'').toLowerCase().indexOf(q) !== -1) ||
+             ((d.client_nom||d.client||'').toLowerCase().indexOf(q) !== -1) ||
+             ((d.projet_nom||'').toLowerCase().indexOf(q) !== -1) ||
+             ((d.objet||'').toLowerCase().indexOf(q) !== -1);
+    });
+  }
+  if (!devis.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-3)">Aucun devis trouvé</td></tr>';
+    return;
+  }
+  var html = '';
+  devis.forEach(function(d) {
+    var ttc = parseFloat(d.montant_ttc) || 0;
+    var paye = parseFloat(d.montant_paye) || 0;
+    var reste = parseFloat(d.reste) || (ttc - paye);
+    var pct = ttc > 0 ? Math.min(100, Math.round((paye / ttc) * 100)) : 0;
+    var statut = d.paiement_statut || 'non_paye';
+    var statColor = statut === 'solde' ? 'var(--green)' : (statut === 'partiel' ? 'var(--orange)' : 'var(--text-3)');
+    var statLabel = statut === 'solde' ? 'Soldé' : (statut === 'partiel' ? 'Partiel' : 'Non payé');
+    var actions = '';
+    if (statut !== 'solde') {
+      actions += '<button class="btn btn-sm btn-primary" onclick="openPaiementClientModal(\''+d.id+'\')" style="padding:0.3rem 0.6rem;font-size:0.72rem">+ Paiement</button> ';
+    }
+    if (statut === 'solde' && d.statut !== 'Facturé') {
+      actions += '<button class="btn btn-sm" onclick="genererFactureUI(\''+d.id+'\')" style="padding:0.3rem 0.6rem;font-size:0.72rem;background:var(--accent);color:#fff;border:none">📄 Facturer</button>';
+    } else if (d.statut === 'Facturé') {
+      actions += '<span style="font-size:0.72rem;color:var(--green)">✓ Facturé</span>';
+    }
+    html += '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:0.55rem 0.6rem"><strong>'+(d.numero||'—')+'</strong><div style="font-size:0.7rem;color:var(--text-3)">'+(d.objet||'').substring(0,40)+'</div></td>' +
+      '<td style="padding:0.55rem 0.6rem">'+(d.client_nom||d.client||'—')+'</td>' +
+      '<td style="padding:0.55rem 0.6rem;font-size:0.78rem;color:var(--text-2)">'+(d.projet_nom||'—')+'</td>' +
+      '<td style="padding:0.55rem 0.6rem;text-align:right">'+fmtTND(ttc)+'</td>' +
+      '<td style="padding:0.55rem 0.6rem;text-align:right;color:var(--green)">'+fmtTND(paye)+'</td>' +
+      '<td style="padding:0.55rem 0.6rem;text-align:right;color:'+statColor+'">'+fmtTND(reste)+'</td>' +
+      '<td style="padding:0.55rem 0.6rem;min-width:140px">' +
+        '<div style="background:var(--bg-2);border-radius:4px;height:8px;overflow:hidden;position:relative">' +
+          '<div style="width:'+pct+'%;height:100%;background:'+statColor+';transition:width .3s"></div>' +
+        '</div>' +
+        '<div style="font-size:0.7rem;color:var(--text-3);text-align:center;margin-top:0.2rem">'+pct+'% — '+statLabel+'</div>' +
+      '</td>' +
+      '<td style="padding:0.55rem 0.6rem;text-align:center">'+(d.nb_tranches||0)+'</td>' +
+      '<td style="padding:0.55rem 0.6rem;text-align:right;white-space:nowrap">'+actions+'</td>' +
+    '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function renderPcHistoryTable() {
+  var tbody = document.getElementById('pc-history-tbody');
+  if (!tbody) return;
+  var hist = (_pcCache.history || []).slice(0, 25);
+  if (!hist.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text-3)">Aucun paiement enregistré</td></tr>';
+    return;
+  }
+  var typeColors = { avance:'var(--blue)', tranche:'var(--accent)', solde:'var(--green)', total:'var(--green)' };
+  var html = '';
+  hist.forEach(function(p) {
+    var d = new Date(p.date_paiement);
+    var dStr = isNaN(d) ? (p.date_paiement||'') : d.toLocaleDateString('fr-FR');
+    var typeC = typeColors[p.type_paiement] || 'var(--text-3)';
+    html += '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:0.5rem 0.6rem">'+dStr+'</td>' +
+      '<td style="padding:0.5rem 0.6rem">'+(p.client_nom||'—')+'</td>' +
+      '<td style="padding:0.5rem 0.6rem"><strong>'+(p.devis_numero||'—')+'</strong></td>' +
+      '<td style="padding:0.5rem 0.6rem;text-align:right;color:var(--green);font-weight:600">'+fmtTND(p.montant)+'</td>' +
+      '<td style="padding:0.5rem 0.6rem;text-align:center"><span style="background:'+typeC+';color:#fff;padding:0.15rem 0.5rem;border-radius:10px;font-size:0.7rem;text-transform:uppercase">'+(p.type_paiement||'—')+'</span></td>' +
+      '<td style="padding:0.5rem 0.6rem">'+(p.mode_paiement||'—')+'</td>' +
+      '<td style="padding:0.5rem 0.6rem;text-align:right"><button class="btn btn-sm" onclick="genRecuPaiementClientPDF(\''+p.id+'\')" style="padding:0.25rem 0.5rem;font-size:0.7rem" title="Reçu">🧾</button></td>' +
+    '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function filterPaiementsClients() {
+  var inp = document.getElementById('pc-search');
+  _pcFilter = inp ? (inp.value || '') : '';
+  renderPcDevisTable();
+}
+
+function openPaiementClientModal(devisId) {
+  var modal = document.getElementById('modal-paiement-client');
+  if (!modal) return;
+
+  // Reset fields
+  document.getElementById('pc-montant').value = '';
+  document.getElementById('pc-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pc-reference').value = '';
+  document.getElementById('pc-notes').value = '';
+  document.getElementById('pc-type').value = '';
+  document.getElementById('pc-mode').value = 'Virement';
+  document.getElementById('pc-recu').checked = true;
+  document.getElementById('pc-err').style.display = 'none';
+  document.getElementById('pc-devis-info').style.display = 'none';
+
+  // Populate devis selector with non-soldé devis
+  var sel = document.getElementById('pc-devis-sel');
+  sel.innerHTML = '<option value="">— Sélectionner un devis —</option>';
+  var devisList = (_pcCache.devis && _pcCache.devis.length) ? _pcCache.devis : [];
+
+  // Fallback: load if cache empty
+  var loadProm;
+  if (devisList.length === 0) {
+    loadProm = apiFetch('api/paiements_clients.php?action=summary').then(function(r){
+      if (r && r.data) {
+        _pcCache.summary = r.data;
+        _pcCache.devis = r.data.devis || [];
+      }
+      return _pcCache.devis;
+    });
+  } else {
+    loadProm = Promise.resolve(devisList);
+  }
+
+  loadProm.then(function(list) {
+    list.forEach(function(d) {
+      if (d.paiement_statut === 'solde') return;
+      if (d.statut === 'Rejeté' || d.statut === 'Facturé' || d.statut === 'Expiré') return;
+      var ttc = parseFloat(d.montant_ttc) || 0;
+      var paye = parseFloat(d.montant_paye) || 0;
+      var label = (d.numero||'') + ' — ' + (d.client_nom||d.client||'') + ' (' + fmtTND(ttc - paye) + ' restant)';
+      var opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = label;
+      sel.appendChild(opt);
+    });
+    if (devisId) {
+      sel.value = devisId;
+      onPcDevisChange();
+    }
+  });
+
+  modal.style.display = 'flex';
+}
+
+function onPcDevisChange() {
+  var sel = document.getElementById('pc-devis-sel');
+  var info = document.getElementById('pc-devis-info');
+  if (!sel || !sel.value) { info.style.display = 'none'; return; }
+
+  var d = null;
+  for (var i = 0; i < (_pcCache.devis||[]).length; i++) {
+    if (_pcCache.devis[i].id === sel.value) { d = _pcCache.devis[i]; break; }
+  }
+  if (!d) { info.style.display = 'none'; return; }
+
+  var ttc = parseFloat(d.montant_ttc) || 0;
+  var paye = parseFloat(d.montant_paye) || 0;
+  var reste = ttc - paye;
+
+  document.getElementById('pc-info-client').textContent = d.client_nom || d.client || '—';
+  document.getElementById('pc-info-projet').textContent = d.projet_nom || '—';
+  document.getElementById('pc-info-total').textContent = fmtTND(ttc);
+  document.getElementById('pc-info-paye').textContent = fmtTND(paye);
+  document.getElementById('pc-info-reste').textContent = fmtTND(reste);
+  info.style.display = 'block';
+
+  // Pre-fill amount with remaining
+  var mEl = document.getElementById('pc-montant');
+  if (mEl && !mEl.value) mEl.value = reste.toFixed(3);
+}
+
+function savePaiementClient() {
+  var devisId = document.getElementById('pc-devis-sel').value;
+  var montant = parseFloat(document.getElementById('pc-montant').value);
+  var errEl = document.getElementById('pc-err');
+  errEl.style.display = 'none';
+
+  if (!devisId) { errEl.textContent = 'Sélectionner un devis'; errEl.style.display='block'; return; }
+  if (!montant || montant <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display='block'; return; }
+
+  var body = {
+    devis_id: devisId,
+    montant: montant,
+    date_paiement: document.getElementById('pc-date').value || null,
+    mode_paiement: document.getElementById('pc-mode').value || null,
+    reference: document.getElementById('pc-reference').value || null,
+    notes: document.getElementById('pc-notes').value || null,
+    type_paiement: document.getElementById('pc-type').value || null,
+  };
+
+  var btn = event && event.target;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  apiFetch('api/paiements_clients.php?action=create', { method:'POST', body: body })
+    .then(function(r) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+      document.getElementById('modal-paiement-client').style.display = 'none';
+
+      var msg = 'Paiement enregistré';
+      if (r.data && r.data.est_solde) {
+        msg += ' — Le devis est entièrement payé !';
+        if (confirm(msg + '\n\nGénérer la facture maintenant ?')) {
+          genererFactureUI(devisId);
+          return;
+        }
+      } else if (r.data) {
+        msg += ' — Reste à payer : ' + fmtTND(r.data.devis_reste || 0);
+      }
+      if (typeof showToast === 'function') showToast(msg, 'success');
+      else alert(msg);
+
+      // Generate receipt if requested
+      if (document.getElementById('pc-recu').checked && r.data && r.data.paiement) {
+        genRecuPaiementClientPDF(r.data.paiement.id);
+      }
+
+      renderPaiementsClientsPage();
+    })
+    .catch(function(e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+      errEl.textContent = e.message || 'Erreur';
+      errEl.style.display = 'block';
+    });
+}
+
+function genererFactureUI(devisId) {
+  if (!confirm('Générer la facture pour ce devis ?\nLa facture sera créée et marquée comme Payée.')) return;
+
+  apiFetch('api/paiements_clients.php?action=generer_facture', { method:'POST', body:{ devis_id: devisId } })
+    .then(function(r) {
+      var f = r.data || {};
+      var msg = 'Facture ' + (f.numero || '') + ' créée avec succès';
+      if (typeof showToast === 'function') showToast(msg, 'success');
+      else alert(msg);
+      renderPaiementsClientsPage();
+      // Refresh main caches
+      if (typeof loadData === 'function') loadData();
+    })
+    .catch(function(e) {
+      if (e.message && e.message.indexOf('pas entièrement payé') !== -1) {
+        if (confirm(e.message + '\n\nGénérer une facture partielle malgré tout ?')) {
+          apiFetch('api/paiements_clients.php?action=generer_facture', { method:'POST', body:{ devis_id: devisId, force_partiel: true } })
+            .then(function(r2) {
+              var f2 = r2.data || {};
+              alert('Facture ' + (f2.numero || '') + ' créée (partielle)');
+              renderPaiementsClientsPage();
+              if (typeof loadData === 'function') loadData();
+            })
+            .catch(function(e2){ alert('Erreur : ' + e2.message); });
+        }
+      } else {
+        alert('Erreur : ' + (e.message || e));
+      }
+    });
+}
+
+function genRecuPaiementClientPDF(paiementId) {
+  apiFetch('api/paiements_clients.php?action=receipt&id=' + encodeURIComponent(paiementId))
+    .then(function(r) {
+      var p = r.data || {};
+      var dateStr = p.date_paiement ? new Date(p.date_paiement).toLocaleDateString('fr-FR') : '';
+      var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reçu de paiement</title>' +
+        '<style>body{font-family:Arial,sans-serif;max-width:800px;margin:2rem auto;padding:2rem;color:#222}' +
+        'h1{text-align:center;color:#9b7c2f;border-bottom:3px solid #9b7c2f;padding-bottom:1rem}' +
+        '.head{display:flex;justify-content:space-between;margin-bottom:2rem}' +
+        '.box{background:#faf6ee;border:1px solid #e5dcc6;border-radius:8px;padding:1.5rem;margin:1rem 0}' +
+        '.row{display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px dashed #ddd}' +
+        '.row:last-child{border:none}' +
+        '.amt{font-size:2rem;font-weight:bold;color:#1a8a3a;text-align:center;margin:1rem 0}' +
+        '.foot{text-align:center;font-size:0.8rem;color:#666;margin-top:3rem;border-top:1px solid #ddd;padding-top:1rem}' +
+        '</style></head><body>' +
+        '<h1>REÇU DE PAIEMENT</h1>' +
+        '<div class="head"><div><strong>CORTOBA ARCHITECTURE</strong><br>Tunis, Tunisie</div>' +
+        '<div style="text-align:right">N° : <strong>'+(p.id||'').substring(0,8).toUpperCase()+'</strong><br>Date : '+dateStr+'</div></div>' +
+        '<div class="box">' +
+          '<div class="row"><span>Reçu de :</span><strong>'+(p.client_nom||'—')+'</strong></div>' +
+          (p.client_adresse?'<div class="row"><span>Adresse :</span>'+p.client_adresse+'</div>':'') +
+          (p.client_mf?'<div class="row"><span>MF :</span>'+p.client_mf+'</div>':'') +
+          '<div class="row"><span>Devis :</span><strong>'+(p.devis_numero||'—')+'</strong></div>' +
+          (p.projet_nom?'<div class="row"><span>Projet :</span>'+p.projet_nom+'</div>':'') +
+          '<div class="row"><span>Mode :</span>'+(p.mode_paiement||'—')+'</div>' +
+          (p.reference?'<div class="row"><span>Référence :</span>'+p.reference+'</div>':'') +
+          '<div class="row"><span>Type :</span>'+(p.type_paiement||'—').toUpperCase()+'</div>' +
+        '</div>' +
+        '<div class="amt">'+fmtTND(p.montant)+'</div>' +
+        '<div class="box" style="background:#f0f4f8">' +
+          '<div class="row"><span>Total devis :</span>'+fmtTND(p.devis_montant||0)+'</div>' +
+          '<div class="row"><span>Total payé à ce jour :</span><strong style="color:#1a8a3a">'+fmtTND(p.total_paye_devis||0)+'</strong></div>' +
+          '<div class="row"><span>Reste à payer :</span><strong style="color:#c75d00">'+fmtTND(p.reste_devis||0)+'</strong></div>' +
+        '</div>' +
+        '<div class="foot">Ce reçu certifie le paiement reçu à la date indiquée.<br>CORTOBA ARCHITECTURE — MF: ' + (typeof getSetting==='function'?(getSetting('cortoba_mf','')||''):'') + '</div>' +
+        '<script>window.onload=function(){window.print()}<\/script>' +
+        '</body></html>';
+      var w = window.open('', '_blank');
+      w.document.write(html);
+      w.document.close();
+    })
+    .catch(function(e){ alert('Erreur reçu : ' + (e.message||e)); });
+}
+
+// Expose globally
+window.renderPaiementsClientsPage = renderPaiementsClientsPage;
+window.openPaiementClientModal = openPaiementClientModal;
+window.onPcDevisChange = onPcDevisChange;
+window.savePaiementClient = savePaiementClient;
+window.filterPaiementsClients = filterPaiementsClients;
+window.genererFactureUI = genererFactureUI;
+window.genRecuPaiementClientPDF = genRecuPaiementClientPDF;
+
 // ── Devis Acceptance Hook ──
 // When a devis status changes to 'Accepté', refresh projet honoraires
 
