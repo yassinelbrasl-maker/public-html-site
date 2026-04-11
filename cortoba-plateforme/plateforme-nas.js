@@ -17551,7 +17551,8 @@ function renderNcTable(filter) {
   }
 
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucun élément dans cette catégorie</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:2rem">Aucun élément dans cette catégorie</td></tr>';
+    _ncUpdateApplyButton();
     return;
   }
 
