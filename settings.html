@@ -1357,23 +1357,6 @@
       });
     });
 
-    // ── Sidebar search ──
-    document.getElementById('sidebarSearch').addEventListener('input', function() {
-      const q = this.value.toLowerCase().trim();
-      document.querySelectorAll('.sidebar-item').forEach(btn => {
-        const label = btn.textContent.toLowerCase();
-        btn.classList.toggle('search-hidden', q && !label.includes(q));
-      });
-      // Hide dividers if all adjacent items are hidden
-      document.querySelectorAll('.sidebar-nav > div').forEach(div => {
-        const next = div.nextElementSibling;
-        const prev = div.previousElementSibling;
-        const allHidden = (!next || !next.classList.contains('sidebar-item') || next.classList.contains('search-hidden')) &&
-                          (!prev || !prev.classList.contains('sidebar-item') || prev.classList.contains('search-hidden'));
-        div.style.display = q && allHidden ? 'none' : '';
-      });
-    });
-
     // ── Sidebar navigation ──
     document.querySelectorAll('.sidebar-item').forEach(btn => {
       btn.addEventListener('click', () => {
