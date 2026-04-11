@@ -411,8 +411,10 @@
 
     /* Form elements */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .form-field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .form-field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
     .form-field.full { grid-column: 1 / -1; }
+    .form-field > .form-input, .form-field > select.form-input, .form-field > textarea.form-input,
+    .form-field > input[type="file"].form-input { width: 100%; max-width: 100%; }
     .form-label {
       font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase;
       color: var(--text-2);
