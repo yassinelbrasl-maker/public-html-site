@@ -6699,8 +6699,15 @@ document.addEventListener('DOMContentLoaded', function() {
             <input type="file" id="pdoc-file" class="form-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.pptx,.dwg,.dxf,.zip,.rar">
           </div>
           <div id="pdoc-source-nas" style="display:none">
-            <input type="text" id="pdoc-nas-path" class="form-input" placeholder="Chemin NAS ou URL WebDAV">
-            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Le fichier sera téléchargé depuis le NAS vers le portail</div>
+            <div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem">
+              <button type="button" class="btn" id="pdoc-nas-open-btn" onclick="pdocOpenProjetNasFolder()" style="font-size:0.76rem;display:inline-flex;align-items:center;gap:0.35rem">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                Ouvrir le dossier NAS du projet
+              </button>
+              <button type="button" class="btn" onclick="pdocPickNasFile()" style="font-size:0.76rem">📄 Choisir un fichier</button>
+            </div>
+            <input type="text" id="pdoc-nas-path" class="form-input" placeholder="Chemin ou URL du fichier sur le NAS (auto-rempli)">
+            <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Le fichier sera téléchargé depuis le NAS vers le portail après publication</div>
           </div>
           <div id="pdoc-source-url" style="display:none">
             <input type="text" id="pdoc-url" class="form-input" placeholder="https://...">
