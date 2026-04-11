@@ -438,7 +438,7 @@
     .modal-overlay.open { display: flex; }
     .modal-box {
       background: var(--bg-1); border: 1px solid var(--border-md);
-      width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+      width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; overflow-x: hidden;
     }
     .modal-header {
       display: flex; align-items: center; justify-content: space-between;
