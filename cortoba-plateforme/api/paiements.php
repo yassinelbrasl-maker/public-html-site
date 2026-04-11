@@ -539,9 +539,9 @@ function getReceiptData() {
                c.mf AS client_mf, c.email AS client_email, c.telephone AS client_tel,
                pr.nom AS projet_nom, pr.code AS projet_code
         FROM CA_paiements p
-        LEFT JOIN CA_factures f ON f.id = p.facture_id
-        LEFT JOIN CA_clients c ON c.id = p.client_id
-        LEFT JOIN CA_projets pr ON pr.id = p.projet_id
+        LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = p.facture_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = p.client_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN CA_projets pr ON pr.id COLLATE utf8mb4_unicode_ci = p.projet_id COLLATE utf8mb4_unicode_ci
         WHERE p.id = ?
     ");
     $stmt->execute([$paiementId]);
