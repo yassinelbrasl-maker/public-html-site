@@ -17783,12 +17783,64 @@ function ncSyncCodeToNas(idx) {
     } else {
       var http = res && res.data ? res.data.http : '?';
       var err  = res && res.data ? res.data.error : '';
-      var msg = 'Échec renommage NAS (HTTP ' + http + ')';
-      if (err) msg += ' — ' + err;
-      console.error('[nc] rename failed', res);
-      showToast(msg, 'error');
+      console.warn('[nc] API rename failed (HTTP ' + http + ', ' + err + ') — fallback popup bridge');
+      ncRenameViaBridge(r, newName, codePlat);
     }
-  }).catch(function(e) { showToast('Erreur : ' + (e.message || ''), 'error'); });
+  }).catch(function(e) {
+    console.warn('[nc] API rename error — fallback popup bridge', e);
+    ncRenameViaBridge(r, newName, codePlat);
+  });
+}
+
+// Fallback : ouvrir nas-conformite-bridge.html en popup pour faire le MOVE
+// directement depuis le navigateur. Utile quand le serveur PHP ne peut pas
+// joindre le NAS (port forwarding non configuré, IP locale).
+function ncRenameViaBridge(r, newName, codePlat) {
+  var cfg = (typeof getNasConfig === 'function') ? getNasConfig() : {};
+  var ip = cfg.local || '192.168.1.165';
+  var port = cfg.webdavPort || '5005';
+  var user = cfg.user || 'CASNAS';
+  var pass = cfg.pass || 'Cortoba2026';
+  var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
+  if (rootPath.charAt(0) !== '/') rootPath = '/' + rootPath;
+
+  var oldPath = rootPath + '/' + r.annee + '/' + r.nasFolder;
+  var newPath = rootPath + '/' + r.annee + '/' + newName;
+
+  var messageHandler = function(evt) {
+    if (!evt.data || evt.data.type !== 'nas-rename-result') return;
+    window.removeEventListener('message', messageHandler);
+    if (evt.data.data && evt.data.data.success) {
+      r.nasFolder = newName;
+      r.expected = ncExpectedFolder(r.projet);
+      if (newName === r.expected) r.type = 'ok';
+      showToast('Code NAS mis à jour → ' + (codePlat || newName), 'success');
+      renderConformiteResults();
+    } else {
+      var st = evt.data.data && evt.data.data.status ? ' (HTTP ' + evt.data.data.status + ')' : '';
+      var er = evt.data.data && evt.data.data.error ? ' — ' + evt.data.data.error : '';
+      showToast('Échec renommage NAS' + st + er, 'error');
+    }
+  };
+  window.addEventListener('message', messageHandler);
+
+  var hash = 'mode=rename' +
+    '&ip=' + encodeURIComponent(ip) +
+    '&port=' + encodeURIComponent(port) +
+    '&user=' + encodeURIComponent(user) +
+    '&pass=' + encodeURIComponent(pass) +
+    '&root=' + encodeURIComponent(rootPath) +
+    '&oldPath=' + encodeURIComponent(oldPath) +
+    '&newPath=' + encodeURIComponent(newPath);
+
+  var bridgeUrl = 'http://' + ip + ':' + port + '/Public/nas-tools/nas-conformite-bridge.html#' + hash;
+  var popup = window.open(bridgeUrl, 'nas_rename', 'width=500,height=300,left=200,top=200');
+  if (!popup) {
+    window.removeEventListener('message', messageHandler);
+    showToast('Popup bloqué — autorisez les popups pour ce site', 'error');
+    return;
+  }
+  setTimeout(function() { window.removeEventListener('message', messageHandler); }, 30000);
 }
 
 // Sync code : NAS → Plateforme (mettre le code NAS dans la fiche projet)
