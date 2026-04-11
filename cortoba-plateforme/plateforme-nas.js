@@ -16862,12 +16862,20 @@ function pdocSetSource(src) {
 function openPortailDocModal() {
   // Populate client dropdown
   var clientSel = document.getElementById('pdoc-client');
-  var clients = getClients();
+  var clients = getClients().slice().sort(function(a,b){
+    var an = (a.displayNom || a.display_nom || a.nom || '').toLowerCase();
+    var bn = (b.displayNom || b.display_nom || b.nom || '').toLowerCase();
+    return an < bn ? -1 : an > bn ? 1 : 0;
+  });
   clientSel.innerHTML = '<option value="">— Sélectionner —</option>' + clients.map(function(c) {
     return '<option value="' + c.id + '">' + esc(c.displayNom || c.display_nom || c.nom || '') + '</option>';
   }).join('');
   clientSel.onchange = function() { pdocUpdateProjets(); };
-  document.getElementById('pdoc-projet').innerHTML = '<option value="">— Sélectionner le client d\'abord —</option>';
+  var projetSel = document.getElementById('pdoc-projet');
+  projetSel.innerHTML = '<option value="">— Sélectionner le client d\'abord —</option>';
+  projetSel.onchange = function() { pdocUpdateProjetNasLink(); };
+  var linkBox = document.getElementById('pdoc-projet-nas-link');
+  if (linkBox) linkBox.innerHTML = '';
   document.getElementById('pdoc-titre').value = '';
   document.getElementById('pdoc-description').value = '';
   document.getElementById('pdoc-phase').value = '';
@@ -16880,17 +16888,104 @@ function openPortailDocModal() {
   openModal('modal-portail-doc');
 }
 
+// Recherche des projets d'un client — stratégie multi-critères pour éviter
+// les listes vides lorsque client_code / clientId ne sont pas renseignés
+// (fallback sur le dernier segment du code projet et sur le nom client).
+function pdocFindProjetsForClient(clientId) {
+  var client = getClients().find(function(c){ return c.id === clientId; });
+  if (!client) return [];
+  var code = (client.code || '').toString().trim();
+  var codeU = code.toUpperCase();
+  var displayNom = (client.displayNom || client.display_nom || client.nom || '').toString().trim().toLowerCase();
+  var found = {};
+  var result = [];
+  function push(p){ if (p && p.id && !found[p.id]) { found[p.id]=1; result.push(p); } }
+  getProjets().forEach(function(p) {
+    // 1. Lien direct par ID client
+    if (p.clientId === clientId || p.client_id === clientId) return push(p);
+    // 2. client_code exact
+    if (code && p.client_code && p.client_code.toString().trim().toUpperCase() === codeU) return push(p);
+    // 3. Dernier segment du code projet (ex: 01_26_SKI → SKI)
+    if (code && typeof p.code === 'string') {
+      var parts = p.code.split('_');
+      var last = (parts[parts.length - 1] || '').trim().toUpperCase();
+      if (last && last === codeU) return push(p);
+    }
+    // 4. Nom client (exact puis inclusif)
+    if (displayNom && typeof p.client === 'string') {
+      var pc = p.client.trim().toLowerCase();
+      if (pc === displayNom || (pc.length > 2 && pc.indexOf(displayNom) !== -1)) return push(p);
+    }
+  });
+  return result;
+}
+
 function pdocUpdateProjets() {
   var clientId = document.getElementById('pdoc-client').value;
   var projetSel = document.getElementById('pdoc-projet');
+  var linkBox = document.getElementById('pdoc-projet-nas-link');
+  if (linkBox) linkBox.innerHTML = '';
   if (!clientId) { projetSel.innerHTML = '<option value="">— Sélectionner le client d\'abord —</option>'; return; }
-  var client = getClients().find(function(c){ return c.id === clientId; });
-  var code = client ? (client.code || '') : '';
-  var projets = getProjets().filter(function(p) { return p.client_code === code || p.clientId === clientId || p.client_id === clientId; });
+  var projets = pdocFindProjetsForClient(clientId);
+  if (projets.length === 0) {
+    projetSel.innerHTML = '<option value="">— Aucun projet trouvé pour ce client —</option>';
+    return;
+  }
+  projets.sort(function(a,b){ return (a.code||'') < (b.code||'') ? -1 : 1; });
   projetSel.innerHTML = '<option value="">— Sélectionner —</option>' + projets.map(function(p) {
     return '<option value="' + p.id + '">' + esc(p.code || '') + ' — ' + esc(p.nom || '') + '</option>';
   }).join('');
 }
+
+// Affiche sous le champ Projet un lien direct vers le dossier NAS du projet.
+function pdocUpdateProjetNasLink() {
+  var linkBox = document.getElementById('pdoc-projet-nas-link');
+  if (!linkBox) return;
+  var projetId = document.getElementById('pdoc-projet').value;
+  var nasPathInput = document.getElementById('pdoc-nas-path');
+  if (!projetId) { linkBox.innerHTML = ''; if (nasPathInput) nasPathInput.value = ''; return; }
+  var p = getProjets().find(function(x){ return x.id === projetId; });
+  if (!p) { linkBox.innerHTML = ''; return; }
+  var paths = _buildNasPaths(p);
+  // Utiliser le chemin custom du projet s'il existe
+  var customPath = p.nas_path || p.nasPath || '';
+  var webdav = paths.webdav;
+  var unc = customPath || paths.unc;
+  linkBox.innerHTML =
+    '<a href="' + esc(webdav) + '" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem" title="Ouvrir le dossier NAS dans un nouvel onglet">' +
+    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+    ' Ouvrir le dossier NAS du projet</a>' +
+    ' <span style="color:var(--text-3);margin-left:0.4rem">·</span> ' +
+    '<a href="#" onclick="event.preventDefault();navigator.clipboard.writeText(' + JSON.stringify(unc) + ').then(function(){showToast(\'Chemin UNC copié\', \'success\');});" style="color:var(--text-3);text-decoration:none" title="Copier le chemin réseau Windows (UNC)">📋 UNC</a>';
+  // Pré-remplir le chemin NAS si source nas
+  if (nasPathInput && !nasPathInput.value) nasPathInput.value = webdav;
+}
+
+// Ouvrir le dossier NAS du projet sélectionné (ouvre WebDAV dans un nouvel onglet)
+function pdocOpenProjetNasFolder() {
+  var projetId = document.getElementById('pdoc-projet').value;
+  if (!projetId) { showToast('Sélectionnez d\'abord un projet', 'error'); return; }
+  var p = getProjets().find(function(x){ return x.id === projetId; });
+  if (!p) { showToast('Projet introuvable', 'error'); return; }
+  var paths = _buildNasPaths(p);
+  window.open(paths.webdav, '_blank', 'noopener');
+}
+
+// Invitation explicite à piquer un fichier dans le dossier NAS
+function pdocPickNasFile() {
+  var projetId = document.getElementById('pdoc-projet').value;
+  if (!projetId) { showToast('Sélectionnez d\'abord un projet', 'error'); return; }
+  var p = getProjets().find(function(x){ return x.id === projetId; });
+  if (!p) { showToast('Projet introuvable', 'error'); return; }
+  var paths = _buildNasPaths(p);
+  // Ouvrir le dossier NAS et demander à l'utilisateur de coller l'URL du fichier
+  window.open(paths.webdav, '_blank', 'noopener');
+  showToast('Copiez l\'URL du fichier depuis l\'onglet NAS, puis collez-la dans le champ', 'info');
+  var nasPathInput = document.getElementById('pdoc-nas-path');
+  if (nasPathInput) { nasPathInput.focus(); nasPathInput.select(); }
+}
+window.pdocOpenProjetNasFolder = pdocOpenProjetNasFolder;
+window.pdocPickNasFile = pdocPickNasFile;
 
 function submitPortailDoc() {
   var clientId = document.getElementById('pdoc-client').value;
