@@ -74,21 +74,32 @@ function ensurePaiementsSchema() {
 function recordPayment($db, $data, $userName = null) {
     $factureId = $data['facture_id'] ?? '';
     $montant = (float)($data['montant'] ?? 0);
-    if (!$factureId || $montant <= 0) return false;
+    if ($montant <= 0) return false;
 
-    // Get facture
-    $s = $db->prepare("SELECT id, projet_id, client_id, net_payer, montant_ttc, montant_paye, statut FROM CA_factures WHERE id = ?");
-    $s->execute([$factureId]);
-    $facture = $s->fetch(\PDO::FETCH_ASSOC);
-    if (!$facture) return false;
+    $projetId = $data['projet_id'] ?? null;
+    $clientId = $data['client_id'] ?? null;
+    $facture = null;
+
+    if ($factureId) {
+        $s = $db->prepare("SELECT id, projet_id, client_id, net_payer, montant_ttc, montant_paye, statut FROM CA_factures WHERE id = ?");
+        $s->execute([$factureId]);
+        $facture = $s->fetch(\PDO::FETCH_ASSOC);
+        if (!$facture) return false;
+        $projetId = $projetId ?: $facture['projet_id'];
+        $clientId = $clientId ?: $facture['client_id'];
+    } else {
+        // Paiement non lié à une facture : projet_id obligatoire
+        if (!$projetId) return false;
+    }
 
     $id = bin2hex(random_bytes(16));
-    $db->prepare("INSERT INTO CA_paiements (id, facture_id, projet_id, client_id, montant, date_paiement, mode_paiement, reference, stripe_session_id, stripe_payment_intent, notes, cree_par) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+    $db->prepare("INSERT INTO CA_paiements (id, facture_id, projet_id, client_id, mission_phase, montant, date_paiement, mode_paiement, reference, stripe_session_id, stripe_payment_intent, notes, cree_par) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
        ->execute([
            $id,
-           $factureId,
-           $data['projet_id'] ?? $facture['projet_id'],
-           $data['client_id'] ?? $facture['client_id'],
+           $factureId ?: null,
+           $projetId,
+           $clientId,
+           $data['mission_phase'] ?? null,
            $montant,
            $data['date_paiement'] ?? date('Y-m-d'),
            $data['mode_paiement'] ?? null,
@@ -99,24 +110,25 @@ function recordPayment($db, $data, $userName = null) {
            $userName,
        ]);
 
-    // Update facture montant_paye
-    $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements WHERE facture_id = ?");
-    $s->execute([$factureId]);
-    $totalPaye = (float)$s->fetchColumn();
+    if ($factureId && $facture) {
+        // Update facture montant_paye
+        $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements WHERE facture_id = ?");
+        $s->execute([$factureId]);
+        $totalPaye = (float)$s->fetchColumn();
 
-    $netAPayer = (float)($facture['net_payer'] ?: $facture['montant_ttc']);
-    $newStatut = $facture['statut'];
-    if ($totalPaye >= $netAPayer) {
-        $newStatut = 'Payée';
-    } elseif ($totalPaye > 0) {
-        $newStatut = 'Partiellement payée';
+        $netAPayer = (float)($facture['net_payer'] ?: $facture['montant_ttc']);
+        $newStatut = $facture['statut'];
+        if ($totalPaye >= $netAPayer) {
+            $newStatut = 'Payée';
+        } elseif ($totalPaye > 0) {
+            $newStatut = 'Partiellement payée';
+        }
+
+        $db->prepare("UPDATE CA_factures SET montant_paye = ?, statut = ?, date_paiement = CASE WHEN ? >= ? THEN CURDATE() ELSE date_paiement END WHERE id = ?")
+           ->execute([$totalPaye, $newStatut, $totalPaye, $netAPayer, $factureId]);
     }
 
-    $db->prepare("UPDATE CA_factures SET montant_paye = ?, statut = ?, date_paiement = CASE WHEN ? >= ? THEN CURDATE() ELSE date_paiement END WHERE id = ?")
-       ->execute([$totalPaye, $newStatut, $totalPaye, $netAPayer, $factureId]);
-
     // Refresh project honoraires if available
-    $projetId = $facture['projet_id'];
     if ($projetId) {
         require_once __DIR__ . '/honoraires.php';
         ensureHonorairesSchema();
