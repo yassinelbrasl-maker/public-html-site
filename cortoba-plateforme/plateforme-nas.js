@@ -2694,13 +2694,15 @@ function applyNasPath() { saveNasPath(); }
 function _buildNasPaths(p) {
   var cfg = getNasConfig();
   var ip = cfg.local || '192.168.1.165';
-  var wdPort = cfg.webdavPort || '5005';
+  var wdPort = (cfg.webdavPort || '5005').toString().replace(/\D/g, '') || '5005';
   var annee = p.annee || new Date().getFullYear();
   var code = p.code || '';
   var client = p.client || p.nom || '';
   var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
   var uncPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
-  var webdavUrl = 'http://' + ip + '/Public/CAS_PROJETS/' + annee + '/' + encodeURIComponent(folderName) + '/';
+  // WebDAV avec port explicite (ex: http://192.168.1.165:5005/Public/...)
+  var hostPort = (wdPort === '80') ? ip : ip + ':' + wdPort;
+  var webdavUrl = 'http://' + hostPort + '/Public/CAS_PROJETS/' + annee + '/' + encodeURIComponent(folderName) + '/';
   return { unc: uncPath, webdav: webdavUrl };
 }
 function buildNasFolderButton(p) {
