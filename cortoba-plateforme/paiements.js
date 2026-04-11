@@ -681,6 +681,7 @@ function loadPaiementHistoryForProjet(projetId) {
     ctxEl.textContent = 'Sélectionnez un projet pour afficher l\'historique.';
     cntEl.textContent = '';
     totEl.style.display = 'none';
+    updatePaiResteHint(null);
     return;
   }
 
@@ -689,8 +690,12 @@ function loadPaiementHistoryForProjet(projetId) {
   ctxEl.textContent = projet ? ((projet.code ? projet.code + ' — ' : '') + (projet.nom || '')) : '';
   listEl.innerHTML = '<div style="font-size:0.78rem;color:var(--text-3);padding:0.5rem 0">Chargement…</div>';
 
-  apiFetch('api/paiements.php?action=list&projet_id=' + encodeURIComponent(projetId)).then(function(r) {
-    var rows = (r && r.data) || [];
+  apiFetch('api/paiements_clients.php?action=by_projet&projet_id=' + encodeURIComponent(projetId)).then(function(r) {
+    var data = (r && r.data) || {};
+    var rows = data.paiements || [];
+    // Mettre à jour la zone "reste à payer" avec les données globales du projet
+    updatePaiResteHint(data);
+
     if (!rows.length) {
       listEl.innerHTML = '<div style="font-size:0.78rem;color:var(--text-3);padding:0.6rem 0;text-align:center">Aucun paiement enregistré pour ce projet</div>';
       cntEl.textContent = '0 paiement';
@@ -705,10 +710,10 @@ function loadPaiementHistoryForProjet(projetId) {
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">' +
           '<div style="flex:1;min-width:0">' +
             '<div style="font-size:0.82rem;font-weight:600;color:var(--text-1)">' + fmtMontant(mt) + '</div>' +
-            '<div style="font-size:0.72rem;color:var(--text-3)">' + (p.date_paiement || '') + ' · ' + (p.mode_paiement || '') + (p.facture_numero ? ' · ' + p.facture_numero : '') + '</div>' +
+            '<div style="font-size:0.72rem;color:var(--text-3)">' + (p.date_paiement || '') + ' · ' + (p.mode_paiement || '') + (p.devis_numero ? ' · ' + p.devis_numero : '') + (p.mission_phase ? ' · ' + p.mission_phase : '') + '</div>' +
             (p.reference ? '<div style="font-size:0.7rem;color:var(--text-3)">Réf : ' + p.reference + '</div>' : '') +
           '</div>' +
-          '<button class="btn btn-sm" title="Imprimer le reçu" onclick="genRecuPaiementPDF(\'' + p.id + '\')" style="padding:0.3rem 0.55rem;font-size:0.72rem">🧾 Reçu</button>' +
+          '<button class="btn btn-sm" title="Imprimer le reçu" onclick="genRecuPaiementClientPDF(\'' + p.id + '\')" style="padding:0.3rem 0.55rem;font-size:0.72rem">🧾 Reçu</button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -719,6 +724,37 @@ function loadPaiementHistoryForProjet(projetId) {
   }).catch(function(e) {
     listEl.innerHTML = '<div style="font-size:0.78rem;color:var(--red);padding:0.5rem 0">Erreur : ' + e.message + '</div>';
   });
+}
+
+// ── Affiche / met à jour la zone "Reste à payer" sous le champ Montant ──
+//    + Auto-prefill si l'utilisateur n'a pas saisi de montant
+function updatePaiResteHint(data) {
+  var hintEl = document.getElementById('pai-reste-hint');
+  if (!hintEl) return;
+  if (!data) { hintEl.style.display = 'none'; hintEl.innerHTML = ''; return; }
+
+  var totalDevis = parseFloat(data.total_devis_valides || 0);
+  var totalPaye  = parseFloat(data.total_paye || 0);
+  var reste      = parseFloat(data.reste_projet || 0);
+  var nbDevis    = parseInt(data.nb_devis_valides || 0);
+
+  if (nbDevis === 0 && totalDevis === 0) {
+    hintEl.style.display = 'block';
+    hintEl.innerHTML = '<span style="color:var(--text-3)">Aucun devis validé pour ce projet — saisir le montant manuellement.</span>';
+    return;
+  }
+
+  var fill = ' <a href="#" onclick="event.preventDefault();var el=document.getElementById(\'pai-montant\');el.value=' + reste.toFixed(2) + ';el.focus();" style="color:var(--accent);text-decoration:underline">utiliser</a>';
+  hintEl.style.display = 'block';
+  hintEl.innerHTML =
+    '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
+      '<span style="color:var(--text-3)">Devis validés : <strong style="color:var(--text-2)">' + fmtMontant(totalDevis) + '</strong> · Payé : <strong style="color:var(--green)">' + fmtMontant(totalPaye) + '</strong></span>' +
+      '<span>Reste à payer : <strong style="color:var(--orange)">' + fmtMontant(reste) + '</strong>' + (reste > 0 ? fill : '') + '</span>' +
+    '</div>';
+
+  // Auto-prefill si vide
+  var mEl = document.getElementById('pai-montant');
+  if (mEl && !mEl.value && reste > 0) mEl.value = reste.toFixed(2);
 }
 
 function openPaiementForFacture(factureId, reste) {
