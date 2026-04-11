@@ -17660,7 +17660,12 @@ function ncSyncCodeToNas(idx) {
       showToast('Code NAS mis à jour → ' + codePlat, 'success');
       renderConformiteResults();
     } else {
-      showToast('Échec du renommage NAS', 'error');
+      var http = res && res.data ? res.data.http : '?';
+      var err  = res && res.data ? res.data.error : '';
+      var msg = 'Échec renommage NAS (HTTP ' + http + ')';
+      if (err) msg += ' — ' + err;
+      console.error('[nc] rename failed', res);
+      showToast(msg, 'error');
     }
   }).catch(function(e) { showToast('Erreur : ' + (e.message || ''), 'error'); });
 }
