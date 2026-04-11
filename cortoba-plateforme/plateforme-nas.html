@@ -1818,56 +1818,96 @@
       <!-- ══ CRÉANCES & RELANCES ══ -->
       <!-- ═══ MODALES PAIEMENTS ═══ -->
 
-      <!-- Modal: Enregistrer un paiement -->
+      <!-- Modal: Enregistrer un paiement (fenêtre flottante) -->
       <div class="modal-backdrop" id="modal-paiement" style="display:none" onclick="if(event.target===this)this.style.display='none'">
-        <div class="modal" style="max-width:540px">
+        <div class="modal" style="max-width:960px;width:96%">
           <div class="modal-header">
-            <h3 id="paiement-modal-title">Enregistrer un paiement</h3>
+            <h3 id="paiement-modal-title">Enregistrer un paiement client</h3>
             <button class="modal-close" onclick="document.getElementById('modal-paiement').style.display='none'">&times;</button>
           </div>
-          <div class="modal-body">
-            <div class="form-row">
-              <label class="form-label">Facture</label>
-              <select id="pai-facture-sel" class="form-input" onchange="onPaiFactureChange()">
-                <option value="">— Sélectionner —</option>
-              </select>
-            </div>
-            <div class="form-row" style="display:flex;gap:1rem">
-              <div style="flex:1">
-                <label class="form-label">Montant restant</label>
-                <input type="text" id="pai-reste" class="form-input" readonly style="background:var(--bg-2)">
+          <div class="modal-body" style="max-height:78vh;overflow-y:auto">
+            <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:1.2rem">
+              <!-- ── Colonne gauche : formulaire ── -->
+              <div>
+                <div class="form-row">
+                  <label class="form-label">Projet</label>
+                  <div style="position:relative">
+                    <select id="pai-projet-sel" style="display:none" onchange="onPaiProjetSelChange()"></select>
+                    <input type="text" id="pai-projet-search" class="form-input" style="width:100%;padding-right:2.2rem" placeholder="🔍 Rechercher un projet…" autocomplete="off"
+                           onfocus="showPaiProjetDropdown()" oninput="filterPaiProjetDropdown()" onblur="hidePaiProjetDropdown()" />
+                    <span id="pai-projet-clear" onclick="clearPaiProjetSearch()" style="display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1">&times;</span>
+                    <div id="pai-projet-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:260px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300"></div>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="form-label">Mission</label>
+                  <div style="position:relative">
+                    <select id="pai-mission-sel" style="display:none" onchange="onPaiMissionSelChange()"></select>
+                    <input type="text" id="pai-mission-search" class="form-input" style="width:100%;padding-right:2.2rem" placeholder="🔍 Rechercher une mission…" autocomplete="off" disabled
+                           onfocus="showPaiMissionDropdown()" oninput="filterPaiMissionDropdown()" onblur="hidePaiMissionDropdown()" />
+                    <span id="pai-mission-clear" onclick="clearPaiMissionSearch()" style="display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1">&times;</span>
+                    <div id="pai-mission-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300"></div>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="form-label">Facture</label>
+                  <select id="pai-facture-sel" class="form-input" onchange="onPaiFactureChange()">
+                    <option value="">— Sélectionner une facture —</option>
+                  </select>
+                </div>
+                <div class="form-row" style="display:flex;gap:1rem">
+                  <div style="flex:1">
+                    <label class="form-label">Montant restant</label>
+                    <input type="text" id="pai-reste" class="form-input" readonly style="background:var(--bg-2)">
+                  </div>
+                  <div style="flex:1">
+                    <label class="form-label">Montant reçu *</label>
+                    <input type="number" id="pai-montant" class="form-input" step="0.01" min="0.01">
+                  </div>
+                </div>
+                <div class="form-row" style="display:flex;gap:1rem">
+                  <div style="flex:1">
+                    <label class="form-label">Date paiement</label>
+                    <input type="date" id="pai-date" class="form-input">
+                  </div>
+                  <div style="flex:1">
+                    <label class="form-label">Mode</label>
+                    <select id="pai-mode" class="form-input">
+                      <option value="Virement">Virement</option>
+                      <option value="Chèque">Chèque</option>
+                      <option value="Espèces">Espèces</option>
+                      <option value="Carte">Carte bancaire</option>
+                      <option value="Stripe">Stripe</option>
+                      <option value="Autre">Autre</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Référence (n° chèque, réf. virement...)</label>
+                  <input type="text" id="pai-reference" class="form-input">
+                </div>
+                <div class="form-row">
+                  <label class="form-label">Notes</label>
+                  <textarea id="pai-notes" class="form-input" rows="2"></textarea>
+                </div>
+                <div id="pai-err" style="color:var(--red);font-size:0.82rem;margin-top:0.5rem;display:none"></div>
               </div>
-              <div style="flex:1">
-                <label class="form-label">Montant reçu *</label>
-                <input type="number" id="pai-montant" class="form-input" step="0.01" min="0.01">
+
+              <!-- ── Colonne droite : historique paiements du projet ── -->
+              <div style="background:var(--bg-2);border-radius:8px;padding:0.9rem 1rem;display:flex;flex-direction:column;min-height:420px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+                  <h4 style="margin:0;font-size:0.95rem;color:var(--text-1)">Historique des paiements</h4>
+                  <span id="pai-hist-count" style="font-size:0.72rem;color:var(--text-3)"></span>
+                </div>
+                <div id="pai-hist-context" style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem">Sélectionnez un projet pour afficher l'historique.</div>
+                <div id="pai-hist-list" style="flex:1;overflow-y:auto;max-height:48vh"></div>
+                <div id="pai-hist-total" style="border-top:1px solid var(--border);margin-top:0.6rem;padding-top:0.55rem;font-size:0.82rem;display:none">
+                  <div style="display:flex;justify-content:space-between"><span style="color:var(--text-3)">Total payé</span><strong id="pai-hist-total-val">—</strong></div>
+                </div>
               </div>
             </div>
-            <div class="form-row" style="display:flex;gap:1rem">
-              <div style="flex:1">
-                <label class="form-label">Date paiement</label>
-                <input type="date" id="pai-date" class="form-input">
-              </div>
-              <div style="flex:1">
-                <label class="form-label">Mode</label>
-                <select id="pai-mode" class="form-input">
-                  <option value="Virement">Virement</option>
-                  <option value="Chèque">Chèque</option>
-                  <option value="Espèces">Espèces</option>
-                  <option value="Carte">Carte bancaire</option>
-                  <option value="Stripe">Stripe</option>
-                  <option value="Autre">Autre</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <label class="form-label">Référence (n° chèque, réf. virement...)</label>
-              <input type="text" id="pai-reference" class="form-input">
-            </div>
-            <div class="form-row">
-              <label class="form-label">Notes</label>
-              <textarea id="pai-notes" class="form-input" rows="2"></textarea>
-            </div>
-            <div id="pai-err" style="color:var(--red);font-size:0.82rem;margin-top:0.5rem;display:none"></div>
           </div>
           <div class="modal-footer">
             <button class="btn" onclick="document.getElementById('modal-paiement').style.display='none'">Annuler</button>
