@@ -95,10 +95,60 @@
   function sendResult(data) {
     // Envoyer au parent (fenêtre principale) via postMessage
     if (window.opener) {
-      window.opener.postMessage({ type: 'nas-conformite-result', data: data }, '*');
+      var msgType = (mode === 'rename') ? 'nas-rename-result' : 'nas-conformite-result';
+      window.opener.postMessage({ type: msgType, data: data }, '*');
     }
   }
 
+  function webdavMove(oldPath, newPath) {
+    var srcUrl = baseUrl + encodePath(oldPath);
+    var dstUrl = baseUrl + encodePath(newPath);
+    log('MOVE ' + oldPath + ' → ' + newPath, 'wait');
+    return fetch(srcUrl, {
+      method: 'MOVE',
+      headers: {
+        'Destination': dstUrl,
+        'Overwrite': 'F',
+        'Authorization': 'Basic ' + btoa(user + ':' + pass)
+      }
+    }).then(function(r) {
+      return { ok: (r.status === 201 || r.status === 204), status: r.status };
+    });
+  }
+
+  // ──────────────────────────────────────────
+  //  Mode RENAME : renommer un dossier
+  // ──────────────────────────────────────────
+  if (mode === 'rename') {
+    document.getElementById('title').textContent = 'Renommage dossier NAS...';
+    var oldPath = params.oldPath || '';
+    var newPath = params.newPath || '';
+    if (!oldPath || !newPath) {
+      log('Paramètres oldPath/newPath manquants', 'err');
+      sendResult({ success: false, error: 'Paramètres manquants' });
+      return;
+    }
+    webdavMove(oldPath, newPath)
+      .then(function(res) {
+        if (res.ok) {
+          log('Renommage OK (HTTP ' + res.status + ')', 'ok');
+          sendResult({ success: true, status: res.status });
+        } else {
+          log('Échec HTTP ' + res.status, 'err');
+          sendResult({ success: false, status: res.status, error: 'HTTP ' + res.status });
+        }
+        setTimeout(function() { window.close(); }, 1500);
+      })
+      .catch(function(e) {
+        log('Erreur : ' + e.message, 'err');
+        sendResult({ success: false, error: e.message });
+      });
+    return;
+  }
+
+  // ──────────────────────────────────────────
+  //  Mode SCAN (par défaut) : lister les dossiers
+  // ──────────────────────────────────────────
   // Lancer le scan
   log('Connexion au NAS ' + ip + ':' + port + '...', 'wait');
 
