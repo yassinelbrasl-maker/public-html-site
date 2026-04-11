@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Cortoba — Scan NAS</title>
+<title>Cortoba — NAS bridge</title>
 <style>
   body { font-family: 'DM Sans', sans-serif; background: #1a1a1a; color: #ccc; padding: 2rem; }
   .step { margin: 0.5rem 0; font-size: 0.85rem; }
@@ -13,7 +13,7 @@
 </style>
 </head>
 <body>
-<h2>Scan des dossiers NAS en cours...</h2>
+<h2 id="title">Scan des dossiers NAS en cours...</h2>
 <div id="log"></div>
 <script>
 (function() {
@@ -29,6 +29,7 @@
   var user = params.user || '';
   var pass = params.pass || '';
   var root = params.root || '/Public/CAS_PROJETS';
+  var mode = params.mode || 'scan';
   var baseUrl = 'http://' + ip + ':' + port;
   var logEl = document.getElementById('log');
 
