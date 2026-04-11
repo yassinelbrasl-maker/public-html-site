@@ -442,32 +442,359 @@ function loadRelancesHistory() {
   }).catch(function(e){console.error('[relances]',e);});
 }
 
-// ── Paiement modal ──
+// ── Paiement modal (fenêtre flottante avec projet + mission + historique) ──
 
-function openEnregistrerPaiement() {
-  var sel=document.getElementById('pai-facture-sel'), factures=typeof getFactures==='function'?getFactures():[];
-  var opts='<option value="">— Sélectionner une facture —</option>';
-  factures.forEach(function(f){if(f.statut==='Annulée') return; var ttc=parseFloat(f.montant_ttc||f.montantTtc||f.montant||0); var reste=(parseFloat(f.net_payer||f.netPayer||ttc)||0)-(parseFloat(f.montant_paye||f.montantPaye)||0); var l=(f.numero||f.ref||'')+' — '+(f.client||'')+' — '+fmtMontant(ttc)+(f.statut==='Payée'?' [Payée]':(reste>0?' (reste: '+fmtMontant(reste)+')':'')); opts+='<option value="'+f.id+'" data-reste="'+Math.max(reste,0)+'">'+l+'</option>';});
-  sel.innerHTML=opts; document.getElementById('pai-reste').value=''; document.getElementById('pai-montant').value='';
-  document.getElementById('pai-date').value=new Date().toISOString().split('T')[0]; document.getElementById('pai-mode').value='Virement';
-  document.getElementById('pai-reference').value=''; document.getElementById('pai-notes').value=''; document.getElementById('pai-err').style.display='none';
-  document.getElementById('modal-paiement').style.display='flex';
+var _paiProjetId = '';
+var _paiMissionNom = '';
+var _paiDropdownProjetOpen = false;
+var _paiDropdownMissionOpen = false;
+
+function openEnregistrerPaiement(prefillProjetId) {
+  // Reset projet/mission
+  _paiProjetId = '';
+  _paiMissionNom = '';
+  var pSel = document.getElementById('pai-projet-sel'); if (pSel) pSel.value = '';
+  var pSearch = document.getElementById('pai-projet-search'); if (pSearch) pSearch.value = '';
+  var pClear = document.getElementById('pai-projet-clear'); if (pClear) pClear.style.display = 'none';
+  var mSel = document.getElementById('pai-mission-sel'); if (mSel) mSel.value = '';
+  var mSearch = document.getElementById('pai-mission-search'); if (mSearch) { mSearch.value = ''; mSearch.disabled = true; mSearch.placeholder = '— Sélectionnez d\'abord un projet —'; }
+  var mClear = document.getElementById('pai-mission-clear'); if (mClear) mClear.style.display = 'none';
+
+  // Reset history panel
+  document.getElementById('pai-hist-context').textContent = 'Sélectionnez un projet pour afficher l\'historique.';
+  document.getElementById('pai-hist-list').innerHTML = '';
+  document.getElementById('pai-hist-count').textContent = '';
+  document.getElementById('pai-hist-total').style.display = 'none';
+
+  // Populate facture select with all (will refilter when projet chosen)
+  renderPaiFactureOptions('');
+
+  document.getElementById('pai-reste').value = '';
+  document.getElementById('pai-montant').value = '';
+  document.getElementById('pai-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pai-mode').value = 'Virement';
+  document.getElementById('pai-reference').value = '';
+  document.getElementById('pai-notes').value = '';
+  document.getElementById('pai-err').style.display = 'none';
+  document.getElementById('modal-paiement').style.display = 'flex';
+
+  if (prefillProjetId) selectPaiProjet(prefillProjetId);
 }
 
-function openPaiementForFacture(factureId,reste) {
-  openEnregistrerPaiement();
-  setTimeout(function(){document.getElementById('pai-facture-sel').value=factureId;document.getElementById('pai-reste').value=fmtMontant(reste);document.getElementById('pai-montant').value=reste;},100);
+function renderPaiFactureOptions(projetId) {
+  var sel = document.getElementById('pai-facture-sel');
+  if (!sel) return;
+  var factures = typeof getFactures === 'function' ? getFactures() : [];
+  var opts = '<option value="">— Sélectionner une facture —</option>';
+  factures.forEach(function(f) {
+    if (f.statut === 'Annulée') return;
+    if (projetId && String(f.projet_id || '') !== String(projetId)) return;
+    var ttc = parseFloat(f.montant_ttc || f.montantTtc || f.montant || 0);
+    var reste = (parseFloat(f.net_payer || f.netPayer || ttc) || 0) - (parseFloat(f.montant_paye || f.montantPaye) || 0);
+    var l = (f.numero || f.ref || '') + ' — ' + (f.client || '') + ' — ' + fmtMontant(ttc) + (f.statut === 'Payée' ? ' [Payée]' : (reste > 0 ? ' (reste: ' + fmtMontant(reste) + ')' : ''));
+    opts += '<option value="' + f.id + '" data-reste="' + Math.max(reste, 0) + '" data-mission="' + (f.mission_phase || '').replace(/"/g, '&quot;') + '">' + l + '</option>';
+  });
+  sel.innerHTML = opts;
+}
+
+// ── Searchable Projet dropdown (modal paiement) ──
+
+function filterPaiProjetDropdown() {
+  var input = document.getElementById('pai-projet-search');
+  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var clearBtn = document.getElementById('pai-projet-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  renderPaiProjetDropdown(q);
+  showPaiProjetDropdown();
+}
+
+function showPaiProjetDropdown() {
+  var dd = document.getElementById('pai-projet-dropdown');
+  if (!dd) return;
+  dd.style.display = 'block';
+  _paiDropdownProjetOpen = true;
+  var q = (document.getElementById('pai-projet-search').value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  renderPaiProjetDropdown(q);
+}
+
+function hidePaiProjetDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('pai-projet-dropdown');
+    if (dd) dd.style.display = 'none';
+    _paiDropdownProjetOpen = false;
+  }, 200);
+}
+
+function renderPaiProjetDropdown(q) {
+  var dd = document.getElementById('pai-projet-dropdown');
+  if (!dd) return;
+  var projets = typeof getProjets === 'function' ? getProjets() : [];
+  var items = projets.map(function(p) {
+    return { id: p.id, label: (p.code ? p.code + ' — ' : '') + (p.nom || ''), code: p.code || '', nom: p.nom || '', client: p.client || '' };
+  });
+  var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+  var filtered = items.filter(function(item) {
+    if (!q) return true;
+    return norm(item.nom).indexOf(q) !== -1 || norm(item.code).indexOf(q) !== -1 || norm(item.client).indexOf(q) !== -1;
+  });
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucun projet trouvé</div>';
+    return;
+  }
+  dd.innerHTML = filtered.map(function(item) {
+    var isCurrent = (item.id === _paiProjetId);
+    return '<div onmousedown="selectPaiProjet(\'' + item.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : 'transparent') + '\'">' +
+      '<span style="color:var(--text-1)">' + item.label + '</span>' +
+      (item.client ? ' <span style="color:var(--text-3);font-size:0.72rem">(' + item.client + ')</span>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function selectPaiProjet(projetId) {
+  _paiProjetId = projetId || '';
+  var sel = document.getElementById('pai-projet-sel');
+  var input = document.getElementById('pai-projet-search');
+  var clearBtn = document.getElementById('pai-projet-clear');
+  if (sel) sel.value = _paiProjetId;
+  if (_paiProjetId) {
+    var projets = typeof getProjets === 'function' ? getProjets() : [];
+    var found = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+    if (found && input) input.value = (found.code ? found.code + ' — ' : '') + (found.nom || '');
+    if (clearBtn) clearBtn.style.display = 'block';
+  } else {
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+  hidePaiProjetDropdown();
+
+  // Refresh facture options scoped to projet
+  renderPaiFactureOptions(_paiProjetId);
+  document.getElementById('pai-reste').value = '';
+  document.getElementById('pai-montant').value = '';
+
+  // Reset & enable mission dropdown
+  _paiMissionNom = '';
+  var mSel = document.getElementById('pai-mission-sel'); if (mSel) mSel.value = '';
+  var mSearch = document.getElementById('pai-mission-search');
+  if (mSearch) {
+    mSearch.value = '';
+    mSearch.disabled = !_paiProjetId;
+    mSearch.placeholder = _paiProjetId ? '🔍 Rechercher une mission…' : '— Sélectionnez d\'abord un projet —';
+  }
+  var mClear = document.getElementById('pai-mission-clear'); if (mClear) mClear.style.display = 'none';
+
+  // Load history for projet
+  loadPaiementHistoryForProjet(_paiProjetId);
+}
+
+function clearPaiProjetSearch() {
+  selectPaiProjet('');
+  var input = document.getElementById('pai-projet-search');
+  if (input) input.focus();
+  showPaiProjetDropdown();
+}
+
+function onPaiProjetSelChange() {
+  var sel = document.getElementById('pai-projet-sel');
+  if (sel) selectPaiProjet(sel.value);
+}
+
+// ── Searchable Mission dropdown (modal paiement) ──
+
+function _paiGetProjetMissions() {
+  if (!_paiProjetId) return [];
+  var projets = typeof getProjets === 'function' ? getProjets() : [];
+  var projet = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+  if (!projet) return [];
+  var raw;
+  try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
+  catch (e) { raw = []; }
+  if (typeof window._normalizeProjetMissions === 'function') {
+    return window._normalizeProjetMissions(raw);
+  }
+  return Array.isArray(raw) ? raw.map(String) : [];
+}
+
+function filterPaiMissionDropdown() {
+  var input = document.getElementById('pai-mission-search');
+  if (!input || input.disabled) return;
+  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var clearBtn = document.getElementById('pai-mission-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  renderPaiMissionDropdown(q);
+  showPaiMissionDropdown();
+}
+
+function showPaiMissionDropdown() {
+  var input = document.getElementById('pai-mission-search');
+  if (!input || input.disabled) return;
+  var dd = document.getElementById('pai-mission-dropdown');
+  if (!dd) return;
+  dd.style.display = 'block';
+  _paiDropdownMissionOpen = true;
+  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  renderPaiMissionDropdown(q);
+}
+
+function hidePaiMissionDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('pai-mission-dropdown');
+    if (dd) dd.style.display = 'none';
+    _paiDropdownMissionOpen = false;
+  }, 200);
+}
+
+function renderPaiMissionDropdown(q) {
+  var dd = document.getElementById('pai-mission-dropdown');
+  if (!dd) return;
+  var missions = _paiGetProjetMissions();
+  var items = [{ nom: '', label: '— Toutes les missions —' }].concat(missions.map(function(nom) { return { nom: nom, label: nom }; }));
+  var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+  var filtered = items.filter(function(item) {
+    if (!q) return true;
+    if (!item.nom) return true;
+    return norm(item.nom).indexOf(q) !== -1;
+  });
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucune mission affectée à ce projet</div>';
+    return;
+  }
+  dd.innerHTML = filtered.map(function(item) {
+    var isCurrent = (item.nom === _paiMissionNom);
+    var safe = item.nom.replace(/'/g, "\\'");
+    return '<div onmousedown="selectPaiMission(\'' + safe + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : 'transparent') + '\'">' +
+      '<span style="color:var(--text-1)">' + item.label + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+function selectPaiMission(missionNom) {
+  _paiMissionNom = missionNom || '';
+  var sel = document.getElementById('pai-mission-sel');
+  var input = document.getElementById('pai-mission-search');
+  var clearBtn = document.getElementById('pai-mission-clear');
+  if (sel) sel.value = _paiMissionNom;
+  if (input) input.value = _paiMissionNom;
+  if (clearBtn) clearBtn.style.display = _paiMissionNom ? 'block' : 'none';
+  hidePaiMissionDropdown();
+
+  // Filter factures: by projet first, then narrow to mission_phase if any
+  var factSel = document.getElementById('pai-facture-sel');
+  if (!factSel) return;
+  renderPaiFactureOptions(_paiProjetId);
+  if (_paiMissionNom) {
+    var opts = factSel.querySelectorAll('option');
+    opts.forEach(function(o) {
+      if (!o.value) return;
+      var mp = o.getAttribute('data-mission') || '';
+      if (mp && mp !== _paiMissionNom) o.style.display = 'none';
+    });
+  }
+}
+
+function clearPaiMissionSearch() {
+  selectPaiMission('');
+  var input = document.getElementById('pai-mission-search');
+  if (input) input.focus();
+  showPaiMissionDropdown();
+}
+
+function onPaiMissionSelChange() {
+  var sel = document.getElementById('pai-mission-sel');
+  if (sel) selectPaiMission(sel.value);
+}
+
+// ── Historique paiements pour projet ──
+
+function loadPaiementHistoryForProjet(projetId) {
+  var listEl = document.getElementById('pai-hist-list');
+  var ctxEl = document.getElementById('pai-hist-context');
+  var cntEl = document.getElementById('pai-hist-count');
+  var totEl = document.getElementById('pai-hist-total');
+  var totVal = document.getElementById('pai-hist-total-val');
+  if (!listEl) return;
+
+  if (!projetId) {
+    listEl.innerHTML = '';
+    ctxEl.textContent = 'Sélectionnez un projet pour afficher l\'historique.';
+    cntEl.textContent = '';
+    totEl.style.display = 'none';
+    return;
+  }
+
+  var projets = typeof getProjets === 'function' ? getProjets() : [];
+  var projet = projets.filter(function(p) { return p.id == projetId; })[0];
+  ctxEl.textContent = projet ? ((projet.code ? projet.code + ' — ' : '') + (projet.nom || '')) : '';
+  listEl.innerHTML = '<div style="font-size:0.78rem;color:var(--text-3);padding:0.5rem 0">Chargement…</div>';
+
+  apiFetch('api/paiements.php?action=list&projet_id=' + encodeURIComponent(projetId)).then(function(r) {
+    var rows = (r && r.data) || [];
+    if (!rows.length) {
+      listEl.innerHTML = '<div style="font-size:0.78rem;color:var(--text-3);padding:0.6rem 0;text-align:center">Aucun paiement enregistré pour ce projet</div>';
+      cntEl.textContent = '0 paiement';
+      totEl.style.display = 'none';
+      return;
+    }
+    var total = 0;
+    var html = rows.map(function(p) {
+      var mt = parseFloat(p.montant) || 0;
+      total += mt;
+      return '<div style="padding:0.55rem 0;border-bottom:1px solid var(--border)">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:0.82rem;font-weight:600;color:var(--text-1)">' + fmtMontant(mt) + '</div>' +
+            '<div style="font-size:0.72rem;color:var(--text-3)">' + (p.date_paiement || '') + ' · ' + (p.mode_paiement || '') + (p.facture_numero ? ' · ' + p.facture_numero : '') + '</div>' +
+            (p.reference ? '<div style="font-size:0.7rem;color:var(--text-3)">Réf : ' + p.reference + '</div>' : '') +
+          '</div>' +
+          '<button class="btn btn-sm" title="Imprimer le reçu" onclick="genRecuPaiementPDF(\'' + p.id + '\')" style="padding:0.3rem 0.55rem;font-size:0.72rem">🧾 Reçu</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    listEl.innerHTML = html;
+    cntEl.textContent = rows.length + ' paiement' + (rows.length > 1 ? 's' : '');
+    totVal.textContent = fmtMontant(total);
+    totEl.style.display = 'block';
+  }).catch(function(e) {
+    listEl.innerHTML = '<div style="font-size:0.78rem;color:var(--red);padding:0.5rem 0">Erreur : ' + e.message + '</div>';
+  });
+}
+
+function openPaiementForFacture(factureId, reste) {
+  // Pre-resolve projet from facture
+  var factures = typeof getFactures === 'function' ? getFactures() : [];
+  var f = factures.filter(function(x) { return x.id == factureId; })[0];
+  var projetId = f && f.projet_id ? f.projet_id : '';
+  openEnregistrerPaiement(projetId);
+  setTimeout(function() {
+    var sel = document.getElementById('pai-facture-sel');
+    if (sel) sel.value = factureId;
+    document.getElementById('pai-reste').value = fmtMontant(reste);
+    document.getElementById('pai-montant').value = reste;
+  }, 150);
 }
 
 function onPaiFactureChange() {
-  var sel=document.getElementById('pai-facture-sel'),opt=sel.options[sel.selectedIndex],reste=opt?parseFloat(opt.dataset.reste)||0:0;
-  document.getElementById('pai-reste').value=reste>0?fmtMontant(reste):''; document.getElementById('pai-montant').value=reste>0?reste:'';
+  var sel = document.getElementById('pai-facture-sel'), opt = sel.options[sel.selectedIndex], reste = opt ? parseFloat(opt.dataset.reste) || 0 : 0;
+  document.getElementById('pai-reste').value = reste > 0 ? fmtMontant(reste) : '';
+  document.getElementById('pai-montant').value = reste > 0 ? reste : '';
 }
 
 function savePaiement() {
-  var fid=document.getElementById('pai-facture-sel').value, mt=parseFloat(document.getElementById('pai-montant').value), errEl=document.getElementById('pai-err');
-  if(!fid){errEl.textContent='Sélectionnez une facture';errEl.style.display='';return;} if(!mt||mt<=0){errEl.textContent='Montant invalide';errEl.style.display='';return;}
-  apiFetch('api/paiements.php?action=create',{method:'POST',body:{facture_id:fid,montant:mt,date_paiement:document.getElementById('pai-date').value,mode_paiement:document.getElementById('pai-mode').value,reference:document.getElementById('pai-reference').value,notes:document.getElementById('pai-notes').value}}).then(function(r){document.getElementById('modal-paiement').style.display='none';showToast('Paiement enregistré');loadReceivables();if(typeof loadData==='function') loadData();var pid=r&&r.data&&r.data.id;if(pid&&confirm('Paiement enregistré avec succès.\n\nVoulez-vous imprimer le reçu de paiement ?')){genRecuPaiementPDF(pid);}}).catch(function(e){errEl.textContent=e.message;errEl.style.display='';});
+  var fid = document.getElementById('pai-facture-sel').value, mt = parseFloat(document.getElementById('pai-montant').value), errEl = document.getElementById('pai-err');
+  if (!fid) { errEl.textContent = 'Sélectionnez une facture'; errEl.style.display = ''; return; }
+  if (!mt || mt <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display = ''; return; }
+  apiFetch('api/paiements.php?action=create', { method: 'POST', body: { facture_id: fid, montant: mt, date_paiement: document.getElementById('pai-date').value, mode_paiement: document.getElementById('pai-mode').value, reference: document.getElementById('pai-reference').value, notes: document.getElementById('pai-notes').value } }).then(function(r) {
+    showToast('Paiement enregistré');
+    if (typeof loadReceivables === 'function') loadReceivables();
+    if (typeof loadData === 'function') loadData();
+    // Refresh history panel inside modal
+    if (_paiProjetId) loadPaiementHistoryForProjet(_paiProjetId);
+    var pid = r && r.data && r.data.id;
+    if (pid && confirm('Paiement enregistré avec succès.\n\nVoulez-vous imprimer le reçu de paiement ?')) {
+      genRecuPaiementPDF(pid);
+    }
+    document.getElementById('modal-paiement').style.display = 'none';
+  }).catch(function(e) { errEl.textContent = e.message; errEl.style.display = ''; });
 }
 
 // ── Relance modal ──
