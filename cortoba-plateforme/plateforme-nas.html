@@ -1819,13 +1819,13 @@
       <!-- ═══ MODALES PAIEMENTS ═══ -->
 
       <!-- Modal: Enregistrer un paiement (fenêtre flottante) -->
-      <div class="modal-backdrop" id="modal-paiement" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
-        <div class="modal" style="max-width:960px;width:96%">
+      <div class="modal-backdrop" id="modal-paiement" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal" style="max-width:960px;width:96%;background:var(--bg-1);border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
           <div class="modal-header">
             <h3 id="paiement-modal-title">Enregistrer un paiement client</h3>
             <button class="modal-close" onclick="document.getElementById('modal-paiement').style.display='none'">&times;</button>
           </div>
-          <div class="modal-body" style="max-height:78vh;overflow-y:auto">
+          <div class="modal-body" style="overflow-y:auto;flex:1">
             <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:1.2rem">
               <!-- ── Colonne gauche : formulaire ── -->
               <div>
