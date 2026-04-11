@@ -196,10 +196,11 @@ function listPaiements() {
         $params[] = $_GET['client_id'];
     }
 
-    $stmt = $db->prepare("SELECT p.*, f.numero AS facture_numero, c.display_nom AS client_nom
+    $stmt = $db->prepare("SELECT p.*, f.numero AS facture_numero, c.display_nom AS client_nom, pr.nom AS projet_nom, pr.code AS projet_code
         FROM CA_paiements p
-        LEFT JOIN CA_factures f ON f.id = p.facture_id
-        LEFT JOIN CA_clients c ON c.id = p.client_id
+        LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = p.facture_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = p.client_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN CA_projets pr ON pr.id COLLATE utf8mb4_unicode_ci = p.projet_id COLLATE utf8mb4_unicode_ci
         WHERE $where
         ORDER BY p.date_paiement DESC, p.cree_at DESC");
     $stmt->execute($params);
