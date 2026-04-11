@@ -183,24 +183,52 @@ function getPaiementsByDevis() {
 function getPaiementsByProjet() {
     $projetId = $_GET['projet_id'] ?? '';
     if (!$projetId) jsonError('projet_id requis');
+    $missionPhase = $_GET['mission_phase'] ?? '';
 
     $db = getDB();
+
+    $where = "pc.projet_id = ?";
+    $params = [$projetId];
+    if ($missionPhase !== '') {
+        $where .= " AND pc.mission_phase = ?";
+        $params[] = $missionPhase;
+    }
 
     $s = $db->prepare("SELECT pc.*, d.numero AS devis_numero, d.objet AS devis_objet
         FROM CA_paiements_clients pc
         LEFT JOIN CA_devis d ON d.id = pc.devis_id
-        WHERE pc.projet_id = ?
+        WHERE $where
         ORDER BY pc.date_paiement DESC");
-    $s->execute([$projetId]);
+    $s->execute($params);
     $paiements = $s->fetchAll(\PDO::FETCH_ASSOC);
 
+    // Total payé pour le projet (toutes missions)
     $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE projet_id = ?");
     $s->execute([$projetId]);
-    $totalPaye = (float)$s->fetchColumn();
+    $totalPayeProjet = (float)$s->fetchColumn();
+
+    // Total payé pour la mission spécifique
+    $totalPayeMission = null;
+    if ($missionPhase !== '') {
+        $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE projet_id = ? AND mission_phase = ?");
+        $s->execute([$projetId, $missionPhase]);
+        $totalPayeMission = (float)$s->fetchColumn();
+    }
+
+    // Total devis validés du projet (référence pour reste à payer)
+    $s = $db->prepare("SELECT COALESCE(SUM(montant_ttc),0), COUNT(*) FROM CA_devis WHERE projet_id = ? AND statut IN ('Accepté','Accepte','Validé','Valide','Facturé')");
+    $s->execute([$projetId]);
+    $row = $s->fetch(\PDO::FETCH_NUM);
+    $totalDevisValides = (float)($row[0] ?? 0);
+    $nbDevisValides = (int)($row[1] ?? 0);
 
     jsonOk([
         'paiements' => $paiements,
-        'total_paye' => round($totalPaye, 2),
+        'total_paye' => round($totalPayeProjet, 2),
+        'total_paye_mission' => $totalPayeMission !== null ? round($totalPayeMission, 2) : null,
+        'total_devis_valides' => round($totalDevisValides, 2),
+        'nb_devis_valides' => $nbDevisValides,
+        'reste_projet' => round(max(0, $totalDevisValides - $totalPayeProjet), 2),
     ]);
 }
 
