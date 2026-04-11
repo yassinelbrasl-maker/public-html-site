@@ -14,9 +14,10 @@ function ensurePaiementsSchema() {
 
     $db->exec("CREATE TABLE IF NOT EXISTS `CA_paiements` (
       `id` varchar(32) NOT NULL,
-      `facture_id` varchar(32) NOT NULL,
+      `facture_id` varchar(32) DEFAULT NULL,
       `projet_id` varchar(32) DEFAULT NULL,
       `client_id` varchar(32) DEFAULT NULL,
+      `mission_phase` varchar(120) DEFAULT NULL,
       `montant` decimal(14,2) NOT NULL,
       `date_paiement` date NOT NULL,
       `mode_paiement` varchar(40) DEFAULT NULL,
@@ -32,6 +33,10 @@ function ensurePaiementsSchema() {
       KEY `projet_id` (`projet_id`),
       KEY `stripe_session` (`stripe_session_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Migration : autoriser facture_id NULL et ajouter mission_phase
+    try { $db->exec("ALTER TABLE CA_paiements MODIFY `facture_id` varchar(32) DEFAULT NULL"); } catch (\Throwable $e) {}
+    try { $db->exec("ALTER TABLE CA_paiements ADD COLUMN `mission_phase` varchar(120) DEFAULT NULL AFTER `client_id`"); } catch (\Throwable $e) {}
 
     $db->exec("CREATE TABLE IF NOT EXISTS `CA_relances` (
       `id` int unsigned NOT NULL AUTO_INCREMENT,
