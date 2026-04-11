@@ -232,7 +232,7 @@ function createPaiement($user) {
         }
     } catch (\Throwable $e) { /* notification non-critique */ }
 
-    $s = $db->prepare("SELECT p.*, f.numero AS facture_numero FROM CA_paiements p LEFT JOIN CA_factures f ON f.id = p.facture_id WHERE p.id = ?");
+    $s = $db->prepare("SELECT p.*, f.numero AS facture_numero FROM CA_paiements p LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = p.facture_id COLLATE utf8mb4_unicode_ci WHERE p.id = ?");
     $s->execute([$id]);
     jsonOk($s->fetch(\PDO::FETCH_ASSOC));
 }
