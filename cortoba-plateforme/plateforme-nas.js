@@ -17451,8 +17451,8 @@ function renderNcTable(filter) {
       '<td style="' + codePlatStyle + '">' + codePlat + '</td>' +
       '<td style="text-align:center">' + syncHtml + '</td>' +
       '<td style="' + codeNasStyle + '">' + codeNas + '</td>' +
-      '<td>' + nomPlat + '</td>' +
-      '<td style="font-size:0.82rem">' + nasFolder + '</td>' +
+      '<td style="font-size:0.82rem;word-break:break-word">' + nomPlat + '</td>' +
+      '<td style="font-size:0.78rem;word-break:break-all;font-family:var(--font-mono,monospace)">' + nasFolder + '</td>' +
       '<td>' + statusBadge + '</td>' +
       '<td style="white-space:nowrap">' + actionHtml + '</td>' +
       '</tr>';
