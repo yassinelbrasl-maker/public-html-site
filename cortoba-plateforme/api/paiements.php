@@ -226,7 +226,7 @@ function listPaiements() {
 
 function createPaiement($user) {
     $body = getBody();
-    if (empty($body['facture_id'])) jsonError('facture_id requis');
+    if (empty($body['facture_id']) && empty($body['projet_id'])) jsonError('projet_id ou facture_id requis');
     if (empty($body['montant']) || (float)$body['montant'] <= 0) jsonError('montant requis et > 0');
 
     $db = getDB();
@@ -236,15 +236,22 @@ function createPaiement($user) {
     // Dispatch notification
     try {
         require_once __DIR__ . '/notification_dispatch.php';
-        $s = $db->prepare("SELECT numero FROM CA_factures WHERE id = ?");
-        $s->execute([$body['facture_id']]);
-        $numero = $s->fetchColumn();
-        // Notify all admin users
+        $contextLabel = '';
+        if (!empty($body['facture_id'])) {
+            $s = $db->prepare("SELECT numero FROM CA_factures WHERE id = ?");
+            $s->execute([$body['facture_id']]);
+            $numero = $s->fetchColumn();
+            $contextLabel = 'facture ' . $numero;
+        } else if (!empty($body['projet_id'])) {
+            $s = $db->prepare("SELECT COALESCE(code, nom) FROM CA_projets WHERE id = ?");
+            $s->execute([$body['projet_id']]);
+            $contextLabel = 'projet ' . $s->fetchColumn();
+        }
         $admins = $db->query("SELECT id FROM CA_accounts WHERE role = 'admin'")->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($admins as $adminId) {
             dispatchNotification($db, $adminId, 'payment_received',
                 'Paiement reçu',
-                'Paiement de ' . number_format((float)$body['montant'], 2, ',', ' ') . ' TND pour facture ' . $numero,
+                'Paiement de ' . number_format((float)$body['montant'], 2, ',', ' ') . ' TND pour ' . $contextLabel,
                 'creances', null, $user['name'] ?? null);
         }
     } catch (\Throwable $e) { /* notification non-critique */ }
