@@ -466,10 +466,6 @@ function openEnregistrerPaiement(prefillProjetId) {
   document.getElementById('pai-hist-count').textContent = '';
   document.getElementById('pai-hist-total').style.display = 'none';
 
-  // Populate facture select with all (will refilter when projet chosen)
-  renderPaiFactureOptions('');
-
-  document.getElementById('pai-reste').value = '';
   document.getElementById('pai-montant').value = '';
   document.getElementById('pai-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('pai-mode').value = 'Virement';
@@ -479,22 +475,6 @@ function openEnregistrerPaiement(prefillProjetId) {
   document.getElementById('modal-paiement').style.display = 'flex';
 
   if (prefillProjetId) selectPaiProjet(prefillProjetId);
-}
-
-function renderPaiFactureOptions(projetId) {
-  var sel = document.getElementById('pai-facture-sel');
-  if (!sel) return;
-  var factures = typeof getFactures === 'function' ? getFactures() : [];
-  var opts = '<option value="">— Sélectionner une facture —</option>';
-  factures.forEach(function(f) {
-    if (f.statut === 'Annulée') return;
-    if (projetId && String(f.projet_id || '') !== String(projetId)) return;
-    var ttc = parseFloat(f.montant_ttc || f.montantTtc || f.montant || 0);
-    var reste = (parseFloat(f.net_payer || f.netPayer || ttc) || 0) - (parseFloat(f.montant_paye || f.montantPaye) || 0);
-    var l = (f.numero || f.ref || '') + ' — ' + (f.client || '') + ' — ' + fmtMontant(ttc) + (f.statut === 'Payée' ? ' [Payée]' : (reste > 0 ? ' (reste: ' + fmtMontant(reste) + ')' : ''));
-    opts += '<option value="' + f.id + '" data-reste="' + Math.max(reste, 0) + '" data-mission="' + (f.mission_phase || '').replace(/"/g, '&quot;') + '">' + l + '</option>';
-  });
-  sel.innerHTML = opts;
 }
 
 // ── Searchable Projet dropdown (modal paiement) ──
