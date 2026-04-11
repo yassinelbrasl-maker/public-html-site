@@ -5406,6 +5406,39 @@ function _expandSidebarForPage(pageId) {
 // Initialiser au chargement
 document.addEventListener('DOMContentLoaded', _initSidebarSections);
 
+// ── Sidebar search ──
+function _initSidebarSearch() {
+  var input = document.getElementById('sidebarSearch');
+  if (!input) return;
+  input.addEventListener('input', function() {
+    var q = this.value.toLowerCase().trim();
+    var sections = document.querySelectorAll('.sidebar-section');
+    for (var i = 0; i < sections.length; i++) {
+      var section = sections[i];
+      var label = section.querySelector('.sidebar-label');
+      var labelText = label ? label.textContent.toLowerCase() : '';
+      var items = section.querySelectorAll('.nav-item');
+      var visibleCount = 0;
+      var sectionMatches = q && labelText.indexOf(q) !== -1;
+      for (var j = 0; j < items.length; j++) {
+        var item = items[j];
+        var text = item.textContent.toLowerCase();
+        var match = !q || sectionMatches || text.indexOf(q) !== -1;
+        item.classList.toggle('search-hidden', !match);
+        if (match) visibleCount++;
+      }
+      section.classList.toggle('search-hidden', q && visibleCount === 0 && !sectionMatches);
+      // Quand on cherche, déplier les sections
+      if (q && section.dataset.section) {
+        section.classList.remove('collapsed');
+      } else if (!q && section.dataset.section && _sidebarSectionState[section.dataset.section]) {
+        section.classList.add('collapsed');
+      }
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', _initSidebarSearch);
+
 // A1 — openModal: modal-projet ouvre correctement sans déclencher modal-client
 function openModal(id){
   var _createModalMap = {'modal-client':'client','modal-projet':'projet','modal-devis':'devis','modal-facture':'facture'};
