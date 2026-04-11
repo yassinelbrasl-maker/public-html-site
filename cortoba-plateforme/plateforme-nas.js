@@ -17604,7 +17604,13 @@ function renderNcTable(filter) {
     }
 
     var rowStyle = r.type === 'ok' ? 'opacity:0.6;' : '';
+    // Case à cocher uniquement sur les lignes actionnables
+    var selectable = (r.type === 'missing_nas' || r.type === 'mismatch');
+    var cbHtml = selectable
+      ? '<input type="checkbox" class="nc-row-cb" data-idx="' + idx + '" onchange="_ncUpdateApplyButton()">'
+      : '';
     return '<tr data-nc-type="' + r.type + '" style="' + rowStyle + '">' +
+      '<td style="text-align:center">' + cbHtml + '</td>' +
       '<td style="white-space:nowrap">' + annee + '</td>' +
       '<td style="' + codePlatStyle + '">' + codePlat + '</td>' +
       '<td style="text-align:center">' + syncHtml + '</td>' +
@@ -17615,6 +17621,36 @@ function renderNcTable(filter) {
       '<td style="white-space:nowrap">' + actionHtml + '</td>' +
       '</tr>';
   }).join('');
+  _ncUpdateApplyButton();
+}
+
+// Cocher / décocher toutes les lignes visibles actionnables
+function ncToggleSelectAll(master) {
+  var cbs = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb');
+  cbs.forEach(function(cb) { cb.checked = master.checked; });
+  _ncUpdateApplyButton();
+}
+
+// Mettre à jour le label du bouton "Appliquer" et sa visibilité
+function _ncUpdateApplyButton() {
+  var btn = document.getElementById('nc-apply-all-btn');
+  if (!btn) return;
+  var checked = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb:checked');
+  var n = checked.length;
+  if (n === 0) {
+    btn.style.display = 'none';
+    btn.textContent = 'Appliquer les actions sélectionnées';
+  } else {
+    btn.style.display = '';
+    btn.textContent = 'Appliquer ' + n + ' action' + (n > 1 ? 's' : '') + ' sélectionnée' + (n > 1 ? 's' : '');
+  }
+  // Synchroniser la case "tout sélectionner"
+  var master = document.getElementById('nc-select-all');
+  if (master) {
+    var all = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb');
+    master.checked = (all.length > 0 && n === all.length);
+    master.indeterminate = (n > 0 && n < all.length);
+  }
 }
 
 function filterNcTable(filter, btn) {
