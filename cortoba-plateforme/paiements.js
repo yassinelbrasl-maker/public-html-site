@@ -722,40 +722,45 @@ function loadPaiementHistoryForProjet(projetId) {
 }
 
 function openPaiementForFacture(factureId, reste) {
-  // Pre-resolve projet from facture
+  // Pre-resolve projet from facture (compat ancien lien depuis la table factures)
   var factures = typeof getFactures === 'function' ? getFactures() : [];
   var f = factures.filter(function(x) { return x.id == factureId; })[0];
   var projetId = f && f.projet_id ? f.projet_id : '';
   openEnregistrerPaiement(projetId);
   setTimeout(function() {
-    var sel = document.getElementById('pai-facture-sel');
-    if (sel) sel.value = factureId;
-    document.getElementById('pai-reste').value = fmtMontant(reste);
-    document.getElementById('pai-montant').value = reste;
+    if (reste) document.getElementById('pai-montant').value = reste;
   }, 150);
 }
 
-function onPaiFactureChange() {
-  var sel = document.getElementById('pai-facture-sel'), opt = sel.options[sel.selectedIndex], reste = opt ? parseFloat(opt.dataset.reste) || 0 : 0;
-  document.getElementById('pai-reste').value = reste > 0 ? fmtMontant(reste) : '';
-  document.getElementById('pai-montant').value = reste > 0 ? reste : '';
-}
-
 function savePaiement() {
-  var fid = document.getElementById('pai-facture-sel').value, mt = parseFloat(document.getElementById('pai-montant').value), errEl = document.getElementById('pai-err');
-  if (!fid) { errEl.textContent = 'Sélectionnez une facture'; errEl.style.display = ''; return; }
+  var mt = parseFloat(document.getElementById('pai-montant').value), errEl = document.getElementById('pai-err');
+  if (!_paiProjetId) { errEl.textContent = 'Sélectionnez un projet'; errEl.style.display = ''; return; }
   if (!mt || mt <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display = ''; return; }
-  apiFetch('api/paiements.php?action=create', { method: 'POST', body: { facture_id: fid, montant: mt, date_paiement: document.getElementById('pai-date').value, mode_paiement: document.getElementById('pai-mode').value, reference: document.getElementById('pai-reference').value, notes: document.getElementById('pai-notes').value } }).then(function(r) {
+  apiFetch('api/paiements.php?action=create', {
+    method: 'POST',
+    body: {
+      projet_id: _paiProjetId,
+      mission_phase: _paiMissionNom || null,
+      montant: mt,
+      date_paiement: document.getElementById('pai-date').value,
+      mode_paiement: document.getElementById('pai-mode').value,
+      reference: document.getElementById('pai-reference').value,
+      notes: document.getElementById('pai-notes').value
+    }
+  }).then(function(r) {
     showToast('Paiement enregistré');
     if (typeof loadReceivables === 'function') loadReceivables();
     if (typeof loadData === 'function') loadData();
     // Refresh history panel inside modal
     if (_paiProjetId) loadPaiementHistoryForProjet(_paiProjetId);
+    // Reset form fields for next entry, keep modal open
+    document.getElementById('pai-montant').value = '';
+    document.getElementById('pai-reference').value = '';
+    document.getElementById('pai-notes').value = '';
     var pid = r && r.data && r.data.id;
     if (pid && confirm('Paiement enregistré avec succès.\n\nVoulez-vous imprimer le reçu de paiement ?')) {
       genRecuPaiementPDF(pid);
     }
-    document.getElementById('modal-paiement').style.display = 'none';
   }).catch(function(e) { errEl.textContent = e.message; errEl.style.display = ''; });
 }
 
