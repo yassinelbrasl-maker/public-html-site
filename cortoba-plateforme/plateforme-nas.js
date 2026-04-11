@@ -17908,36 +17908,67 @@ function ncSyncCodeToPlat(idx) {
     .catch(function(e) { showToast('Erreur : ' + (e.message || ''), 'error'); });
 }
 
-// Appliquer toutes les actions (créer les dossiers manquants sur le NAS)
+// Appliquer les actions cochées :
+//   • missing_nas → créer le dossier sur le NAS
+//   • mismatch    → renommer le dossier NAS pour correspondre à la plateforme
 function ncApplyAll() {
-  var missingNas = _ncData.filter(function(r) { return r.type === 'missing_nas'; });
-  if (missingNas.length === 0) { showToast('Aucune action à appliquer', '#d4a54a'); return; }
-  if (!confirm('Créer ' + missingNas.length + ' dossier(s) manquant(s) sur le NAS ?')) return;
+  var checked = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb:checked');
+  if (checked.length === 0) { showToast('Aucune ligne sélectionnée', '#d4a54a'); return; }
+
+  var rows = [];
+  checked.forEach(function(cb) {
+    var idx = parseInt(cb.getAttribute('data-idx'), 10);
+    var r = _ncData[idx];
+    if (r) rows.push(r);
+  });
+
+  var nbCreate = rows.filter(function(r){ return r.type === 'missing_nas'; }).length;
+  var nbRename = rows.filter(function(r){ return r.type === 'mismatch';    }).length;
+  var msg = 'Appliquer les actions suivantes ?\n\n';
+  if (nbCreate) msg += '• ' + nbCreate + ' dossier(s) à créer sur le NAS\n';
+  if (nbRename) msg += '• ' + nbRename + ' dossier(s) NAS à renommer (NAS ← Plat.)\n';
+  if (!confirm(msg)) return;
 
   var done = 0, errors = 0;
-  var total = missingNas.length;
+  var total = rows.length;
+  var finish = function() {
+    if (done === total) {
+      showToast((done - errors) + '/' + total + ' actions appliquées' + (errors ? ' (' + errors + ' erreurs)' : ''), errors ? '#d4a54a' : '#4caf50');
+      renderConformiteResults();
+    }
+  };
 
-  missingNas.forEach(function(r) {
-    apiFetch('api/nas-mkdir.php', {
-      method: 'POST',
-      body: { folder: r.expected, annee: r.annee }
-    }).then(function(res) {
-      done++;
-      if (res.data && res.data.created) {
-        r.type = 'ok';
-        r.nasFolder = r.expected;
-      } else { errors++; }
-      if (done === total) {
-        showToast((done - errors) + '/' + total + ' dossiers créés' + (errors ? ' (' + errors + ' erreurs)' : ''), errors ? '#d4a54a' : '#4caf50');
-        renderConformiteResults();
-      }
-    }).catch(function() {
-      done++; errors++;
-      if (done === total) {
-        showToast((done - errors) + '/' + total + ' dossiers créés (' + errors + ' erreurs)', '#e07b72');
-        renderConformiteResults();
-      }
-    });
+  rows.forEach(function(r) {
+    if (r.type === 'missing_nas') {
+      apiFetch('api/nas-mkdir.php', {
+        method: 'POST',
+        body: { folder: r.expected, annee: r.annee }
+      }).then(function(res) {
+        done++;
+        if (res.data && res.data.created) {
+          r.type = 'ok';
+          r.nasFolder = r.expected;
+        } else { errors++; }
+        finish();
+      }).catch(function() { done++; errors++; finish(); });
+    } else if (r.type === 'mismatch') {
+      // Renommer NAS ← Plat. (équivalent au bouton individuel)
+      var newName = r.expected;
+      if (!newName || newName === r.nasFolder) { done++; finish(); return; }
+      apiFetch('api/nas-rename.php', {
+        method: 'POST',
+        body: { annee: r.annee, oldName: r.nasFolder, newName: newName }
+      }).then(function(res) {
+        done++;
+        if (res.data && res.data.renamed) {
+          r.nasFolder = newName;
+          r.type = 'ok';
+        } else { errors++; }
+        finish();
+      }).catch(function() { done++; errors++; finish(); });
+    } else {
+      done++; finish();
+    }
   });
 }
 
