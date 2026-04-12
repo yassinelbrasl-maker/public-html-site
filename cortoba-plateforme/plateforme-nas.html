@@ -1858,6 +1858,22 @@
                   </div>
                 </div>
 
+                <!-- Devis lié (optionnel, se peuple quand un projet est sélectionné) -->
+                <div class="form-row" id="pai-devis-row" style="display:none">
+                  <label class="form-label">Devis associé <span style="font-size:0.72rem;color:var(--text-3)">(optionnel)</span></label>
+                  <select id="pai-devis-sel" class="form-input" onchange="onPaiDevisChange()">
+                    <option value="">— Aucun devis —</option>
+                  </select>
+                  <div id="pai-devis-info" style="display:none;background:var(--bg-2);padding:0.55rem 0.8rem;border-radius:8px;margin-top:0.35rem;font-size:0.82rem">
+                    <div style="display:flex;flex-wrap:wrap;gap:0.3rem 1rem">
+                      <span><span style="color:var(--text-3)">Client :</span> <strong id="pai-devis-client">—</strong></span>
+                      <span><span style="color:var(--text-3)">Total TTC :</span> <strong id="pai-devis-total">—</strong></span>
+                      <span><span style="color:var(--text-3)">Payé :</span> <strong id="pai-devis-paye" style="color:var(--green)">—</strong></span>
+                      <span><span style="color:var(--text-3)">Reste :</span> <strong id="pai-devis-reste" style="color:var(--orange)">—</strong></span>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Bloc missions (multi-mission) -->
                 <div class="form-row">
                   <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
