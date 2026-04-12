@@ -459,7 +459,14 @@ function listLots() {
     $cid = $_GET['chantier_id'] ?? '';
     $stmt = $db->prepare("SELECT * FROM CA_chantier_lots WHERE chantier_id=? ORDER BY ordre, cree_at");
     $stmt->execute([$cid]);
-    jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $lots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Attach phases for each lot
+    foreach ($lots as &$lot) {
+        $sp = $db->prepare("SELECT * FROM CA_chantier_lot_phases WHERE lot_id=? ORDER BY ordre, cree_at");
+        $sp->execute([$lot['id']]);
+        $lot['phases'] = $sp->fetchAll(PDO::FETCH_ASSOC);
+    }
+    jsonOk($lots);
 }
 
 function createLot($user) {
