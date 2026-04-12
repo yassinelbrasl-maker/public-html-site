@@ -15347,21 +15347,85 @@ function _renderChDashboardKpis(d) {
 
 function _renderChLotsProgress(d) {
   var el = document.getElementById('ch-lots-progress');
-  // Load lots
+  // Load lots (now includes phases per lot from backend)
   apiFetch('api/chantier.php?action=lots&chantier_id=' + _chCache.currentId).then(function(r) {
     _chCache.lots = (r && r.data) ? r.data : [];
-    if (!_chCache.lots.length) { el.innerHTML = '<div style="color:var(--text-3);text-align:center;padding:1rem">Aucun lot défini. <button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button></div>'; return; }
-    var h = '<div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem"><button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button></div>';
-    _chCache.lots.forEach(function(l) {
-      h += '<div style="margin-bottom:0.8rem">' +
-        '<div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.25rem"><span style="color:var(--text)">' + _cgEscape(l.nom) + '</span><span style="color:var(--text-2)">' + (l.avancement||0) + '%</span></div>' +
-        '<div style="background:var(--bg-2);border-radius:4px;height:8px;overflow:hidden"><div style="background:' + (l.couleur||'var(--accent)') + ';height:100%;width:' + (l.avancement||0) + '%;border-radius:4px;transition:width 0.3s"></div></div>' +
-        '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.15rem">' + _cgEscape(l.entreprise||'') + (l.montant_marche ? ' — ' + Number(l.montant_marche).toLocaleString('fr-TN') + ' DT' : '') + '</div></div>';
+    if (!_chCache.lots.length) {
+      el.innerHTML = '<div style="color:var(--text-3);text-align:center;padding:1rem">Aucun lot défini. ' +
+        '<button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button> ' +
+        '<button class="btn btn-sm btn-primary" onclick="addAllLotsToChantier()">Tous les lots du projet</button></div>';
+      return;
+    }
+    var h = '<div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;gap:0.5rem">' +
+      '<button class="btn btn-sm btn-primary" onclick="addAllLotsToChantier()">Tous les lots du projet</button>' +
+      '<button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button></div>';
+    _chCache.lots.forEach(function(l, idx) {
+      var phases = l.phases || [];
+      var hasPhases = phases.length > 0;
+      h += '<div style="margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px;padding:0.6rem;background:var(--bg-1)">';
+      // Lot header — clickable to expand phases
+      h += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.88rem;margin-bottom:0.25rem;cursor:pointer" onclick="toggleLotPhases(\'' + l.id + '\')">' +
+        '<span style="color:var(--text);font-weight:500">' + (hasPhases ? '<span class="lot-chevron" id="chevron-' + l.id + '" style="display:inline-block;transition:transform 0.2s;margin-right:0.3rem">&#9654;</span>' : '') + _cgEscape(l.nom) + '</span>' +
+        '<span style="color:var(--text-2);font-weight:600">' + (l.avancement||0) + '%</span></div>';
+      h += '<div style="background:var(--bg-2);border-radius:4px;height:8px;overflow:hidden;margin-bottom:0.25rem"><div style="background:' + (l.couleur||'var(--accent)') + ';height:100%;width:' + (l.avancement||0) + '%;border-radius:4px;transition:width 0.3s"></div></div>';
+      h += '<div style="font-size:0.78rem;color:var(--text-3)">' + _cgEscape(l.entreprise||'') + (l.montant_marche ? ' — ' + Number(l.montant_marche).toLocaleString('fr-TN') + ' DT' : '') + '</div>';
+      // Phases sub-list (hidden by default)
+      if (hasPhases) {
+        h += '<div id="lot-phases-' + l.id + '" style="display:none;margin-top:0.5rem;padding-left:1rem;border-left:2px solid ' + (l.couleur||'var(--accent)') + '">';
+        phases.forEach(function(p) {
+          h += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;font-size:0.82rem">' +
+            '<span style="flex:1;color:var(--text-2)">' + _cgEscape(p.nom) + '</span>' +
+            '<input type="range" min="0" max="100" step="5" value="' + (p.avancement||0) + '" style="width:100px;accent-color:' + (l.couleur||'var(--accent)') + '" onchange="updatePhaseAvancement(\'' + p.id + '\',this.value,\'' + l.id + '\')" />' +
+            '<span style="color:var(--text-2);font-size:0.78rem;min-width:36px;text-align:right" id="ph-av-' + p.id + '">' + (p.avancement||0) + '%</span>' +
+            '</div>';
+        });
+        h += '</div>';
+      }
+      h += '</div>';
     });
     el.innerHTML = h;
-    // Also populate lot dropdowns
     _chPopulateLotSelects();
   });
+}
+
+function toggleLotPhases(lotId) {
+  var el = document.getElementById('lot-phases-' + lotId);
+  var chevron = document.getElementById('chevron-' + lotId);
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    if (chevron) chevron.style.transform = 'rotate(90deg)';
+  } else {
+    el.style.display = 'none';
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
+}
+
+function updatePhaseAvancement(phaseId, value, lotId) {
+  var span = document.getElementById('ph-av-' + phaseId);
+  if (span) span.textContent = value + '%';
+  // Find phase in cache to get its current data
+  var phData = null;
+  (_chCache.lots || []).forEach(function(l) {
+    (l.phases || []).forEach(function(p) { if (p.id === phaseId) phData = p; });
+  });
+  var body = { nom: phData ? phData.nom : '', ordre: phData ? phData.ordre : 0, actif: phData ? phData.actif : 1, avancement: parseInt(value) };
+  apiFetch('api/chantier.php?action=phases&id=' + phaseId, { method: 'PUT', body: body }).then(function() {
+    // Refresh lots to get updated lot avancement
+    apiFetch('api/chantier.php?action=lots&chantier_id=' + _chCache.currentId).then(function(r) {
+      _chCache.lots = (r && r.data) ? r.data : [];
+      // Update the lot progress bar without full re-render
+      _chCache.lots.forEach(function(l) {
+        if (l.id === lotId) {
+          var lotBar = document.querySelector('#ch-lots-progress [onclick="toggleLotPhases(\'' + l.id + '\')"]');
+          if (lotBar) {
+            var avSpan = lotBar.querySelector('span:last-child');
+            if (avSpan) avSpan.textContent = (l.avancement||0) + '%';
+          }
+        }
+      });
+    });
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
 
 function _chPopulateLotSelects() {
@@ -15461,7 +15525,22 @@ function saveChantier() {
     showToast(id ? 'Chantier mis à jour' : 'Chantier créé', 'success');
     closeModal('modal-chantier');
     _resetChForm();
+    // For new chantier, propose adding all standard lots
+    if (!id && r && r.data && r.data.id) {
+      if (confirm('Voulez-vous ajouter tous les lots standard du projet ?')) {
+        addAllLotsToChantier(r.data.id);
+      }
+    }
     renderChantierDashboard();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function addAllLotsToChantier(chantierId) {
+  var cid = chantierId || _chCache.currentId;
+  if (!cid) { showToast('Sélectionnez un chantier', 'warning'); return; }
+  apiFetch('api/chantier.php?action=bulk_lots', { method: 'POST', body: { chantier_id: cid } }).then(function(r) {
+    showToast((r && r.data ? r.data.created : 16) + ' lots ajoutés avec phases de départ/fin', 'success');
+    if (_chCache.currentId === cid) chantierSelected();
   }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
 
@@ -15939,31 +16018,104 @@ function _generateJournalPDF(j, ag) {
 
 // Parametres — Phases CRUD
 function loadParamPhases() {
-  _chLoadPhases().then(function() {
+  // Populate chantier dropdown if empty
+  var sel = document.getElementById('param-phases-chantier');
+  if (sel && sel.options.length <= 1 && _chCache.chantiers && _chCache.chantiers.length) {
+    _chCache.chantiers.forEach(function(c) {
+      var opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = (c.code ? c.code + ' — ' : '') + (c.nom || '');
+      sel.appendChild(opt);
+    });
+  } else if (sel && sel.options.length <= 1) {
+    // Load chantiers first
+    apiFetch('api/chantier.php').then(function(r) {
+      _chCache.chantiers = (r && r.data) ? r.data : [];
+      _chCache.chantiers.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = (c.code ? c.code + ' — ' : '') + (c.nom || '');
+        sel.appendChild(opt);
+      });
+    });
+  }
+
+  var chantierId = '';
+  if (sel) chantierId = sel.value;
+
+  var url = 'api/chantier.php?action=phases';
+  if (chantierId) url += '&chantier_id=' + chantierId;
+
+  // If chantier selected, also fetch its lots for names
+  var lotsPromise = chantierId
+    ? apiFetch('api/chantier.php?action=lots&chantier_id=' + chantierId).then(function(r) { return (r && r.data) ? r.data : []; }).catch(function() { return []; })
+    : Promise.resolve([]);
+
+  Promise.all([apiFetch(url), lotsPromise]).then(function(results) {
+    var r = results[0];
+    var lotsData = results[1];
+    _chPhasesCache = (r && r.data) ? r.data : [];
     var wrap = document.getElementById('param-phases-wrap');
     if (!wrap) return;
-    if (!_chPhasesCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucune phase configuree</div>'; return; }
+    if (!_chPhasesCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucune phase configurée' + (chantierId ? ' pour ce chantier' : '') + '</div>'; return; }
+
+    // Group phases by lot
+    var byLot = {}; var noLot = [];
+    _chPhasesCache.forEach(function(p) {
+      if (p.lot_id) {
+        if (!byLot[p.lot_id]) byLot[p.lot_id] = { lotName: '', phases: [] };
+        byLot[p.lot_id].phases.push(p);
+      } else {
+        noLot.push(p);
+      }
+    });
+
+    // Get lot names from fetched lots data
+    lotsData.forEach(function(l) {
+      if (byLot[l.id]) byLot[l.id].lotName = l.nom;
+    });
+
     var h = '<div style="display:flex;flex-direction:column;gap:0.3rem">';
-    _chPhasesCache.forEach(function(p, i) {
-      h += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-radius:4px;border:1px solid var(--border)">' +
-        '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + (i+1) + '.</span>' +
-        '<span style="flex:1;font-size:0.82rem">' + _cgEscape(p.nom) + '</span>' +
-        (p.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3)">(inactif)</span>' : '') +
-        '<button class="btn btn-sm" onclick="toggleParamPhase(\'' + p.id + '\',' + (p.actif == 1 ? 0 : 1) + ')" title="' + (p.actif == 1 ? 'Desactiver' : 'Activer') + '">' + (p.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
-        '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteParamPhase(\'' + p.id + '\')">&#10005;</button>' +
-        '</div>';
+    // Phases without lot
+    noLot.forEach(function(p, i) {
+      h += _renderParamPhaseRow(p, i + 1);
+    });
+    // Phases grouped by lot
+    var lotKeys = Object.keys(byLot);
+    lotKeys.forEach(function(lotId) {
+      var group = byLot[lotId];
+      h += '<div style="margin-top:0.6rem;padding:0.5rem;background:var(--bg-2);border-radius:6px;border:1px solid var(--border)">';
+      h += '<div style="font-size:0.82rem;font-weight:600;color:var(--accent);margin-bottom:0.4rem">' + _cgEscape(group.lotName || 'Lot') + '</div>';
+      group.phases.forEach(function(p, i) {
+        h += _renderParamPhaseRow(p, i + 1);
+      });
+      h += '</div>';
     });
     h += '</div>';
     wrap.innerHTML = h;
-  });
+  }).catch(function() { _chPhasesCache = []; });
+}
+
+function _renderParamPhaseRow(p, idx) {
+  return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-radius:4px;border:1px solid var(--border)">' +
+    '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + idx + '.</span>' +
+    '<span style="flex:1;font-size:0.82rem">' + _cgEscape(p.nom) + '</span>' +
+    (p.lot_id ? '<span style="font-size:0.7rem;color:var(--accent)">lot</span>' : '') +
+    (p.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3)">(inactif)</span>' : '') +
+    '<button class="btn btn-sm" onclick="toggleParamPhase(\'' + p.id + '\',' + (p.actif == 1 ? 0 : 1) + ')" title="' + (p.actif == 1 ? 'Desactiver' : 'Activer') + '">' + (p.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteParamPhase(\'' + p.id + '\')">&#10005;</button>' +
+    '</div>';
 }
 
 function addParamPhase() {
   var nom = document.getElementById('param-phase-nom').value.trim();
   if (!nom) { showToast('Nom requis', 'warning'); return; }
-  apiFetch('api/chantier.php?action=phases', { method: 'POST', body: { nom: nom } }).then(function() {
+  var body = { nom: nom };
+  var sel = document.getElementById('param-phases-chantier');
+  if (sel && sel.value) body.chantier_id = sel.value;
+  apiFetch('api/chantier.php?action=phases', { method: 'POST', body: body }).then(function() {
     document.getElementById('param-phase-nom').value = '';
-    showToast('Phase ajoutee', 'success');
+    showToast('Phase ajoutée', 'success');
     loadParamPhases();
   }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
