@@ -15683,6 +15683,51 @@ function updatePhaseAvancement(phaseId, value, lotId) {
   }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
 
+function editLot(id) {
+  var lot = null; (_chCache.lots || []).forEach(function(l) { if (l.id === id) lot = l; });
+  if (!lot) return;
+  document.getElementById('chl-edit-id').value = lot.id;
+  document.getElementById('chl-code').value = lot.code || '';
+  document.getElementById('chl-nom').value = lot.nom || '';
+  document.getElementById('chl-entreprise').value = lot.entreprise || '';
+  document.getElementById('chl-montant').value = lot.montant_marche || '';
+  document.getElementById('chl-date-debut').value = (lot.date_debut || '').substring(0, 10);
+  document.getElementById('chl-date-fin').value = (lot.date_fin_prevue || '').substring(0, 10);
+  document.getElementById('chl-couleur').value = lot.couleur || '#c8a96e';
+  openModal('modal-ch-lot');
+}
+
+function deleteLot(id) {
+  if (!confirm('Supprimer ce lot et toutes ses phases ?')) return;
+  apiFetch('api/chantier.php?action=lots&id=' + id, { method: 'DELETE' }).then(function() {
+    showToast('Lot supprimé', 'success');
+    chantierSelected();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function deleteLotPhase(id) {
+  if (!confirm('Supprimer cette phase ?')) return;
+  apiFetch('api/chantier.php?action=lot_phases&id=' + id, { method: 'DELETE' }).then(function() {
+    showToast('Phase supprimée', 'success');
+    chantierSelected();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function addLotPhaseInline(lotId) {
+  var input = document.getElementById('add-phase-' + lotId);
+  if (!input) return;
+  var nom = input.value.trim();
+  if (!nom) { showToast('Nom de phase requis', 'warning'); return; }
+  apiFetch('api/chantier.php?action=lot_phases', { method: 'POST', body: { chantier_id: _chCache.currentId, lot_id: lotId, nom: nom } }).then(function() {
+    input.value = '';
+    showToast('Phase ajoutée', 'success');
+    chantierSelected();
+  }).catch(function(e) {
+    // Show duplicate warning from backend
+    showToast(e.message || 'Erreur', e.message && e.message.indexOf('existante') !== -1 ? 'warning' : 'error');
+  });
+}
+
 function _chPopulateLotSelects() {
   var selectors = ['cht-lot-id','chres-lot-id','chv-lot-id'];
   selectors.forEach(function(sid) {
