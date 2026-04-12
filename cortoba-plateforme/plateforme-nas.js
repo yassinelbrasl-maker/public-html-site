@@ -15801,6 +15801,25 @@ function _resetChForm() {
   var dd = document.getElementById('ch-projet-dropdown'); if (dd) dd.style.display = 'none';
 }
 
+// Populate lot de départ / lot de fin dropdowns from param lots
+function _populateLotDepartFinSelects() {
+  return apiFetch('api/chantier.php?action=param_lots').then(function(r) {
+    var lots = (r && r.data) ? r.data : [];
+    ['ch-lot-depart', 'ch-lot-fin'].forEach(function(selId) {
+      var sel = document.getElementById(selId);
+      if (!sel) return;
+      var val = sel.value;
+      var h = selId === 'ch-lot-depart' ? '<option value="">-- Premier lot --</option>' : '<option value="">-- Dernier lot --</option>';
+      lots.forEach(function(l) {
+        if (l.actif == 0) return;
+        h += '<option value="' + _cgEscape(l.nom) + '"' + (l.nom === val ? ' selected' : '') + '>' + _cgEscape(l.nom) + '</option>';
+      });
+      sel.innerHTML = h;
+      if (val) sel.value = val;
+    });
+  }).catch(function() {});
+}
+
 function editChantier(id) {
   var ch = null;
   _chCache.chantiers.forEach(function(c) { if (c.id === id) ch = c; });
