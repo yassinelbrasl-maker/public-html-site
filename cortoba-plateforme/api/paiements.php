@@ -471,7 +471,7 @@ function sendRelance($user) {
 
     // Get facture + client info
     $s = $db->prepare("SELECT f.*, c.display_nom AS client_nom, c.email AS client_email
-        FROM CA_factures f LEFT JOIN CA_clients c ON c.id = f.client_id WHERE f.id = ?");
+        FROM CA_factures f LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = f.client_id COLLATE utf8mb4_unicode_ci WHERE f.id = ?");
     $s->execute([$factureId]);
     $facture = $s->fetch(\PDO::FETCH_ASSOC);
     if (!$facture) jsonError('Facture introuvable', 404);
