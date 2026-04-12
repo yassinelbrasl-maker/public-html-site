@@ -11194,6 +11194,7 @@ function _rdmMemberCostRate(m) {
   }
   return getTauxStandardCout();
 }
+<<<<<<< Updated upstream
 
 function _rdmFindMemberByName(fullName) {
   if (!fullName) return null;
@@ -11298,6 +11299,105 @@ function renderRendementPage() {
   });
 }
 
+function _rdmFindMemberByName(fullName) {
+  if (!fullName) return null;
+  var key = String(fullName).trim().toLowerCase();
+  var list = getMembres() || [];
+  for (var i = 0; i < list.length; i++) {
+    var fn = ((list[i].prenom || '') + ' ' + (list[i].nom || '')).trim().toLowerCase();
+    if (fn === key) return list[i];
+  }
+  return null;
+}
+
+function toggleRdmDatePicker() {
+  var pop = document.getElementById('rdm-drp-pop');
+  if (!pop) return;
+  pop.style.display = (pop.style.display === 'none' || !pop.style.display) ? 'block' : 'none';
+}
+
+function applyRdmPreset(preset) {
+  var to = _rdmToday();
+  var from = new Date(to);
+  var label = '';
+  switch (preset) {
+    case 'today':     label = "Aujourd'hui"; break;
+    case '7':         from.setDate(to.getDate() - 6);  label = '7 derniers jours'; break;
+    case '30':        from.setDate(to.getDate() - 29); label = '30 derniers jours'; break;
+    case 'month':     from = new Date(to.getFullYear(), to.getMonth(), 1); label = 'Ce mois-ci'; break;
+    case 'lastmonth':
+      from = new Date(to.getFullYear(), to.getMonth()-1, 1);
+      to   = new Date(to.getFullYear(), to.getMonth(), 0);
+      label = 'Mois dernier';
+      break;
+    case 'year':      from = new Date(to.getFullYear(), 0, 1); label = 'Année en cours'; break;
+    case 'all':       from = new Date('2020-01-01'); label = 'Depuis le début'; break;
+    default:          from.setDate(to.getDate() - 29); label = '30 derniers jours';
+  }
+  _rdmState.preset = preset;
+  _rdmState.from = from; _rdmState.to = to; _rdmState.label = label;
+  var lbl = document.getElementById('rdm-drp-label'); if (lbl) lbl.textContent = label;
+  var pop = document.getElementById('rdm-drp-pop'); if (pop) pop.style.display = 'none';
+  renderRendementPage();
+}
+
+function applyRdmCustom() {
+  var f = (document.getElementById('rdm-drp-from') || {}).value;
+  var t = (document.getElementById('rdm-drp-to') || {}).value;
+  if (!f || !t) { alert('Veuillez choisir deux dates'); return; }
+  var from = new Date(f + 'T00:00:00');
+  var to   = new Date(t + 'T00:00:00');
+  if (from > to) { alert('La date de début doit être avant la date de fin'); return; }
+  _rdmState.preset = 'custom';
+  _rdmState.from = from; _rdmState.to = to;
+  _rdmState.label = _rdmFmtFR(from) + ' → ' + _rdmFmtFR(to);
+  var lbl = document.getElementById('rdm-drp-label'); if (lbl) lbl.textContent = _rdmState.label;
+  var pop = document.getElementById('rdm-drp-pop'); if (pop) pop.style.display = 'none';
+  renderRendementPage();
+}
+
+function switchRdmTab(tab) {
+  _rdmState.tab = tab;
+  document.querySelectorAll('.rdm-tab').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-rdm-tab') === tab);
+  });
+  document.querySelectorAll('.rdm-tab-panel').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'rdm-panel-' + tab);
+  });
+}
+
+function renderRendementPage() {
+  if (!_rdmState.from || !_rdmState.to) {
+    var to = _rdmToday();
+    var from = new Date(to); from.setDate(to.getDate() - 29);
+    _rdmState.from = from; _rdmState.to = to;
+  }
+  var df = _rdmIso(_rdmState.from);
+  var dt = _rdmIso(_rdmState.to);
+
+  Promise.all([
+    loadTaches(),
+    apiFetch('api/journal.php?date_from=' + df + '&date_to=' + dt).catch(function() { return { data: [] }; }),
+    apiFetch('api/timesheets.php?date_from=' + df + '&date_to=' + dt).catch(function() { return { data: [] }; }),
+    Promise.resolve(getMembres() || [])
+  ]).then(function(results) {
+    var taches  = results[0] || [];
+    var journal = (results[1] && results[1].data) || [];
+    var ts      = (results[2] && results[2].data) || [];
+    var users   = results[3] || [];
+
+    _rdmState.taches = taches;
+    _rdmState.journal = journal;
+    _rdmState.timesheets = ts;
+    _rdmState.users = users;
+
+    _renderRendementKPIs(taches, journal, ts, users);
+    _renderRendementMembres(taches, journal, ts, users);
+    _renderRendementHistorique(taches, journal, ts);
+  });
+}
+
+>>>>>>> Stashed changes
 function _rdmComputeMemberStats(fullName, taches, entries, timesheets) {
   var m = _rdmFindMemberByName(fullName);
   var s = {
@@ -11582,6 +11682,10 @@ function _rdmDonutSvg(billable, internal) {
   return svg;
 }
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 // ═══════════════════════════════════════════════════════════
 //  DEMANDES ADMINISTRATIVES
 // ═══════════════════════════════════════════════════════════
