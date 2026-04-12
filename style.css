@@ -655,7 +655,7 @@ h2 {
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: 340px 420px;
+  grid-auto-rows: 380px;
   gap: 4px;
   max-width: 1400px;
   margin: 0 auto;
