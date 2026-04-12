@@ -696,7 +696,8 @@ function loadPaiementHistoryForProjet(projetId) {
   apiFetch('api/paiements_clients.php?action=by_projet&projet_id=' + encodeURIComponent(projetId)).then(function(r) {
     var data = (r && r.data) || {};
     var rows = data.paiements || [];
-    // Mettre à jour la zone "reste à payer" avec les données globales du projet
+    _paiProjetData = data;
+    // Mettre à jour la zone "reste à payer" avec les données du projet (+ mission si sélectionnée)
     updatePaiResteHint(data);
 
     if (!rows.length) {
