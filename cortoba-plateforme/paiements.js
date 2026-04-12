@@ -678,6 +678,7 @@ function selectPaiMission(missionNom) {
   hidePaiMissionDropdown();
   // Rafraîchir le reste à payer avec les données de la mission
   updatePaiResteHint(_paiProjetData);
+  updatePaiResteBox();
 }
 
 function clearPaiMissionSearch() {
