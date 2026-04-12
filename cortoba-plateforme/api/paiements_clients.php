@@ -130,7 +130,7 @@ function listPaiementsClients() {
             f.numero AS facture_numero
         FROM CA_paiements_clients pc
         LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
-        LEFT JOIN CA_clients c ON c.id = pc.client_id
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = pc.client_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_projets p ON p.id = pc.projet_id
         LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = pc.facture_id COLLATE utf8mb4_unicode_ci
         WHERE $where
@@ -644,7 +644,7 @@ function getRecuPaiementClient() {
             p.nom AS projet_nom, p.code AS projet_code
         FROM CA_paiements_clients pc
         LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
-        LEFT JOIN CA_clients c ON c.id = pc.client_id
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = pc.client_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_projets p ON p.id = pc.projet_id
         WHERE pc.id = ?
     ");
