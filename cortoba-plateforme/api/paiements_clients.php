@@ -48,6 +48,7 @@ function ensurePaiementsClientsSchema() {
 
     // Ensure CA_paiements_clients has mission_phase + nullable devis_id
     try { $db->exec("ALTER TABLE CA_paiements_clients ADD COLUMN `mission_phase` varchar(150) DEFAULT NULL AFTER `client_id`"); } catch (\Throwable $e) {}
+    try { $db->exec("ALTER TABLE CA_paiements_clients MODIFY `mission_phase` varchar(500) DEFAULT NULL"); } catch (\Throwable $e) {}
     try { $db->exec("ALTER TABLE CA_paiements_clients MODIFY `devis_id` varchar(32) DEFAULT NULL"); } catch (\Throwable $e) {}
 
     $done = true;
