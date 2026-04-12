@@ -1,0 +1,27 @@
+{
+  "eval_id": 1,
+  "eval_name": "landscaping-overflow-fix",
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "Plan includes committing and pushing to the master branch",
+      "passed": true,
+      "evidence": "Step 4: 'git push origin master to trigger the auto-deploy pipeline to cPanel production'"
+    },
+    {
+      "text": "Plan includes opening the page in Chrome to verify visually",
+      "passed": true,
+      "evidence": "Step 5: 'Navigate to cortobaarchitecture.com/landscaping.html' using Chrome tools, take screenshots"
+    },
+    {
+      "text": "Plan includes force-refreshing or hard-reloading the page",
+      "passed": true,
+      "evidence": "Step 5.4: 'Force-refresh the page to bypass cache: use javascript_tool to run location.reload(true), or use ctrl+shift+r'"
+    },
+    {
+      "text": "Plan starts by reading the source file before making changes",
+      "passed": true,
+      "evidence": "Step 1: 'Read landscaping.html in its entirety to understand the page structure and all inline CSS'"
+    }
+  ]
+}
