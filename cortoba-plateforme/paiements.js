@@ -1108,33 +1108,90 @@ function savePaiement() {
   // Collecter toutes les missions sélectionnées (principale + extras)
   var allMissions = _paiGetAllSelectedMissions();
   var missionPhaseValue = allMissions.length > 0 ? allMissions.join(' + ') : null;
+  var devisId = _paiDevisId || null;
+  var typePaiement = document.getElementById('pai-type').value || null;
+  var autoRecu = document.getElementById('pai-recu').checked;
+
   apiFetch('api/paiements_clients.php?action=create', {
     method: 'POST',
     body: {
       projet_id: _paiProjetId,
+      devis_id: devisId,
       mission_phase: missionPhaseValue,
       missions: allMissions.length > 0 ? allMissions : null,
       montant: mt,
       date_paiement: document.getElementById('pai-date').value,
       mode_paiement: document.getElementById('pai-mode').value,
+      type_paiement: typePaiement,
       reference: document.getElementById('pai-reference').value,
       notes: document.getElementById('pai-notes').value
     }
   }).then(function(r) {
-    showToast('Paiement enregistré');
     if (typeof loadReceivables === 'function') loadReceivables();
     if (typeof loadData === 'function') loadData();
     if (typeof renderPaiementsClientsPage === 'function') renderPaiementsClientsPage();
     // Refresh history panel inside modal
     if (_paiProjetId) loadPaiementHistoryForProjet(_paiProjetId);
+    // Refresh devis info if a devis was selected
+    if (devisId) {
+      // Refresh the devis cache
+      apiFetch('api/paiements_clients.php?action=summary').then(function(sr) {
+        if (sr && sr.data) { _pcCache.summary = sr.data; _pcCache.devis = sr.data.devis || []; }
+        // Re-populate devis dropdown
+        if (_paiProjetId) {
+          var devisSel = document.getElementById('pai-devis-sel');
+          if (devisSel) {
+            devisSel.innerHTML = '<option value="">— Aucun devis —</option>';
+            (_pcCache.devis || []).forEach(function(d) {
+              if (d.projet_id !== _paiProjetId) return;
+              if (d.paiement_statut === 'solde') return;
+              if (d.statut === 'Rejeté' || d.statut === 'Facturé' || d.statut === 'Expiré') return;
+              var ttc = parseFloat(d.montant_ttc) || 0;
+              var paye = parseFloat(d.montant_paye) || 0;
+              var opt = document.createElement('option');
+              opt.value = d.id;
+              opt.textContent = (d.numero || '') + ' — ' + fmtMontant(ttc) + ' (' + fmtMontant(ttc - paye) + ' restant)';
+              devisSel.appendChild(opt);
+            });
+          }
+        }
+      }).catch(function(){});
+    }
+
     // Reset form fields for next entry, keep modal open
     document.getElementById('pai-montant').value = '';
     document.getElementById('pai-reference').value = '';
     document.getElementById('pai-notes').value = '';
+    _paiDevisId = '';
+    var devisSel2 = document.getElementById('pai-devis-sel'); if (devisSel2) devisSel2.value = '';
+    var devisInfo2 = document.getElementById('pai-devis-info'); if (devisInfo2) devisInfo2.style.display = 'none';
+
     var paiement = r && r.data && r.data.paiement;
     var pid = paiement && paiement.id;
-    if (pid && confirm('Paiement enregistré avec succès.\n\nVoulez-vous imprimer le reçu de paiement ?')) {
+    var estSolde = r && r.data && r.data.est_solde;
+
+    // Toast with context
+    var msg = 'Paiement enregistré';
+    if (estSolde && devisId) {
+      msg += ' — Devis entièrement payé !';
+      showToast(msg, 'success');
+      if (confirm('Le devis est entièrement payé.\n\nGénérer la facture maintenant ?')) {
+        genererFactureUI(devisId);
+      }
+    } else if (r && r.data && r.data.devis_reste !== undefined && devisId) {
+      msg += ' — Reste à payer : ' + fmtMontant(r.data.devis_reste || 0);
+      showToast(msg, 'success');
+    } else {
+      showToast(msg);
+    }
+
+    // Auto-generate receipt
+    if (autoRecu && pid) {
       genRecuPaiementClientPDF(pid);
+    } else if (!autoRecu && pid) {
+      if (confirm('Voulez-vous imprimer le reçu de paiement ?')) {
+        genRecuPaiementClientPDF(pid);
+      }
     }
   }).catch(function(e) { errEl.textContent = e.message; errEl.style.display = ''; });
 }
