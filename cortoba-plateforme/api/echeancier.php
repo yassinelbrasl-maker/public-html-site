@@ -74,16 +74,16 @@ function listEcheances() {
     if ($projetId) {
         $stmt = $db->prepare("SELECT e.*, p.code AS projet_code, p.nom AS projet_nom, f.numero AS facture_numero
             FROM CA_echeancier e
-            LEFT JOIN CA_projets p ON p.id = e.projet_id
-            LEFT JOIN CA_factures f ON f.id = e.facture_id
+            LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = e.projet_id COLLATE utf8mb4_unicode_ci
+            LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = e.facture_id COLLATE utf8mb4_unicode_ci
             WHERE e.projet_id = ?
             ORDER BY e.date_prevue ASC");
         $stmt->execute([$projetId]);
     } else {
         $stmt = $db->query("SELECT e.*, p.code AS projet_code, p.nom AS projet_nom, f.numero AS facture_numero
             FROM CA_echeancier e
-            LEFT JOIN CA_projets p ON p.id = e.projet_id
-            LEFT JOIN CA_factures f ON f.id = e.facture_id
+            LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = e.projet_id COLLATE utf8mb4_unicode_ci
+            LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = e.facture_id COLLATE utf8mb4_unicode_ci
             ORDER BY e.date_prevue ASC
             LIMIT 500");
     }
