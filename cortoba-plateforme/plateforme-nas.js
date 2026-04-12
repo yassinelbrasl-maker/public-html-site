@@ -15405,17 +15405,15 @@ function toggleLotPhases(lotId) {
 function updatePhaseAvancement(phaseId, value, lotId) {
   var span = document.getElementById('ph-av-' + phaseId);
   if (span) span.textContent = value + '%';
-  // Find phase in cache to get its current data
   var phData = null;
   (_chCache.lots || []).forEach(function(l) {
     (l.phases || []).forEach(function(p) { if (p.id === phaseId) phData = p; });
   });
-  var body = { nom: phData ? phData.nom : '', ordre: phData ? phData.ordre : 0, actif: phData ? phData.actif : 1, avancement: parseInt(value) };
-  apiFetch('api/chantier.php?action=phases&id=' + phaseId, { method: 'PUT', body: body }).then(function() {
+  var body = { nom: phData ? phData.nom : '', ordre: phData ? (parseInt(phData.ordre)||0) : 0, avancement: parseInt(value), lot_id: lotId };
+  apiFetch('api/chantier.php?action=lot_phases&id=' + phaseId, { method: 'PUT', body: body }).then(function() {
     // Refresh lots to get updated lot avancement
     apiFetch('api/chantier.php?action=lots&chantier_id=' + _chCache.currentId).then(function(r) {
       _chCache.lots = (r && r.data) ? r.data : [];
-      // Update the lot progress bar without full re-render
       _chCache.lots.forEach(function(l) {
         if (l.id === lotId) {
           var lotBar = document.querySelector('#ch-lots-progress [onclick="toggleLotPhases(\'' + l.id + '\')"]');
