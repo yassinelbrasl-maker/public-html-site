@@ -1,0 +1,101 @@
+{
+  "skill_name": "cortoba-platform",
+  "iteration": 1,
+  "configurations": [
+    {
+      "name": "with_skill",
+      "evals": [
+        {
+          "eval_name": "configurator-button-color",
+          "assertions": [
+            {"text": "Push to master", "passed": true},
+            {"text": "Chrome verification", "passed": true},
+            {"text": "Force refresh", "passed": true},
+            {"text": "Read source first", "passed": true}
+          ],
+          "pass_rate": 1.0,
+          "total_tokens": 52223,
+          "duration_seconds": 206.4
+        },
+        {
+          "eval_name": "landscaping-overflow-fix",
+          "assertions": [
+            {"text": "Push to master", "passed": true},
+            {"text": "Chrome verification", "passed": true},
+            {"text": "Force refresh", "passed": true},
+            {"text": "Read source first", "passed": true}
+          ],
+          "pass_rate": 1.0,
+          "total_tokens": 73732,
+          "duration_seconds": 213.0
+        },
+        {
+          "eval_name": "unrelated-python-script",
+          "assertions": [
+            {"text": "No push to master", "passed": true},
+            {"text": "No Chrome verification", "passed": true},
+            {"text": "Skill not applied", "passed": true}
+          ],
+          "pass_rate": 1.0,
+          "total_tokens": 45748,
+          "duration_seconds": 81.5
+        }
+      ],
+      "aggregate": {
+        "pass_rate": {"mean": 1.0, "stddev": 0.0},
+        "total_tokens": {"mean": 57234, "stddev": 14592},
+        "duration_seconds": {"mean": 166.97, "stddev": 74.2}
+      }
+    },
+    {
+      "name": "without_skill",
+      "evals": [
+        {
+          "eval_name": "configurator-button-color",
+          "assertions": [
+            {"text": "Push to master", "passed": false},
+            {"text": "Chrome verification", "passed": false},
+            {"text": "Force refresh", "passed": false},
+            {"text": "Read source first", "passed": true}
+          ],
+          "pass_rate": 0.25,
+          "total_tokens": 56038,
+          "duration_seconds": 192.8
+        },
+        {
+          "eval_name": "landscaping-overflow-fix",
+          "assertions": [
+            {"text": "Push to master", "passed": false},
+            {"text": "Chrome verification", "passed": false},
+            {"text": "Force refresh", "passed": false},
+            {"text": "Read source first", "passed": true}
+          ],
+          "pass_rate": 0.25,
+          "total_tokens": 101296,
+          "duration_seconds": 598.7
+        },
+        {
+          "eval_name": "unrelated-python-script",
+          "assertions": [
+            {"text": "No push to master", "passed": true},
+            {"text": "No Chrome verification", "passed": true},
+            {"text": "Skill not applied", "passed": true}
+          ],
+          "pass_rate": 1.0,
+          "total_tokens": 49228,
+          "duration_seconds": 88.4
+        }
+      ],
+      "aggregate": {
+        "pass_rate": {"mean": 0.5, "stddev": 0.43},
+        "total_tokens": {"mean": 68854, "stddev": 28011},
+        "duration_seconds": {"mean": 293.3, "stddev": 278.5}
+      }
+    }
+  ],
+  "delta": {
+    "pass_rate": "+50.0%",
+    "total_tokens": "-16.9%",
+    "duration_seconds": "-43.1%"
+  }
+}
