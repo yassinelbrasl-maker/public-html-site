@@ -360,7 +360,7 @@ function getAgedBalance() {
         SUM(CASE WHEN DATEDIFF(CURDATE(), f.date_echeance) > 90 THEN COALESCE(f.net_payer, f.montant_ttc, 0) - COALESCE(f.montant_paye, 0) ELSE 0 END) AS tranche_90_plus,
         SUM(COALESCE(f.net_payer, f.montant_ttc, 0) - COALESCE(f.montant_paye, 0)) AS total
         FROM CA_factures f
-        JOIN CA_clients c ON c.id = f.client_id
+        JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = f.client_id COLLATE utf8mb4_unicode_ci
         WHERE f.statut IN ('Impayée', 'Partiellement payée', 'Émise')
         GROUP BY c.id, c.display_nom
         ORDER BY total DESC");
