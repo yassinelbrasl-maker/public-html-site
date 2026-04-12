@@ -619,6 +619,52 @@ function selectPaiProjet(projetId) {
   // Reset montant restant
   var resteRow = document.getElementById('pai-reste-row'); if (resteRow) resteRow.style.display = 'none';
 
+  // Reset & populate devis dropdown
+  _paiDevisId = '';
+  var devisRow = document.getElementById('pai-devis-row');
+  var devisSel = document.getElementById('pai-devis-sel');
+  var devisInfo = document.getElementById('pai-devis-info');
+  if (devisInfo) devisInfo.style.display = 'none';
+  if (devisSel) devisSel.innerHTML = '<option value="">— Aucun devis —</option>';
+  if (_paiProjetId && devisRow && devisSel) {
+    // Populate from cache
+    var populateDevis = function(list) {
+      devisSel.innerHTML = '<option value="">— Aucun devis —</option>';
+      var count = 0;
+      (list || []).forEach(function(d) {
+        if (d.projet_id !== _paiProjetId) return;
+        if (d.paiement_statut === 'solde') return;
+        if (d.statut === 'Rejeté' || d.statut === 'Facturé' || d.statut === 'Expiré') return;
+        var ttc = parseFloat(d.montant_ttc) || 0;
+        var paye = parseFloat(d.montant_paye) || 0;
+        var label = (d.numero || '') + ' — ' + fmtMontant(ttc) + ' (' + fmtMontant(ttc - paye) + ' restant)';
+        var opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = label;
+        devisSel.appendChild(opt);
+        count++;
+      });
+      devisRow.style.display = count > 0 ? '' : 'none';
+      // Auto-select devis if prefilled
+      if (_paiPrefillDevisId) {
+        devisSel.value = _paiPrefillDevisId;
+        _paiPrefillDevisId = '';
+        onPaiDevisChange();
+      }
+    };
+    var devisList = (_pcCache && _pcCache.devis) ? _pcCache.devis : [];
+    if (devisList.length > 0) {
+      populateDevis(devisList);
+    } else {
+      apiFetch('api/paiements_clients.php?action=summary').then(function(r) {
+        if (r && r.data) { _pcCache.summary = r.data; _pcCache.devis = r.data.devis || []; }
+        populateDevis(_pcCache.devis);
+      }).catch(function(){});
+    }
+  } else if (devisRow) {
+    devisRow.style.display = 'none';
+  }
+
   // Load history for projet
   loadPaiementHistoryForProjet(_paiProjetId);
 }
