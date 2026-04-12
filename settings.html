@@ -1070,38 +1070,276 @@
       }
     }
 
+    let layoutDirty = false;
+
+    function markLayoutDirty() {
+      layoutDirty = true;
+      document.getElementById('saveLayoutBtn').classList.add('active');
+    }
+
     function renderProjects() {
       const list = document.getElementById('projectsList');
       const empty = document.getElementById('projectsEmpty');
+      const toolbar = document.getElementById('gridToolbar');
 
       if (projects.length === 0) {
         list.innerHTML = '';
         empty.style.display = 'block';
+        toolbar.style.display = 'none';
         return;
       }
       empty.style.display = 'none';
+      toolbar.style.display = 'flex';
 
       list.innerHTML = projects.map(p => {
         const gallery = Array.isArray(p.gallery_images) ? p.gallery_images : [];
         const img = p.hero_image || gallery[0] || '';
+        const gc = p.grid_class || '';
+        const cardCls = gc === 'wide' ? ' grid-wide' : gc === 'tall' ? ' grid-tall' : '';
         const badge = p.published == 1
           ? '<span class="proj-status-badge badge-published">Publié</span>'
           : '<span class="proj-status-badge badge-draft">Brouillon</span>';
+        const gridBadge = gc === 'wide'
+          ? '<div class="proj-grid-badge badge-wide">▬ 2 col</div>'
+          : gc === 'tall'
+            ? '<div class="proj-grid-badge badge-tall">▮ 2 rows</div>'
+            : '';
         return `
-          <div class="proj-card" data-id="${p.id}">
-            ${img ? `<img class="proj-card-img" src="${img}" alt="${esc(p.title)}" />` : '<div class="proj-card-img"></div>'}
-            <div class="proj-card-body">
+          <div class="proj-card${cardCls}" data-id="${p.id}" draggable="true">
+            <div class="proj-card-bg" style="background-image:url('${esc(img)}')"></div>
+            ${gridBadge}
+            <div class="proj-card-actions">
+              <button title="Modifier" onclick="editProject(${p.id})"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn-del" title="Supprimer" onclick="confirmDelete(${p.id})"><i class="fa-solid fa-trash"></i></button>
+              ${p.published == 1 ? `<a href="projet-${esc(p.slug)}.html" target="_blank" title="Voir"><i class="fa-solid fa-eye"></i></a>` : ''}
+            </div>
+            <div class="proj-card-content">
               <div class="proj-card-tag">${esc(p.category)} ${badge}</div>
               <div class="proj-card-title">${esc(p.title)}</div>
               <div class="proj-card-loc">${esc(p.location)}${p.country ? ', ' + esc(p.country) : ''}</div>
-              <div class="proj-card-actions">
-                <button class="btn btn-ghost btn-sm" onclick="editProject(${p.id})"><i class="fa-solid fa-pen"></i> Modifier</button>
-                <button class="btn btn-danger btn-sm" onclick="confirmDelete(${p.id})"><i class="fa-solid fa-trash"></i></button>
-                ${p.published == 1 ? `<a href="projet-${esc(p.slug)}.html" target="_blank" class="btn btn-ghost btn-sm"><i class="fa-solid fa-eye"></i></a>` : ''}
-              </div>
+            </div>
+            <div class="proj-grid-menu">
+              <button title="Normal (1×1)" data-gc="" class="${gc === '' ? 'gm-active' : ''}" onclick="setGridClass(${p.id}, '', this)">▢</button>
+              <button title="Large (2 col)" data-gc="wide" class="${gc === 'wide' ? 'gm-active' : ''}" onclick="setGridClass(${p.id}, 'wide', this)">▬</button>
+              <button title="Grand (2 rows)" data-gc="tall" class="${gc === 'tall' ? 'gm-active' : ''}" onclick="setGridClass(${p.id}, 'tall', this)">▮</button>
             </div>
           </div>`;
       }).join('');
+
+      initDragAndDrop();
+    }
+
+    // ── Quick grid_class toggle ──
+    async function setGridClass(id, gc, btnEl) {
+      const p = projects.find(x => x.id === id);
+      if (!p) return;
+      p.grid_class = gc;
+
+      // Update visual immediately
+      const card = document.querySelector(`.proj-card[data-id="${id}"]`);
+      card.classList.remove('grid-wide', 'grid-tall');
+      if (gc === 'wide') card.classList.add('grid-wide');
+      else if (gc === 'tall') card.classList.add('grid-tall');
+
+      // Update badge
+      const oldBadge = card.querySelector('.proj-grid-badge');
+      if (oldBadge) oldBadge.remove();
+      if (gc === 'wide') card.insertAdjacentHTML('afterbegin', '<div class="proj-grid-badge badge-wide">▬ 2 col</div>');
+      else if (gc === 'tall') card.insertAdjacentHTML('afterbegin', '<div class="proj-grid-badge badge-tall">▮ 2 rows</div>');
+
+      // Update menu buttons
+      card.querySelectorAll('.proj-grid-menu button').forEach(b => b.classList.toggle('gm-active', b.dataset.gc === gc));
+
+      markLayoutDirty();
+    }
+
+    // ── Drag & Drop reordering ──
+    let dragSrcEl = null;
+
+    function initDragAndDrop() {
+      const cards = document.querySelectorAll('.proj-card[draggable]');
+
+      cards.forEach(card => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+        card.addEventListener('dragover', handleDragOver);
+        card.addEventListener('dragenter', handleDragEnter);
+        card.addEventListener('dragleave', handleDragLeave);
+        card.addEventListener('drop', handleDrop);
+      });
+
+      // Touch support
+      cards.forEach(card => {
+        card.addEventListener('touchstart', handleTouchStart, { passive: false });
+        card.addEventListener('touchmove', handleTouchMove, { passive: false });
+        card.addEventListener('touchend', handleTouchEnd);
+      });
+    }
+
+    function handleDragStart(e) {
+      dragSrcEl = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.dataset.id);
+    }
+
+    function handleDragEnd(e) {
+      this.classList.remove('dragging');
+      document.querySelectorAll('.proj-card').forEach(c => c.classList.remove('drag-over-card'));
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDragEnter(e) {
+      e.preventDefault();
+      if (this !== dragSrcEl) this.classList.add('drag-over-card');
+    }
+
+    function handleDragLeave(e) {
+      this.classList.remove('drag-over-card');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.classList.remove('drag-over-card');
+
+      if (dragSrcEl === this) return;
+
+      const srcId = parseInt(dragSrcEl.dataset.id);
+      const tgtId = parseInt(this.dataset.id);
+      const srcIdx = projects.findIndex(p => p.id === srcId);
+      const tgtIdx = projects.findIndex(p => p.id === tgtId);
+
+      if (srcIdx === -1 || tgtIdx === -1) return;
+
+      // Move project in array
+      const [moved] = projects.splice(srcIdx, 1);
+      projects.splice(tgtIdx, 0, moved);
+
+      // Update sort_order for all
+      projects.forEach((p, i) => p.sort_order = i);
+
+      markLayoutDirty();
+      renderProjects();
+    }
+
+    // ── Touch drag support ──
+    let touchDragEl = null;
+    let touchClone = null;
+    let touchStartX, touchStartY;
+    let touchMoved = false;
+
+    function handleTouchStart(e) {
+      if (e.target.closest('.proj-card-actions') || e.target.closest('.proj-grid-menu')) return;
+      touchDragEl = this;
+      touchMoved = false;
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    }
+
+    function handleTouchMove(e) {
+      if (!touchDragEl) return;
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStartX);
+      const dy = Math.abs(touch.clientY - touchStartY);
+
+      if (!touchMoved && (dx > 10 || dy > 10)) {
+        touchMoved = true;
+        touchDragEl.classList.add('dragging');
+        touchClone = touchDragEl.cloneNode(true);
+        touchClone.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;width:' + touchDragEl.offsetWidth + 'px;height:' + touchDragEl.offsetHeight + 'px;';
+        document.body.appendChild(touchClone);
+      }
+
+      if (touchMoved) {
+        e.preventDefault();
+        touchClone.style.left = (touch.clientX - touchDragEl.offsetWidth / 2) + 'px';
+        touchClone.style.top = (touch.clientY - touchDragEl.offsetHeight / 2) + 'px';
+
+        document.querySelectorAll('.proj-card').forEach(c => c.classList.remove('drag-over-card'));
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const target = el?.closest('.proj-card');
+        if (target && target !== touchDragEl) target.classList.add('drag-over-card');
+      }
+    }
+
+    function handleTouchEnd(e) {
+      if (!touchDragEl) return;
+      if (touchClone) {
+        document.body.removeChild(touchClone);
+        touchClone = null;
+      }
+      touchDragEl.classList.remove('dragging');
+
+      if (touchMoved) {
+        const touch = e.changedTouches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const target = el?.closest('.proj-card');
+        if (target && target !== touchDragEl) {
+          const srcId = parseInt(touchDragEl.dataset.id);
+          const tgtId = parseInt(target.dataset.id);
+          const srcIdx = projects.findIndex(p => p.id === srcId);
+          const tgtIdx = projects.findIndex(p => p.id === tgtId);
+          if (srcIdx !== -1 && tgtIdx !== -1) {
+            const [moved] = projects.splice(srcIdx, 1);
+            projects.splice(tgtIdx, 0, moved);
+            projects.forEach((p, i) => p.sort_order = i);
+            markLayoutDirty();
+            renderProjects();
+          }
+        }
+        document.querySelectorAll('.proj-card').forEach(c => c.classList.remove('drag-over-card'));
+      }
+      touchDragEl = null;
+      touchMoved = false;
+    }
+
+    // ── Save grid layout (sort_order + grid_class) ──
+    async function saveLayout() {
+      const btn = document.getElementById('saveLayoutBtn');
+      btn.innerHTML = '<span class="spinner"></span> Enregistrement...';
+      btn.style.pointerEvents = 'none';
+
+      try {
+        for (const p of projects) {
+          await fetch(API, {
+            method: 'PUT',
+            headers: headers(),
+            body: JSON.stringify({
+              id: p.id,
+              title: p.title,
+              category: p.category,
+              year: p.year,
+              location: p.location,
+              country: p.country,
+              surface: p.surface,
+              status: p.status,
+              services: p.services,
+              description: p.description,
+              sort_order: p.sort_order,
+              published: p.published,
+              hero_image: p.hero_image,
+              hero_position: p.hero_position,
+              gallery_images: p.gallery_images,
+              grid_class: p.grid_class || ''
+            })
+          });
+        }
+        toast('Disposition enregistrée', 'success');
+        layoutDirty = false;
+        btn.classList.remove('active');
+        loadProjects();
+      } catch (e) {
+        toast('Erreur: ' + e.message, 'error');
+      } finally {
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer la disposition';
+        btn.style.pointerEvents = '';
+      }
     }
 
     function openEditor(id) {
