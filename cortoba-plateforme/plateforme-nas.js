@@ -16380,7 +16380,7 @@ function deleteParamPhase(id) {
   });
 }
 
-// ── Parametres — Lots-modèles & Phases CRUD ──
+// ── Parametres — Lots de travaux (avec Phases expandables) ──
 var _paramLotsCache = [];
 
 function loadParamLots() {
@@ -16388,21 +16388,26 @@ function loadParamLots() {
     _paramLotsCache = (r && r.data) ? r.data : [];
     var wrap = document.getElementById('param-lots-wrap');
     if (!wrap) return;
-    if (!_paramLotsCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucun lot-modèle configuré</div>'; return; }
+    if (!_paramLotsCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucun lot de travaux configuré</div>'; return; }
     var h = '<div style="display:flex;flex-direction:column;gap:0.6rem">';
     _paramLotsCache.forEach(function(lot, i) {
       var phases = lot.phases || [];
+      var hasPhases = phases.length > 0;
       h += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem">' +
-        '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:' + (phases.length ? '0.5rem' : '0') + '">' +
+        '<div style="display:flex;align-items:center;gap:0.5rem;cursor:pointer" onclick="toggleParamLotExpand(\'' + lot.id + '\')">' +
+        '<span id="param-chevron-' + lot.id + '" style="display:inline-block;transition:transform 0.2s;font-size:0.7rem;color:var(--accent)">&#9654;</span>' +
         '<span style="width:8px;height:8px;border-radius:50%;background:' + (lot.couleur || '#c8a96e') + ';flex-shrink:0"></span>' +
         '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + (i+1) + '.</span>' +
         '<span style="flex:1;font-size:0.85rem;font-weight:600">' + _cgEscape(lot.nom) + '</span>' +
+        '<span style="font-size:0.72rem;color:var(--text-3)">' + phases.length + ' phase' + (phases.length > 1 ? 's' : '') + '</span>' +
         (lot.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3);background:var(--bg-3);padding:0.1rem 0.4rem;border-radius:3px">(inactif)</span>' : '') +
-        '<button class="btn btn-sm" onclick="toggleParamLot(\'' + lot.id + '\',' + (lot.actif == 1 ? 0 : 1) + ')" title="' + (lot.actif == 1 ? 'Désactiver' : 'Activer') + '">' + (lot.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
-        '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteParamLot(\'' + lot.id + '\')">&#10005;</button>' +
+        '<button class="btn btn-sm" onclick="event.stopPropagation();toggleParamLot(\'' + lot.id + '\',' + (lot.actif == 1 ? 0 : 1) + ')" title="' + (lot.actif == 1 ? 'Désactiver' : 'Activer') + '">' + (lot.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
+        '<button class="btn btn-sm" style="color:var(--red)" onclick="event.stopPropagation();deleteParamLot(\'' + lot.id + '\')">&#10005;</button>' +
         '</div>';
-      // Phases list
-      if (phases.length) {
+      // Expandable phases section — hidden by default
+      h += '<div id="param-lot-expand-' + lot.id + '" style="display:none;margin-top:0.5rem">';
+      if (hasPhases) {
+        h += '<div style="font-size:0.75rem;color:var(--accent);font-weight:600;margin-left:2rem;margin-bottom:0.3rem">Phases</div>';
         h += '<div style="margin-left:2rem;display:flex;flex-direction:column;gap:0.2rem">';
         phases.forEach(function(ph) {
           h += '<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;padding:0.2rem 0.5rem;background:var(--bg-1);border-radius:3px;border:1px solid var(--border)">' +
@@ -16415,14 +16420,28 @@ function loadParamLots() {
       }
       // Add phase input
       h += '<div style="margin-left:2rem;margin-top:0.3rem;display:flex;gap:0.3rem;align-items:center">' +
-        '<input id="param-lot-phase-' + lot.id + '" class="form-input" placeholder="Nom de la phase" style="flex:1;font-size:0.78rem;padding:0.3rem 0.5rem" />' +
+        '<input id="param-lot-phase-' + lot.id + '" class="form-input" placeholder="Ajouter une phase" style="flex:1;font-size:0.78rem;padding:0.3rem 0.5rem" />' +
         '<button class="btn btn-sm" style="font-size:0.72rem" onclick="addParamLotPhase(\'' + lot.id + '\')">+ Phase</button>' +
         '</div>';
-      h += '</div>';
+      h += '</div>'; // close expand
+      h += '</div>'; // close lot
     });
     h += '</div>';
     wrap.innerHTML = h;
   });
+}
+
+function toggleParamLotExpand(lotId) {
+  var el = document.getElementById('param-lot-expand-' + lotId);
+  var chevron = document.getElementById('param-chevron-' + lotId);
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    if (chevron) chevron.style.transform = 'rotate(90deg)';
+  } else {
+    el.style.display = 'none';
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
 }
 
 function addParamLot() {
@@ -16430,7 +16449,7 @@ function addParamLot() {
   if (!nom) { showToast('Nom requis', 'warning'); return; }
   apiFetch('api/chantier.php?action=param_lots', { method: 'POST', body: { nom: nom } }).then(function() {
     document.getElementById('param-lot-nom').value = '';
-    showToast('Lot-modèle ajouté', 'success');
+    showToast('Lot ajouté', 'success');
     loadParamLots();
   }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
@@ -16444,9 +16463,9 @@ function toggleParamLot(id, actif) {
 }
 
 function deleteParamLot(id) {
-  if (!confirm('Supprimer ce lot-modèle et toutes ses phases ?')) return;
+  if (!confirm('Supprimer ce lot et toutes ses phases ?')) return;
   apiFetch('api/chantier.php?action=param_lots&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Lot-modèle supprimé', 'success');
+    showToast('Lot supprimé', 'success');
     loadParamLots();
   });
 }
