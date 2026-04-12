@@ -263,6 +263,8 @@ try {
     jsonError('Erreur serveur: ' . $e->getMessage(), 500);
 }
 
+} // fin du guard basename === 'honoraires.php'
+
 // ── Actions ──
 
 function getGrille() {
