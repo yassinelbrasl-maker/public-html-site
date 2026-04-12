@@ -288,16 +288,13 @@ if (!function_exists('dispatchNotification')) {
         $signingInput = "$header.$payload";
 
         // Signer avec la clé privée VAPID (ECDSA P-256)
-        $privateKeyDer = base64url_decode(VAPID_PRIVATE_KEY);
-        $pem = _derToPrivatePem($privateKeyDer);
+        $pem = _buildVapidPem();
         $key = openssl_pkey_get_private($pem);
         if (!$key) {
-            // Fallback : retourner un token vide (push ne marchera pas mais ne crashera pas)
             return ['token' => '', 'key' => VAPID_PUBLIC_KEY];
         }
 
         openssl_sign($signingInput, $signature, $key, OPENSSL_ALGO_SHA256);
-        // Convertir la signature DER en format IEEE P1363 (r|s, chacun 32 bytes)
         $sig = _derToP1363($signature);
         $token = "$header.$payload." . base64url_encode($sig);
 
