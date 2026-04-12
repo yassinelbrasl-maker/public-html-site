@@ -100,12 +100,30 @@
     </div>
   </header>
 
+  <!-- Sidebar show button (visible when sidebar is hidden) -->
+  <button class="sidebar-show-btn" id="sidebar-show-btn" onclick="showSidebar()" title="Afficher la barre latérale">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 5l7 7-7 7"/><path d="M6 5l7 7-7 7"/></svg>
+  </button>
+
+  <!-- Hover trigger zone for auto-hide sidebar -->
+  <div class="sidebar-hover-trigger" id="sidebar-hover-trigger"></div>
+
   <!-- Sidebar backdrop -->
   <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
   <div class="app-body">
     <!-- Sidebar -->
     <nav class="sidebar" id="sidebar">
+
+      <!-- Sidebar controls: hide & pin -->
+      <div class="sidebar-controls">
+        <button class="sidebar-ctrl-btn" id="sidebar-hide-btn" onclick="hideSidebar()" title="Masquer la barre latérale">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 19l-7-7 7-7"/><path d="M18 19l-7-7 7-7"/></svg>
+        </button>
+        <button class="sidebar-ctrl-btn" id="sidebar-pin-btn" onclick="toggleSidebarPin()" title="Épingler / Masquer automatiquement">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="pin-icon"><path d="M12 2v4"/><path d="M15.5 6h-7l-1 8h9l-1-8z"/><path d="M12 14v8"/></svg>
+        </button>
+      </div>
 
       <div class="sidebar-search">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
