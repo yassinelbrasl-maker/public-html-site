@@ -530,53 +530,6 @@ function deleteLot($id) {
     jsonOk(['deleted' => true]);
 }
 
-function createBulkLots($user) {
-    $b = getBody();
-    $db = getDB();
-    $chantierId = $b['chantier_id'] ?? '';
-    if (!$chantierId) jsonError('chantier_id requis', 400);
-
-    $standardLots = [
-        ['code'=>'LOT-00','nom'=>'Installation de chantier','couleur'=>'#8B4513'],
-        ['code'=>'LOT-01','nom'=>'Terrassement / Fondations','couleur'=>'#A0522D'],
-        ['code'=>'LOT-02','nom'=>'Gros œuvre','couleur'=>'#CD853F'],
-        ['code'=>'LOT-03','nom'=>'Charpente / Couverture','couleur'=>'#DEB887'],
-        ['code'=>'LOT-04','nom'=>'Étanchéité','couleur'=>'#4682B4'],
-        ['code'=>'LOT-05','nom'=>'Menuiseries extérieures','couleur'=>'#5F9EA0'],
-        ['code'=>'LOT-06','nom'=>'Menuiseries intérieures','couleur'=>'#6B8E23'],
-        ['code'=>'LOT-07','nom'=>'Cloisons / Plâtrerie','couleur'=>'#BC8F8F'],
-        ['code'=>'LOT-08','nom'=>'Électricité','couleur'=>'#FFD700'],
-        ['code'=>'LOT-09','nom'=>'Plomberie / Sanitaire','couleur'=>'#4169E1'],
-        ['code'=>'LOT-10','nom'=>'CVC (Chauffage / Ventilation / Climatisation)','couleur'=>'#32CD32'],
-        ['code'=>'LOT-11','nom'=>'Revêtements de sol','couleur'=>'#D2691E'],
-        ['code'=>'LOT-12','nom'=>'Peinture / Finitions','couleur'=>'#DA70D6'],
-        ['code'=>'LOT-13','nom'=>'Ascenseur','couleur'=>'#708090'],
-        ['code'=>'LOT-14','nom'=>'VRD (Voirie et Réseaux Divers)','couleur'=>'#2E8B57'],
-        ['code'=>'LOT-15','nom'=>'Espaces verts / Aménagements extérieurs','couleur'=>'#228B22'],
-    ];
-
-    $lotIds = [];
-    $ordre = 0;
-    foreach ($standardLots as $sl) {
-        $lotId = bin2hex(random_bytes(16));
-        $db->prepare("INSERT INTO CA_chantier_lots (id, chantier_id, code, nom, entreprise, montant_marche, date_debut, date_fin_prevue, ordre, couleur)
-                      VALUES (?,?,?,?,?,?,?,?,?,?)")
-           ->execute([$lotId, $chantierId, $sl['code'], $sl['nom'], null, 0, null, null, $ordre++, $sl['couleur']]);
-
-        // Create "Phase de départ" and "Phase de fin" for each lot
-        $phD = bin2hex(random_bytes(16));
-        $db->prepare("INSERT INTO CA_chantier_phases (id, lot_id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?,?)")
-           ->execute([$phD, $lotId, $chantierId, 'Phase de départ', 1, 1, 0]);
-        $phF = bin2hex(random_bytes(16));
-        $db->prepare("INSERT INTO CA_chantier_phases (id, lot_id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?,?)")
-           ->execute([$phF, $lotId, $chantierId, 'Phase de fin', 9999, 1, 0]);
-
-        $lotIds[] = $lotId;
-    }
-
-    jsonOk(['created' => count($lotIds), 'lot_ids' => $lotIds]);
-}
-
 // ══════════════════════════════════════
 //  JOURNAL QUOTIDIEN
 // ══════════════════════════════════════
