@@ -41,8 +41,8 @@ try {
 
 // ── Constantes VAPID (à générer une seule fois, puis stocker) ──
 // Clés VAPID générées pour Cortoba Atelier
-define('VAPID_PUBLIC_KEY',  'BGA9K-x9HcS9SOqVmJSiJ-OjLv7zSpYgDHturyvlq2z6pmdmXlr_OJfvUoW8lZPx4wVZwi_BUiiw7CI5Ggsm_9g');
-define('VAPID_PRIVATE_KEY', 'sGTcK9q6R4mXhW1ov5h5ak1E6Vd1bEsDcuD70ST1zH4');
+define('VAPID_PUBLIC_KEY',  'BOxO-y8bMDB9jEndAQ71pNG4r5wTie7dp_WS51BG_IOYyXFan-0HwcRj3L4nOIfIztbHZgsGNd4EnbF4Fj5GQa0');
+define('VAPID_PRIVATE_KEY', 'MtpbwbhSPOVWGyUxAcC6c1Z4Bo6ikZEc-qb-FBEhPkc');
 define('VAPID_SUBJECT',     'mailto:cortobaarchitecture@gmail.com');
 
 // ───────────── Handler HTTP ─────────────
