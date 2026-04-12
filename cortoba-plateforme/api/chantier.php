@@ -464,7 +464,7 @@ function updateChantier($id, $user) {
                   projet_id=?, nom=?, code=?, adresse=?, lat=?, lng=?,
                   date_debut=?, date_fin_prevue=?, date_fin_reelle=?,
                   statut=?, avancement_global=?, budget_travaux=?, montant_engage=?,
-                  description=?
+                  description=?, lot_depart=?, lot_fin=?
                   WHERE id=?")
        ->execute([
            $b['projet_id'] ?? '',
@@ -481,6 +481,8 @@ function updateChantier($id, $user) {
            $b['budget_travaux'] ?? 0,
            $b['montant_engage'] ?? 0,
            $b['description'] ?? null,
+           $b['lot_depart'] ?? null,
+           $b['lot_fin'] ?? null,
            $id
        ]);
     jsonOk(['updated' => true]);
