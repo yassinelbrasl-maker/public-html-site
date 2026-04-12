@@ -3530,6 +3530,12 @@ function resetFactureForm(){
     var el=document.getElementById(id); if(el) el.value='';
   });
   var proj = document.getElementById('fa-projet'); if(proj) proj.value='';
+  _faProjetId = '';
+  var projSearch = document.getElementById('fa-projet-search'); if(projSearch) projSearch.value='';
+  var projClear = document.getElementById('fa-projet-clear'); if(projClear) projClear.style.display='none';
+  _faMissionValue = '';
+  var missionInput = document.getElementById('fa-mission-phase'); if(missionInput) missionInput.value='';
+  var missionClear = document.getElementById('fa-mission-clear'); if(missionClear) missionClear.style.display='none';
   var stat = document.getElementById('fa-statut'); if(stat) stat.value='Impayée';
   var mode = document.getElementById('fa-mode-paiement'); if(mode) mode.selectedIndex=0;
   var rasAct = document.getElementById('fa-ras-active'); if(rasAct) { rasAct.checked=false; toggleRas(); }
