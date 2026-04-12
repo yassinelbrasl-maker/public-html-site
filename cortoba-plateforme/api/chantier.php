@@ -837,19 +837,8 @@ function createPhase($user) {
 function updatePhase($id) {
     $b = getBody();
     $db = getDB();
-    $db->prepare("UPDATE CA_chantier_phases SET nom=?, ordre=?, actif=?, avancement=? WHERE id=?")
-       ->execute([$b['nom']??'', $b['ordre']??0, $b['actif']??1, $b['avancement']??0, $id]);
-
-    // Auto-recompute lot avancement from its phases
-    $phase = $db->prepare("SELECT lot_id FROM CA_chantier_phases WHERE id=?");
-    $phase->execute([$id]);
-    $row = $phase->fetch(PDO::FETCH_ASSOC);
-    if ($row && $row['lot_id']) {
-        $avg = $db->prepare("SELECT COALESCE(AVG(avancement),0) FROM CA_chantier_phases WHERE lot_id=? AND actif=1");
-        $avg->execute([$row['lot_id']]);
-        $avgVal = round($avg->fetchColumn());
-        $db->prepare("UPDATE CA_chantier_lots SET avancement=? WHERE id=?")->execute([$avgVal, $row['lot_id']]);
-    }
+    $db->prepare("UPDATE CA_chantier_phases SET nom=?, ordre=?, actif=? WHERE id=?")
+       ->execute([$b['nom']??'', $b['ordre']??0, $b['actif']??1, $id]);
     jsonOk(['updated' => true]);
 }
 
