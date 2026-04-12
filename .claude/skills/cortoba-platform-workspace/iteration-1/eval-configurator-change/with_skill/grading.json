@@ -1,0 +1,27 @@
+{
+  "eval_id": 0,
+  "eval_name": "configurator-button-color",
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "Plan includes committing and pushing to the master branch",
+      "passed": true,
+      "evidence": "Step 4: 'Push to master to trigger auto-deploy' — 'git push origin master'"
+    },
+    {
+      "text": "Plan includes opening the page in Chrome to verify visually",
+      "passed": true,
+      "evidence": "Step 5: 'Verify live in Chrome' — uses tabs_context_mcp, navigate to cortobaarchitecture.com/configurateur.html, screenshot"
+    },
+    {
+      "text": "Plan includes force-refreshing or hard-reloading the page",
+      "passed": true,
+      "evidence": "Step 5.3: 'javascript_tool to force hard reload bypassing cache'"
+    },
+    {
+      "text": "Plan starts by reading the source file before making changes",
+      "passed": true,
+      "evidence": "Step 1: 'Read configurateur.html to locate the Commencer button at line 994'"
+    }
+  ]
+}
