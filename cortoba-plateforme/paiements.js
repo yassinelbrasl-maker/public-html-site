@@ -1589,141 +1589,14 @@ function filterPaiementsClients() {
   renderPcDevisTable();
 }
 
+// Compat: openPaiementClientModal redirige vers le modal unifié
 function openPaiementClientModal(devisId) {
-  var modal = document.getElementById('modal-paiement-client');
-  if (!modal) return;
-
-  // Reset fields
-  document.getElementById('pc-montant').value = '';
-  document.getElementById('pc-date').value = new Date().toISOString().slice(0,10);
-  document.getElementById('pc-reference').value = '';
-  document.getElementById('pc-notes').value = '';
-  document.getElementById('pc-type').value = '';
-  document.getElementById('pc-mode').value = 'Virement';
-  document.getElementById('pc-recu').checked = true;
-  document.getElementById('pc-err').style.display = 'none';
-  document.getElementById('pc-devis-info').style.display = 'none';
-
-  // Populate devis selector with non-soldé devis
-  var sel = document.getElementById('pc-devis-sel');
-  sel.innerHTML = '<option value="">— Sélectionner un devis —</option>';
-  var devisList = (_pcCache.devis && _pcCache.devis.length) ? _pcCache.devis : [];
-
-  // Fallback: load if cache empty
-  var loadProm;
-  if (devisList.length === 0) {
-    loadProm = apiFetch('api/paiements_clients.php?action=summary').then(function(r){
-      if (r && r.data) {
-        _pcCache.summary = r.data;
-        _pcCache.devis = r.data.devis || [];
-      }
-      return _pcCache.devis;
-    });
-  } else {
-    loadProm = Promise.resolve(devisList);
-  }
-
-  loadProm.then(function(list) {
-    list.forEach(function(d) {
-      if (d.paiement_statut === 'solde') return;
-      if (d.statut === 'Rejeté' || d.statut === 'Facturé' || d.statut === 'Expiré') return;
-      var ttc = parseFloat(d.montant_ttc) || 0;
-      var paye = parseFloat(d.montant_paye) || 0;
-      var label = (d.numero||'') + ' — ' + (d.client_nom||d.client||'') + ' (' + fmtTND(ttc - paye) + ' restant)';
-      var opt = document.createElement('option');
-      opt.value = d.id;
-      opt.textContent = label;
-      sel.appendChild(opt);
-    });
-    if (devisId) {
-      sel.value = devisId;
-      onPcDevisChange();
-    }
-  });
-
-  modal.style.display = 'flex';
+  openEnregistrerPaiement(null, devisId || null);
 }
 
-function onPcDevisChange() {
-  var sel = document.getElementById('pc-devis-sel');
-  var info = document.getElementById('pc-devis-info');
-  if (!sel || !sel.value) { info.style.display = 'none'; return; }
-
-  var d = null;
-  for (var i = 0; i < (_pcCache.devis||[]).length; i++) {
-    if (_pcCache.devis[i].id === sel.value) { d = _pcCache.devis[i]; break; }
-  }
-  if (!d) { info.style.display = 'none'; return; }
-
-  var ttc = parseFloat(d.montant_ttc) || 0;
-  var paye = parseFloat(d.montant_paye) || 0;
-  var reste = ttc - paye;
-
-  document.getElementById('pc-info-client').textContent = d.client_nom || d.client || '—';
-  document.getElementById('pc-info-projet').textContent = d.projet_nom || '—';
-  document.getElementById('pc-info-total').textContent = fmtTND(ttc);
-  document.getElementById('pc-info-paye').textContent = fmtTND(paye);
-  document.getElementById('pc-info-reste').textContent = fmtTND(reste);
-  info.style.display = 'block';
-
-  // Pre-fill amount with remaining
-  var mEl = document.getElementById('pc-montant');
-  if (mEl && !mEl.value) mEl.value = reste.toFixed(3);
-}
-
-function savePaiementClient() {
-  var devisId = document.getElementById('pc-devis-sel').value;
-  var montant = parseFloat(document.getElementById('pc-montant').value);
-  var errEl = document.getElementById('pc-err');
-  errEl.style.display = 'none';
-
-  if (!devisId) { errEl.textContent = 'Sélectionner un devis'; errEl.style.display='block'; return; }
-  if (!montant || montant <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display='block'; return; }
-
-  var body = {
-    devis_id: devisId,
-    montant: montant,
-    date_paiement: document.getElementById('pc-date').value || null,
-    mode_paiement: document.getElementById('pc-mode').value || null,
-    reference: document.getElementById('pc-reference').value || null,
-    notes: document.getElementById('pc-notes').value || null,
-    type_paiement: document.getElementById('pc-type').value || null,
-  };
-
-  var btn = event && event.target;
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-
-  apiFetch('api/paiements_clients.php?action=create', { method:'POST', body: body })
-    .then(function(r) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
-      document.getElementById('modal-paiement-client').style.display = 'none';
-
-      var msg = 'Paiement enregistré';
-      if (r.data && r.data.est_solde) {
-        msg += ' — Le devis est entièrement payé !';
-        if (confirm(msg + '\n\nGénérer la facture maintenant ?')) {
-          genererFactureUI(devisId);
-          return;
-        }
-      } else if (r.data) {
-        msg += ' — Reste à payer : ' + fmtTND(r.data.devis_reste || 0);
-      }
-      if (typeof showToast === 'function') showToast(msg, 'success');
-      else alert(msg);
-
-      // Generate receipt if requested
-      if (document.getElementById('pc-recu').checked && r.data && r.data.paiement) {
-        genRecuPaiementClientPDF(r.data.paiement.id);
-      }
-
-      renderPaiementsClientsPage();
-    })
-    .catch(function(e) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
-      errEl.textContent = e.message || 'Erreur';
-      errEl.style.display = 'block';
-    });
-}
+// Legacy stubs (supprimés après fusion)
+function onPcDevisChange() {}
+function savePaiementClient() {}
 
 function genererFactureUI(devisId) {
   if (!confirm('Générer la facture pour ce devis ?\nLa facture sera créée et marquée comme Payée.')) return;
