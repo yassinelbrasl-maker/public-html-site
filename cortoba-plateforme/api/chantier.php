@@ -308,6 +308,31 @@ try {
         elseif ($method === 'PUT')        updatePhase($id);
         elseif ($method === 'DELETE')     deletePhase($id);
     }
+    // ── Param Lots (Paramètres — lots-modèles) ──
+    elseif ($action === 'param_lots') {
+        if ($method === 'GET')            listParamLots();
+        elseif ($method === 'POST')       createParamLot($user);
+        elseif ($method === 'PUT')        updateParamLot($id);
+        elseif ($method === 'DELETE')     deleteParamLot($id);
+    }
+    // ── Param Lot Phases (Paramètres — phases sous lots-modèles) ──
+    elseif ($action === 'param_lot_phases') {
+        if ($method === 'GET')            listParamLotPhases();
+        elseif ($method === 'POST')       createParamLotPhase($user);
+        elseif ($method === 'PUT')        updateParamLotPhase($id);
+        elseif ($method === 'DELETE')     deleteParamLotPhase($id);
+    }
+    // ── Lot Phases (phases réelles dans un chantier) ──
+    elseif ($action === 'lot_phases') {
+        if ($method === 'GET')            listLotPhases();
+        elseif ($method === 'POST')       createLotPhase($user);
+        elseif ($method === 'PUT')        updateLotPhase($id);
+        elseif ($method === 'DELETE')     deleteLotPhase($id);
+    }
+    // ── Ajouter tous les lots-modèles à un chantier ──
+    elseif ($action === 'add_all_lots') {
+        if ($method === 'POST')           addAllLotsToChantier($user);
+    }
     // ── Journal PDF export ──
     elseif ($action === 'journal_pdf') {
         exportJournalPDF($id);
