@@ -11675,10 +11675,6 @@ function _rdmDonutSvg(billable, internal) {
   return svg;
 }
 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 // ═══════════════════════════════════════════════════════════
 //  DEMANDES ADMINISTRATIVES
 // ═══════════════════════════════════════════════════════════
