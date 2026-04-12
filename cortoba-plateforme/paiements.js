@@ -448,6 +448,7 @@ var _paiProjetId = '';
 var _paiMissionNom = '';
 var _paiDropdownProjetOpen = false;
 var _paiDropdownMissionOpen = false;
+var _paiProjetData = null; // données by_projet (total, reste, missions_honoraires)
 
 function openEnregistrerPaiement(prefillProjetId) {
   // Reset projet/mission
