@@ -15609,24 +15609,35 @@ function _renderChLotsProgress(d) {
       var phases = l.phases || [];
       var hasPhases = phases.length > 0;
       h += '<div style="margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px;padding:0.6rem;background:var(--bg-1)">';
-      // Lot header — clickable to expand phases
-      h += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.88rem;margin-bottom:0.25rem;cursor:pointer" onclick="toggleLotPhases(\'' + l.id + '\')">' +
-        '<span style="color:var(--text);font-weight:500">' + (hasPhases ? '<span class="lot-chevron" id="chevron-' + l.id + '" style="display:inline-block;transition:transform 0.2s;margin-right:0.3rem">&#9654;</span>' : '') + _cgEscape(l.nom) + '</span>' +
-        '<span style="color:var(--text-2);font-weight:600">' + (l.avancement||0) + '%</span></div>';
+      // Lot header — clickable to expand phases, with edit/delete buttons
+      h += '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.88rem;margin-bottom:0.25rem">' +
+        '<span style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.3rem" onclick="toggleLotPhases(\'' + l.id + '\')">' +
+        '<span id="chevron-' + l.id + '" style="display:inline-block;transition:transform 0.2s;font-size:0.7rem;color:var(--accent)">&#9654;</span>' +
+        '<span style="color:var(--text);font-weight:500">' + _cgEscape(l.nom) + '</span></span>' +
+        '<span style="color:var(--text-2);font-weight:600;font-size:0.85rem">' + (l.avancement||0) + '%</span>' +
+        '<button class="btn btn-sm" onclick="editLot(\'' + l.id + '\')" title="Modifier" style="font-size:0.72rem;padding:0.2rem 0.4rem">&#9998;</button>' +
+        '<button class="btn btn-sm" style="color:var(--red);font-size:0.72rem;padding:0.2rem 0.4rem" onclick="deleteLot(\'' + l.id + '\')" title="Supprimer">&#10005;</button>' +
+        '</div>';
       h += '<div style="background:var(--bg-2);border-radius:4px;height:8px;overflow:hidden;margin-bottom:0.25rem"><div style="background:' + (l.couleur||'var(--accent)') + ';height:100%;width:' + (l.avancement||0) + '%;border-radius:4px;transition:width 0.3s"></div></div>';
       h += '<div style="font-size:0.78rem;color:var(--text-3)">' + _cgEscape(l.entreprise||'') + (l.montant_marche ? ' — ' + Number(l.montant_marche).toLocaleString('fr-TN') + ' DT' : '') + '</div>';
-      // Phases sub-list (hidden by default)
+      // Phases sub-list (hidden by default) with edit/delete + add
+      h += '<div id="lot-phases-' + l.id + '" style="display:none;margin-top:0.5rem;padding-left:1rem;border-left:2px solid ' + (l.couleur||'var(--accent)') + '">';
       if (hasPhases) {
-        h += '<div id="lot-phases-' + l.id + '" style="display:none;margin-top:0.5rem;padding-left:1rem;border-left:2px solid ' + (l.couleur||'var(--accent)') + '">';
         phases.forEach(function(p) {
           h += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;font-size:0.82rem">' +
             '<span style="flex:1;color:var(--text-2)">' + _cgEscape(p.nom) + '</span>' +
-            '<input type="range" min="0" max="100" step="5" value="' + (p.avancement||0) + '" style="width:100px;accent-color:' + (l.couleur||'var(--accent)') + '" onchange="updatePhaseAvancement(\'' + p.id + '\',this.value,\'' + l.id + '\')" />' +
+            '<input type="range" min="0" max="100" step="5" value="' + (p.avancement||0) + '" style="width:90px;accent-color:' + (l.couleur||'var(--accent)') + '" onchange="updatePhaseAvancement(\'' + p.id + '\',this.value,\'' + l.id + '\')" />' +
             '<span style="color:var(--text-2);font-size:0.78rem;min-width:36px;text-align:right" id="ph-av-' + p.id + '">' + (p.avancement||0) + '%</span>' +
+            '<button class="btn btn-sm" style="color:var(--red);font-size:0.68rem;padding:0.1rem 0.3rem" onclick="deleteLotPhase(\'' + p.id + '\')" title="Supprimer">&#10005;</button>' +
             '</div>';
         });
-        h += '</div>';
       }
+      // Add phase input inline
+      h += '<div style="display:flex;gap:0.3rem;align-items:center;margin-top:0.4rem">' +
+        '<input id="add-phase-' + l.id + '" class="form-input" placeholder="Nouvelle phase" style="flex:1;font-size:0.78rem;padding:0.25rem 0.5rem" />' +
+        '<button class="btn btn-sm" style="font-size:0.72rem" onclick="addLotPhaseInline(\'' + l.id + '\')">+ Phase</button>' +
+        '</div>';
+      h += '</div>';
       h += '</div>';
     });
     el.innerHTML = h;
