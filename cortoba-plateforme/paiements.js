@@ -451,6 +451,8 @@ var _paiDropdownMissionOpen = false;
 var _paiProjetData = null; // données by_projet (total, reste, missions_honoraires)
 var _paiExtraMissions = []; // missions supplémentaires [{nom:'...'}]
 var _paiExtraMissionCounter = 0;
+var _paiDevisId = '';
+var _paiPrefillDevisId = '';
 
 function openEnregistrerPaiement(prefillProjetId, prefillDevisId) {
   // Reset projet/mission
