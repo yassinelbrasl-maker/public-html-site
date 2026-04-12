@@ -11390,6 +11390,12 @@ function renderRendementPage() {
     _rdmState.timesheets = ts;
     _rdmState.users = users;
 
+    _renderRendementKPIs(taches, journal, ts, users);
+    _renderRendementMembres(taches, journal, ts, users);
+    _renderRendementHistorique(taches, journal, ts);
+  });
+}
+
 function _rdmComputeMemberStats(fullName, taches, entries, timesheets) {
   var m = _rdmFindMemberByName(fullName);
   var s = {
