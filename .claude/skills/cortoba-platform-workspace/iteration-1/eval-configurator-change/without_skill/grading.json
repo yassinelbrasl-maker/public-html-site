@@ -1,0 +1,27 @@
+{
+  "eval_id": 0,
+  "eval_name": "configurator-button-color",
+  "configuration": "without_skill",
+  "expectations": [
+    {
+      "text": "Plan includes committing and pushing to the master branch",
+      "passed": false,
+      "evidence": "Step 9 says 'Git commit and push' but does not specify 'master' branch"
+    },
+    {
+      "text": "Plan includes opening the page in Chrome to verify visually",
+      "passed": false,
+      "evidence": "Step 8 says 'Test visually in browser' — generic, does not mention Chrome or the live production URL"
+    },
+    {
+      "text": "Plan includes force-refreshing or hard-reloading the page",
+      "passed": false,
+      "evidence": "No mention of force refresh, hard reload, or cache bypass anywhere in the plan"
+    },
+    {
+      "text": "Plan starts by reading the source file before making changes",
+      "passed": true,
+      "evidence": "Step 1: 'Read configurateur.html to confirm current state around lines 229-235 and line 994'"
+    }
+  ]
+}
