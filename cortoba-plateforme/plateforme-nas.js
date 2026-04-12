@@ -15760,7 +15760,9 @@ function saveChantier() {
     date_fin_prevue: document.getElementById('ch-date-fin').value || null,
     budget_travaux: parseFloat(document.getElementById('ch-budget').value) || 0,
     statut: document.getElementById('ch-statut').value,
-    description: document.getElementById('ch-description').value
+    description: document.getElementById('ch-description').value,
+    lot_depart: document.getElementById('ch-lot-depart').value || null,
+    lot_fin: document.getElementById('ch-lot-fin').value || null
   };
   if (!body.nom) { showToast('Le nom est requis', 'warning'); return; }
   var url = id ? ('api/chantier.php?id=' + id) : 'api/chantier.php';
