@@ -222,6 +222,30 @@ function getPaiementsByProjet() {
     $totalDevisValides = (float)($row[0] ?? 0);
     $nbDevisValides = (int)($row[1] ?? 0);
 
+    // Coûts par mission depuis les honoraires (CA_projets_honoraires)
+    $missionsHonoraires = [];
+    try {
+        $s = $db->prepare("SELECT mission_phase, mission_label, montant_prevu FROM CA_projets_honoraires WHERE projet_id = ? ORDER BY ordre ASC");
+        $s->execute([$projetId]);
+        $phases = $s->fetchAll(\PDO::FETCH_ASSOC);
+        foreach ($phases as $ph) {
+            $mPhase = $ph['mission_phase'];
+            $mLabel = $ph['mission_label'] ?: $mPhase;
+            $mPrevu = (float)($ph['montant_prevu'] ?? 0);
+            // Total payé pour cette mission spécifiquement
+            $sp = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE projet_id = ? AND mission_phase = ?");
+            $sp->execute([$projetId, $mLabel]);
+            $mPaye = (float)$sp->fetchColumn();
+            $missionsHonoraires[] = [
+                'phase' => $mPhase,
+                'label' => $mLabel,
+                'montant_prevu' => round($mPrevu, 2),
+                'montant_paye' => round($mPaye, 2),
+                'reste' => round(max(0, $mPrevu - $mPaye), 2),
+            ];
+        }
+    } catch (\Throwable $e) { /* table absente */ }
+
     jsonOk([
         'paiements' => $paiements,
         'total_paye' => round($totalPayeProjet, 2),
@@ -229,6 +253,7 @@ function getPaiementsByProjet() {
         'total_devis_valides' => round($totalDevisValides, 2),
         'nb_devis_valides' => $nbDevisValides,
         'reste_projet' => round(max(0, $totalDevisValides - $totalPayeProjet), 2),
+        'missions_honoraires' => $missionsHonoraires,
     ]);
 }
 
