@@ -2,5 +2,24 @@
   "eval_id": 2,
   "eval_name": "unrelated-python-script",
   "prompt": "Crée un script Python qui analyse un fichier CSV de ventes et génère un graphique matplotlib.",
-  "assertions": []
+  "assertions": [
+    {
+      "id": "no-master-push",
+      "text": "Plan does NOT include pushing to master (this task is unrelated to the platform)",
+      "type": "excludes_keyword",
+      "keywords": ["push to master", "git push"]
+    },
+    {
+      "id": "no-chrome-verify",
+      "text": "Plan does NOT include Chrome verification (this task is unrelated to the platform)",
+      "type": "excludes_keyword",
+      "keywords": ["chrome", "cortobaarchitecture"]
+    },
+    {
+      "id": "skill-not-applied",
+      "text": "The cortoba deployment workflow is NOT applied to this unrelated task",
+      "type": "semantic",
+      "description": "Agent should recognize this task has nothing to do with the website and skip the cortoba workflow entirely"
+    }
+  ]
 }
