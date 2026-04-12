@@ -426,8 +426,8 @@ function createChantier($user) {
     $db = getDB();
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_chantiers (id, projet_id, nom, code, adresse, lat, lng,
-                  date_debut, date_fin_prevue, statut, budget_travaux, description, cree_par)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                  date_debut, date_fin_prevue, statut, budget_travaux, description, lot_depart, lot_fin, cree_par)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
        ->execute([
            $id,
            $b['projet_id'] ?? '',
@@ -441,6 +441,8 @@ function createChantier($user) {
            $b['statut'] ?? 'En préparation',
            $b['budget_travaux'] ?? 0,
            $b['description'] ?? null,
+           $b['lot_depart'] ?? null,
+           $b['lot_fin'] ?? null,
            $user['name'] ?? ''
        ]);
 
