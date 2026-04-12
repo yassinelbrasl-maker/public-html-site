@@ -985,11 +985,15 @@ function savePaiement() {
   var mt = parseFloat(document.getElementById('pai-montant').value), errEl = document.getElementById('pai-err');
   if (!_paiProjetId) { errEl.textContent = 'Sélectionnez un projet'; errEl.style.display = ''; return; }
   if (!mt || mt <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display = ''; return; }
+  // Collecter toutes les missions sélectionnées (principale + extras)
+  var allMissions = _paiGetAllSelectedMissions();
+  var missionPhaseValue = allMissions.length > 0 ? allMissions.join(' + ') : null;
   apiFetch('api/paiements_clients.php?action=create', {
     method: 'POST',
     body: {
       projet_id: _paiProjetId,
-      mission_phase: _paiMissionNom || null,
+      mission_phase: missionPhaseValue,
+      missions: allMissions.length > 0 ? allMissions : null,
       montant: mt,
       date_paiement: document.getElementById('pai-date').value,
       mode_paiement: document.getElementById('pai-mode').value,
