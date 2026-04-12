@@ -5,14 +5,14 @@
       --bg-1:      #111111;
       --bg-2:      #181818;
       --bg-3:      #1f1f1f;
-      --border:    rgba(255,255,255,0.07);
-      --border-md: rgba(255,255,255,0.12);
+      --border:    rgba(255,255,255,0.09);
+      --border-md: rgba(255,255,255,0.15);
       --accent:    #c8a96e;
       --accent-d:  #a88950;
       --accent-bg: rgba(200,169,110,0.08);
-      --text:      #e8e4dc;
-      --text-2:    #9a9590;
-      --text-3:    #555;
+      --text:      #ede9e1;
+      --text-2:    #b5b0a8;
+      --text-3:    #7a7570;
       --green:     #5aab6e;
       --green-bg:  rgba(90,171,110,0.1);
       --red:       #e07b72;
@@ -21,8 +21,8 @@
       --blue-bg:   rgba(111,168,214,0.1);
       --orange:    #e0a46e;
       --orange-bg: rgba(224,164,110,0.1);
-      --sidebar-w: 240px;
-      --header-h:  60px;
+      --sidebar-w: 250px;
+      --header-h:  62px;
       --font: 'DM Sans', sans-serif;
       --mono: 'DM Mono', monospace;
     }
@@ -58,11 +58,11 @@
       text-align: center;
     }
     .login-logo .wordmark {
-      font-size: 1.1rem; font-weight: 300; letter-spacing: 0.35em;
+      font-size: 1.25rem; font-weight: 300; letter-spacing: 0.35em;
       text-transform: uppercase; color: var(--text);
     }
     .login-logo .sub {
-      font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase;
+      font-size: 0.78rem; letter-spacing: 0.25em; text-transform: uppercase;
       color: var(--accent); margin-top: 0.3rem;
     }
     .login-divider {
@@ -72,27 +72,27 @@
     /* Login form */
     .login-field { display: flex; flex-direction: column; gap: 0.4rem; }
     .login-field label {
-      font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase;
+      font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--text-2);
     }
     .login-field input {
-      padding: 0.8rem 1rem; background: var(--bg-2);
+      padding: 0.85rem 1.1rem; background: var(--bg-2);
       border: 1px solid var(--border); color: var(--text);
-      font-family: var(--font); font-size: 0.88rem;
+      font-family: var(--font); font-size: 1rem;
       transition: border-color 0.25s;
     }
     .login-field input:focus { border-color: var(--accent); }
 
     .login-btn {
-      width: 100%; padding: 0.9rem; background: var(--accent);
+      width: 100%; padding: 0.95rem; background: var(--accent);
       border: none; color: #0a0a0a; font-family: var(--font);
-      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.15em;
+      font-size: 0.9rem; font-weight: 600; letter-spacing: 0.15em;
       text-transform: uppercase; cursor: pointer; transition: background 0.25s;
     }
     .login-btn:hover { background: #dbbe82; }
 
     .login-err {
-      font-size: 0.75rem; color: var(--red); text-align: center;
+      font-size: 0.85rem; color: var(--red); text-align: center;
       display: none;
     }
 
