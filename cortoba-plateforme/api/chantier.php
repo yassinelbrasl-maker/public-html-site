@@ -197,6 +197,60 @@ function ensureChantierTables() {
       `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
       KEY `idx_chantier` (`chantier_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // ── Lots-modèles (paramètres) ──
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_param_lots` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `nom` VARCHAR(200) NOT NULL,
+      `code` VARCHAR(20) DEFAULT NULL,
+      `ordre` INT NOT NULL DEFAULT 0,
+      `actif` TINYINT(1) NOT NULL DEFAULT 1,
+      `couleur` VARCHAR(9) DEFAULT '#c8a96e',
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // ── Phases-modèles sous lots (paramètres) ──
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_param_lot_phases` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `param_lot_id` VARCHAR(32) NOT NULL,
+      `nom` VARCHAR(200) NOT NULL,
+      `ordre` INT NOT NULL DEFAULT 0,
+      `actif` TINYINT(1) NOT NULL DEFAULT 1,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY `idx_param_lot` (`param_lot_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // ── Phases réelles par lot dans un chantier ──
+    $db->exec("CREATE TABLE IF NOT EXISTS `CA_chantier_lot_phases` (
+      `id` VARCHAR(32) NOT NULL PRIMARY KEY,
+      `chantier_id` VARCHAR(32) NOT NULL,
+      `lot_id` VARCHAR(32) NOT NULL,
+      `nom` VARCHAR(200) NOT NULL,
+      `avancement` INT NOT NULL DEFAULT 0,
+      `ordre` INT NOT NULL DEFAULT 0,
+      `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `modifie_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_chantier` (`chantier_id`),
+      KEY `idx_lot` (`lot_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Seed default param lots if table empty
+    try {
+        $cnt = $db->query("SELECT COUNT(*) FROM CA_param_lots")->fetchColumn();
+        if ($cnt == 0) {
+            $lots = ['Terrassement','Fondations','Gros oeuvre','Charpente / Toiture','Etancheite','Maconnerie','Electricite','Plomberie','CVC / Climatisation','Menuiserie','Revetements sols','Revetements muraux','Peinture','Finitions','Amenagements exterieurs','VRD'];
+            $ord = 1;
+            foreach ($lots as $ln) {
+                $lid = bin2hex(random_bytes(16));
+                $db->prepare("INSERT INTO CA_param_lots (id, nom, ordre) VALUES (?,?,?)")->execute([$lid, $ln, $ord++]);
+                // Seed "Phase de départ" and "Phase de fin" for each lot
+                $pid1 = bin2hex(random_bytes(16));
+                $db->prepare("INSERT INTO CA_param_lot_phases (id, param_lot_id, nom, ordre) VALUES (?,?,?,?)")->execute([$pid1, $lid, 'Phase de départ', 1]);
+                $pid2 = bin2hex(random_bytes(16));
+                $db->prepare("INSERT INTO CA_param_lot_phases (id, param_lot_id, nom, ordre) VALUES (?,?,?,?)")->execute([$pid2, $lid, 'Phase de fin', 9999]);
+            }
+        }
+    } catch (Exception $e) {}
 }
 try { ensureChantierTables(); } catch (\Throwable $e) { /* migration errors are non-fatal */ }
 
