@@ -663,6 +663,8 @@ h2 {
 
 .project-card-wide  { grid-column: span 2; }
 .project-card-tall  { grid-row: span 2; }
+.project-card-big   { grid-column: span 2; grid-row: span 2; }
+.project-card-full  { grid-column: span 3; }
 
 .project-card-link {
   display: block;
