@@ -252,6 +252,19 @@ function ensureChantierTables() {
       KEY `idx_lot` (`lot_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+    // Migrate CA_chantiers — add lot_depart, lot_fin columns if missing
+    try {
+        $cols = [];
+        $colStmt = $db->query("SHOW COLUMNS FROM CA_chantiers");
+        foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $c) { $cols[] = $c['Field']; }
+        if (!in_array('lot_depart', $cols)) {
+            try { $db->exec("ALTER TABLE CA_chantiers ADD COLUMN `lot_depart` VARCHAR(200) DEFAULT NULL AFTER `description`"); } catch (Exception $e) {}
+        }
+        if (!in_array('lot_fin', $cols)) {
+            try { $db->exec("ALTER TABLE CA_chantiers ADD COLUMN `lot_fin` VARCHAR(200) DEFAULT NULL AFTER `lot_depart`"); } catch (Exception $e) {}
+        }
+    } catch (Exception $e) {}
+
     // Seed default param lots if table empty
     try {
         $cnt = $db->query("SELECT COUNT(*) FROM CA_param_lots")->fetchColumn();
