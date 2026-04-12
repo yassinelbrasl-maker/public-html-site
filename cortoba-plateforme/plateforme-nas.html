@@ -1986,7 +1986,7 @@
       </div>
 
       <!-- Modal: Relance manuelle -->
-      <div class="modal-backdrop" id="modal-relance" style="display:none" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
+      <div class="modal-backdrop" id="modal-relance" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:540px">
           <div class="modal-header">
             <h3>Envoyer une relance</h3>
