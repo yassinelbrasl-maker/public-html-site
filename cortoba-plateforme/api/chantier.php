@@ -130,6 +130,24 @@ function ensureChantierTables() {
       `cree_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+    // Migrate CA_chantier_phases — add lot_id, chantier_id, avancement columns if missing
+    try {
+        $cols = [];
+        $colStmt = $db->query("SHOW COLUMNS FROM CA_chantier_phases");
+        foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $c) { $cols[] = $c['Field']; }
+        if (!in_array('lot_id', $cols)) {
+            try { $db->exec("ALTER TABLE CA_chantier_phases ADD COLUMN `lot_id` VARCHAR(32) DEFAULT NULL AFTER `id`"); } catch (Exception $e) {}
+            try { $db->exec("ALTER TABLE CA_chantier_phases ADD KEY `idx_phase_lot` (`lot_id`)"); } catch (Exception $e) {}
+        }
+        if (!in_array('chantier_id', $cols)) {
+            try { $db->exec("ALTER TABLE CA_chantier_phases ADD COLUMN `chantier_id` VARCHAR(32) DEFAULT NULL AFTER `lot_id`"); } catch (Exception $e) {}
+            try { $db->exec("ALTER TABLE CA_chantier_phases ADD KEY `idx_phase_chantier` (`chantier_id`)"); } catch (Exception $e) {}
+        }
+        if (!in_array('avancement', $cols)) {
+            try { $db->exec("ALTER TABLE CA_chantier_phases ADD COLUMN `avancement` INT NOT NULL DEFAULT 0 AFTER `actif`"); } catch (Exception $e) {}
+        }
+    } catch (Exception $e) {}
+
     // Seed default phases if table empty
     try {
         $cnt = $db->query("SELECT COUNT(*) FROM CA_chantier_phases")->fetchColumn();
@@ -308,6 +326,7 @@ try {
         elseif ($method === 'PUT')        updatePhase($id);
         elseif ($method === 'DELETE')     deletePhase($id);
     }
+<<<<<<< HEAD
     // ── Param Lots (Paramètres — lots-modèles) ──
     elseif ($action === 'param_lots') {
         if ($method === 'GET')            listParamLots();
@@ -332,6 +351,11 @@ try {
     // ── Ajouter tous les lots-modèles à un chantier ──
     elseif ($action === 'add_all_lots') {
         if ($method === 'POST')           addAllLotsToChantier($user);
+=======
+    // ── Bulk lots (ajouter tous les lots standard) ──
+    elseif ($action === 'bulk_lots') {
+        if ($method === 'POST') createBulkLots($user);
+>>>>>>> claude/condescending-almeida
     }
     // ── Journal PDF export ──
     elseif ($action === 'journal_pdf') {
@@ -412,6 +436,15 @@ function createChantier($user) {
            $b['description'] ?? null,
            $user['name'] ?? ''
        ]);
+
+    // Auto-create "Phase de départ" and "Phase de fin" for the new chantier
+    $phDepart = bin2hex(random_bytes(16));
+    $db->prepare("INSERT INTO CA_chantier_phases (id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?)")
+       ->execute([$phDepart, $id, 'Phase de départ', 1, 1, 0]);
+    $phFin = bin2hex(random_bytes(16));
+    $db->prepare("INSERT INTO CA_chantier_phases (id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?)")
+       ->execute([$phFin, $id, 'Phase de fin', 9999, 1, 0]);
+
     jsonOk(['id' => $id]);
 }
 
@@ -460,12 +493,24 @@ function listLots() {
     $stmt = $db->prepare("SELECT * FROM CA_chantier_lots WHERE chantier_id=? ORDER BY ordre, cree_at");
     $stmt->execute([$cid]);
     $lots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+<<<<<<< HEAD
     // Attach phases for each lot
     foreach ($lots as &$lot) {
         $sp = $db->prepare("SELECT * FROM CA_chantier_lot_phases WHERE lot_id=? ORDER BY ordre, cree_at");
         $sp->execute([$lot['id']]);
         $lot['phases'] = $sp->fetchAll(PDO::FETCH_ASSOC);
     }
+=======
+
+    // Attach phases for each lot
+    $phStmt = $db->prepare("SELECT * FROM CA_chantier_phases WHERE lot_id=? ORDER BY ordre ASC, nom ASC");
+    foreach ($lots as &$lot) {
+        $phStmt->execute([$lot['id']]);
+        $lot['phases'] = $phStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    unset($lot);
+
+>>>>>>> claude/condescending-almeida
     jsonOk($lots);
 }
 
@@ -494,8 +539,57 @@ function updateLot($id) {
 
 function deleteLot($id) {
     $db = getDB();
+    // Also delete phases attached to this lot
+    $db->prepare("DELETE FROM CA_chantier_phases WHERE lot_id=?")->execute([$id]);
     $db->prepare("DELETE FROM CA_chantier_lots WHERE id=?")->execute([$id]);
     jsonOk(['deleted' => true]);
+}
+
+function createBulkLots($user) {
+    $b = getBody();
+    $db = getDB();
+    $chantierId = $b['chantier_id'] ?? '';
+    if (!$chantierId) jsonError('chantier_id requis', 400);
+
+    $standardLots = [
+        ['code'=>'LOT-00','nom'=>'Installation de chantier','couleur'=>'#8B4513'],
+        ['code'=>'LOT-01','nom'=>'Terrassement / Fondations','couleur'=>'#A0522D'],
+        ['code'=>'LOT-02','nom'=>'Gros œuvre','couleur'=>'#CD853F'],
+        ['code'=>'LOT-03','nom'=>'Charpente / Couverture','couleur'=>'#DEB887'],
+        ['code'=>'LOT-04','nom'=>'Étanchéité','couleur'=>'#4682B4'],
+        ['code'=>'LOT-05','nom'=>'Menuiseries extérieures','couleur'=>'#5F9EA0'],
+        ['code'=>'LOT-06','nom'=>'Menuiseries intérieures','couleur'=>'#6B8E23'],
+        ['code'=>'LOT-07','nom'=>'Cloisons / Plâtrerie','couleur'=>'#BC8F8F'],
+        ['code'=>'LOT-08','nom'=>'Électricité','couleur'=>'#FFD700'],
+        ['code'=>'LOT-09','nom'=>'Plomberie / Sanitaire','couleur'=>'#4169E1'],
+        ['code'=>'LOT-10','nom'=>'CVC (Chauffage / Ventilation / Climatisation)','couleur'=>'#32CD32'],
+        ['code'=>'LOT-11','nom'=>'Revêtements de sol','couleur'=>'#D2691E'],
+        ['code'=>'LOT-12','nom'=>'Peinture / Finitions','couleur'=>'#DA70D6'],
+        ['code'=>'LOT-13','nom'=>'Ascenseur','couleur'=>'#708090'],
+        ['code'=>'LOT-14','nom'=>'VRD (Voirie et Réseaux Divers)','couleur'=>'#2E8B57'],
+        ['code'=>'LOT-15','nom'=>'Espaces verts / Aménagements extérieurs','couleur'=>'#228B22'],
+    ];
+
+    $lotIds = [];
+    $ordre = 0;
+    foreach ($standardLots as $sl) {
+        $lotId = bin2hex(random_bytes(16));
+        $db->prepare("INSERT INTO CA_chantier_lots (id, chantier_id, code, nom, entreprise, montant_marche, date_debut, date_fin_prevue, ordre, couleur)
+                      VALUES (?,?,?,?,?,?,?,?,?,?)")
+           ->execute([$lotId, $chantierId, $sl['code'], $sl['nom'], null, 0, null, null, $ordre++, $sl['couleur']]);
+
+        // Create "Phase de départ" and "Phase de fin" for each lot
+        $phD = bin2hex(random_bytes(16));
+        $db->prepare("INSERT INTO CA_chantier_phases (id, lot_id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?,?)")
+           ->execute([$phD, $lotId, $chantierId, 'Phase de départ', 1, 1, 0]);
+        $phF = bin2hex(random_bytes(16));
+        $db->prepare("INSERT INTO CA_chantier_phases (id, lot_id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?,?)")
+           ->execute([$phF, $lotId, $chantierId, 'Phase de fin', 9999, 1, 0]);
+
+        $lotIds[] = $lotId;
+    }
+
+    jsonOk(['created' => count($lotIds), 'lot_ids' => $lotIds]);
 }
 
 // ══════════════════════════════════════
@@ -776,8 +870,20 @@ function deleteTacheChantier($id) {
 
 function listPhases() {
     $db = getDB();
-    $rows = $db->query("SELECT * FROM CA_chantier_phases ORDER BY ordre ASC, nom ASC")->fetchAll(PDO::FETCH_ASSOC);
-    jsonOk($rows);
+    $lotId = $_GET['lot_id'] ?? '';
+    $chantierId = $_GET['chantier_id'] ?? '';
+
+    if ($lotId) {
+        $stmt = $db->prepare("SELECT * FROM CA_chantier_phases WHERE lot_id=? ORDER BY ordre ASC, nom ASC");
+        $stmt->execute([$lotId]);
+    } elseif ($chantierId) {
+        $stmt = $db->prepare("SELECT * FROM CA_chantier_phases WHERE chantier_id=? ORDER BY ordre ASC, nom ASC");
+        $stmt->execute([$chantierId]);
+    } else {
+        // Global phases (paramètres) — those with NULL lot_id and NULL chantier_id
+        $stmt = $db->query("SELECT * FROM CA_chantier_phases ORDER BY ordre ASC, nom ASC");
+    }
+    jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
 function createPhase($user) {
@@ -785,16 +891,27 @@ function createPhase($user) {
     $db = getDB();
     $id = bin2hex(random_bytes(16));
     $maxOrd = $db->query("SELECT COALESCE(MAX(ordre),0)+1 FROM CA_chantier_phases")->fetchColumn();
-    $db->prepare("INSERT INTO CA_chantier_phases (id, nom, ordre, actif) VALUES (?,?,?,?)")
-       ->execute([$id, $b['nom']??'', $maxOrd, $b['actif']??1]);
+    $db->prepare("INSERT INTO CA_chantier_phases (id, lot_id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?,?)")
+       ->execute([$id, $b['lot_id']??null, $b['chantier_id']??null, $b['nom']??'', $maxOrd, $b['actif']??1, $b['avancement']??0]);
     jsonOk(['id' => $id]);
 }
 
 function updatePhase($id) {
     $b = getBody();
     $db = getDB();
-    $db->prepare("UPDATE CA_chantier_phases SET nom=?, ordre=?, actif=? WHERE id=?")
-       ->execute([$b['nom']??'', $b['ordre']??0, $b['actif']??1, $id]);
+    $db->prepare("UPDATE CA_chantier_phases SET nom=?, ordre=?, actif=?, avancement=? WHERE id=?")
+       ->execute([$b['nom']??'', $b['ordre']??0, $b['actif']??1, $b['avancement']??0, $id]);
+
+    // Auto-recompute lot avancement from its phases
+    $phase = $db->prepare("SELECT lot_id FROM CA_chantier_phases WHERE id=?");
+    $phase->execute([$id]);
+    $row = $phase->fetch(PDO::FETCH_ASSOC);
+    if ($row && $row['lot_id']) {
+        $avg = $db->prepare("SELECT COALESCE(AVG(avancement),0) FROM CA_chantier_phases WHERE lot_id=? AND actif=1");
+        $avg->execute([$row['lot_id']]);
+        $avgVal = round($avg->fetchColumn());
+        $db->prepare("UPDATE CA_chantier_lots SET avancement=? WHERE id=?")->execute([$avgVal, $row['lot_id']]);
+    }
     jsonOk(['updated' => true]);
 }
 
