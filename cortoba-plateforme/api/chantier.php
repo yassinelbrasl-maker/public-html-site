@@ -326,7 +326,6 @@ try {
         elseif ($method === 'PUT')        updatePhase($id);
         elseif ($method === 'DELETE')     deletePhase($id);
     }
-<<<<<<< HEAD
     // ── Param Lots (Paramètres — lots-modèles) ──
     elseif ($action === 'param_lots') {
         if ($method === 'GET')            listParamLots();
@@ -351,11 +350,10 @@ try {
     // ── Ajouter tous les lots-modèles à un chantier ──
     elseif ($action === 'add_all_lots') {
         if ($method === 'POST')           addAllLotsToChantier($user);
-=======
+    }
     // ── Bulk lots (ajouter tous les lots standard) ──
     elseif ($action === 'bulk_lots') {
         if ($method === 'POST') createBulkLots($user);
->>>>>>> claude/condescending-almeida
     }
     // ── Journal PDF export ──
     elseif ($action === 'journal_pdf') {
