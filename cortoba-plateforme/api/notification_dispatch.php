@@ -302,18 +302,30 @@ if (!function_exists('dispatchNotification')) {
     }
 
     /**
-     * Convertir la clé privée raw (32 bytes) en PEM EC PRIVATE KEY.
+     * Construire le PEM EC PRIVATE KEY à partir des clés VAPID raw (private 32 bytes + public 65 bytes).
      */
-    function _derToPrivatePem(string $rawPrivate): string {
-        // Structure ASN.1 pour EC private key sur P-256
-        $asn1 = "\x30\x77\x02\x01\x01\x04\x20" . $rawPrivate
-               . "\xa0\x0a\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07"
-               . "\xa1\x44\x03\x42\x00\x04";
-        // On n'a pas la clé publique ici, donc on abrège
-        $pem = "-----BEGIN EC PRIVATE KEY-----\n"
-             . chunk_split(base64_encode($asn1), 64)
+    function _buildVapidPem(): string {
+        $rawPrivate = base64url_decode(VAPID_PRIVATE_KEY); // 32 bytes
+        $rawPublic  = base64url_decode(VAPID_PUBLIC_KEY);  // 65 bytes (04 + x + y)
+
+        // ASN.1 DER structure pour EC PRIVATE KEY sur prime256v1
+        // SEQUENCE {
+        //   INTEGER 1,
+        //   OCTET STRING (32 bytes private key),
+        //   [0] OID prime256v1,
+        //   [1] BIT STRING (public key)
+        // }
+        $oid = "\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07"; // prime256v1
+        $privOctet = "\x04\x20" . $rawPrivate;
+        $pubBits = "\x03\x42\x00" . $rawPublic; // BIT STRING wrapping 65 bytes
+        $a0 = "\xa0" . chr(strlen($oid)) . $oid;
+        $a1 = "\xa1" . chr(strlen($pubBits)) . $pubBits;
+        $inner = "\x02\x01\x01" . $privOctet . $a0 . $a1;
+        $der = "\x30" . chr(strlen($inner)) . $inner;
+
+        return "-----BEGIN EC PRIVATE KEY-----\n"
+             . chunk_split(base64_encode($der), 64)
              . "-----END EC PRIVATE KEY-----";
-        return $pem;
     }
 
     /**
