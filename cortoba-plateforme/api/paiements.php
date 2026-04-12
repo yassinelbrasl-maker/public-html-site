@@ -139,6 +139,9 @@ function recordPayment($db, $data, $userName = null) {
 }
 
 // ── Main handler ──
+// Ne s'exécute QUE si le script est appelé directement (pas via require_once)
+if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'paiements.php') {
+
 setCorsHeaders();
 ensurePaiementsSchema();
 
@@ -192,6 +195,8 @@ try {
 } catch (\Throwable $e) {
     jsonError('Erreur serveur: ' . $e->getMessage(), 500);
 }
+
+} // fin du guard basename === 'paiements.php'
 
 // ── Actions ──
 
