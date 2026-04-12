@@ -319,8 +319,8 @@ function getReceivables() {
         c.display_nom AS client_nom, c.email AS client_email,
         p.code AS projet_code, p.nom AS projet_nom
         FROM CA_factures f
-        LEFT JOIN CA_clients c ON c.id = f.client_id
-        LEFT JOIN CA_projets p ON p.id = f.projet_id
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = f.client_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = f.projet_id COLLATE utf8mb4_unicode_ci
         WHERE f.statut IN ('Impayée', 'Partiellement payée', 'Émise')
         ORDER BY jours_retard DESC, f.date_echeance ASC");
 
