@@ -15796,6 +15796,8 @@ function addAllLotsToChantier(chantierId) {
 function _resetChForm() {
   ['ch-edit-id','ch-projet-id','ch-projet-search','ch-nom','ch-code','ch-adresse','ch-date-debut','ch-date-fin','ch-budget','ch-description'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
   var st = document.getElementById('ch-statut'); if (st) st.value = 'En préparation';
+  var ld = document.getElementById('ch-lot-depart'); if (ld) ld.value = '';
+  var lf = document.getElementById('ch-lot-fin'); if (lf) lf.value = '';
   var dd = document.getElementById('ch-projet-dropdown'); if (dd) dd.style.display = 'none';
 }
 
