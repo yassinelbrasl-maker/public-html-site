@@ -820,6 +820,154 @@ function updatePaiResteHint(data) {
   hintEl.innerHTML = html;
 }
 
+// ── Multi-mission : ajouter une ligne mission supplémentaire ──
+
+function addPaiMissionRow() {
+  if (!_paiProjetId) return;
+  var missions = _paiGetProjetMissions();
+  if (missions.length <= 1) return;
+
+  _paiExtraMissionCounter++;
+  var idx = _paiExtraMissionCounter;
+  var container = document.getElementById('pai-extra-missions');
+  if (!container) return;
+
+  // Construire la liste des missions déjà sélectionnées pour les exclure visuellement
+  var div = document.createElement('div');
+  div.className = 'pai-mission-row';
+  div.setAttribute('data-index', idx);
+  div.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem';
+
+  var selectEl = document.createElement('select');
+  selectEl.className = 'form-input';
+  selectEl.id = 'pai-extra-mission-' + idx;
+  selectEl.style.flex = '1';
+  selectEl.innerHTML = '<option value="">— Sélectionner —</option>' +
+    missions.map(function(m) { return '<option value="' + m.replace(/"/g,'&quot;') + '">' + m + '</option>'; }).join('');
+  selectEl.onchange = function() {
+    _paiExtraMissions[idx] = { nom: selectEl.value };
+    updatePaiResteBox();
+  };
+  _paiExtraMissions[idx] = { nom: '' };
+
+  var removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn btn-sm';
+  removeBtn.style.cssText = 'padding:0.25rem 0.5rem;font-size:0.85rem;color:var(--red);flex-shrink:0';
+  removeBtn.textContent = '\u00d7';
+  removeBtn.title = 'Retirer cette mission';
+  removeBtn.onclick = function() {
+    delete _paiExtraMissions[idx];
+    div.remove();
+    updatePaiResteBox();
+  };
+
+  div.appendChild(selectEl);
+  div.appendChild(removeBtn);
+  container.appendChild(div);
+}
+
+// ── Récupérer la liste de toutes les missions sélectionnées ──
+function _paiGetAllSelectedMissions() {
+  var list = [];
+  if (_paiMissionNom) list.push(_paiMissionNom);
+  for (var k in _paiExtraMissions) {
+    if (_paiExtraMissions.hasOwnProperty(k) && _paiExtraMissions[k] && _paiExtraMissions[k].nom) {
+      if (list.indexOf(_paiExtraMissions[k].nom) === -1) list.push(_paiExtraMissions[k].nom);
+    }
+  }
+  return list;
+}
+
+// ── Montant restant : mise à jour de la box reste ──
+function updatePaiResteBox() {
+  var row = document.getElementById('pai-reste-row');
+  if (!row) return;
+  var data = _paiProjetData;
+  if (!data || !_paiProjetId) { row.style.display = 'none'; return; }
+
+  var totalDevis = parseFloat(data.total_devis_valides || 0);
+  var totalPaye  = parseFloat(data.total_paye || 0);
+  var resteProjet = parseFloat(data.reste_projet || 0);
+  var missions   = data.missions_honoraires || [];
+  var selectedMissions = _paiGetAllSelectedMissions();
+
+  // Si aucune donnée de devis ET pas de missions honoraires, masquer
+  if (totalDevis === 0 && missions.length === 0) { row.style.display = 'none'; return; }
+
+  row.style.display = '';
+
+  // Calcul du total dû et reste selon contexte
+  var totalDu, dejaPaye, reste;
+  var detailHtml = '';
+
+  if (selectedMissions.length > 0 && missions.length > 0) {
+    // Calculer à partir des missions sélectionnées
+    totalDu = 0; dejaPaye = 0; reste = 0;
+    var foundAny = false;
+    selectedMissions.forEach(function(mNom) {
+      var mLower = mNom.toLowerCase();
+      var md = missions.find(function(m) {
+        return (m.label || '').toLowerCase() === mLower || (m.phase || '').toLowerCase() === mLower;
+      });
+      if (md) {
+        foundAny = true;
+        var mp = parseFloat(md.montant_prevu || 0);
+        var mPaye = parseFloat(md.montant_paye || 0);
+        var mReste = parseFloat(md.reste || (mp - mPaye));
+        totalDu += mp; dejaPaye += mPaye; reste += mReste;
+        detailHtml += '<div style="display:flex;justify-content:space-between;gap:0.5rem">' +
+          '<span style="color:var(--text-3)">' + (typeof esc === 'function' ? esc(mNom) : mNom) + '</span>' +
+          '<span><strong style="color:var(--text-2)">' + fmtMontant(mp) + '</strong> \u2014 Payé <strong style="color:var(--green)">' + fmtMontant(mPaye) + '</strong> \u2014 Reste <strong style="color:' + (mReste > 0 ? 'var(--orange)' : 'var(--green)') + '">' + fmtMontant(mReste) + '</strong></span></div>';
+      }
+    });
+    if (!foundAny) {
+      // Missions sélectionnées pas dans les honoraires, fallback au projet
+      totalDu = totalDevis; dejaPaye = totalPaye; reste = resteProjet;
+    }
+  } else {
+    // Pas de mission, utiliser les données projet
+    totalDu = totalDevis; dejaPaye = totalPaye; reste = resteProjet;
+  }
+
+  // Mettre à jour l'affichage
+  document.getElementById('pai-reste-total-du').textContent = fmtMontant(totalDu);
+  document.getElementById('pai-reste-deja-paye').textContent = fmtMontant(dejaPaye);
+  var resteValEl = document.getElementById('pai-reste-val');
+  resteValEl.textContent = fmtMontant(reste);
+  resteValEl.style.color = reste > 0 ? 'var(--orange)' : 'var(--green)';
+
+  var fillBtn = document.getElementById('pai-reste-fill');
+  if (fillBtn) fillBtn.style.display = reste > 0 ? '' : 'none';
+
+  // Détail par mission
+  var detailEl = document.getElementById('pai-reste-missions-detail');
+  if (detailEl) {
+    if (detailHtml && selectedMissions.length > 1) {
+      detailEl.innerHTML = detailHtml;
+      detailEl.style.display = '';
+    } else {
+      detailEl.style.display = 'none';
+    }
+  }
+
+  // Auto-prefill montant si vide
+  var mEl = document.getElementById('pai-montant');
+  if (mEl && !mEl.value && reste > 0) mEl.value = reste.toFixed(2);
+
+  // Stocker le reste pour le bouton "utiliser"
+  row._resteValue = reste;
+}
+
+function fillPaiMontantFromReste() {
+  var row = document.getElementById('pai-reste-row');
+  var mEl = document.getElementById('pai-montant');
+  if (row && mEl && row._resteValue > 0) {
+    mEl.value = row._resteValue.toFixed(2);
+    mEl.focus();
+  }
+}
+
 function openPaiementForFacture(factureId, reste) {
   // Pre-resolve projet from facture (compat ancien lien depuis la table factures)
   var factures = typeof getFactures === 'function' ? getFactures() : [];
