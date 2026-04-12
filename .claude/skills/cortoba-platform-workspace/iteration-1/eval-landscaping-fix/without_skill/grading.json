@@ -1,0 +1,27 @@
+{
+  "eval_id": 1,
+  "eval_name": "landscaping-overflow-fix",
+  "configuration": "without_skill",
+  "expectations": [
+    {
+      "text": "Plan includes committing and pushing to the master branch",
+      "passed": false,
+      "evidence": "Step 9 explicitly says 'Ne PAS pousser vers le remote sans confirmation' — does NOT push to master"
+    },
+    {
+      "text": "Plan includes opening the page in Chrome to verify visually",
+      "passed": false,
+      "evidence": "Step 8 says 'Ouvrir le fichier dans un navigateur' — generic local browser, not Chrome on the live production URL"
+    },
+    {
+      "text": "Plan includes force-refreshing or hard-reloading the page",
+      "passed": false,
+      "evidence": "No mention of force refresh, hard reload, or cache bypass anywhere in the plan"
+    },
+    {
+      "text": "Plan starts by reading the source file before making changes",
+      "passed": true,
+      "evidence": "Step 1: 'Lire et analyser le fichier source — Ouvrir landscaping.html'"
+    }
+  ]
+}
