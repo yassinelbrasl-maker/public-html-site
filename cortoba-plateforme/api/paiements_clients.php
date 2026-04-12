@@ -604,8 +604,8 @@ function getPaiementsSummary() {
             d.montant_ttc - COALESCE(d.montant_paye,0) AS reste,
             d.paiement_statut, d.statut,
             c.display_nom AS client_nom, p.nom AS projet_nom,
-            (SELECT COUNT(*) FROM CA_paiements_clients pc WHERE pc.devis_id = d.id) AS nb_tranches,
-            (SELECT MAX(date_paiement) FROM CA_paiements_clients pc WHERE pc.devis_id = d.id) AS dernier_paiement
+            (SELECT COUNT(*) FROM CA_paiements_clients pc WHERE pc.devis_id COLLATE utf8mb4_unicode_ci = d.id COLLATE utf8mb4_unicode_ci) AS nb_tranches,
+            (SELECT MAX(date_paiement) FROM CA_paiements_clients pc WHERE pc.devis_id COLLATE utf8mb4_unicode_ci = d.id COLLATE utf8mb4_unicode_ci) AS dernier_paiement
         FROM CA_devis d
         LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = d.client_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = d.projet_id COLLATE utf8mb4_unicode_ci
