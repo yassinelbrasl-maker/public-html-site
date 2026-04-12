@@ -4297,23 +4297,20 @@
             <label class="form-label">Date d'échéance</label>
             <input id="fa-echeance" class="form-input" type="date" />
           </div>
-          <div class="form-field">
+          <div class="form-field" style="position:relative">
             <label class="form-label">Projet lié</label>
-            <select id="fa-projet" class="form-select" onchange="prefillClientFromProjet()">
-              <option value="">— Sélectionner un projet —</option>
-            </select>
+            <select id="fa-projet" style="display:none"></select>
+            <input type="text" id="fa-projet-search" class="form-input" style="width:100%;padding-right:2.2rem" placeholder="🔍 Rechercher un projet ou client…" autocomplete="off"
+                   onfocus="openFaProjetDropdown()" oninput="filterFaProjetDropdown()" onblur="hideFaProjetDropdown()" />
+            <span id="fa-projet-clear" onclick="clearFaProjetSearch()" style="display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1;margin-top:0.7rem">&times;</span>
+            <div id="fa-projet-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:260px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0 0 0.5rem 0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:400"></div>
           </div>
-          <div class="form-field">
+          <div class="form-field" style="position:relative">
             <label class="form-label">Phase / Mission</label>
-            <select id="fa-mission-phase" class="form-select">
-              <option value="">— Aucune —</option>
-              <option value="esquisse">Esquisse</option>
-              <option value="aps">APS</option>
-              <option value="apd">APD</option>
-              <option value="pro_dce">PRO / DCE</option>
-              <option value="suivi_det">Suivi / DET</option>
-              <option value="aor">AOR</option>
-            </select>
+            <input type="text" id="fa-mission-phase" class="form-input" style="width:100%;padding-right:2.2rem" placeholder="🔍 Rechercher une mission…" autocomplete="off"
+                   onfocus="openFaMissionDropdown()" oninput="filterFaMissionDropdown()" onblur="hideFaMissionDropdown()" />
+            <span id="fa-mission-clear" onclick="clearFaMission()" style="display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1;margin-top:0.7rem">&times;</span>
+            <div id="fa-mission-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:280px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0 0 0.5rem 0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:400"></div>
           </div>
         </div>
         <div style="height:1px;background:var(--border);margin:1rem 0"></div>
