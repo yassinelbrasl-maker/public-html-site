@@ -1061,6 +1061,11 @@ function listLotPhases() {
 function createLotPhase($user) {
     $b = getBody();
     $db = getDB();
+    // Check for duplicate phase name in same lot
+    $dup = $db->prepare("SELECT id FROM CA_chantier_lot_phases WHERE lot_id=? AND nom=?");
+    $dup->execute([$b['lot_id']??'', $b['nom']??'']);
+    if ($dup->fetch()) { jsonError('Attention : phase déjà existante dans ce lot', 409); return; }
+
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_chantier_lot_phases (id, chantier_id, lot_id, nom, avancement, ordre) VALUES (?,?,?,?,?,?)")
        ->execute([$id, $b['chantier_id']??'', $b['lot_id']??'', $b['nom']??'', $b['avancement']??0, $b['ordre']??0]);
