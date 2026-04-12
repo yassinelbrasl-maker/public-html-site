@@ -1,0 +1,23 @@
+{
+  "skill_name": "cortoba-platform",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Change la couleur du bouton principal du configurateur en rouge. Le bouton 'Commencer' sur configurateur.html doit passer de doré à rouge.",
+      "expected_output": "Agent should: 1) Read configurateur.html to find the button, 2) Edit the CSS/style, 3) Commit and push to master, 4) Open cortobaarchitecture.com/configurateur.html in Chrome, 5) Force refresh and verify visually",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "Il y a un problème d'affichage sur la page landscaping.html, le texte déborde du conteneur sur mobile. Corrige ça.",
+      "expected_output": "Agent should: 1) Read landscaping.html to understand layout, 2) Fix the CSS overflow issue, 3) Commit and push to master, 4) Open the page in Chrome, 5) Force refresh and verify the fix visually",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Crée un script Python qui analyse un fichier CSV de ventes et génère un graphique matplotlib.",
+      "expected_output": "Agent should NOT follow the cortoba workflow (no push to master, no Chrome verification). This is unrelated to the platform.",
+      "files": []
+    }
+  ]
+}
