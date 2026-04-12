@@ -131,7 +131,7 @@ function listPaiementsClients() {
         FROM CA_paiements_clients pc
         LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = pc.client_id COLLATE utf8mb4_unicode_ci
-        LEFT JOIN CA_projets p ON p.id = pc.projet_id
+        LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = pc.projet_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = pc.facture_id COLLATE utf8mb4_unicode_ci
         WHERE $where
         ORDER BY pc.date_paiement DESC, pc.cree_at DESC
@@ -645,7 +645,7 @@ function getRecuPaiementClient() {
         FROM CA_paiements_clients pc
         LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = pc.client_id COLLATE utf8mb4_unicode_ci
-        LEFT JOIN CA_projets p ON p.id = pc.projet_id
+        LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = pc.projet_id COLLATE utf8mb4_unicode_ci
         WHERE pc.id = ?
     ");
     $s->execute([$id]);
