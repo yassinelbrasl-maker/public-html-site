@@ -1861,14 +1861,50 @@
                   </div>
                 </div>
 
+                <!-- Bloc missions (multi-mission) -->
                 <div class="form-row">
-                  <label class="form-label">Mission</label>
-                  <div style="position:relative">
-                    <select id="pai-mission-sel" style="display:none" onchange="onPaiMissionSelChange()"></select>
-                    <input type="text" id="pai-mission-search" class="form-input" style="width:100%;padding-right:2.2rem" placeholder="🔍 Rechercher une mission…" autocomplete="off" disabled
-                           onfocus="showPaiMissionDropdown()" oninput="filterPaiMissionDropdown()" onblur="hidePaiMissionDropdown()" />
-                    <span id="pai-mission-clear" onclick="clearPaiMissionSearch()" style="display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1">&times;</span>
-                    <div id="pai-mission-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300"></div>
+                  <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+                    <span>Mission(s)</span>
+                    <button type="button" id="pai-add-mission-btn" class="btn btn-sm" onclick="addPaiMissionRow()" style="display:none;font-size:0.72rem;padding:0.2rem 0.6rem">+ Ajouter une autre mission</button>
+                  </label>
+                  <div id="pai-missions-container">
+                    <!-- Première ligne mission (toujours présente) -->
+                    <div class="pai-mission-row" data-index="0" style="position:relative;margin-bottom:0.4rem">
+                      <div style="display:flex;gap:0.4rem;align-items:center">
+                        <div style="flex:1;position:relative">
+                          <select id="pai-mission-sel" style="display:none" onchange="onPaiMissionSelChange()"></select>
+                          <input type="text" id="pai-mission-search" class="form-input" style="width:100%;padding-right:2.2rem" placeholder="🔍 Rechercher une mission…" autocomplete="off" disabled
+                                 onfocus="showPaiMissionDropdown()" oninput="filterPaiMissionDropdown()" onblur="hidePaiMissionDropdown()" />
+                          <span id="pai-mission-clear" onclick="clearPaiMissionSearch()" style="display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1">&times;</span>
+                          <div id="pai-mission-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Missions supplémentaires ajoutées dynamiquement -->
+                  <div id="pai-extra-missions"></div>
+                </div>
+
+                <!-- Montant restant (calculé automatiquement) -->
+                <div class="form-row" id="pai-reste-row" style="display:none">
+                  <label class="form-label">Montant restant dû</label>
+                  <div id="pai-reste-box" style="padding:0.6rem 0.8rem;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;font-size:0.88rem">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.3rem">
+                      <div>
+                        <span style="color:var(--text-3)">Total dû :</span>
+                        <strong id="pai-reste-total-du" style="color:var(--text-1)">—</strong>
+                        <span style="margin:0 0.3rem;color:var(--border)">|</span>
+                        <span style="color:var(--text-3)">Déjà payé :</span>
+                        <strong id="pai-reste-deja-paye" style="color:var(--green)">—</strong>
+                      </div>
+                      <div>
+                        <span style="color:var(--text-3)">Reste :</span>
+                        <strong id="pai-reste-val" style="color:var(--orange);font-size:1.05rem">—</strong>
+                        <a href="#" id="pai-reste-fill" onclick="event.preventDefault();fillPaiMontantFromReste()" style="display:none;margin-left:0.4rem;color:var(--accent);text-decoration:underline;font-size:0.72rem">utiliser</a>
+                      </div>
+                    </div>
+                    <!-- Détail par mission si multi-mission -->
+                    <div id="pai-reste-missions-detail" style="display:none;margin-top:0.4rem;padding-top:0.4rem;border-top:1px dashed var(--border);font-size:0.78rem"></div>
                   </div>
                 </div>
 
