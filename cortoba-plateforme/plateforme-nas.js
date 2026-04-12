@@ -3614,8 +3614,7 @@ function saveFacture(){
   var rasAmt   = Math.round(ttc*rasTaux/100*1000)/1000;
   var netPayer = Math.round((ttc-rasAmt)*1000)/1000;
 
-  var projet = document.getElementById('fa-projet');
-  var proj   = getProjets().find(function(p){return p.id===(projet?projet.value:'');});
+  var proj   = getProjets().find(function(p){return p.id===(_faProjetId||'');});
 
   var body = {
     numero: num,
