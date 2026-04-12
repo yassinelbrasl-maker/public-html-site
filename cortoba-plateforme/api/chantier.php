@@ -519,6 +519,11 @@ function listLots() {
 function createLot($user) {
     $b = getBody();
     $db = getDB();
+    // Check for duplicate lot name in same chantier
+    $dup = $db->prepare("SELECT id FROM CA_chantier_lots WHERE chantier_id=? AND nom=?");
+    $dup->execute([$b['chantier_id']??'', $b['nom']??'']);
+    if ($dup->fetch()) { jsonError('Attention : lot déjà existant', 409); return; }
+
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_chantier_lots (id, chantier_id, code, nom, entreprise, montant_marche, date_debut, date_fin_prevue, ordre, couleur)
                   VALUES (?,?,?,?,?,?,?,?,?,?)")
