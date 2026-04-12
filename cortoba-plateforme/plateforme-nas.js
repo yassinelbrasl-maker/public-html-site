@@ -3755,11 +3755,15 @@ function _fillEditFacture(f, lignes, id){
     el = document.getElementById('fa-client-mf');     if(el) el.value = f.client_mf||f.clientMF||'';
     el = document.getElementById('fa-objet');         if(el) el.value = f.objet||'';
 
-    // Projet lié
-    var projSel = document.getElementById('fa-projet');
-    if(projSel){
-      var pid = f.projet_id||f.projetId||'';
-      Array.from(projSel.options).forEach(function(o){ if(o.value===pid) o.selected=true; });
+    // Projet lié (searchable dropdown)
+    var pid = f.projet_id||f.projetId||'';
+    if(pid) {
+      selectFaProjet(pid);
+    }
+    // Mission phase
+    var mp = f.mission_phase||f.missionPhase||'';
+    if(mp) {
+      selectFaMission(mp);
     }
 
     // ── Onglet Prestations — recharger les lignes ──
