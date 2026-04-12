@@ -456,12 +456,19 @@ function openEnregistrerPaiement(prefillProjetId) {
   // Reset projet/mission
   _paiProjetId = '';
   _paiMissionNom = '';
+  _paiExtraMissions = [];
+  _paiExtraMissionCounter = 0;
   var pSel = document.getElementById('pai-projet-sel'); if (pSel) pSel.value = '';
   var pSearch = document.getElementById('pai-projet-search'); if (pSearch) pSearch.value = '';
   var pClear = document.getElementById('pai-projet-clear'); if (pClear) pClear.style.display = 'none';
   var mSel = document.getElementById('pai-mission-sel'); if (mSel) mSel.value = '';
   var mSearch = document.getElementById('pai-mission-search'); if (mSearch) { mSearch.value = ''; mSearch.disabled = true; mSearch.placeholder = '— Sélectionnez d\'abord un projet —'; }
   var mClear = document.getElementById('pai-mission-clear'); if (mClear) mClear.style.display = 'none';
+  // Reset extra missions
+  var extraEl = document.getElementById('pai-extra-missions'); if (extraEl) extraEl.innerHTML = '';
+  var addBtn = document.getElementById('pai-add-mission-btn'); if (addBtn) addBtn.style.display = 'none';
+  // Reset montant restant
+  var resteRow = document.getElementById('pai-reste-row'); if (resteRow) resteRow.style.display = 'none';
 
   // Reset history panel
   document.getElementById('pai-hist-context').textContent = 'Sélectionnez un projet pour afficher l\'historique.';
