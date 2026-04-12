@@ -15827,6 +15827,11 @@ function editChantier(id) {
   document.getElementById('ch-budget').value = ch.budget_travaux || '';
   document.getElementById('ch-statut').value = ch.statut || 'En préparation';
   document.getElementById('ch-description').value = ch.description || '';
+  // Populate lot depart/fin dropdowns then set values
+  _populateLotDepartFinSelects().then(function() {
+    var ld = document.getElementById('ch-lot-depart'); if (ld) ld.value = ch.lot_depart || '';
+    var lf = document.getElementById('ch-lot-fin'); if (lf) lf.value = ch.lot_fin || '';
+  });
   document.getElementById('modal-chantier-title').textContent = 'Modifier le chantier';
   openModal('modal-chantier');
 }
