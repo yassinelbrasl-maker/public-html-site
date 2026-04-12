@@ -15930,7 +15930,9 @@ function saveLot() {
     showToast('Lot enregistré', 'success');
     closeModal('modal-ch-lot');
     chantierSelected();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+  }).catch(function(e) {
+    showToast(e.message || 'Erreur', e.message && e.message.indexOf('existant') !== -1 ? 'warning' : 'error');
+  });
 }
 
 // ── Save tâche chantier ──
