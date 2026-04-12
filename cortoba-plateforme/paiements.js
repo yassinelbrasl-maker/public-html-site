@@ -724,6 +724,7 @@ function loadPaiementHistoryForProjet(projetId) {
     _paiProjetData = data;
     // Mettre à jour la zone "reste à payer" avec les données du projet (+ mission si sélectionnée)
     updatePaiResteHint(data);
+    updatePaiResteBox();
 
     if (!rows.length) {
       listEl.innerHTML = '<div style="font-size:0.78rem;color:var(--text-3);padding:0.6rem 0;text-align:center">Aucun paiement enregistré pour ce projet</div>';
