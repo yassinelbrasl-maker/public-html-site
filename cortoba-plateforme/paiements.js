@@ -1678,6 +1678,7 @@ window.renderPaiementsClientsPage = renderPaiementsClientsPage;
 window.openPaiementClientModal = openPaiementClientModal;
 window.onPcDevisChange = onPcDevisChange;
 window.savePaiementClient = savePaiementClient;
+window.onPaiDevisChange = onPaiDevisChange;
 window.filterPaiementsClients = filterPaiementsClients;
 window.genererFactureUI = genererFactureUI;
 window.genRecuPaiementClientPDF = genRecuPaiementClientPDF;
