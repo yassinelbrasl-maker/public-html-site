@@ -3110,23 +3110,110 @@ document.addEventListener('click',function(e){
 //  FACTURATION — version complète loi tunisienne 2026
 // ══════════════════════════════════════════════════════════
 
+// ── Facture : Searchable Projet dropdown ──
+
+var _faProjetDropOpen = false;
+var _faProjetId = '';
+var _faMissionValue = '';
+
 function populateProjetSelect(){
-  var sel=document.getElementById('fa-projet'); if(!sel) return;
-  var p=getProjets();
-  sel.innerHTML='<option value="">— Sélectionner un projet —</option>'+
-    p.map(function(x){return'<option value="'+x.id+'" data-nom="'+x.nom+'" data-client="'+x.client+'">'+x.nom+'</option>';}).join('');
   // Remplir la datalist client (autocomplete)
   var dl = document.getElementById('fa-client-list');
   if (dl) dl.innerHTML = getClients().map(function(c){
     var nom = c.displayNom||c.display_nom||c.nom||c.raison||'';
     return '<option value="'+nom+'">';
   }).join('');
+  // Reset search
+  _faProjetId = '';
+  var search = document.getElementById('fa-projet-search'); if (search) search.value = '';
+  var clear = document.getElementById('fa-projet-clear'); if (clear) clear.style.display = 'none';
+  var sel = document.getElementById('fa-projet'); if (sel) sel.value = '';
+}
+
+function _buildFaProjetItems() {
+  var projets = getProjets();
+  return projets.map(function(p) {
+    var code = p.code || '';
+    var nom = p.nom || '';
+    var client = p.client || '';
+    var label = (code ? code + ' — ' : '') + nom;
+    var searchText = (label + ' ' + client).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return { id: p.id, label: label, client: client, search: searchText };
+  });
+}
+
+function openFaProjetDropdown() {
+  _faProjetDropOpen = true;
+  filterFaProjetDropdown();
+}
+
+function filterFaProjetDropdown() {
+  var dd = document.getElementById('fa-projet-dropdown');
+  if (!dd) return;
+  var input = document.getElementById('fa-projet-search');
+  var q = ((input && input.value) || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var clearBtn = document.getElementById('fa-projet-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : (_faProjetId ? 'block' : 'none');
+
+  var items = _buildFaProjetItems();
+  var filtered = items.filter(function(it) { return !q || it.search.indexOf(q) !== -1; });
+
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:0.7rem 1rem;color:var(--text-3);font-size:0.8rem">Aucun projet trouvé</div>';
+  } else {
+    dd.innerHTML = filtered.map(function(it) {
+      var isCurrent = (it.id === _faProjetId);
+      var clientHtml = it.client ? '<span style="font-size:0.72rem;color:var(--text-3);margin-left:0.4rem">' + it.client + '</span>' : '';
+      return '<div onmousedown="selectFaProjet(\'' + it.id + '\')"' +
+        ' style="padding:0.5rem 0.9rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '"' +
+        ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : '') + '\'">' +
+        '<span style="color:var(--text-1)">' + it.label + '</span>' + clientHtml + '</div>';
+    }).join('');
+  }
+  dd.style.display = 'block';
+}
+
+function hideFaProjetDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('fa-projet-dropdown');
+    if (dd) dd.style.display = 'none';
+    _faProjetDropOpen = false;
+  }, 200);
+}
+
+function selectFaProjet(projetId) {
+  _faProjetId = projetId || '';
+  var sel = document.getElementById('fa-projet'); if (sel) sel.value = _faProjetId;
+  var input = document.getElementById('fa-projet-search');
+  var clearBtn = document.getElementById('fa-projet-clear');
+  if (_faProjetId) {
+    var items = _buildFaProjetItems();
+    var found = items.filter(function(it) { return it.id === _faProjetId; })[0];
+    if (found && input) input.value = found.label;
+    if (clearBtn) clearBtn.style.display = 'block';
+  } else {
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+  var dd = document.getElementById('fa-projet-dropdown');
+  if (dd) dd.style.display = 'none';
+  _faProjetDropOpen = false;
+  prefillClientFromProjet();
+}
+
+function clearFaProjetSearch() {
+  selectFaProjet('');
+  var input = document.getElementById('fa-projet-search');
+  if (input) { input.value = ''; input.focus(); }
+  openFaProjetDropdown();
 }
 
 function prefillClientFromProjet(){
-  var sel = document.getElementById('fa-projet'); if(!sel||!sel.value) return;
-  var opt = sel.options[sel.selectedIndex];
-  var clientNom = opt.dataset.client||'';
+  if (!_faProjetId) return;
+  var projets = getProjets();
+  var p = projets.find(function(x){ return x.id === _faProjetId; });
+  if (!p) return;
+  var clientNom = p.client || '';
   var clientEl  = document.getElementById('fa-client');
   if (clientEl && clientNom) clientEl.value = clientNom;
   // Chercher adresse et MF du client
@@ -3139,6 +3226,153 @@ function prefillClientFromProjet(){
     var mfEl = document.getElementById('fa-client-mf');
     if (mfEl && c.matricule) mfEl.value = c.matricule;
   }
+}
+
+// ── Facture : Searchable Mission dropdown (getMissions()) ──
+
+var _faMissionDropOpen = false;
+
+function _buildFaMissionItems() {
+  var missions = typeof getMissions === 'function' ? getMissions() : [];
+  var cats = typeof getMissionCategories === 'function' ? getMissionCategories() : [];
+  var catMap = {};
+  cats.forEach(function(c) { catMap[c.id] = c.label; });
+
+  // Aussi inclure les missions affectées au projet sélectionné
+  var projetMissions = [];
+  if (_faProjetId) {
+    var projets = typeof getProjets === 'function' ? getProjets() : [];
+    var proj = projets.find(function(p) { return p.id === _faProjetId; });
+    if (proj) {
+      var raw;
+      try { raw = Array.isArray(proj.missions) ? proj.missions : (proj.missions ? JSON.parse(proj.missions) : []); }
+      catch(e) { raw = []; }
+      if (typeof window._normalizeProjetMissions === 'function') {
+        projetMissions = window._normalizeProjetMissions(raw);
+      } else {
+        projetMissions = Array.isArray(raw) ? raw.map(String) : [];
+      }
+    }
+  }
+
+  var items = [];
+  // Sections : missions du projet d'abord (si un projet est sélectionné), puis toutes les missions par catégorie
+  if (projetMissions.length > 0) {
+    items.push({ type: 'header', label: '📌 Missions du projet' });
+    projetMissions.forEach(function(nom) {
+      items.push({ type: 'item', nom: nom, search: nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), context: 'projet' });
+    });
+    items.push({ type: 'separator' });
+    items.push({ type: 'header', label: '📋 Toutes les missions' });
+  }
+
+  // Grouper par catégorie
+  var byCat = {};
+  missions.forEach(function(m) {
+    var c = m.cat || '?';
+    if (!byCat[c]) byCat[c] = [];
+    byCat[c].push(m);
+  });
+  cats.forEach(function(c) {
+    var group = byCat[c.id];
+    if (!group || !group.length) return;
+    items.push({ type: 'header', label: c.label });
+    group.forEach(function(m) {
+      var nom = m.nom || m.label || '';
+      items.push({ type: 'item', nom: nom, search: nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), context: 'catalogue' });
+    });
+  });
+
+  return items;
+}
+
+function openFaMissionDropdown() {
+  _faMissionDropOpen = true;
+  filterFaMissionDropdown();
+}
+
+function filterFaMissionDropdown() {
+  var dd = document.getElementById('fa-mission-dropdown');
+  if (!dd) return;
+  var input = document.getElementById('fa-mission-phase');
+  var q = ((input && input.value) || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // Si l'input contient la valeur sélectionnée exacte, ne pas filtrer (l'utilisateur n'a pas encore tapé)
+  var isExactMatch = _faMissionValue && input && input.value === _faMissionValue;
+  var searchQ = isExactMatch ? '' : q;
+
+  var items = _buildFaMissionItems();
+  var hasResults = false;
+
+  var html = '';
+  var lastHeaderVisible = false;
+  var pendingHeader = '';
+
+  items.forEach(function(it) {
+    if (it.type === 'header') {
+      pendingHeader = '<div style="padding:0.35rem 0.9rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);background:var(--bg-2);font-weight:700;border-bottom:1px solid var(--border)">' + it.label + '</div>';
+      lastHeaderVisible = false;
+      return;
+    }
+    if (it.type === 'separator') {
+      html += '<div style="height:1px;background:var(--border);margin:0.2rem 0"></div>';
+      return;
+    }
+    // Filter
+    if (searchQ && it.search.indexOf(searchQ) === -1) return;
+
+    // Show pending header
+    if (pendingHeader && !lastHeaderVisible) {
+      html += pendingHeader;
+      lastHeaderVisible = true;
+      pendingHeader = '';
+    }
+
+    hasResults = true;
+    var isCurrent = (_faMissionValue === it.nom);
+    var contextIcon = it.context === 'projet' ? '<span style="color:var(--accent);margin-right:0.3rem" title="Mission du projet">●</span>' : '';
+    var safe = it.nom.replace(/'/g, "\\'");
+    html += '<div onmousedown="selectFaMission(\'' + safe + '\')"' +
+      ' style="padding:0.45rem 0.9rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '"' +
+      ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : '') + '\'">' +
+      contextIcon + '<span style="color:var(--text-1)">' + it.nom + '</span></div>';
+  });
+
+  if (!hasResults) {
+    html = '<div style="padding:0.7rem 1rem;color:var(--text-3);font-size:0.8rem">Aucune mission trouvée</div>';
+  }
+  dd.innerHTML = html;
+  dd.style.display = 'block';
+}
+
+function hideFaMissionDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('fa-mission-dropdown');
+    if (dd) dd.style.display = 'none';
+    _faMissionDropOpen = false;
+    // Restaurer la valeur sélectionnée si l'utilisateur a quitté sans choisir
+    var input = document.getElementById('fa-mission-phase');
+    if (input && _faMissionValue && input.value !== _faMissionValue) {
+      input.value = _faMissionValue;
+    }
+  }, 200);
+}
+
+function selectFaMission(nom) {
+  _faMissionValue = nom || '';
+  var input = document.getElementById('fa-mission-phase');
+  var clearBtn = document.getElementById('fa-mission-clear');
+  if (input) input.value = _faMissionValue;
+  if (clearBtn) clearBtn.style.display = _faMissionValue ? 'block' : 'none';
+  var dd = document.getElementById('fa-mission-dropdown');
+  if (dd) dd.style.display = 'none';
+  _faMissionDropOpen = false;
+}
+
+function clearFaMission() {
+  selectFaMission('');
+  var input = document.getElementById('fa-mission-phase');
+  if (input) { input.value = ''; input.focus(); }
+  openFaMissionDropdown();
 }
 
 // Onglets facture
