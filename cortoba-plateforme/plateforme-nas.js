@@ -15785,7 +15785,10 @@ function addAllLotsToChantier(chantierId) {
   var cid = chantierId || _chCache.currentId;
   if (!cid) { showToast('Sélectionnez un chantier', 'warning'); return; }
   apiFetch('api/chantier.php?action=add_all_lots', { method: 'POST', body: { chantier_id: cid } }).then(function(r) {
-    showToast((r && r.data ? r.data.created : 16) + ' lots ajoutés avec phases de départ/fin', 'success');
+    var d = r && r.data ? r.data : {};
+    var msg = (d.created || 0) + ' lots ajoutés avec leurs phases';
+    if (d.skipped) msg += ' (' + d.skipped + ' doublons ignorés)';
+    showToast(msg, 'success');
     if (_chCache.currentId === cid) chantierSelected();
   }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
 }
