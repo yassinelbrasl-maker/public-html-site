@@ -2847,32 +2847,11 @@
           </div>
         </div>
 
-        <!-- ══ Parametres Chantier — Phases ══ -->
+        <!-- ══ Parametres Chantier — Lots de travaux (avec Phases expandables) ══ -->
         <div class="card" data-param-tab="chantier" style="margin-bottom:1.5rem">
-          <div class="card-title">Phases / Lots de travaux</div>
-          <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.8rem">
-            Phases organisées sous les lots de chaque chantier. Sélectionnez un chantier pour voir ses phases.
-          </div>
-          <div style="margin-bottom:1rem">
-            <label class="form-label" style="font-size:0.82rem">Filtrer par chantier</label>
-            <select id="param-phases-chantier" class="form-input" onchange="loadParamPhases()" style="max-width:400px">
-              <option value="">-- Toutes les phases (global) --</option>
-            </select>
-          </div>
-          <div id="param-phases-wrap">
-            <div style="color:var(--text-3);font-size:0.82rem">Chargement...</div>
-          </div>
-          <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center">
-            <input id="param-phase-nom" class="form-input" placeholder="Nom de la phase (ex: Gros oeuvre)" style="flex:1" />
-            <button class="btn btn-primary btn-sm" onclick="addParamPhase()">+ Ajouter</button>
-          </div>
-        </div>
-
-        <!-- ══ Parametres Chantier — Lots-modèles & Phases ══ -->
-        <div class="card" data-param-tab="chantier" style="margin-bottom:1.5rem">
-          <div class="card-title">Lots-modèles & Phases</div>
+          <div class="card-title">Lots de travaux</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1rem">
-            Définissez les lots-modèles avec leurs phases. Utilisez le bouton « Tous les lots du projet » dans un chantier pour les importer d'un seul coup.
+            Définissez les lots de travaux avec leurs phases. Cliquez sur un lot pour développer ses phases. Utilisez le bouton « Tous les lots du projet » dans un chantier pour les importer d'un seul coup.
           </div>
           <div id="param-lots-wrap">
             <div style="color:var(--text-3);font-size:0.82rem">Chargement...</div>
