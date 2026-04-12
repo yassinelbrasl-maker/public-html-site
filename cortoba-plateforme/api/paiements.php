@@ -544,8 +544,8 @@ function getRelanceLog() {
 
     $stmt = $db->prepare("SELECT r.*, f.numero AS facture_numero, c.display_nom AS client_nom
         FROM CA_relances r
-        LEFT JOIN CA_factures f ON f.id = r.facture_id
-        LEFT JOIN CA_clients c ON c.id = r.client_id
+        LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = r.facture_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = r.client_id COLLATE utf8mb4_unicode_ci
         WHERE $where
         ORDER BY r.date_envoi DESC
         LIMIT 200");
