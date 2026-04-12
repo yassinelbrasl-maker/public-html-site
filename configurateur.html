@@ -857,6 +857,12 @@
       .cfg-export-pdf:hover { background: rgba(200,169,110,0.07); border-color: var(--accent); }
 
       /* ── Step slide transition ── */
+      /* Accordion chevron rotation */
+      details.cfg-mission-cat-details summary::-webkit-details-marker { display:none; }
+      details.cfg-mission-cat-details summary::marker { display:none; content:''; }
+      details.cfg-mission-cat-details[open] .cfg-chevron { transform:rotate(180deg); }
+      details.cfg-mission-cat-details summary:hover { background:rgba(255,255,255,0.02); }
+
       .cfg-page { animation: cfgSlideIn 0.4s cubic-bezier(.22,.68,0,1.2) both; }
       @keyframes cfgSlideIn { from{opacity:0;transform:translateX(30px)} to{opacity:1;transform:translateX(0)} }
       .cfg-page.slide-back { animation: cfgSlideInBack 0.4s cubic-bezier(.22,.68,0,1.2) both; }
@@ -960,17 +966,19 @@
           <div class="cfg-steps" id="cfg-steps">
             <div class="cfg-step active" data-step="1"><span class="cfg-step-num">1</span><span class="cfg-step-lbl">Projet</span></div>
             <div class="cfg-step-line"></div>
-            <div class="cfg-step" data-step="2"><span class="cfg-step-num">2</span><span class="cfg-step-lbl">Fondations</span></div>
+            <div class="cfg-step" data-step="2"><span class="cfg-step-num">2</span><span class="cfg-step-lbl">Missions</span></div>
             <div class="cfg-step-line"></div>
-            <div class="cfg-step" data-step="3"><span class="cfg-step-num">3</span><span class="cfg-step-lbl">Identité</span></div>
+            <div class="cfg-step" data-step="3"><span class="cfg-step-num">3</span><span class="cfg-step-lbl">Fondations</span></div>
             <div class="cfg-step-line"></div>
-            <div class="cfg-step" data-step="4"><span class="cfg-step-num">4</span><span class="cfg-step-lbl">Programme</span></div>
+            <div class="cfg-step" data-step="4"><span class="cfg-step-num">4</span><span class="cfg-step-lbl">Identité</span></div>
             <div class="cfg-step-line"></div>
-            <div class="cfg-step" data-step="5"><span class="cfg-step-num">5</span><span class="cfg-step-lbl">Terrain</span></div>
+            <div class="cfg-step" data-step="5"><span class="cfg-step-num">5</span><span class="cfg-step-lbl">Programme</span></div>
+            <div class="cfg-step-line"></div>
+            <div class="cfg-step" data-step="6"><span class="cfg-step-num">6</span><span class="cfg-step-lbl">Terrain</span></div>
           </div>
           <!-- Progress bar -->
           <div class="cfg-progress-bar-wrap">
-            <div class="cfg-progress-bar" id="cfg-progress-bar" style="width:20%"></div>
+            <div class="cfg-progress-bar" id="cfg-progress-bar" style="width:16.7%"></div>
           </div>
         </div>
 
@@ -995,10 +1003,40 @@
             </div>
           </div>
 
-          <!-- ── ÉTAPE 2 : FONDATIONS (ex-étape 1) ── -->
+          <!-- ── ÉTAPE 2 : MISSIONS ── -->
           <div class="cfg-page" id="cfg-step-2">
             <div class="cfg-page-heading">
               <div class="cfg-step-big">02</div>
+              <h3 class="cfg-page-title">Vos missions</h3>
+              <p class="cfg-page-desc">Sélectionnez les prestations architecturales souhaitées pour votre projet.</p>
+            </div>
+
+            <!-- Barre de recherche -->
+            <div class="cfg-field" style="margin-bottom:1.5rem">
+              <div style="position:relative">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:1rem;top:50%;transform:translateY(-50%);opacity:.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="cfg-missions-search" placeholder="Rechercher votre mission..."
+                  style="width:100%;padding:0.9rem 1rem 0.9rem 2.8rem;background:var(--bg-card,#161616);border:1px solid rgba(255,255,255,0.08);color:var(--text,#e8e4dc);font-family:inherit;font-size:0.88rem;transition:border-color 0.3s"
+                  onfocus="this.style.borderColor='var(--accent,#c8a96e)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+                  oninput="cfgFilterMissions()" autocomplete="off">
+              </div>
+            </div>
+
+            <!-- Missions par catégorie en accordéons -->
+            <div id="cfg-missions-list" style="display:flex;flex-direction:column;gap:0.6rem">
+              <!-- Rempli dynamiquement par cfgRenderMissions() -->
+            </div>
+
+            <div class="cfg-nav">
+              <button class="cfg-btn-back" onclick="cfgGo(1)">← Retour</button>
+              <button class="cfg-btn-next" onclick="cfgGo(3)">Étape suivante →</button>
+            </div>
+          </div>
+
+          <!-- ── ÉTAPE 3 : FONDATIONS ── -->
+          <div class="cfg-page" id="cfg-step-3">
+            <div class="cfg-page-heading">
+              <div class="cfg-step-big">03</div>
               <h3 class="cfg-page-title">🛠️ Les fondations du projet</h3>
               <p class="cfg-page-desc">Définissez le type, la nature de l'opération et votre budget.</p>
             </div>
@@ -1114,15 +1152,15 @@
             </div>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-back" onclick="cfgGo(1)">← Retour</button>
-              <button class="cfg-btn-next" onclick="cfgGo(3)">Étape suivante →</button>
+              <button class="cfg-btn-back" onclick="cfgGo(2)">← Retour</button>
+              <button class="cfg-btn-next" onclick="cfgGo(4)">Étape suivante →</button>
             </div>
           </div>
 
-          <!-- ── ÉTAPE 3 : IDENTITÉ (ex-étape 2) ── -->
-          <div class="cfg-page" id="cfg-step-3">
+          <!-- ── ÉTAPE 4 : IDENTITÉ ── -->
+          <div class="cfg-page" id="cfg-step-4">
             <div class="cfg-page-heading">
-              <div class="cfg-step-big">03</div>
+              <div class="cfg-step-big">04</div>
               <h3 class="cfg-page-title">🎨 Identité visuelle & qualité</h3>
               <p class="cfg-page-desc">Projetez-vous dans l'esthétique et le confort de votre futur espace.</p>
             </div>
@@ -1258,15 +1296,15 @@
             <button class="cfg-standing-compare-toggle" onclick="cfgToggleStandingCompare()">▼ Voir le comparatif détaillé</button>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-back" onclick="cfgGo(2)">← Retour</button>
-              <button class="cfg-btn-next" onclick="cfgGo(4)">Étape suivante →</button>
+              <button class="cfg-btn-back" onclick="cfgGo(3)">← Retour</button>
+              <button class="cfg-btn-next" onclick="cfgGo(5)">Étape suivante →</button>
             </div>
           </div>
 
-          <!-- ── ÉTAPE 4 : PROGRAMME (ex-étape 3) ── -->
-          <div class="cfg-page" id="cfg-step-4">
+          <!-- ── ÉTAPE 5 : PROGRAMME ── -->
+          <div class="cfg-page" id="cfg-step-5">
             <div class="cfg-page-heading">
-              <div class="cfg-step-big">04</div>
+              <div class="cfg-step-big">05</div>
               <h3 class="cfg-page-title">📋 Le programme</h3>
               <p class="cfg-page-desc">Détaillez votre façon de vivre. Ces informations alimentent notre moteur de calcul.</p>
             </div>
@@ -1583,15 +1621,15 @@
             </div>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-back" onclick="cfgGo(3)">← Retour</button>
-              <button class="cfg-btn-next" onclick="cfgGo(5)">Étape suivante →</button>
+              <button class="cfg-btn-back" onclick="cfgGo(4)">← Retour</button>
+              <button class="cfg-btn-next" onclick="cfgGo(6)">Étape suivante →</button>
             </div>
           </div>
 
-          <!-- ── ÉTAPE 5 : TERRAIN (ex-étape 4) ── -->
-          <div class="cfg-page" id="cfg-step-5">
+          <!-- ── ÉTAPE 6 : TERRAIN ── -->
+          <div class="cfg-page" id="cfg-step-6">
             <div class="cfg-page-heading">
-              <div class="cfg-step-big">05</div>
+              <div class="cfg-step-big">06</div>
               <h3 class="cfg-page-title">📍 Localisation du terrain</h3>
               <p class="cfg-page-desc">Placez un repère sur votre terrain. Nous extrairons les coordonnées GPS pour adapter notre analyse au site.</p>
             </div>
@@ -1624,7 +1662,7 @@
             </div>
 
             <div class="cfg-nav">
-              <button class="cfg-btn-back" onclick="cfgGo(4)">← Retour</button>
+              <button class="cfg-btn-back" onclick="cfgGo(5)">← Retour</button>
               <button class="cfg-btn-calc" onclick="cfgCalculate()">✦ &nbsp;Calculer mon estimation</button>
             </div>
           </div>
@@ -1724,7 +1762,7 @@
               <h4 class="cfg-cta-title">Prêt à <em>concrétiser</em> cette vision ?</h4>
               <p class="cfg-cta-text">Laissez-nous vos coordonnées pour recevoir un devis détaillé et gratuit de nos architectes.</p>
               <div style="display:flex;flex-wrap:wrap;gap:0.8rem;justify-content:center;margin-top:1rem">
-                <button class="cfg-btn-calc" onclick="cfgShowClientStep()">📩 &nbsp;Continuer → Vos coordonnées</button>
+                <button class="cfg-btn-calc" onclick="cfgShowClientStep()">📩 &nbsp;Demander un devis d'architecte</button>
                 <button class="cfg-export-pdf" onclick="cfgExportPDF()">📄 Télécharger l'estimation PDF</button>
               </div>
               <button class="cfg-btn-back" style="margin-top:1rem" onclick="cfgRestart()">↩ Recommencer</button>
@@ -1735,17 +1773,8 @@
           <div class="cfg-page" id="cfg-step-client">
             <div class="cfg-page-heading" style="text-align:center">
               <div class="cfg-step-big">📩</div>
-              <h3 class="cfg-page-title">Missions & Coordonnées</h3>
-              <p class="cfg-page-desc">Sélectionnez les missions souhaitées, puis laissez-nous vos coordonnées pour recevoir un devis détaillé.</p>
-            </div>
-
-            <!-- ── Sélection des missions ── -->
-            <div style="max-width:700px;margin:0 auto 2.5rem;padding:1.5rem;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02)">
-              <h4 style="font-size:1rem;font-weight:400;color:var(--text);margin:0 0 0.3rem">Quelles missions vous intéressent ?</h4>
-              <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 1.2rem">Cochez les prestations souhaitées. Notre équipe adaptera le devis en conséquence.</p>
-              <div id="cfg-missions-list" style="display:flex;flex-direction:column;gap:1rem">
-                <!-- Rempli dynamiquement par JS -->
-              </div>
+              <h3 class="cfg-page-title">Vos coordonnées</h3>
+              <p class="cfg-page-desc">Laissez-nous vos coordonnées pour recevoir un devis détaillé et gratuit de nos architectes.</p>
             </div>
 
             <div style="max-width:520px;margin:0 auto">
@@ -2254,15 +2283,16 @@
           if (sn < n) d.classList.add('done');
           if (sn === n) d.classList.add('active');
         });
-        // Progress bar (5 steps = 20% each)
-        const pct = Math.round((n / 5) * 100);
+        // Progress bar (6 steps = ~16.7% each)
+        const pct = Math.round((n / 6) * 100);
         const pb = document.getElementById('cfg-progress-bar');
         if (pb) pb.style.width = pct + '%';
 
         cfgCurrentStep = n;
         window.scrollTo({top:0, behavior:'smooth'});
-        if (n === 5) { setTimeout(cfgInitMap, 200); }
-        if (n === 4) { cfgUpdateProgramme(); }
+        if (n === 2) { cfgRenderMissions(); }
+        if (n === 6) { setTimeout(cfgInitMap, 200); }
+        if (n === 5) { cfgUpdateProgramme(); }
         cfgUpdateRecap();
       }
 
@@ -2276,11 +2306,11 @@
           var errEl2 = document.getElementById('cfg-nom-error');
           if (errEl2) errEl2.classList.remove('visible');
         }
-        if (step === 2) {
+        if (step === 3) {
           if (!cfgState.cfg_type) return 'Veuillez choisir un type de bâtiment pour continuer.';
           if (!cfgState.cfg_operation) return "Veuillez choisir la nature de l'opération.";
         }
-        if (step === 3) {
+        if (step === 4) {
           if (!cfgState.cfg_style)   return 'Veuillez choisir un style architectural.';
           if (!cfgState.cfg_standing) return 'Veuillez sélectionner un niveau de standing.';
         }
@@ -2527,24 +2557,58 @@
 
       function cfgRenderMissions() {
         var wrap = document.getElementById('cfg-missions-list'); if (!wrap) return;
+        if (!cfgMissions.length) { wrap.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);padding:1rem;text-align:center">Aucune mission configurée.</div>'; return; }
         var html = '';
         cfgMissionCats.forEach(function(cat) {
           var catMissions = cfgMissions.filter(function(m){ return m.cat === cat.id; });
           if (catMissions.length === 0) return;
-          html += '<div>';
-          html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">';
-          html += '<span style="font-size:0.72rem;font-weight:600;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase">' + cat.label + '</span>';
-          html += '<button type="button" onclick="cfgToggleMissionCat(\'' + cat.id + '\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:0.65rem;padding:0">tout cocher</button>';
+          html += '<details class="cfg-mission-cat-details" data-cat="' + cat.id + '" style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;background:var(--bg-card,#161616)">';
+          html += '<summary style="display:flex;align-items:center;justify-content:space-between;padding:0.85rem 1.2rem;cursor:pointer;user-select:none;list-style:none;-webkit-appearance:none">';
+          html += '<div style="display:flex;align-items:center;gap:0.6rem">';
+          html += '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.2s;flex-shrink:0" class="cfg-chevron"><polyline points="6 9 12 15 18 9"/></svg>';
+          html += '<span style="font-size:0.78rem;font-weight:600;color:var(--accent,#c8a96e);letter-spacing:0.08em;text-transform:uppercase">' + cat.label + '</span>';
           html += '</div>';
-          html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.3rem">';
+          html += '<div style="display:flex;align-items:center;gap:0.8rem">';
+          html += '<span class="cfg-cat-count" data-cat="' + cat.id + '" style="font-size:0.68rem;color:var(--text-muted,#999);min-width:20px;text-align:right">0/' + catMissions.length + '</span>';
+          html += '<button type="button" onclick="event.stopPropagation();cfgToggleMissionCat(\'' + cat.id + '\')" style="background:none;border:1px solid rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;color:var(--text-muted,#999);font-size:0.65rem;padding:0.2rem 0.5rem;font-family:inherit;transition:border-color 0.2s" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.1)\'">tout cocher</button>';
+          html += '</div></summary>';
+          html += '<div style="padding:0.4rem 1rem 1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.3rem">';
           catMissions.forEach(function(m) {
-            html += '<label style="display:flex;align-items:center;gap:0.45rem;padding:0.35rem 0.5rem;border-radius:6px;cursor:pointer;font-size:0.78rem;color:var(--text-muted);transition:background 0.2s;border:1px solid transparent" onmouseover="this.style.background=\'rgba(255,255,255,0.03)\'" onmouseout="this.style.background=\'none\'">';
-            html += '<input type="checkbox" class="cfg-mission-cb" data-mid="' + m.id + '" data-cat="' + m.cat + '" value="' + (m.nom||'').replace(/"/g,'&quot;') + '" style="accent-color:var(--accent)">';
+            var nomNorm = (m.nom||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+            html += '<label class="cfg-mission-item" data-nom="' + nomNorm + '" data-cat="' + m.cat + '" style="display:flex;align-items:center;gap:0.45rem;padding:0.4rem 0.55rem;border-radius:6px;cursor:pointer;font-size:0.78rem;color:var(--text-muted,#999);transition:all 0.2s;border:1px solid transparent" onmouseover="this.style.background=\'rgba(255,255,255,0.03)\'" onmouseout="this.style.background=\'none\'">';
+            html += '<input type="checkbox" class="cfg-mission-cb" data-mid="' + m.id + '" data-cat="' + m.cat + '" value="' + (m.nom||'').replace(/"/g,'&quot;') + '" style="accent-color:var(--accent,#c8a96e)" onchange="cfgUpdateMissionCount(\'' + m.cat + '\')">';
             html += '<span>' + (m.nom||'') + '</span></label>';
           });
-          html += '</div></div>';
+          html += '</div></details>';
         });
+        // Orphan missions (no category)
+        var orphans = cfgMissions.filter(function(m){ return !m.cat || !cfgMissionCats.find(function(c){ return c.id === m.cat; }); });
+        if (orphans.length) {
+          html += '<details class="cfg-mission-cat-details" data-cat="_other" open style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;background:var(--bg-card,#161616)">';
+          html += '<summary style="display:flex;align-items:center;gap:0.6rem;padding:0.85rem 1.2rem;cursor:pointer;user-select:none;list-style:none;-webkit-appearance:none">';
+          html += '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.2s;flex-shrink:0" class="cfg-chevron"><polyline points="6 9 12 15 18 9"/></svg>';
+          html += '<span style="font-size:0.78rem;font-weight:600;color:var(--text-muted,#999);letter-spacing:0.08em;text-transform:uppercase">Autres</span>';
+          html += '</summary>';
+          html += '<div style="padding:0.4rem 1rem 1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.3rem">';
+          orphans.forEach(function(m) {
+            var nomNorm = (m.nom||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+            html += '<label class="cfg-mission-item" data-nom="' + nomNorm + '" data-cat="_other" style="display:flex;align-items:center;gap:0.45rem;padding:0.4rem 0.55rem;border-radius:6px;cursor:pointer;font-size:0.78rem;color:var(--text-muted,#999);transition:all 0.2s;border:1px solid transparent">';
+            html += '<input type="checkbox" class="cfg-mission-cb" data-mid="' + m.id + '" data-cat="_other" value="' + (m.nom||'').replace(/"/g,'&quot;') + '" style="accent-color:var(--accent,#c8a96e)">';
+            html += '<span>' + (m.nom||'') + '</span></label>';
+          });
+          html += '</div></details>';
+        }
         wrap.innerHTML = html;
+      }
+
+      function cfgUpdateMissionCount(catId) {
+        var all = document.querySelectorAll('.cfg-mission-cb[data-cat="' + catId + '"]');
+        var checked = document.querySelectorAll('.cfg-mission-cb[data-cat="' + catId + '"]:checked');
+        var countEl = document.querySelector('.cfg-cat-count[data-cat="' + catId + '"]');
+        if (countEl) {
+          countEl.textContent = checked.length + '/' + all.length;
+          countEl.style.color = checked.length > 0 ? 'var(--accent,#c8a96e)' : 'var(--text-muted,#999)';
+        }
       }
 
       function cfgToggleMissionCat(catId) {
@@ -2552,6 +2616,26 @@
         var allChecked = true;
         cbs.forEach(function(cb){ if (!cb.checked) allChecked = false; });
         cbs.forEach(function(cb){ cb.checked = !allChecked; });
+        cfgUpdateMissionCount(catId);
+      }
+
+      function cfgFilterMissions() {
+        var input = document.getElementById('cfg-missions-search');
+        var q = (input ? input.value : '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        var items = document.querySelectorAll('.cfg-mission-item');
+        var catVisible = {};
+        items.forEach(function(item) {
+          var nom = item.getAttribute('data-nom') || '';
+          var show = !q || nom.indexOf(q) !== -1;
+          item.style.display = show ? '' : 'none';
+          if (show) catVisible[item.getAttribute('data-cat') || '_other'] = true;
+        });
+        document.querySelectorAll('.cfg-mission-cat-details').forEach(function(det) {
+          var cat = det.getAttribute('data-cat') || '';
+          if (!q) { det.style.display = ''; return; }
+          if (catVisible[cat]) { det.style.display = ''; det.open = true; }
+          else { det.style.display = 'none'; }
+        });
       }
 
       function cfgGetSelectedMissions() {
@@ -3278,7 +3362,7 @@
           if(parseInt(d.dataset.step)===1) d.classList.add('active');
         });
         var pb = document.getElementById('cfg-progress-bar');
-        if (pb) pb.style.width = '20%';
+        if (pb) pb.style.width = '16.7%';
         // Reset form fields
         ['cfg_nom_projet','cfg-f-prenom','cfg-f-nom','cfg-f-tel','cfg-f-whatsapp','cfg-f-email'].forEach(function(id){
           var el = document.getElementById(id); if(el){el.value='';el.disabled=false;el.style.opacity='1';}
