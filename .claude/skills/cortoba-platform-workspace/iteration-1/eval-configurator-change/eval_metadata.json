@@ -2,5 +2,30 @@
   "eval_id": 0,
   "eval_name": "configurator-button-color",
   "prompt": "Change la couleur du bouton principal du configurateur en rouge. Le bouton 'Commencer' sur configurateur.html doit passer de doré à rouge.",
-  "assertions": []
+  "assertions": [
+    {
+      "id": "mentions-master-push",
+      "text": "Plan includes committing and pushing to the master branch",
+      "type": "includes_keyword",
+      "keywords": ["master", "push"]
+    },
+    {
+      "id": "mentions-chrome-verify",
+      "text": "Plan includes opening the page in Chrome to verify visually",
+      "type": "includes_keyword",
+      "keywords": ["chrome", "verify", "browser"]
+    },
+    {
+      "id": "mentions-force-refresh",
+      "text": "Plan includes force-refreshing or hard-reloading the page",
+      "type": "includes_keyword",
+      "keywords": ["refresh", "reload", "cache"]
+    },
+    {
+      "id": "reads-source-first",
+      "text": "Plan starts by reading the source file before making changes",
+      "type": "semantic",
+      "description": "The plan should read configurateur.html before editing"
+    }
+  ]
 }
