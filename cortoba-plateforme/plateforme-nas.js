@@ -3635,7 +3635,9 @@ function saveFacture(){
     rib: (document.getElementById('fa-rib').value||'').trim(),
     refElfatoora: (document.getElementById('fa-ref-elfatoora').value||'').trim(),
     signatureElec: (document.getElementById('fa-signature-elec').value||'').trim(),
-    montantLettres: montantEnLettres(ttc)
+    montantLettres: montantEnLettres(ttc),
+    missionPhase: _faMissionValue||'',
+    mission_phase: _faMissionValue||''
   };
 
   // Tentative sauvegarde API — fallback localStorage si erreur serveur
