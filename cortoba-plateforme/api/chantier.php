@@ -808,20 +808,8 @@ function deleteTacheChantier($id) {
 
 function listPhases() {
     $db = getDB();
-    $lotId = $_GET['lot_id'] ?? '';
-    $chantierId = $_GET['chantier_id'] ?? '';
-
-    if ($lotId) {
-        $stmt = $db->prepare("SELECT * FROM CA_chantier_phases WHERE lot_id=? ORDER BY ordre ASC, nom ASC");
-        $stmt->execute([$lotId]);
-    } elseif ($chantierId) {
-        $stmt = $db->prepare("SELECT * FROM CA_chantier_phases WHERE chantier_id=? ORDER BY ordre ASC, nom ASC");
-        $stmt->execute([$chantierId]);
-    } else {
-        // Global phases (paramètres) — those with NULL lot_id and NULL chantier_id
-        $stmt = $db->query("SELECT * FROM CA_chantier_phases ORDER BY ordre ASC, nom ASC");
-    }
-    jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $rows = $db->query("SELECT * FROM CA_chantier_phases ORDER BY ordre ASC, nom ASC")->fetchAll(PDO::FETCH_ASSOC);
+    jsonOk($rows);
 }
 
 function createPhase($user) {
@@ -829,8 +817,8 @@ function createPhase($user) {
     $db = getDB();
     $id = bin2hex(random_bytes(16));
     $maxOrd = $db->query("SELECT COALESCE(MAX(ordre),0)+1 FROM CA_chantier_phases")->fetchColumn();
-    $db->prepare("INSERT INTO CA_chantier_phases (id, lot_id, chantier_id, nom, ordre, actif, avancement) VALUES (?,?,?,?,?,?,?)")
-       ->execute([$id, $b['lot_id']??null, $b['chantier_id']??null, $b['nom']??'', $maxOrd, $b['actif']??1, $b['avancement']??0]);
+    $db->prepare("INSERT INTO CA_chantier_phases (id, nom, ordre, actif) VALUES (?,?,?,?)")
+       ->execute([$id, $b['nom']??'', $maxOrd, $b['actif']??1]);
     jsonOk(['id' => $id]);
 }
 
