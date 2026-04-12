@@ -1,0 +1,22 @@
+{
+  "eval_id": 2,
+  "eval_name": "unrelated-python-script",
+  "configuration": "without_skill",
+  "expectations": [
+    {
+      "text": "Plan does NOT include pushing to master",
+      "passed": true,
+      "evidence": "No mention of git push, master branch, or deployment anywhere in the plan"
+    },
+    {
+      "text": "Plan does NOT include Chrome verification",
+      "passed": true,
+      "evidence": "No mention of Chrome or cortobaarchitecture.com anywhere in the plan"
+    },
+    {
+      "text": "The cortoba deployment workflow is NOT applied to this unrelated task",
+      "passed": true,
+      "evidence": "N/A — no skill was loaded, so no cortoba workflow was applied"
+    }
+  ]
+}
