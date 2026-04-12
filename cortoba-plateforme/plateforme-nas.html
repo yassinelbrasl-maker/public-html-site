@@ -1943,6 +1943,24 @@
                     </select>
                   </div>
                 </div>
+                <div class="form-row" style="display:flex;gap:1rem">
+                  <div style="flex:1">
+                    <label class="form-label">Type de paiement</label>
+                    <select id="pai-type" class="form-input">
+                      <option value="">— Auto —</option>
+                      <option value="avance">Avance</option>
+                      <option value="tranche">Tranche</option>
+                      <option value="solde">Solde</option>
+                      <option value="total">Paiement total</option>
+                    </select>
+                  </div>
+                  <div style="flex:1;display:flex;align-items:flex-end;padding-bottom:0.35rem">
+                    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;cursor:pointer;margin:0">
+                      <input type="checkbox" id="pai-recu" checked>
+                      Générer un reçu
+                    </label>
+                  </div>
+                </div>
                 <div class="form-row">
                   <label class="form-label">Référence (n° chèque, réf. virement...)</label>
                   <input type="text" id="pai-reference" class="form-input">
