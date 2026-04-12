@@ -734,6 +734,8 @@ function loadPaiementHistoryForProjet(projetId) {
 
 // ── Affiche / met à jour la zone "Reste à payer" sous le champ Montant ──
 //    + Auto-prefill si l'utilisateur n'a pas saisi de montant
+//    Si une mission est sélectionnée ET que des honoraires existent, on affiche
+//    le coût de la mission + le reste à payer spécifique à cette mission.
 function updatePaiResteHint(data) {
   var hintEl = document.getElementById('pai-reste-hint');
   if (!hintEl) return;
@@ -743,24 +745,57 @@ function updatePaiResteHint(data) {
   var totalPaye  = parseFloat(data.total_paye || 0);
   var reste      = parseFloat(data.reste_projet || 0);
   var nbDevis    = parseInt(data.nb_devis_valides || 0);
+  var missions   = data.missions_honoraires || [];
 
-  if (nbDevis === 0 && totalDevis === 0) {
+  // Recherche d'une mission sélectionnée dans les honoraires
+  var missionData = null;
+  if (_paiMissionNom && missions.length > 0) {
+    var mLower = _paiMissionNom.toLowerCase();
+    missionData = missions.find(function(m) {
+      return (m.label || '').toLowerCase() === mLower || (m.phase || '').toLowerCase() === mLower;
+    }) || null;
+  }
+
+  if (nbDevis === 0 && totalDevis === 0 && (!missionData || !missionData.montant_prevu)) {
     hintEl.style.display = 'block';
     hintEl.innerHTML = '<span style="color:var(--text-3)">Aucun devis validé pour ce projet — saisir le montant manuellement.</span>';
     return;
   }
 
-  var fill = ' <a href="#" onclick="event.preventDefault();var el=document.getElementById(\'pai-montant\');el.value=' + reste.toFixed(2) + ';el.focus();" style="color:var(--accent);text-decoration:underline">utiliser</a>';
   hintEl.style.display = 'block';
-  hintEl.innerHTML =
-    '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
-      '<span style="color:var(--text-3)">Devis validés : <strong style="color:var(--text-2)">' + fmtMontant(totalDevis) + '</strong> · Payé : <strong style="color:var(--green)">' + fmtMontant(totalPaye) + '</strong></span>' +
-      '<span>Reste à payer : <strong style="color:var(--orange)">' + fmtMontant(reste) + '</strong>' + (reste > 0 ? fill : '') + '</span>' +
-    '</div>';
+  var html = '';
 
-  // Auto-prefill si vide
-  var mEl = document.getElementById('pai-montant');
-  if (mEl && !mEl.value && reste > 0) mEl.value = reste.toFixed(2);
+  // Ligne 1 : niveau PROJET
+  var fillProjet = reste > 0 ? ' <a href="#" onclick="event.preventDefault();var el=document.getElementById(\'pai-montant\');el.value=' + reste.toFixed(2) + ';el.focus();" style="color:var(--accent);text-decoration:underline;font-size:0.7rem">utiliser</a>' : '';
+  html += '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
+    '<span style="color:var(--text-3)">Projet — Devis validés : <strong style="color:var(--text-2)">' + fmtMontant(totalDevis) + '</strong> · Payé : <strong style="color:var(--green)">' + fmtMontant(totalPaye) + '</strong></span>' +
+    '<span>Reste : <strong style="color:var(--orange)">' + fmtMontant(reste) + '</strong>' + fillProjet + '</span>' +
+  '</div>';
+
+  // Ligne 2 : niveau MISSION si sélectionnée et données disponibles
+  if (missionData && missionData.montant_prevu > 0) {
+    var mPrevu = parseFloat(missionData.montant_prevu || 0);
+    var mPaye  = parseFloat(missionData.montant_paye || 0);
+    var mReste = parseFloat(missionData.reste || 0);
+    var fillMission = mReste > 0 ? ' <a href="#" onclick="event.preventDefault();var el=document.getElementById(\'pai-montant\');el.value=' + mReste.toFixed(2) + ';el.focus();" style="color:var(--accent);text-decoration:underline;font-size:0.7rem">utiliser</a>' : '';
+    html += '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;margin-top:0.3rem;padding-top:0.3rem;border-top:1px dashed var(--border)">' +
+      '<span style="color:var(--text-3)">Mission <strong style="color:var(--text-2)">' + esc(_paiMissionNom) + '</strong> : <strong style="color:var(--text-2)">' + fmtMontant(mPrevu) + '</strong> · Payé : <strong style="color:var(--green)">' + fmtMontant(mPaye) + '</strong></span>' +
+      '<span>Reste : <strong style="color:' + (mReste > 0 ? 'var(--orange)' : 'var(--green)') + '">' + fmtMontant(mReste) + '</strong>' + fillMission + '</span>' +
+    '</div>';
+    // Auto-prefill avec le reste de la mission
+    var mEl = document.getElementById('pai-montant');
+    if (mEl && !mEl.value && mReste > 0) mEl.value = mReste.toFixed(2);
+  } else if (_paiMissionNom && missions.length > 0 && !missionData) {
+    html += '<div style="margin-top:0.3rem;padding-top:0.3rem;border-top:1px dashed var(--border);color:var(--text-3)">' +
+      'Mission <strong>' + esc(_paiMissionNom) + '</strong> — pas de coût configuré dans les honoraires. Saisir le montant manuellement.' +
+    '</div>';
+  } else if (!_paiMissionNom) {
+    // Auto-prefill avec le reste du projet si pas de mission sélectionnée
+    var mEl2 = document.getElementById('pai-montant');
+    if (mEl2 && !mEl2.value && reste > 0) mEl2.value = reste.toFixed(2);
+  }
+
+  hintEl.innerHTML = html;
 }
 
 function openPaiementForFacture(factureId, reste) {
