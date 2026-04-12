@@ -151,7 +151,7 @@ function getPaiementsByDevis() {
     // Devis info
     $s = $db->prepare("SELECT d.*, c.display_nom AS client_nom, c.email AS client_email, p.nom AS projet_nom
         FROM CA_devis d
-        LEFT JOIN CA_clients c ON c.id = d.client_id
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = d.client_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_projets p ON p.id = d.projet_id
         WHERE d.id = ?");
     $s->execute([$devisId]);
@@ -607,7 +607,7 @@ function getPaiementsSummary() {
             (SELECT COUNT(*) FROM CA_paiements_clients pc WHERE pc.devis_id = d.id) AS nb_tranches,
             (SELECT MAX(date_paiement) FROM CA_paiements_clients pc WHERE pc.devis_id = d.id) AS dernier_paiement
         FROM CA_devis d
-        LEFT JOIN CA_clients c ON c.id = d.client_id
+        LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = d.client_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_projets p ON p.id = d.projet_id
         WHERE d.statut NOT IN ('Rejeté','Expiré')
         ORDER BY
