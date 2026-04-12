@@ -17938,7 +17938,11 @@ function ncApplyAll() {
     }
   };
 
-  rows.forEach(function(r) {
+  // Traiter les actions une par une (séquentiellement)
+  // car les renames passent par le popup bridge (une seule popup à la fois)
+  function processNext(i) {
+    if (i >= rows.length) { finish(); return; }
+    var r = rows[i];
     if (r.type === 'missing_nas') {
       apiFetch('api/nas-mkdir.php', {
         method: 'POST',
@@ -17949,27 +17953,80 @@ function ncApplyAll() {
           r.type = 'ok';
           r.nasFolder = r.expected;
         } else { errors++; }
-        finish();
-      }).catch(function() { done++; errors++; finish(); });
+        finish(); processNext(i + 1);
+      }).catch(function() { done++; errors++; finish(); processNext(i + 1); });
     } else if (r.type === 'mismatch') {
-      // Renommer NAS ← Plat. (équivalent au bouton individuel)
       var newName = r.expected;
-      if (!newName || newName === r.nasFolder) { done++; finish(); return; }
-      apiFetch('api/nas-rename.php', {
-        method: 'POST',
-        body: { annee: r.annee, oldName: r.nasFolder, newName: newName }
-      }).then(function(res) {
+      if (!newName || newName === r.nasFolder) { done++; finish(); processNext(i + 1); return; }
+      _ncApplyRename(r, newName, function(ok) {
         done++;
-        if (res.data && res.data.renamed) {
-          r.nasFolder = newName;
-          r.type = 'ok';
-        } else { errors++; }
-        finish();
-      }).catch(function() { done++; errors++; finish(); });
+        if (ok) { r.nasFolder = newName; r.type = 'ok'; } else { errors++; }
+        finish(); processNext(i + 1);
+      });
     } else {
-      done++; finish();
+      done++; finish(); processNext(i + 1);
     }
+  }
+  processNext(0);
+}
+
+// Tenter le rename via API puis fallback bridge, callback(ok)
+function _ncApplyRename(r, newName, callback) {
+  apiFetch('api/nas-rename.php', {
+    method: 'POST',
+    body: { annee: r.annee, oldName: r.nasFolder, newName: newName }
+  }).then(function(res) {
+    if (res.data && res.data.renamed) {
+      callback(true);
+    } else {
+      _ncApplyRenameViaBridge(r, newName, callback);
+    }
+  }).catch(function() {
+    _ncApplyRenameViaBridge(r, newName, callback);
   });
+}
+
+// Rename via popup bridge (pour les actions groupées)
+function _ncApplyRenameViaBridge(r, newName, callback) {
+  var cfg = (typeof getNasConfig === 'function') ? getNasConfig() : {};
+  var ip = cfg.local || '192.168.1.165';
+  var port = cfg.webdavPort || '5005';
+  var user = cfg.user || 'CASNAS';
+  var pass = cfg.pass || 'Cortoba2026';
+  var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
+  if (rootPath.charAt(0) !== '/') rootPath = '/' + rootPath;
+
+  var oldPath = rootPath + '/' + r.annee + '/' + r.nasFolder;
+  var newPath = rootPath + '/' + r.annee + '/' + newName;
+
+  var called = false;
+  var messageHandler = function(evt) {
+    if (!evt.data || evt.data.type !== 'nas-rename-result' || called) return;
+    called = true;
+    window.removeEventListener('message', messageHandler);
+    callback(evt.data.data && evt.data.data.success);
+  };
+  window.addEventListener('message', messageHandler);
+
+  var hash = 'mode=rename' +
+    '&ip=' + encodeURIComponent(ip) +
+    '&port=' + encodeURIComponent(port) +
+    '&user=' + encodeURIComponent(user) +
+    '&pass=' + encodeURIComponent(pass) +
+    '&root=' + encodeURIComponent(rootPath) +
+    '&oldPath=' + encodeURIComponent(oldPath) +
+    '&newPath=' + encodeURIComponent(newPath);
+
+  var bridgeUrl = 'http://' + ip + ':' + port + '/Public/nas-tools/nas-conformite-bridge.html#' + hash;
+  var popup = window.open(bridgeUrl, 'nas_rename', 'width=500,height=300,left=200,top=200');
+  if (!popup) {
+    window.removeEventListener('message', messageHandler);
+    callback(false);
+    return;
+  }
+  setTimeout(function() {
+    if (!called) { called = true; window.removeEventListener('message', messageHandler); callback(false); }
+  }, 30000);
 }
 
 // ═══════════════════════════════════════════════════════════════
