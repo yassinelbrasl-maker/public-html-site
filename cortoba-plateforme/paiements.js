@@ -681,6 +681,42 @@ function onPaiProjetSelChange() {
   if (sel) selectPaiProjet(sel.value);
 }
 
+// ── Devis dropdown change (modal paiement) ──
+
+function onPaiDevisChange() {
+  var sel = document.getElementById('pai-devis-sel');
+  var info = document.getElementById('pai-devis-info');
+  _paiDevisId = (sel && sel.value) ? sel.value : '';
+
+  if (!_paiDevisId) {
+    if (info) info.style.display = 'none';
+    return;
+  }
+
+  var d = null;
+  var devisList = (_pcCache && _pcCache.devis) ? _pcCache.devis : [];
+  for (var i = 0; i < devisList.length; i++) {
+    if (devisList[i].id === _paiDevisId) { d = devisList[i]; break; }
+  }
+  if (!d) { if (info) info.style.display = 'none'; return; }
+
+  var ttc = parseFloat(d.montant_ttc) || 0;
+  var paye = parseFloat(d.montant_paye) || 0;
+  var reste = ttc - paye;
+
+  document.getElementById('pai-devis-client').textContent = d.client_nom || d.client || '—';
+  document.getElementById('pai-devis-total').textContent = fmtMontant(ttc);
+  document.getElementById('pai-devis-paye').textContent = fmtMontant(paye);
+  var resteEl = document.getElementById('pai-devis-reste');
+  resteEl.textContent = fmtMontant(reste);
+  resteEl.style.color = reste > 0 ? 'var(--orange)' : 'var(--green)';
+  if (info) info.style.display = '';
+
+  // Pre-fill montant with remaining if empty
+  var mEl = document.getElementById('pai-montant');
+  if (mEl && !mEl.value && reste > 0) mEl.value = reste.toFixed(2);
+}
+
 // ── Searchable Mission dropdown (modal paiement) ──
 
 function _paiGetProjetMissions() {
