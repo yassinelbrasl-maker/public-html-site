@@ -491,14 +491,6 @@ function listLots() {
     $stmt = $db->prepare("SELECT * FROM CA_chantier_lots WHERE chantier_id=? ORDER BY ordre, cree_at");
     $stmt->execute([$cid]);
     $lots = $stmt->fetchAll(PDO::FETCH_ASSOC);
-<<<<<<< HEAD
-    // Attach phases for each lot
-    foreach ($lots as &$lot) {
-        $sp = $db->prepare("SELECT * FROM CA_chantier_lot_phases WHERE lot_id=? ORDER BY ordre, cree_at");
-        $sp->execute([$lot['id']]);
-        $lot['phases'] = $sp->fetchAll(PDO::FETCH_ASSOC);
-    }
-=======
 
     // Attach phases for each lot
     $phStmt = $db->prepare("SELECT * FROM CA_chantier_phases WHERE lot_id=? ORDER BY ordre ASC, nom ASC");
@@ -508,7 +500,6 @@ function listLots() {
     }
     unset($lot);
 
->>>>>>> claude/condescending-almeida
     jsonOk($lots);
 }
 
