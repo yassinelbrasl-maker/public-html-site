@@ -710,6 +710,7 @@ function loadPaiementHistoryForProjet(projetId) {
     totEl.style.display = 'none';
     _paiProjetData = null;
     updatePaiResteHint(null);
+    updatePaiResteBox();
     return;
   }
 
