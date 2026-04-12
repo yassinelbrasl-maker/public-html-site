@@ -452,12 +452,13 @@ var _paiProjetData = null; // données by_projet (total, reste, missions_honorai
 var _paiExtraMissions = []; // missions supplémentaires [{nom:'...'}]
 var _paiExtraMissionCounter = 0;
 
-function openEnregistrerPaiement(prefillProjetId) {
+function openEnregistrerPaiement(prefillProjetId, prefillDevisId) {
   // Reset projet/mission
   _paiProjetId = '';
   _paiMissionNom = '';
   _paiExtraMissions = [];
   _paiExtraMissionCounter = 0;
+  _paiDevisId = '';
   var pSel = document.getElementById('pai-projet-sel'); if (pSel) pSel.value = '';
   var pSearch = document.getElementById('pai-projet-search'); if (pSearch) pSearch.value = '';
   var pClear = document.getElementById('pai-projet-clear'); if (pClear) pClear.style.display = 'none';
@@ -469,6 +470,10 @@ function openEnregistrerPaiement(prefillProjetId) {
   var addBtn = document.getElementById('pai-add-mission-btn'); if (addBtn) addBtn.style.display = 'none';
   // Reset montant restant
   var resteRow = document.getElementById('pai-reste-row'); if (resteRow) resteRow.style.display = 'none';
+  // Reset devis
+  var devisRow = document.getElementById('pai-devis-row'); if (devisRow) devisRow.style.display = 'none';
+  var devisSel = document.getElementById('pai-devis-sel'); if (devisSel) devisSel.innerHTML = '<option value="">— Aucun devis —</option>';
+  var devisInfo = document.getElementById('pai-devis-info'); if (devisInfo) devisInfo.style.display = 'none';
 
   // Reset history panel
   document.getElementById('pai-hist-context').textContent = 'Sélectionnez un projet pour afficher l\'historique.';
@@ -479,13 +484,43 @@ function openEnregistrerPaiement(prefillProjetId) {
   document.getElementById('pai-montant').value = '';
   document.getElementById('pai-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('pai-mode').value = 'Virement';
+  document.getElementById('pai-type').value = '';
+  document.getElementById('pai-recu').checked = true;
   document.getElementById('pai-reference').value = '';
   document.getElementById('pai-notes').value = '';
   document.getElementById('pai-err').style.display = 'none';
   updatePaiResteHint(null);
   document.getElementById('modal-paiement').style.display = 'flex';
 
-  if (prefillProjetId) selectPaiProjet(prefillProjetId);
+  // If called with a devisId (ex: from "Paiement sur devis"), resolve the projet first
+  if (prefillDevisId) {
+    _paiPrefillDevisId = prefillDevisId;
+    // Find the devis in cache to get its projet_id
+    var devisList = (_pcCache && _pcCache.devis && _pcCache.devis.length) ? _pcCache.devis : [];
+    var foundDevis = null;
+    for (var i = 0; i < devisList.length; i++) {
+      if (devisList[i].id === prefillDevisId) { foundDevis = devisList[i]; break; }
+    }
+    if (foundDevis && foundDevis.projet_id) {
+      selectPaiProjet(foundDevis.projet_id);
+      // Devis will be pre-selected after project loads via _paiPrefillDevisId
+    } else {
+      // Fetch devis list then resolve
+      apiFetch('api/paiements_clients.php?action=summary').then(function(r) {
+        if (r && r.data) { _pcCache.summary = r.data; _pcCache.devis = r.data.devis || []; }
+        var list = _pcCache.devis || [];
+        for (var j = 0; j < list.length; j++) {
+          if (list[j].id === prefillDevisId) { foundDevis = list[j]; break; }
+        }
+        if (foundDevis && foundDevis.projet_id) {
+          selectPaiProjet(foundDevis.projet_id);
+        }
+      });
+    }
+  } else {
+    _paiPrefillDevisId = '';
+    if (prefillProjetId) selectPaiProjet(prefillProjetId);
+  }
 }
 
 // ── Searchable Projet dropdown (modal paiement) ──
