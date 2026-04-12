@@ -11194,7 +11194,6 @@ function _rdmMemberCostRate(m) {
   }
   return getTauxStandardCout();
 }
-<<<<<<< Updated upstream
 
 function _rdmFindMemberByName(fullName) {
   if (!fullName) return null;
