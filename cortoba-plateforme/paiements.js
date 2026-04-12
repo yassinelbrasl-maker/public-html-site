@@ -654,6 +654,8 @@ function selectPaiMission(missionNom) {
   if (input) input.value = _paiMissionNom;
   if (clearBtn) clearBtn.style.display = _paiMissionNom ? 'block' : 'none';
   hidePaiMissionDropdown();
+  // Rafraîchir le reste à payer avec les données de la mission
+  updatePaiResteHint(_paiProjetData);
 }
 
 function clearPaiMissionSearch() {
