@@ -1,0 +1,6 @@
+{
+  "eval_id": 2,
+  "eval_name": "unrelated-python-script",
+  "prompt": "Crée un script Python qui analyse un fichier CSV de ventes et génère un graphique matplotlib.",
+  "assertions": []
+}
