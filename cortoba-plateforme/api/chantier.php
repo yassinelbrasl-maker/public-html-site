@@ -904,3 +904,178 @@ function getDashboard() {
 
     jsonOk($data);
 }
+
+// ══════════════════════════════════════
+//  PARAM LOTS (lots-modèles dans paramètres)
+// ══════════════════════════════════════
+
+function listParamLots() {
+    $db = getDB();
+    $rows = $db->query("SELECT * FROM CA_param_lots ORDER BY ordre ASC, nom ASC")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as &$row) {
+        $sp = $db->prepare("SELECT * FROM CA_param_lot_phases WHERE param_lot_id=? ORDER BY ordre ASC, cree_at ASC");
+        $sp->execute([$row['id']]);
+        $row['phases'] = $sp->fetchAll(PDO::FETCH_ASSOC);
+    }
+    jsonOk($rows);
+}
+
+function createParamLot($user) {
+    $b = getBody();
+    $db = getDB();
+    $id = bin2hex(random_bytes(16));
+    $maxOrd = $db->query("SELECT COALESCE(MAX(ordre),0)+1 FROM CA_param_lots")->fetchColumn();
+    $db->prepare("INSERT INTO CA_param_lots (id, nom, code, ordre, actif, couleur) VALUES (?,?,?,?,?,?)")
+       ->execute([$id, $b['nom']??'', $b['code']??null, $maxOrd, $b['actif']??1, $b['couleur']??'#c8a96e']);
+    // Auto-create "Phase de départ" and "Phase de fin"
+    $pid1 = bin2hex(random_bytes(16));
+    $db->prepare("INSERT INTO CA_param_lot_phases (id, param_lot_id, nom, ordre) VALUES (?,?,?,?)")
+       ->execute([$pid1, $id, 'Phase de départ', 1]);
+    $pid2 = bin2hex(random_bytes(16));
+    $db->prepare("INSERT INTO CA_param_lot_phases (id, param_lot_id, nom, ordre) VALUES (?,?,?,?)")
+       ->execute([$pid2, $id, 'Phase de fin', 9999]);
+    jsonOk(['id' => $id]);
+}
+
+function updateParamLot($id) {
+    $b = getBody();
+    $db = getDB();
+    $db->prepare("UPDATE CA_param_lots SET nom=?, code=?, ordre=?, actif=?, couleur=? WHERE id=?")
+       ->execute([$b['nom']??'', $b['code']??null, $b['ordre']??0, $b['actif']??1, $b['couleur']??'#c8a96e', $id]);
+    jsonOk(['updated' => true]);
+}
+
+function deleteParamLot($id) {
+    $db = getDB();
+    $db->prepare("DELETE FROM CA_param_lot_phases WHERE param_lot_id=?")->execute([$id]);
+    $db->prepare("DELETE FROM CA_param_lots WHERE id=?")->execute([$id]);
+    jsonOk(['deleted' => true]);
+}
+
+// ══════════════════════════════════════
+//  PARAM LOT PHASES (phases-modèles sous lots)
+// ══════════════════════════════════════
+
+function listParamLotPhases() {
+    $db = getDB();
+    $lotId = $_GET['param_lot_id'] ?? '';
+    $stmt = $db->prepare("SELECT * FROM CA_param_lot_phases WHERE param_lot_id=? ORDER BY ordre ASC, cree_at ASC");
+    $stmt->execute([$lotId]);
+    jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function createParamLotPhase($user) {
+    $b = getBody();
+    $db = getDB();
+    $id = bin2hex(random_bytes(16));
+    $maxOrd = $db->prepare("SELECT COALESCE(MAX(ordre),0)+1 FROM CA_param_lot_phases WHERE param_lot_id=?");
+    $maxOrd->execute([$b['param_lot_id']??'']);
+    $ord = $maxOrd->fetchColumn();
+    // Insert before "Phase de fin" (ordre 9999)
+    if ($ord >= 9999) $ord = 9998;
+    $db->prepare("INSERT INTO CA_param_lot_phases (id, param_lot_id, nom, ordre, actif) VALUES (?,?,?,?,?)")
+       ->execute([$id, $b['param_lot_id']??'', $b['nom']??'', $ord, $b['actif']??1]);
+    jsonOk(['id' => $id]);
+}
+
+function updateParamLotPhase($id) {
+    $b = getBody();
+    $db = getDB();
+    $db->prepare("UPDATE CA_param_lot_phases SET nom=?, ordre=?, actif=? WHERE id=?")
+       ->execute([$b['nom']??'', $b['ordre']??0, $b['actif']??1, $id]);
+    jsonOk(['updated' => true]);
+}
+
+function deleteParamLotPhase($id) {
+    $db = getDB();
+    $db->prepare("DELETE FROM CA_param_lot_phases WHERE id=?")->execute([$id]);
+    jsonOk(['deleted' => true]);
+}
+
+// ══════════════════════════════════════
+//  LOT PHASES (phases réelles par lot dans chantier)
+// ══════════════════════════════════════
+
+function listLotPhases() {
+    $db = getDB();
+    $lotId = $_GET['lot_id'] ?? '';
+    $stmt = $db->prepare("SELECT * FROM CA_chantier_lot_phases WHERE lot_id=? ORDER BY ordre ASC, cree_at ASC");
+    $stmt->execute([$lotId]);
+    jsonOk($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function createLotPhase($user) {
+    $b = getBody();
+    $db = getDB();
+    $id = bin2hex(random_bytes(16));
+    $db->prepare("INSERT INTO CA_chantier_lot_phases (id, chantier_id, lot_id, nom, avancement, ordre) VALUES (?,?,?,?,?,?)")
+       ->execute([$id, $b['chantier_id']??'', $b['lot_id']??'', $b['nom']??'', $b['avancement']??0, $b['ordre']??0]);
+    jsonOk(['id' => $id]);
+}
+
+function updateLotPhase($id) {
+    $b = getBody();
+    $db = getDB();
+    $db->prepare("UPDATE CA_chantier_lot_phases SET nom=?, avancement=?, ordre=? WHERE id=?")
+       ->execute([$b['nom']??'', $b['avancement']??0, $b['ordre']??0, $id]);
+    // Recalculate lot avancement = average of its phases
+    $lotId = $b['lot_id'] ?? '';
+    if ($lotId) {
+        $avg = $db->prepare("SELECT ROUND(AVG(avancement)) FROM CA_chantier_lot_phases WHERE lot_id=?");
+        $avg->execute([$lotId]);
+        $newAvg = (int)$avg->fetchColumn();
+        $db->prepare("UPDATE CA_chantier_lots SET avancement=? WHERE id=?")->execute([$newAvg, $lotId]);
+    }
+    jsonOk(['updated' => true]);
+}
+
+function deleteLotPhase($id) {
+    $db = getDB();
+    $db->prepare("DELETE FROM CA_chantier_lot_phases WHERE id=?")->execute([$id]);
+    jsonOk(['deleted' => true]);
+}
+
+// ══════════════════════════════════════
+//  ADD ALL LOTS (copier lots-modèles → chantier)
+// ══════════════════════════════════════
+
+function addAllLotsToChantier($user) {
+    $b = getBody();
+    $db = getDB();
+    $chantierId = $b['chantier_id'] ?? '';
+    if (!$chantierId) jsonError('chantier_id requis', 400);
+
+    // Get chantier dates for lot defaults
+    $ch = $db->prepare("SELECT date_debut, date_fin_prevue FROM CA_chantiers WHERE id=?");
+    $ch->execute([$chantierId]);
+    $chData = $ch->fetch(PDO::FETCH_ASSOC);
+
+    // Get all active param lots
+    $stmt = $db->query("SELECT * FROM CA_param_lots WHERE actif=1 ORDER BY ordre ASC");
+    $paramLots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $created = 0;
+    foreach ($paramLots as $pl) {
+        $lotId = bin2hex(random_bytes(16));
+        $db->prepare("INSERT INTO CA_chantier_lots (id, chantier_id, code, nom, entreprise, montant_marche, date_debut, date_fin_prevue, ordre, couleur)
+                      VALUES (?,?,?,?,?,?,?,?,?,?)")
+           ->execute([
+               $lotId, $chantierId, $pl['code'], $pl['nom'], null, 0,
+               $chData['date_debut'] ?? null, $chData['date_fin_prevue'] ?? null,
+               $pl['ordre'], $pl['couleur']
+           ]);
+
+        // Copy phases from param lot
+        $sp = $db->prepare("SELECT * FROM CA_param_lot_phases WHERE param_lot_id=? AND actif=1 ORDER BY ordre ASC");
+        $sp->execute([$pl['id']]);
+        $paramPhases = $sp->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($paramPhases as $pp) {
+            $phaseId = bin2hex(random_bytes(16));
+            $db->prepare("INSERT INTO CA_chantier_lot_phases (id, chantier_id, lot_id, nom, avancement, ordre) VALUES (?,?,?,?,?,?)")
+               ->execute([$phaseId, $chantierId, $lotId, $pp['nom'], 0, $pp['ordre']]);
+        }
+        $created++;
+    }
+    jsonOk(['created' => $created]);
+}
