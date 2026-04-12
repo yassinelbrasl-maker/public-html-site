@@ -3677,8 +3677,8 @@ function saveFacture(){
     signature_elec:  (document.getElementById('fa-signature-elec').value||'').trim(),
     montantLettres:  montantEnLettres(ttc),
     montant_lettres: montantEnLettres(ttc),
-    missionPhase:    (document.getElementById('fa-mission-phase')||{value:''}).value,
-    mission_phase:   (document.getElementById('fa-mission-phase')||{value:''}).value
+    missionPhase:    _faMissionValue||'',
+    mission_phase:   _faMissionValue||''
   });
 
   var btn = document.getElementById('fa-save-btn');
