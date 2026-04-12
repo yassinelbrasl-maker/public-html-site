@@ -201,6 +201,9 @@ function refreshProjetHonoraires($projetId) {
 }
 
 // ── Main handler ──
+// Ne s'exécute QUE si le script est appelé directement (pas via require_once d'un autre fichier)
+if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'honoraires.php') {
+
 setCorsHeaders();
 ensureHonorairesSchema();
 

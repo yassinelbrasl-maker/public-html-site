@@ -472,6 +472,7 @@ function openEnregistrerPaiement(prefillProjetId) {
   document.getElementById('pai-reference').value = '';
   document.getElementById('pai-notes').value = '';
   document.getElementById('pai-err').style.display = 'none';
+  updatePaiResteHint(null);
   document.getElementById('modal-paiement').style.display = 'flex';
 
   if (prefillProjetId) selectPaiProjet(prefillProjetId);
