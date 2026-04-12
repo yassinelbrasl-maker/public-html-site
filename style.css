@@ -7,8 +7,8 @@
   --bg-alt:    #141414;
   --bg-card:   #1a1a1a;
   --border:    rgba(255,255,255,0.08);
-  --text:      #e8e4dc;
-  --text-muted:#a0a0a0;
+  --text:      #ede9e1;
+  --text-muted:#b5b0a8;
   --accent:    #c8a96e;
   --accent-dim:rgba(200,169,110,0.15);
   --white:     #fff;
@@ -285,7 +285,7 @@ body {
 .nav-center a {
   text-decoration: none;
   color: rgba(255,255,255,0.6);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 400;
   letter-spacing: 0.08em;
   transition: color 0.25s ease;
@@ -317,8 +317,8 @@ body {
 .language-switcher {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.7rem;
+  gap: 0.4rem;
+  font-size: 0.82rem;
 }
 
 .lang-sep {
@@ -330,11 +330,11 @@ body {
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.7rem;
+  font-size: 0.82rem;
   font-weight: 500;
   letter-spacing: 0.1em;
   color: rgba(255,255,255,0.65);
-  padding: 0 0.1rem;
+  padding: 0.15rem 0.2rem;
   transition: color 0.2s;
 }
 .language-switcher .lang-btn:hover { color: rgba(255,255,255,0.9); }
@@ -344,14 +344,14 @@ body {
 .nav-leaf-btn {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   text-decoration: none;
   color: rgba(255,255,255,0.55);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 0.3rem 0.75rem 0.3rem 0.55rem;
+  padding: 0.4rem 0.85rem 0.4rem 0.65rem;
   border: 1px solid rgba(255,255,255,0.12);
   transition: color 0.25s, border-color 0.25s, background 0.25s;
   white-space: nowrap;
@@ -377,12 +377,12 @@ body {
   flex-direction: column;
   justify-content: center;
   gap: 7px;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 3px;
   flex-shrink: 0;
 }
 
@@ -423,10 +423,11 @@ body {
   background: none;
   border: none;
   color: rgba(255,255,255,0.35);
-  font-size: 1.3rem;
+  font-size: 1.6rem;
   cursor: pointer;
   transition: color 0.2s;
   line-height: 1;
+  padding: 0.3rem;
 }
 .mobile-menu-close:hover { color: #fff; }
 
@@ -454,7 +455,7 @@ body {
   align-items: center;
   gap: 0.8rem;
   color: rgba(255,255,255,0.2);
-  font-size: 0.75rem;
+  font-size: 0.88rem;
   font-weight: 600;
   letter-spacing: 0.14em;
 }
@@ -464,7 +465,7 @@ body {
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.88rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   color: rgba(255,255,255,0.35);
@@ -521,7 +522,7 @@ body.menu-open { overflow: hidden; }
   z-index: 5;
 }
 .slider-dot {
-  width: 10px; height: 10px;
+  width: 12px; height: 12px;
   border-radius: 50%;
   background: rgba(255,255,255,0.35);
   border: 1px solid rgba(255,255,255,0.5);
@@ -566,11 +567,11 @@ body.menu-open { overflow: hidden; }
 }
 
 .overlay > p {
-  font-size: 1rem;
-  color: rgba(255,255,255,0.65);
+  font-size: 1.1rem;
+  color: rgba(255,255,255,0.7);
   letter-spacing: 0.04em;
   margin-bottom: 2.5rem;
-  max-width: 560px;
+  max-width: 600px;
   opacity: 0;
   animation: fadeUp 1s ease 4.75s forwards;
 }
@@ -585,11 +586,11 @@ body.menu-open { overflow: hidden; }
   display: inline-flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 1rem 2.4rem;
+  padding: 1.1rem 2.6rem;
   border: 1px solid var(--accent);
   color: var(--accent);
   text-decoration: none;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -628,7 +629,7 @@ body.menu-open { overflow: hidden; }
 section { padding: 5rem 2rem; background: var(--bg); }
 
 h2 {
-  font-size: 1.9rem;
+  font-size: 2.1rem;
   margin-bottom: 1.5rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -638,11 +639,12 @@ h2 {
 }
 
 .intro-text {
-  font-size: 1rem;
-  max-width: 700px;
+  font-size: 1.1rem;
+  max-width: 720px;
   margin: 0 auto 3rem auto;
   color: var(--text-muted);
   text-align: center;
+  line-height: 1.75;
 }
 
 /* ─── PROJECTS GRID ──────────────────────── */
@@ -698,7 +700,7 @@ h2 {
 .project-card-link:hover .project-card-overlay { opacity: 1; }
 
 .project-tag {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -707,7 +709,7 @@ h2 {
 }
 
 .project-card-title {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 500;
   color: #fff;
   margin: 0 0 0.3rem 0;
@@ -716,8 +718,8 @@ h2 {
 }
 
 .project-card-loc {
-  font-size: 0.78rem;
-  color: rgba(255,255,255,0.5);
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.55);
   margin: 0;
 }
 
@@ -741,13 +743,13 @@ h2 {
 .service-card h3 {
   margin-bottom: 1rem;
   color: var(--text);
-  font-size: 0.92rem;
+  font-size: 1.05rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 600;
 }
 
-.service-card p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.75; }
+.service-card p { color: var(--text-muted); font-size: 1rem; line-height: 1.85; }
 
 /* ─── À PROPOS ───────────────────────────── */
 #about { background: var(--bg-alt); }
@@ -761,7 +763,7 @@ h2 {
 }
 
 .about-text { max-width: 680px; padding: 0 15px; }
-.about-text p { color: var(--text-muted); line-height: 1.9; }
+.about-text p { color: var(--text-muted); line-height: 1.9; font-size: 1.05rem; }
 
 .about-photo img {
   max-width: 320px;
@@ -784,13 +786,13 @@ h2 {
 
 .team-member h3 {
   margin-top: 15px;
-  font-size: 0.92em;
+  font-size: 1.02em;
   font-weight: 600;
   color: var(--text);
   letter-spacing: 0.04em;
 }
 
-.team-member p { color: var(--text-muted); font-size: 0.82em; }
+.team-member p { color: var(--text-muted); font-size: 0.92em; }
 
 .team-member img {
   width: 120px; height: 120px;
@@ -848,11 +850,11 @@ h2 {
   background: var(--accent);
   color: #0e0e0e;
   border: none;
-  padding: 1rem 2.5rem;
+  padding: 1.1rem 2.5rem;
   cursor: pointer;
   border-radius: 2px;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   transition: background 0.3s, transform 0.2s;
@@ -901,7 +903,7 @@ footer {
   color: var(--text-muted);
   text-align: center;
   padding: 2.5rem;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   letter-spacing: 0.08em;
   border-top: 1px solid var(--border);
 }
@@ -940,11 +942,11 @@ footer {
   background-color: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 12px 20px;
+  padding: 14px 22px;
   border-radius: 30px;
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   z-index: 1002;
   transition: background 0.3s, transform 0.3s, border-color 0.3s, color 0.3s;
@@ -1026,7 +1028,7 @@ footer {
 }
 .config-intro-inner { max-width: 640px; margin: 0 auto; }
 .config-intro-eyebrow {
-  font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase;
+  font-size: 0.8rem; letter-spacing: 0.3em; text-transform: uppercase;
   color: var(--accent); margin-bottom: 1.2rem;
 }
 .config-intro-title {
@@ -1036,13 +1038,13 @@ footer {
 }
 .config-intro-title em { font-style: italic; color: var(--accent); }
 .config-intro-sub {
-  font-size: 0.88rem; color: var(--text-muted); line-height: 1.85;
-  max-width: 500px; margin: 0 auto 2.5rem; font-weight: 300;
+  font-size: 0.98rem; color: var(--text-muted); line-height: 1.85;
+  max-width: 520px; margin: 0 auto 2.5rem; font-weight: 300;
 }
 .config-intro-cta {
   display: inline-flex; align-items: center; gap: 0.8rem;
-  padding: 1rem 2.5rem; background: var(--accent); border: none;
-  color: #0e0e0e; font-family: inherit; font-size: 0.8rem;
+  padding: 1.1rem 2.6rem; background: var(--accent); border: none;
+  color: #0e0e0e; font-family: inherit; font-size: 0.9rem;
   font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase;
   cursor: pointer; transition: background 0.3s, transform 0.2s;
 }
@@ -1059,12 +1061,12 @@ footer {
 }
 .cfg-step { display: flex; align-items: center; gap: 0.5rem; }
 .cfg-step-num {
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   border: 1px solid rgba(200,169,110,0.25);
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.7rem; color: #999; transition: all 0.3s;
+  font-size: 0.8rem; color: #999; transition: all 0.3s;
 }
-.cfg-step-lbl { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: #999; transition: color 0.3s; }
+.cfg-step-lbl { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: #999; transition: color 0.3s; }
 .cfg-step.active .cfg-step-num { border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,0.08); }
 .cfg-step.active .cfg-step-lbl { color: var(--accent); }
 .cfg-step.done .cfg-step-num { border-color: var(--accent); background: var(--accent); color: #0e0e0e; }
@@ -1079,10 +1081,10 @@ footer {
 .cfg-page-heading { margin-bottom: 3rem; padding-bottom: 1.8rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .cfg-step-big { font-size: 5rem; font-weight: 200; color: rgba(255,255,255,0.04); line-height:1; margin-bottom:0.3rem; }
 .cfg-page-title { font-size: 1.8rem; font-weight: 300; color: var(--text); margin-bottom: 0.4rem; }
-.cfg-page-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.75; }
+.cfg-page-desc { font-size: 0.92rem; color: var(--text-muted); line-height: 1.75; }
 
 .cfg-field { margin-bottom: 2.2rem; }
-.cfg-label { display: block; font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.5); margin-bottom: 0.9rem; font-weight: 500; }
+.cfg-label { display: block; font-size: 0.78rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.55); margin-bottom: 0.9rem; font-weight: 500; }
 .cfg-opt { text-transform: none; letter-spacing: 0; color: #999; font-weight: 300; }
 .cfg-section-label { font-style: italic; font-size: 0.85rem; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 0.8rem; margin: 1.8rem 0 1.2rem; }
 
@@ -1090,8 +1092,8 @@ footer {
 .cfg-icon-cards { display: grid; grid-template-columns: repeat(auto-fill,minmax(130px,1fr)); gap: 0.8rem; }
 .cfg-icard {
   background: var(--bg-card); border: 1px solid rgba(255,255,255,0.07);
-  padding: 1.3rem 0.9rem; text-align: center; cursor: pointer;
-  font-size: 0.78rem; color: var(--text-muted); transition: all 0.25s;
+  padding: 1.4rem 1rem; text-align: center; cursor: pointer;
+  font-size: 0.88rem; color: var(--text-muted); transition: all 0.25s;
   display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
 }
 .cfg-icard span { font-size: 1.8rem; }
