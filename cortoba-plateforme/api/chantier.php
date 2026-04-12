@@ -351,10 +351,6 @@ try {
     elseif ($action === 'add_all_lots') {
         if ($method === 'POST')           addAllLotsToChantier($user);
     }
-    // ── Bulk lots (ajouter tous les lots standard) ──
-    elseif ($action === 'bulk_lots') {
-        if ($method === 'POST') createBulkLots($user);
-    }
     // ── Journal PDF export ──
     elseif ($action === 'journal_pdf') {
         exportJournalPDF($id);
