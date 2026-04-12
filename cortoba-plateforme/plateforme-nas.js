@@ -15984,6 +15984,97 @@ function deleteParamPhase(id) {
   });
 }
 
+// ── Parametres — Lots-modèles & Phases CRUD ──
+var _paramLotsCache = [];
+
+function loadParamLots() {
+  apiFetch('api/chantier.php?action=param_lots').then(function(r) {
+    _paramLotsCache = (r && r.data) ? r.data : [];
+    var wrap = document.getElementById('param-lots-wrap');
+    if (!wrap) return;
+    if (!_paramLotsCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucun lot-modèle configuré</div>'; return; }
+    var h = '<div style="display:flex;flex-direction:column;gap:0.6rem">';
+    _paramLotsCache.forEach(function(lot, i) {
+      var phases = lot.phases || [];
+      h += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem">' +
+        '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:' + (phases.length ? '0.5rem' : '0') + '">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + (lot.couleur || '#c8a96e') + ';flex-shrink:0"></span>' +
+        '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + (i+1) + '.</span>' +
+        '<span style="flex:1;font-size:0.85rem;font-weight:600">' + _cgEscape(lot.nom) + '</span>' +
+        (lot.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3);background:var(--bg-3);padding:0.1rem 0.4rem;border-radius:3px">(inactif)</span>' : '') +
+        '<button class="btn btn-sm" onclick="toggleParamLot(\'' + lot.id + '\',' + (lot.actif == 1 ? 0 : 1) + ')" title="' + (lot.actif == 1 ? 'Désactiver' : 'Activer') + '">' + (lot.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
+        '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteParamLot(\'' + lot.id + '\')">&#10005;</button>' +
+        '</div>';
+      // Phases list
+      if (phases.length) {
+        h += '<div style="margin-left:2rem;display:flex;flex-direction:column;gap:0.2rem">';
+        phases.forEach(function(ph) {
+          h += '<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;padding:0.2rem 0.5rem;background:var(--bg-1);border-radius:3px;border:1px solid var(--border)">' +
+            '<span style="color:var(--accent);font-size:0.7rem">&#9654;</span>' +
+            '<span style="flex:1;color:var(--text-2)">' + _cgEscape(ph.nom) + '</span>' +
+            '<button class="btn btn-sm" style="color:var(--red);font-size:0.7rem;padding:0.1rem 0.3rem" onclick="deleteParamLotPhase(\'' + ph.id + '\')">&#10005;</button>' +
+            '</div>';
+        });
+        h += '</div>';
+      }
+      // Add phase input
+      h += '<div style="margin-left:2rem;margin-top:0.3rem;display:flex;gap:0.3rem;align-items:center">' +
+        '<input id="param-lot-phase-' + lot.id + '" class="form-input" placeholder="Nom de la phase" style="flex:1;font-size:0.78rem;padding:0.3rem 0.5rem" />' +
+        '<button class="btn btn-sm" style="font-size:0.72rem" onclick="addParamLotPhase(\'' + lot.id + '\')">+ Phase</button>' +
+        '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    wrap.innerHTML = h;
+  });
+}
+
+function addParamLot() {
+  var nom = document.getElementById('param-lot-nom').value.trim();
+  if (!nom) { showToast('Nom requis', 'warning'); return; }
+  apiFetch('api/chantier.php?action=param_lots', { method: 'POST', body: { nom: nom } }).then(function() {
+    document.getElementById('param-lot-nom').value = '';
+    showToast('Lot-modèle ajouté', 'success');
+    loadParamLots();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function toggleParamLot(id, actif) {
+  var lot = null; _paramLotsCache.forEach(function(l) { if (l.id === id) lot = l; });
+  if (!lot) return;
+  apiFetch('api/chantier.php?action=param_lots&id=' + id, { method: 'PUT', body: { nom: lot.nom, code: lot.code, ordre: lot.ordre, actif: actif, couleur: lot.couleur } }).then(function() {
+    loadParamLots();
+  });
+}
+
+function deleteParamLot(id) {
+  if (!confirm('Supprimer ce lot-modèle et toutes ses phases ?')) return;
+  apiFetch('api/chantier.php?action=param_lots&id=' + id, { method: 'DELETE' }).then(function() {
+    showToast('Lot-modèle supprimé', 'success');
+    loadParamLots();
+  });
+}
+
+function addParamLotPhase(lotId) {
+  var input = document.getElementById('param-lot-phase-' + lotId);
+  if (!input) return;
+  var nom = input.value.trim();
+  if (!nom) { showToast('Nom de phase requis', 'warning'); return; }
+  apiFetch('api/chantier.php?action=param_lot_phases', { method: 'POST', body: { param_lot_id: lotId, nom: nom } }).then(function() {
+    input.value = '';
+    showToast('Phase ajoutée', 'success');
+    loadParamLots();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function deleteParamLotPhase(id) {
+  if (!confirm('Supprimer cette phase ?')) return;
+  apiFetch('api/chantier.php?action=param_lot_phases&id=' + id, { method: 'DELETE' }).then(function() {
+    showToast('Phase supprimée', 'success');
+    loadParamLots();
+  });
+}
+
 // ══════════════════════════════════════
 //  3. INTERVENANTS
 // ══════════════════════════════════════
