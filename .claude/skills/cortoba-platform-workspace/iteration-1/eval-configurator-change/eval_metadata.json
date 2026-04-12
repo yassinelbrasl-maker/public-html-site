@@ -1,0 +1,6 @@
+{
+  "eval_id": 0,
+  "eval_name": "configurator-button-color",
+  "prompt": "Change la couleur du bouton principal du configurateur en rouge. Le bouton 'Commencer' sur configurateur.html doit passer de doré à rouge.",
+  "assertions": []
+}
