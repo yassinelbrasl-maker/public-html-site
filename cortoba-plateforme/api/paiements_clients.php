@@ -129,7 +129,7 @@ function listPaiementsClients() {
             p.nom AS projet_nom, p.code AS projet_code,
             f.numero AS facture_numero
         FROM CA_paiements_clients pc
-        LEFT JOIN CA_devis d ON d.id = pc.devis_id
+        LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_clients c ON c.id = pc.client_id
         LEFT JOIN CA_projets p ON p.id = pc.projet_id
         LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = pc.facture_id COLLATE utf8mb4_unicode_ci
@@ -196,7 +196,7 @@ function getPaiementsByProjet() {
 
     $s = $db->prepare("SELECT pc.*, d.numero AS devis_numero, d.objet AS devis_objet
         FROM CA_paiements_clients pc
-        LEFT JOIN CA_devis d ON d.id = pc.devis_id
+        LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
         WHERE $where
         ORDER BY pc.date_paiement DESC");
     $s->execute($params);
@@ -643,7 +643,7 @@ function getRecuPaiementClient() {
             c.display_nom AS client_nom, c.adresse AS client_adresse, c.mf AS client_mf,
             p.nom AS projet_nom, p.code AS projet_code
         FROM CA_paiements_clients pc
-        LEFT JOIN CA_devis d ON d.id = pc.devis_id
+        LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_clients c ON c.id = pc.client_id
         LEFT JOIN CA_projets p ON p.id = pc.projet_id
         WHERE pc.id = ?
