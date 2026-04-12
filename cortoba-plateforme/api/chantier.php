@@ -1104,17 +1104,45 @@ function addAllLotsToChantier($user) {
     $chantierId = $b['chantier_id'] ?? '';
     if (!$chantierId) jsonError('chantier_id requis', 400);
 
-    // Get chantier dates for lot defaults
-    $ch = $db->prepare("SELECT date_debut, date_fin_prevue FROM CA_chantiers WHERE id=?");
+    // Get chantier info (dates + lot_depart/lot_fin)
+    $ch = $db->prepare("SELECT date_debut, date_fin_prevue, lot_depart, lot_fin FROM CA_chantiers WHERE id=?");
     $ch->execute([$chantierId]);
     $chData = $ch->fetch(PDO::FETCH_ASSOC);
+
+    // Get existing lot names in this chantier (to skip duplicates)
+    $existStmt = $db->prepare("SELECT nom FROM CA_chantier_lots WHERE chantier_id=?");
+    $existStmt->execute([$chantierId]);
+    $existingLots = [];
+    foreach ($existStmt->fetchAll(PDO::FETCH_ASSOC) as $el) { $existingLots[] = mb_strtolower(trim($el['nom'])); }
 
     // Get all active param lots
     $stmt = $db->query("SELECT * FROM CA_param_lots WHERE actif=1 ORDER BY ordre ASC");
     $paramLots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $created = 0;
+    // Filter between lot_depart and lot_fin if defined
+    $lotDepart = trim($chData['lot_depart'] ?? '');
+    $lotFin = trim($chData['lot_fin'] ?? '');
+    if ($lotDepart || $lotFin) {
+        $startIdx = 0;
+        $endIdx = count($paramLots) - 1;
+        if ($lotDepart) {
+            foreach ($paramLots as $i => $pl) {
+                if (mb_strtolower(trim($pl['nom'])) === mb_strtolower($lotDepart)) { $startIdx = $i; break; }
+            }
+        }
+        if ($lotFin) {
+            foreach ($paramLots as $i => $pl) {
+                if (mb_strtolower(trim($pl['nom'])) === mb_strtolower($lotFin)) { $endIdx = $i; break; }
+            }
+        }
+        $paramLots = array_slice($paramLots, $startIdx, $endIdx - $startIdx + 1);
+    }
+
+    $created = 0; $skipped = 0;
     foreach ($paramLots as $pl) {
+        // Skip if lot already exists in this chantier
+        if (in_array(mb_strtolower(trim($pl['nom'])), $existingLots)) { $skipped++; continue; }
+
         $lotId = bin2hex(random_bytes(16));
         $db->prepare("INSERT INTO CA_chantier_lots (id, chantier_id, code, nom, entreprise, montant_marche, date_debut, date_fin_prevue, ordre, couleur)
                       VALUES (?,?,?,?,?,?,?,?,?,?)")
@@ -1136,5 +1164,5 @@ function addAllLotsToChantier($user) {
         }
         $created++;
     }
-    jsonOk(['created' => $created]);
+    jsonOk(['created' => $created, 'skipped' => $skipped]);
 }
