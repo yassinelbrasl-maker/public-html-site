@@ -683,6 +683,7 @@ function loadPaiementHistoryForProjet(projetId) {
     ctxEl.textContent = 'Sélectionnez un projet pour afficher l\'historique.';
     cntEl.textContent = '';
     totEl.style.display = 'none';
+    _paiProjetData = null;
     updatePaiResteHint(null);
     return;
   }
