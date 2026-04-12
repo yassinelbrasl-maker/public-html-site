@@ -398,6 +398,113 @@ th.sorted-asc .ergo-sort-icon, th.sorted-desc .ergo-sort-icon { opacity: 1; colo
 }
 .ergo-bulk-actions { display: flex; gap: 0.5rem; }
 
+/* ── SIDEBAR CONTROLS (hide / pin) ───────────────── */
+.sidebar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  padding: 0.5rem 0.8rem 0;
+}
+.sidebar-ctrl-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  width: 28px; height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+.sidebar-ctrl-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+/* Pin active state */
+.sidebar-ctrl-btn.pinned {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* Show sidebar button (when sidebar hidden) */
+.sidebar-show-btn {
+  display: none;
+  position: fixed;
+  top: calc(var(--header-h) + 0.6rem);
+  left: 0.5rem;
+  z-index: 210;
+  background: var(--bg-1);
+  border: 1px solid var(--border-md);
+  color: var(--text-3);
+  width: 30px; height: 30px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: border-color 0.2s, color 0.2s, opacity 0.3s;
+}
+.sidebar-show-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Sidebar hidden state */
+.sidebar.sidebar-hidden {
+  transform: translateX(-100%) !important;
+  pointer-events: none;
+}
+.sidebar.sidebar-hidden ~ .main-content,
+.sidebar-hidden-active .main-content {
+  margin-left: 0 !important;
+}
+body.sidebar-hidden-active .sidebar-show-btn {
+  display: flex;
+}
+body.sidebar-hidden-active .main-content {
+  margin-left: 0 !important;
+}
+
+/* Sidebar auto-hide (unpinned) */
+.sidebar.sidebar-unpinned {
+  z-index: 210;
+  box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.sidebar.sidebar-unpinned:hover,
+.sidebar.sidebar-unpinned.sidebar-peek {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+body.sidebar-unpinned-active .main-content {
+  margin-left: 0 !important;
+}
+/* Hover trigger zone for auto-show */
+.sidebar-hover-trigger {
+  display: none;
+  position: fixed;
+  top: var(--header-h);
+  left: 0;
+  width: 8px;
+  bottom: 0;
+  z-index: 205;
+}
+body.sidebar-unpinned-active .sidebar-hover-trigger {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .sidebar-controls { display: none; }
+  .sidebar-show-btn { display: none !important; }
+  .sidebar-hover-trigger { display: none !important; }
+}
+
 /* ── SIDEBAR COMPACTE (Desktop) ──────────────────── */
 .sidebar.ergo-sidebar-collapsed {
   width: 54px;

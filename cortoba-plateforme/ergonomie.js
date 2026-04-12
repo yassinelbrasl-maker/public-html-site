@@ -659,6 +659,8 @@
   //  12. SIDEBAR — ÉTAT MÉMORISÉ (Desktop)
   // ════════════════════════════════════════════════════════
   var _sidebarCollapsed = false;
+  var _sidebarHidden = false;
+  var _sidebarPinned = true; // true = pinned (visible), false = auto-hide
 
   window.toggleSidebarDesktop = function () {
     var sidebar     = document.getElementById('sidebar');
@@ -671,6 +673,78 @@
     try { localStorage.setItem('cortoba_sidebar_collapsed', _sidebarCollapsed ? '1' : '0'); } catch (e) {}
   };
 
+  // ── Hide / Show sidebar completely ──
+  window.hideSidebar = function () {
+    var sidebar = document.getElementById('sidebar');
+    if (!sidebar || window.innerWidth <= 900) return;
+    _sidebarHidden = true;
+    sidebar.classList.add('sidebar-hidden');
+    document.body.classList.add('sidebar-hidden-active');
+    try { localStorage.setItem('cortoba_sidebar_hidden', '1'); } catch (e) {}
+  };
+
+  window.showSidebar = function () {
+    var sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    _sidebarHidden = false;
+    sidebar.classList.remove('sidebar-hidden');
+    document.body.classList.remove('sidebar-hidden-active');
+    try { localStorage.setItem('cortoba_sidebar_hidden', '0'); } catch (e) {}
+  };
+
+  // ── Pin / Unpin sidebar (auto-hide) ──
+  window.toggleSidebarPin = function () {
+    var sidebar = document.getElementById('sidebar');
+    var pinBtn = document.getElementById('sidebar-pin-btn');
+    if (!sidebar || window.innerWidth <= 900) return;
+
+    _sidebarPinned = !_sidebarPinned;
+
+    if (_sidebarPinned) {
+      // Pin: sidebar stays visible
+      sidebar.classList.remove('sidebar-unpinned');
+      document.body.classList.remove('sidebar-unpinned-active');
+      if (pinBtn) pinBtn.classList.add('pinned');
+    } else {
+      // Unpin: sidebar auto-hides
+      sidebar.classList.add('sidebar-unpinned');
+      document.body.classList.add('sidebar-unpinned-active');
+      if (pinBtn) pinBtn.classList.remove('pinned');
+    }
+    try { localStorage.setItem('cortoba_sidebar_pinned', _sidebarPinned ? '1' : '0'); } catch (e) {}
+  };
+
+  // Hover trigger for auto-hide mode
+  function initSidebarHoverTrigger() {
+    var trigger = document.getElementById('sidebar-hover-trigger');
+    var sidebar = document.getElementById('sidebar');
+    if (!trigger || !sidebar) return;
+
+    var hideTimer = null;
+
+    trigger.addEventListener('mouseenter', function () {
+      if (!_sidebarPinned && !_sidebarHidden) {
+        clearTimeout(hideTimer);
+        sidebar.classList.add('sidebar-peek');
+      }
+    });
+
+    sidebar.addEventListener('mouseenter', function () {
+      if (!_sidebarPinned && !_sidebarHidden) {
+        clearTimeout(hideTimer);
+        sidebar.classList.add('sidebar-peek');
+      }
+    });
+
+    sidebar.addEventListener('mouseleave', function () {
+      if (!_sidebarPinned && !_sidebarHidden) {
+        hideTimer = setTimeout(function () {
+          sidebar.classList.remove('sidebar-peek');
+        }, 300);
+      }
+    });
+  }
+
   function restoreSidebarState() {
     try {
       if (localStorage.getItem('cortoba_sidebar_collapsed') === '1' && window.innerWidth > 900) {
@@ -680,6 +754,31 @@
         if (sidebar) sidebar.classList.add('ergo-sidebar-collapsed');
         if (mc) mc.classList.add('ergo-mc-collapsed');
       }
+
+      // Restore hidden state
+      if (localStorage.getItem('cortoba_sidebar_hidden') === '1' && window.innerWidth > 900) {
+        _sidebarHidden = true;
+        var sb = document.getElementById('sidebar');
+        if (sb) sb.classList.add('sidebar-hidden');
+        document.body.classList.add('sidebar-hidden-active');
+      }
+
+      // Restore pin state
+      var pinState = localStorage.getItem('cortoba_sidebar_pinned');
+      if (pinState === '0' && window.innerWidth > 900) {
+        _sidebarPinned = false;
+        var sb2 = document.getElementById('sidebar');
+        var pinBtn = document.getElementById('sidebar-pin-btn');
+        if (sb2) sb2.classList.add('sidebar-unpinned');
+        document.body.classList.add('sidebar-unpinned-active');
+        if (pinBtn) pinBtn.classList.remove('pinned');
+      } else {
+        // Default: pinned
+        var pinBtn2 = document.getElementById('sidebar-pin-btn');
+        if (pinBtn2) pinBtn2.classList.add('pinned');
+      }
+
+      initSidebarHoverTrigger();
     } catch (e) {}
   }
 
