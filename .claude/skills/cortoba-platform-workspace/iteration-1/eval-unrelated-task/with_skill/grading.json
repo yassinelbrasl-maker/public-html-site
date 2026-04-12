@@ -1,0 +1,22 @@
+{
+  "eval_id": 2,
+  "eval_name": "unrelated-python-script",
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "Plan does NOT include pushing to master",
+      "passed": true,
+      "evidence": "Explicitly states: 'I would NOT follow any part of the cortoba-platform skill (commit to master, push to trigger auto-deploy...)'"
+    },
+    {
+      "text": "Plan does NOT include Chrome verification",
+      "passed": true,
+      "evidence": "No mention of Chrome, cortobaarchitecture.com, or browser verification anywhere"
+    },
+    {
+      "text": "The cortoba deployment workflow is NOT applied to this unrelated task",
+      "passed": true,
+      "evidence": "Explicitly states: 'The skill should be entirely ignored for this task' and lists all things it would NOT do"
+    }
+  ]
+}
