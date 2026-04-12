@@ -974,7 +974,7 @@ footer {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto;
   }
-  .project-card-wide, .project-card-tall {
+  .project-card-wide, .project-card-tall, .project-card-big, .project-card-full {
     grid-column: span 1;
     grid-row: span 1;
   }
