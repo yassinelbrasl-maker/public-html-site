@@ -156,7 +156,7 @@ function refreshProjetHonoraires($projetId) {
         $facture = (float)$s->fetchColumn();
 
         // Encaissé: sum of payments for invoices of this project + mission_phase
-        $s = $db->prepare("SELECT COALESCE(SUM(p.montant),0) FROM CA_paiements p JOIN CA_factures f ON f.id = p.facture_id WHERE f.projet_id = ? AND f.mission_phase = ?");
+        $s = $db->prepare("SELECT COALESCE(SUM(p.montant),0) FROM CA_paiements p JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = p.facture_id COLLATE utf8mb4_unicode_ci WHERE f.projet_id = ? AND f.mission_phase = ?");
         $s->execute([$projetId, $missionPhase]);
         $encaisse = (float)$s->fetchColumn();
 
