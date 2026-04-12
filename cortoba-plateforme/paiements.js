@@ -560,6 +560,9 @@ function selectPaiProjet(projetId) {
 
   // Reset & enable mission dropdown
   _paiMissionNom = '';
+  _paiExtraMissions = [];
+  _paiExtraMissionCounter = 0;
+  var extraEl = document.getElementById('pai-extra-missions'); if (extraEl) extraEl.innerHTML = '';
   var mSel = document.getElementById('pai-mission-sel'); if (mSel) mSel.value = '';
   var mSearch = document.getElementById('pai-mission-search');
   if (mSearch) {
@@ -568,6 +571,16 @@ function selectPaiProjet(projetId) {
     mSearch.placeholder = _paiProjetId ? '🔍 Rechercher une mission…' : '— Sélectionnez d\'abord un projet —';
   }
   var mClear = document.getElementById('pai-mission-clear'); if (mClear) mClear.style.display = 'none';
+
+  // Show/hide "add mission" button
+  var addBtn = document.getElementById('pai-add-mission-btn');
+  if (addBtn) {
+    var missions = _paiGetProjetMissions();
+    addBtn.style.display = (_paiProjetId && missions.length > 1) ? '' : 'none';
+  }
+
+  // Reset montant restant
+  var resteRow = document.getElementById('pai-reste-row'); if (resteRow) resteRow.style.display = 'none';
 
   // Load history for projet
   loadPaiementHistoryForProjet(_paiProjetId);
