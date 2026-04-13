@@ -14786,6 +14786,141 @@ function refreshCongesPendingBadge(){
 setTimeout(function(){ try { refreshCongesPendingBadge(); } catch(e){} }, 2500);
 
 // ═══════════════════════════════════════════════════════════
+//  CONGÉS — Déclaration d'absence (admin)
+// ═══════════════════════════════════════════════════════════
+
+function openAbsenceForm(){
+  // Reset form
+  document.getElementById('abs-type').value = 'Absence injustifiée';
+  document.getElementById('abs-date-debut').value = '';
+  document.getElementById('abs-date-fin').value = '';
+  document.getElementById('abs-jours').value = '0';
+  document.getElementById('abs-motif').value = '';
+  document.getElementById('abs-commentaire').value = '';
+  document.getElementById('abs-deduire').checked = false;
+  document.getElementById('abs-deduire-options').style.display = 'none';
+  document.getElementById('abs-deduire-type').value = 'Congés annuels';
+  document.getElementById('abs-partage').checked = true;
+  document.getElementById('abs-solde-info').textContent = '';
+  var justifCb = document.getElementById('abs-justif-fourni');
+  if (justifCb) justifCb.checked = false;
+  var justifFile = document.getElementById('abs-justif-file');
+  if (justifFile) justifFile.value = '';
+  var radios = document.querySelectorAll('input[name="abs-duree"]');
+  radios.forEach(function(r){ r.checked = r.value === 'journee'; });
+
+  // Charger les membres dans le sélecteur
+  var sel = document.getElementById('abs-user');
+  sel.innerHTML = '<option value="">— Sélectionner un membre —</option>';
+  apiFetch('api/conges.php?action=team_calendar&from=2000-01-01&to=2000-01-02').then(function(r){
+    var members = (r.data || r).members || [];
+    members.forEach(function(m){
+      var opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      sel.appendChild(opt);
+    });
+  }).catch(function(){});
+
+  openModal('modal-absence');
+}
+
+function onAbsenceDatesChange(){
+  var d1 = document.getElementById('abs-date-debut').value;
+  var d2 = document.getElementById('abs-date-fin').value;
+  if (!d1 || !d2){ document.getElementById('abs-jours').value = '0'; return; }
+  var s = new Date(d1), e = new Date(d2);
+  if (e < s){ document.getElementById('abs-jours').value = '0'; return; }
+  var count = 0;
+  var hols = _congesState.holidays || {};
+  var cur = new Date(s);
+  while (cur <= e){
+    var dow = cur.getDay();
+    var kk = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
+    if (dow !== 0 && dow !== 6 && !hols[kk]) count++;
+    cur.setDate(cur.getDate()+1);
+  }
+  var duree = document.querySelector('input[name="abs-duree"]:checked');
+  if (duree && duree.value !== 'journee') count = Math.max(0.5, count - 0.5);
+  document.getElementById('abs-jours').value = count;
+  // Mettre à jour le solde si déduction active
+  if (document.getElementById('abs-deduire').checked) _loadAbsSolde();
+}
+
+function toggleAbsDeduction(){
+  var checked = document.getElementById('abs-deduire').checked;
+  document.getElementById('abs-deduire-options').style.display = checked ? '' : 'none';
+  if (checked) _loadAbsSolde();
+}
+
+function _loadAbsSolde(){
+  var uid = document.getElementById('abs-user').value;
+  var el = document.getElementById('abs-solde-info');
+  if (!uid){ el.textContent = 'Sélectionnez d\'abord un collaborateur.'; return; }
+  var deduireType = document.getElementById('abs-deduire-type').value;
+  apiFetch('api/conges.php?action=balance&user_id=' + encodeURIComponent(uid)).then(function(r){
+    var d = r.data || r;
+    var bal = d.balance || {};
+    var usage = d.usage || {};
+    var col = deduireType === 'Congés annuels' ? 'conges_annuels' : deduireType === 'Maladie' ? 'maladie' : 'recuperation';
+    var total = parseFloat(bal[col] || 0);
+    var used = (usage[deduireType] || {}).approved || 0;
+    var rest = total - used;
+    var jours = parseFloat(document.getElementById('abs-jours').value) || 0;
+    el.innerHTML = 'Solde actuel <strong>' + deduireType + '</strong> : '
+      + rest.toFixed(1).replace(/\.0$/,'') + ' j restant(s)'
+      + (jours > 0 ? ' → après déduction : <strong>' + Math.max(0, rest - jours).toFixed(1).replace(/\.0$/,'') + ' j</strong>' : '');
+    if (jours > rest && jours > 0) el.innerHTML += ' <span style="color:var(--red)">⚠ Solde insuffisant</span>';
+  }).catch(function(){ el.textContent = 'Impossible de charger le solde.'; });
+}
+
+function submitAbsence(){
+  var uid = document.getElementById('abs-user').value;
+  if (!uid) return alert('Veuillez sélectionner un collaborateur.');
+  var d1 = document.getElementById('abs-date-debut').value;
+  var d2 = document.getElementById('abs-date-fin').value;
+  if (!d1 || !d2) return alert('Dates requises.');
+
+  var duree = document.querySelector('input[name="abs-duree"]:checked');
+  var body = {
+    user_id:      uid,
+    type:         document.getElementById('abs-type').value,
+    date_debut:   d1,
+    date_fin:     d2,
+    demi_journee: duree ? duree.value : 'journee',
+    motif:        document.getElementById('abs-motif').value,
+    commentaire:  document.getElementById('abs-commentaire').value,
+    deduire:      document.getElementById('abs-deduire').checked ? 1 : 0,
+    deduire_type: document.getElementById('abs-deduire-type').value,
+    partage:      document.getElementById('abs-partage').checked ? 1 : 0
+  };
+
+  apiFetch('api/conges.php?action=declare_absence', { method:'POST', body: body })
+    .then(function(r){
+      var d = r.data || r;
+      // Upload justificatif si fichier sélectionné
+      var justifFile = document.getElementById('abs-justif-file');
+      if (justifFile && justifFile.files && justifFile.files.length > 0) {
+        var fd = new FormData();
+        fd.append('file', justifFile.files[0]);
+        fd.append('request_id', d.id);
+        return apiFetch('api/conges.php?action=upload_justif', { method:'POST', body: fd, raw: true })
+          .catch(function(ue){ console.warn('[absence] upload justif error', ue); })
+          .then(function(){ return d; });
+      }
+      return d;
+    })
+    .then(function(d){
+      var msg = 'Absence enregistrée pour ' + _cgEscape(d.user_name) + ' — ' + d.jours + ' jour(s).';
+      if (d.balance) msg += '\n' + d.balance.deduit + ' jour(s) déduit(s) de ' + d.balance.type + ' (restant : ' + d.balance.restant + ').';
+      closeModal('modal-absence');
+      showToast(msg);
+      renderCongesAdmin();
+    })
+    .catch(function(e){ alert('Erreur : ' + e.message); });
+}
+
+// ═══════════════════════════════════════════════════════════
 //  CONGÉS — Jours fériés (CRUD admin + overlay heatmap)
 // ═══════════════════════════════════════════════════════════
 

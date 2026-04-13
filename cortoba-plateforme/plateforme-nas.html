@@ -3006,6 +3006,12 @@
 
         <!-- ── PANEL : Admin (gérant) ── -->
         <div class="cg-panel" id="cg-panel-admin" style="display:none">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:1rem">
+            <button class="btn" style="color:var(--accent);border-color:rgba(99,135,210,0.4)" onclick="openAbsenceForm()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/><line x1="18" y1="8" x2="23" y2="13" stroke="#d45656" stroke-width="2.5"/></svg>
+              Déclarer une absence
+            </button>
+          </div>
           <div class="card" style="margin-bottom:1rem">
             <div class="card-title">Demandes en attente de validation</div>
             <div id="cg-admin-pending"><div style="color:var(--text-3);font-size:0.82rem;padding:1rem;text-align:center">Chargement…</div></div>
@@ -5752,6 +5758,125 @@ document.addEventListener('DOMContentLoaded', function() {
         <button class="btn" onclick="closeModal('modal-conge-decide')">Annuler</button>
         <button class="btn" style="color:var(--red);border-color:rgba(212,86,86,0.4)" onclick="submitCongeDecision('refuse')">Refuser</button>
         <button class="btn btn-primary" onclick="submitCongeDecision('approve')">Approuver</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal : Déclaration d'absence (admin) ══ -->
+<div class="modal-overlay" id="modal-absence">
+  <div class="modal-box" style="max-width:620px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title">Déclarer une absence</div>
+      <button class="modal-close" onclick="closeModal('modal-absence')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:78vh;overflow-y:auto;padding-right:0.5rem">
+      <div class="form-grid">
+        <!-- Collaborateur -->
+        <div class="form-field full">
+          <label class="form-label">Collaborateur <span style="color:var(--red)">*</span></label>
+          <select id="abs-user" class="form-select" onchange="_loadAbsSolde()">
+            <option value="">— Sélectionner un membre —</option>
+          </select>
+        </div>
+        <!-- Type d'absence -->
+        <div class="form-field">
+          <label class="form-label">Type d'absence <span style="color:var(--red)">*</span></label>
+          <select id="abs-type" class="form-select">
+            <option>Absence injustifiée</option>
+            <option>Maladie</option>
+            <option>Retard</option>
+            <option>Absence autorisée</option>
+            <option>Congé non planifié</option>
+            <option>Personnel / familial</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <!-- Jours ouvrés -->
+        <div class="form-field">
+          <label class="form-label">Jours ouvrés</label>
+          <input id="abs-jours" class="form-input" readonly value="0" />
+        </div>
+        <!-- Dates -->
+        <div class="form-field">
+          <label class="form-label">Date de début <span style="color:var(--red)">*</span></label>
+          <input id="abs-date-debut" class="form-input" type="date" onchange="onAbsenceDatesChange()" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Date de fin <span style="color:var(--red)">*</span></label>
+          <input id="abs-date-fin" class="form-input" type="date" onchange="onAbsenceDatesChange()" />
+        </div>
+        <!-- Demi-journée -->
+        <div class="form-field full">
+          <label class="form-label">Durée</label>
+          <div style="display:flex;gap:1rem;font-size:0.82rem;margin-top:0.3rem">
+            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+              <input type="radio" name="abs-duree" value="journee" checked onchange="onAbsenceDatesChange()"> Journée(s) complète(s)
+            </label>
+            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+              <input type="radio" name="abs-duree" value="matin" onchange="onAbsenceDatesChange()"> Matin uniquement
+            </label>
+            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+              <input type="radio" name="abs-duree" value="apres-midi" onchange="onAbsenceDatesChange()"> Après-midi uniquement
+            </label>
+          </div>
+        </div>
+        <!-- Motif -->
+        <div class="form-field full">
+          <label class="form-label">Motif / Raison</label>
+          <input id="abs-motif" class="form-input" placeholder="Ex: absence sans prévenir, rendez-vous médical…" />
+        </div>
+        <!-- Justificatif -->
+        <div class="form-field full">
+          <label class="form-label">Justificatif fourni</label>
+          <div style="display:flex;align-items:center;gap:1rem;margin-top:0.3rem">
+            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.82rem">
+              <input type="checkbox" id="abs-justif-fourni"> Justificatif reçu
+            </label>
+            <input type="file" id="abs-justif-file" accept=".jpg,.jpeg,.png,.webp,.pdf" style="font-size:0.78rem;max-width:280px" />
+          </div>
+        </div>
+        <!-- Commentaire admin -->
+        <div class="form-field full">
+          <label class="form-label">Commentaire administratif</label>
+          <textarea id="abs-commentaire" class="form-input" rows="2" placeholder="Note interne (visible uniquement par les administrateurs)"></textarea>
+        </div>
+      </div>
+
+      <!-- Section déduction congé -->
+      <div style="margin-top:1.2rem;padding:1rem;background:rgba(99,135,210,0.06);border:1px solid rgba(99,135,210,0.2);border-radius:6px">
+        <label style="display:flex;align-items:flex-start;gap:0.55rem;cursor:pointer;font-size:0.82rem;line-height:1.35">
+          <input type="checkbox" id="abs-deduire" style="margin-top:2px" onchange="toggleAbsDeduction()">
+          <span>
+            <strong>Déduire des congés</strong>
+            <span style="display:block;color:var(--text-3);font-size:0.72rem;margin-top:2px">
+              Cocher pour déduire cette absence du solde de congés du collaborateur.
+            </span>
+          </span>
+        </label>
+        <div id="abs-deduire-options" style="display:none;margin-top:0.8rem;padding-left:1.6rem">
+          <label class="form-label" style="margin-bottom:0.3rem">Type de congé à déduire</label>
+          <select id="abs-deduire-type" class="form-select" style="max-width:260px" onchange="_loadAbsSolde()">
+            <option value="Congés annuels">Congés annuels</option>
+            <option value="Maladie">Maladie</option>
+            <option value="Récupération">Récupération</option>
+          </select>
+          <div id="abs-solde-info" style="font-size:0.72rem;color:var(--text-3);margin-top:0.4rem"></div>
+        </div>
+      </div>
+
+      <!-- Partage -->
+      <div style="margin-top:0.8rem">
+        <label style="display:flex;align-items:flex-start;gap:0.55rem;cursor:pointer;font-size:0.8rem;line-height:1.35">
+          <input type="checkbox" id="abs-partage" checked style="margin-top:2px">
+          <span><strong>Afficher dans le calendrier de l'équipe</strong>
+          <span style="display:block;color:var(--text-3);font-size:0.72rem;margin-top:2px">Les autres membres verront cette absence comme sous-effectif.</span></span>
+        </label>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1.4rem">
+        <button class="btn" onclick="closeModal('modal-absence')">Annuler</button>
+        <button class="btn btn-primary" onclick="submitAbsence()">Enregistrer l'absence</button>
       </div>
     </div>
   </div>

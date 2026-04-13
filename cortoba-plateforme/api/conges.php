@@ -595,6 +595,101 @@ try {
             break;
         }
 
+        // ────────────────────────────── DECLARE ABSENCE (admin — déclarer une absence pour un membre)
+        case 'declare_absence': {
+            if (!isManager($user)) jsonError('Accès refusé', 403);
+            $body = getBody();
+            $uid        = trim($body['user_id'] ?? '');
+            $absType    = trim($body['type'] ?? 'Absence injustifiée');
+            $dateDebut  = trim($body['date_debut'] ?? '');
+            $dateFin    = trim($body['date_fin'] ?? '');
+            $motif      = trim($body['motif'] ?? '');
+            $commentaire= trim($body['commentaire'] ?? '');
+            $demiJournee= trim($body['demi_journee'] ?? 'journee'); // journee | matin | apres-midi
+            $deduire    = !empty($body['deduire']);
+            $deduireType= trim($body['deduire_type'] ?? 'Congés annuels');
+            $partage    = array_key_exists('partage', $body) ? (intval($body['partage']) ? 1 : 0) : 1;
+
+            if (!$uid)       jsonError('Collaborateur requis');
+            if (!$dateDebut || !$dateFin) jsonError('Dates requises');
+            if ($dateFin < $dateDebut)    jsonError('Date de fin avant le début');
+
+            // Résoudre le nom du collaborateur
+            $userName = '';
+            try {
+                $stmt = $db->prepare("SELECT CONCAT(prenom,' ',nom) FROM cortoba_users WHERE id = ?");
+                $stmt->execute([$uid]);
+                $userName = $stmt->fetchColumn() ?: '';
+            } catch (\Throwable $e) {}
+
+            // Calcul des jours ouvrés
+            $jours = workingDays($dateDebut, $dateFin, $db);
+            if ($demiJournee === 'matin' || $demiJournee === 'apres-midi') {
+                $jours = max(0.5, $jours - 0.5); // demi-journée
+            }
+
+            $id = bin2hex(random_bytes(16));
+
+            // Type enregistré dans la demande : le type d'absence (pas le type de congé)
+            $leaveType = $deduire ? $deduireType : $absType;
+
+            // Créer la demande directement en "Approuvé" (déclaration admin)
+            $delegation = 'Absence déclarée par ' . ($user['name'] ?? 'admin');
+            $fullMotif  = $absType . ($motif ? ' — ' . $motif : '');
+            if ($demiJournee !== 'journee') {
+                $fullMotif .= ' (' . ($demiJournee === 'matin' ? 'matin' : 'après-midi') . ')';
+            }
+
+            $db->prepare("INSERT INTO CA_leave_requests
+                (id, user_id, user_name, type, date_debut, date_fin, jours, motif, delegation, statut, commentaire_admin, decision_par, decision_at, partage)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approuvé', ?, ?, NOW(), ?)")
+               ->execute([
+                   $id, $uid, $userName,
+                   $leaveType, $dateDebut, $dateFin, $jours,
+                   $fullMotif, $delegation,
+                   $commentaire ?: null,
+                   $user['name'] ?? '',
+                   $partage,
+               ]);
+
+            // Déduire du solde si demandé
+            $balanceInfo = null;
+            if ($deduire) {
+                $colFromType = function(string $type): ?string {
+                    if ($type === 'Congés annuels') return 'conges_annuels';
+                    if ($type === 'Maladie')         return 'maladie';
+                    if ($type === 'Récupération')    return 'recuperation';
+                    return null;
+                };
+                $col = $colFromType($deduireType);
+                $annee = intval(substr($dateDebut, 0, 4));
+                if ($col) {
+                    $bal = ensureBalance($db, $uid, $annee);
+                    $db->prepare("UPDATE CA_leave_balances SET $col = GREATEST(0, $col - ?) WHERE user_id = ? AND annee = ?")
+                       ->execute([$jours, $uid, $annee]);
+                    $remaining = max(0, floatval($bal[$col]) - $jours);
+                    $balanceInfo = ['type' => $deduireType, 'deduit' => $jours, 'restant' => $remaining];
+                }
+            }
+
+            // Notifier le collaborateur
+            if (function_exists('notifCreate')) {
+                try {
+                    $periode = date('d/m/Y', strtotime($dateDebut)) . ' → ' . date('d/m/Y', strtotime($dateFin));
+                    $jStr = rtrim(rtrim(number_format($jours, 1, '.', ''), '0'), '.');
+                    $title = '📋 Absence déclarée — ' . $jStr . ' jour(s)';
+                    $msg = 'Une absence a été enregistrée à votre nom par ' . ($user['name'] ?? 'l\'administration') . ".\n"
+                         . $absType . ' · ' . $periode . ' (' . $jStr . ' j)'
+                         . ($motif ? "\nMotif : " . $motif : '')
+                         . ($deduire ? "\n\n⚠ " . $jStr . ' jour(s) déduit(s) de vos ' . $deduireType . '.' : '');
+                    dispatchNotification($db, $uid, 'conge_approve', $title, $msg, 'conges', $id, $user['name'] ?? null);
+                } catch (\Throwable $e) { /* silencieux */ }
+            }
+
+            jsonOk(['id' => $id, 'jours' => $jours, 'user_name' => $userName, 'balance' => $balanceInfo]);
+            break;
+        }
+
         // ────────────────────────────── HOLIDAYS LIST
         case 'holidays_list': {
             $annee = intval($_GET['annee'] ?? date('Y'));
