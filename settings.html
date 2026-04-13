@@ -816,7 +816,7 @@
 
         <div class="form-group full">
           <label>Disposition dans la grille</label>
-          <div class="grid-options">
+          <div class="grid-options" id="projGridOptions">
             <div class="grid-opt selected" data-val="" onclick="selectGridOpt(this)">
               <div class="grid-opt-icon">▢</div>
               <div class="grid-opt-label">Normal</div>
@@ -2512,12 +2512,31 @@
       lsEditingId = null;
     }
 
+    // ── Landscaping ratio map ──
+    const LS_RATIO_MAP = {
+      '': 'ratio-normal', 'span2col': 'ratio-wide', 'span2row': 'ratio-tall',
+      'span2big': 'ratio-big', 'span3col': 'ratio-full'
+    };
+    const LS_RATIO_LABELS = {
+      '': 'Aperçu 1×1', 'span2col': 'Aperçu Large 2 col', 'span2row': 'Aperçu Grand 2 rows',
+      'span2big': 'Aperçu XL 2×2', 'span3col': 'Aperçu Pleine largeur'
+    };
+
     function lsApplyHeroPosition() {
       const img = document.getElementById('lsHeroPreview');
+      const wrap = document.getElementById('lsHeroPreviewWrap');
       img.style.objectFit = 'cover';
-      img.style.height = '350px';
+      img.style.height = '100%';
       img.style.objectPosition = `50% ${Math.round(lsHeroPositionY)}%`;
       document.getElementById('lsHeroPosValue').textContent = Math.round(lsHeroPositionY) + '%';
+
+      const gc = document.querySelector('#lsGridOptions .grid-opt.selected')?.dataset.val || '';
+      wrap.classList.remove('ratio-normal', 'ratio-wide', 'ratio-tall', 'ratio-big', 'ratio-full');
+      wrap.classList.add(LS_RATIO_MAP[gc] || 'ratio-normal');
+
+      let label = wrap.querySelector('.hero-ratio-label');
+      if (!label) { wrap.insertAdjacentHTML('afterbegin', '<div class="hero-ratio-label"></div>'); label = wrap.querySelector('.hero-ratio-label'); }
+      label.textContent = LS_RATIO_LABELS[gc] || '';
     }
 
     function lsRenderGalleryThumbs() {
