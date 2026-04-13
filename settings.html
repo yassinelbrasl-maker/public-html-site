@@ -2545,8 +2545,8 @@
       const wrap = document.getElementById('lsHeroPreviewWrap');
       img.style.objectFit = 'cover';
       img.style.height = '100%';
-      img.style.objectPosition = `50% ${Math.round(lsHeroPositionY)}%`;
-      document.getElementById('lsHeroPosValue').textContent = Math.round(lsHeroPositionY) + '%';
+      img.style.objectPosition = `${Math.round(lsHeroPositionX)}% ${Math.round(lsHeroPositionY)}%`;
+      document.getElementById('lsHeroPosValue').textContent = `X:${Math.round(lsHeroPositionX)}% Y:${Math.round(lsHeroPositionY)}%`;
 
       const gc = document.querySelector('#lsGridOptions .grid-opt.selected')?.dataset.val || '';
       wrap.classList.remove('ratio-normal', 'ratio-wide', 'ratio-tall', 'ratio-big', 'ratio-full');
