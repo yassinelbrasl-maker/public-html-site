@@ -2665,32 +2665,37 @@
       setTimeout(() => { progWrap.classList.remove('active'); progText.classList.remove('active'); }, 2000);
     });
 
-    // ── Landscaping hero drag-to-reposition ──
+    // ── Landscaping hero drag-to-reposition (X + Y) ──
+    let lsHeroPositionX = 50;
     (function() {
       const wrap = document.getElementById('lsHeroPreviewWrap');
-      let dragging = false, startY = 0, startPos = 50;
+      let dragging = false, startX = 0, startY = 0, startPosX = 50, startPosY = 50;
 
       wrap.addEventListener('mousedown', e => {
         e.preventDefault(); dragging = true;
-        startY = e.clientY; startPos = lsHeroPositionY;
+        startX = e.clientX; startY = e.clientY;
+        startPosX = lsHeroPositionX; startPosY = lsHeroPositionY;
         wrap.classList.add('dragging');
       });
       document.addEventListener('mousemove', e => {
         if (!dragging) return;
-        const dy = e.clientY - startY;
-        lsHeroPositionY = Math.max(0, Math.min(100, startPos + (dy / wrap.offsetHeight) * 100));
+        lsHeroPositionX = Math.max(0, Math.min(100, startPosX + ((e.clientX - startX) / wrap.offsetWidth) * 100));
+        lsHeroPositionY = Math.max(0, Math.min(100, startPosY + ((e.clientY - startY) / wrap.offsetHeight) * 100));
         lsApplyHeroPosition();
       });
       document.addEventListener('mouseup', () => {
         if (dragging) { dragging = false; wrap.classList.remove('dragging'); }
       });
       wrap.addEventListener('touchstart', e => {
-        dragging = true; startY = e.touches[0].clientY; startPos = lsHeroPositionY;
+        dragging = true;
+        startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        startPosX = lsHeroPositionX; startPosY = lsHeroPositionY;
         wrap.classList.add('dragging');
       }, { passive: true });
       document.addEventListener('touchmove', e => {
         if (!dragging) return;
-        lsHeroPositionY = Math.max(0, Math.min(100, startPos + ((e.touches[0].clientY - startY) / wrap.offsetHeight) * 100));
+        lsHeroPositionX = Math.max(0, Math.min(100, startPosX + ((e.touches[0].clientX - startX) / wrap.offsetWidth) * 100));
+        lsHeroPositionY = Math.max(0, Math.min(100, startPosY + ((e.touches[0].clientY - startY) / wrap.offsetHeight) * 100));
         lsApplyHeroPosition();
       }, { passive: true });
       document.addEventListener('touchend', () => {
