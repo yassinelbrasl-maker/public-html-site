@@ -2163,13 +2163,14 @@
 
         <!-- Onglets Paramètres -->
         <div id="param-tabs-bar" style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto;flex-wrap:nowrap">
-          <button class="param-tab active" data-param-tab="agence"  onclick="switchParamTab('agence',this)"  style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid var(--accent);white-space:nowrap;transition:all .2s">Agence</button>
-          <button class="param-tab"        data-param-tab="securite" onclick="switchParamTab('securite',this)" style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Sécurité</button>
-          <button class="param-tab"        data-param-tab="equipe"   onclick="switchParamTab('equipe',this)"   style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Équipe &amp; Paie</button>
-          <button class="param-tab"        data-param-tab="projets"  onclick="switchParamTab('projets',this)"  style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Projets &amp; Listes</button>
-          <button class="param-tab"        data-param-tab="da"       onclick="switchParamTab('da',this)"       style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Demandes admin</button>
-          <button class="param-tab"        data-param-tab="nas"      onclick="switchParamTab('nas',this)"      style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Serveur NAS</button>
-          <button class="param-tab"        data-param-tab="chantier" onclick="switchParamTab('chantier',this)" style="padding:0.7rem 1.1rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s">Chantier</button>
+          <button class="param-tab active" data-param-tab="agence"        onclick="switchParamTab('agence',this)">Agence</button>
+          <button class="param-tab"        data-param-tab="securite"      onclick="switchParamTab('securite',this)">Sécurité</button>
+          <button class="param-tab"        data-param-tab="equipe"        onclick="switchParamTab('equipe',this)">Équipe &amp; Paie</button>
+          <button class="param-tab"        data-param-tab="projets"       onclick="switchParamTab('projets',this)">Projets &amp; Listes</button>
+          <button class="param-tab"        data-param-tab="configurateur" onclick="switchParamTab('configurateur',this)">Configurateur</button>
+          <button class="param-tab"        data-param-tab="da"            onclick="switchParamTab('da',this)">Demandes admin</button>
+          <button class="param-tab"        data-param-tab="nas"           onclick="switchParamTab('nas',this)">Serveur NAS</button>
+          <button class="param-tab"        data-param-tab="chantier"      onclick="switchParamTab('chantier',this)">Chantier</button>
         </div>
 
         <div class="card" data-param-tab="agence">
@@ -2443,189 +2444,171 @@
           </div>
         </div>
 
-        <!-- Configurateur de projet — Paramètres -->
-        <div class="card" data-param-tab="projets" style="margin-bottom:1.5rem">
+        <!-- ══ Onglet Configurateur ══ -->
+        <div class="card" data-param-tab="configurateur" style="margin-bottom:1.5rem">
           <div class="card-title">Configurateur de projet</div>
           <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:1.2rem">
             Ces valeurs sont utilisées par le configurateur public pour estimer les coûts et surfaces. Toute modification sera appliquée immédiatement.
           </div>
 
-          <!-- Email destinataire -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Notification par email</div>
-            <div class="form-grid" style="grid-template-columns:1fr">
-              <div class="form-field">
-                <label class="form-label">Email destinataire des nouvelles demandes</label>
-                <input id="cfg-email-destinataire" class="form-input" type="email" placeholder="cortobaarchitecture@gmail.com" />
-                <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Un email de notification sera envoyé à cette adresse pour chaque nouvelle demande du configurateur.</div>
+          <!-- 1. Notification email -->
+          <details class="cfg-section" open>
+            <summary>Notification par email <span class="cfg-section-hint">Adresse de réception des demandes</span></summary>
+            <div class="cfg-section-body">
+              <div class="form-grid" style="grid-template-columns:1fr">
+                <div class="form-field">
+                  <label class="form-label">Email destinataire des nouvelles demandes</label>
+                  <input id="cfg-email-destinataire" class="form-input" type="email" placeholder="cortobaarchitecture@gmail.com" />
+                  <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Un email de notification sera envoyé à cette adresse pour chaque nouvelle demande du configurateur.</div>
+                </div>
               </div>
             </div>
-          </div>
+          </details>
 
-          <!-- Coût au m² par standing × style -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Coût de construction au m² (TND)</div>
-            <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
-                <thead>
-                  <tr style="border-bottom:1px solid var(--border)">
+          <!-- 2. Coûts de construction -->
+          <details class="cfg-section" open>
+            <summary>Coûts de construction <span class="cfg-section-hint">Prix au m², zones, ratios</span></summary>
+            <div class="cfg-section-body">
+              <!-- Coût au m² -->
+              <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.6rem;color:var(--text-2)">Coût au m² par standing (TND)</div>
+              <div style="overflow-x:auto;margin-bottom:1.2rem">
+                <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+                  <thead><tr style="border-bottom:1px solid var(--border)">
                     <th style="text-align:left;padding:0.5rem;color:var(--text-3)">Standing \ Style</th>
                     <th style="padding:0.5rem;color:var(--text-3)">Contemporain</th>
                     <th style="padding:0.5rem;color:var(--text-3)">Traditionnel</th>
                     <th style="padding:0.5rem;color:var(--text-3)">Industriel</th>
                     <th style="padding:0.5rem;color:var(--text-3)">Bioclimatique</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style="padding:0.5rem;font-weight:500">Standard</td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-standard-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-standard-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-standard-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-standard-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0.5rem;font-weight:500">Confort</td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-confort-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-confort-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-confort-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-confort-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0.5rem;font-weight:500">Premium</td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-premium-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-premium-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-premium-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-cost-premium-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                  </tr>
-                </tbody>
-              </table>
+                  </tr></thead>
+                  <tbody>
+                    <tr><td style="padding:0.5rem;font-weight:500">Standard</td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-standard-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-standard-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-standard-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-standard-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td></tr>
+                    <tr><td style="padding:0.5rem;font-weight:500">Confort</td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-confort-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-confort-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-confort-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-confort-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td></tr>
+                    <tr><td style="padding:0.5rem;font-weight:500">Premium</td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-premium-contemporain" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-premium-traditionnel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-premium-industriel" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-cost-premium-bioclimatique" class="form-input" type="number" style="width:100%;text-align:center" /></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Zones -->
+              <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.6rem;color:var(--text-2)">Coefficients de zone géographique</div>
+              <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-bottom:1.2rem">
+                <div class="form-field"><label class="form-label">Grand Tunis</label><input id="cfg-zone-grand-tunis" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Sahel (Sousse, Monastir)</label><input id="cfg-zone-sahel" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Sfax</label><input id="cfg-zone-sfax" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Djerba / Médenine</label><input id="cfg-zone-djerba" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Bizerte / Nord</label><input id="cfg-zone-nord" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Autres régions</label><input id="cfg-zone-autres" class="form-input" type="number" step="0.01" /></div>
+              </div>
+              <!-- Coûts externes -->
+              <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.6rem;color:var(--text-2)">Coûts externes (TND/m²)</div>
+              <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-bottom:1.2rem">
+                <div class="form-field"><label class="form-label">VRD (Voirie & Réseaux)</label><input id="cfg-ext-vrd" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Aménagement extérieur</label><input id="cfg-ext-amenagement" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Branchements</label><input id="cfg-ext-branchements" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Honoraires (% coût)</label><input id="cfg-ext-honoraires" class="form-input" type="number" step="0.5" /></div>
+              </div>
+              <!-- Ratios -->
+              <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.6rem;color:var(--text-2)">Ratios de surface</div>
+              <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+                <div class="form-field"><label class="form-label">SHOB / SHON (coeff.)</label><input id="cfg-ratio-shob" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Emprise / Terrain (%)</label><input id="cfg-ratio-emprise" class="form-input" type="number" step="1" /></div>
+                <div class="form-field"><label class="form-label">Coeff. circulation</label><input id="cfg-circ-coeff" class="form-input" type="number" step="0.01" /></div>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <!-- Coefficients de zone -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Coefficients de zone géographique</div>
-            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
-              <div class="form-field"><label class="form-label">Grand Tunis</label><input id="cfg-zone-grand-tunis" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Sahel (Sousse, Monastir)</label><input id="cfg-zone-sahel" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Sfax</label><input id="cfg-zone-sfax" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Djerba / Médenine</label><input id="cfg-zone-djerba" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Bizerte / Nord</label><input id="cfg-zone-nord" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Autres régions</label><input id="cfg-zone-autres" class="form-input" type="number" step="0.01" /></div>
+          <!-- 3. Multiplicateurs & tarifs -->
+          <details class="cfg-section">
+            <summary>Multiplicateurs & tarifs <span class="cfg-section-hint">Opérations, piscines, éléments extérieurs</span></summary>
+            <div class="cfg-section-body">
+              <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.6rem;color:var(--text-2)">Multiplicateurs d'opération</div>
+              <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-bottom:1.2rem">
+                <div class="form-field"><label class="form-label">Neuf (×)</label><input id="cfg-opmult-neuf" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Réaménagement (×)</label><input id="cfg-opmult-reamenagement" class="form-input" type="number" step="0.01" /></div>
+                <div class="form-field"><label class="form-label">Extension (×)</label><input id="cfg-opmult-extension" class="form-input" type="number" step="0.01" /></div>
+              </div>
+              <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.6rem;color:var(--text-2)">Tarifs piscine (TND/m²)</div>
+              <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-bottom:1.2rem">
+                <div class="form-field"><label class="form-label">Piscine à skimmer</label><input id="cfg-pool-skimmer" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Piscine à débordement</label><input id="cfg-pool-debordement" class="form-input" type="number" /></div>
+              </div>
+              <div style="font-size:0.78rem;font-weight:500;margin-bottom:0.6rem;color:var(--text-2)">Coûts éléments extérieurs (TND)</div>
+              <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+                <div class="form-field"><label class="form-label">Terrasse aménagée</label><input id="cfg-extitem-terrasse" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Cuisine extérieure</label><input id="cfg-extitem-cuisine_ext" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Douche & sanitaires ext.</label><input id="cfg-extitem-sanitaires_ext" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Salon extérieur</label><input id="cfg-extitem-salon_ext" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Débarras</label><input id="cfg-extitem-debarras" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Toit terrasse</label><input id="cfg-extitem-toit_terrasse" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Clôture (TND/ml)</label><input id="cfg-extitem-cloture_ml" class="form-input" type="number" /></div>
+                <div class="form-field"><label class="form-label">Carport</label><input id="cfg-extitem-carport" class="form-input" type="number" /></div>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <!-- Coûts externes -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Coûts externes (TND/m²)</div>
-            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
-              <div class="form-field"><label class="form-label">VRD (Voirie & Réseaux)</label><input id="cfg-ext-vrd" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Aménagement extérieur</label><input id="cfg-ext-amenagement" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Branchements</label><input id="cfg-ext-branchements" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Honoraires (% coût)</label><input id="cfg-ext-honoraires" class="form-input" type="number" step="0.5" /></div>
-            </div>
-          </div>
-
-          <!-- Ratios de surface -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Ratios de surface</div>
-            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
-              <div class="form-field"><label class="form-label">SHOB / SHON (coeff.)</label><input id="cfg-ratio-shob" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Emprise / Terrain (%)</label><input id="cfg-ratio-emprise" class="form-input" type="number" step="1" /></div>
-              <div class="form-field"><label class="form-label">Coeff. circulation</label><input id="cfg-circ-coeff" class="form-input" type="number" step="0.01" /></div>
-            </div>
-          </div>
-
-          <!-- Multiplicateurs d'opération -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Multiplicateurs d'opération</div>
-            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
-              <div class="form-field"><label class="form-label">Neuf (×)</label><input id="cfg-opmult-neuf" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Réaménagement (×)</label><input id="cfg-opmult-reamenagement" class="form-input" type="number" step="0.01" /></div>
-              <div class="form-field"><label class="form-label">Extension (×)</label><input id="cfg-opmult-extension" class="form-input" type="number" step="0.01" /></div>
-            </div>
-          </div>
-
-          <!-- Tarifs piscine -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Tarifs piscine (TND/m²)</div>
-            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
-              <div class="form-field"><label class="form-label">Piscine à skimmer</label><input id="cfg-pool-skimmer" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Piscine à débordement</label><input id="cfg-pool-debordement" class="form-input" type="number" /></div>
-            </div>
-          </div>
-
-          <!-- Coûts éléments extérieurs -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Coûts éléments extérieurs (TND)</div>
-            <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
-              <div class="form-field"><label class="form-label">Terrasse aménagée</label><input id="cfg-extitem-terrasse" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Cuisine extérieure</label><input id="cfg-extitem-cuisine_ext" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Douche & sanitaires ext.</label><input id="cfg-extitem-sanitaires_ext" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Salon extérieur</label><input id="cfg-extitem-salon_ext" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Débarras</label><input id="cfg-extitem-debarras" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Toit terrasse</label><input id="cfg-extitem-toit_terrasse" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Clôture (TND/ml)</label><input id="cfg-extitem-cloture_ml" class="form-input" type="number" /></div>
-              <div class="form-field"><label class="form-label">Carport</label><input id="cfg-extitem-carport" class="form-input" type="number" /></div>
-            </div>
-          </div>
-
-          <!-- Ventilation des coûts -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Ventilation des coûts par standing (%)</div>
-            <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
-                <thead>
-                  <tr style="border-bottom:1px solid var(--border)">
+          <!-- 4. Ventilation des coûts -->
+          <details class="cfg-section">
+            <summary>Ventilation des coûts <span class="cfg-section-hint">Répartition GO / 2e œuvre / finitions</span></summary>
+            <div class="cfg-section-body">
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+                  <thead><tr style="border-bottom:1px solid var(--border)">
                     <th style="text-align:left;padding:0.5rem;color:var(--text-3)">Standing</th>
                     <th style="padding:0.5rem;color:var(--text-3)">Gros œuvre (%)</th>
                     <th style="padding:0.5rem;color:var(--text-3)">Second œuvre (%)</th>
                     <th style="padding:0.5rem;color:var(--text-3)">Finitions (%)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style="padding:0.5rem;font-weight:500">Standard</td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-standard-go" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-standard-so" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-standard-fin" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0.5rem;font-weight:500">Confort</td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-confort-go" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-confort-so" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-confort-fin" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0.5rem;font-weight:500">Premium</td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-premium-go" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-premium-so" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                    <td style="padding:0.3rem"><input id="cfg-breakdown-premium-fin" class="form-input" type="number" style="width:100%;text-align:center" /></td>
-                  </tr>
-                </tbody>
-              </table>
+                  </tr></thead>
+                  <tbody>
+                    <tr><td style="padding:0.5rem;font-weight:500">Standard</td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-standard-go" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-standard-so" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-standard-fin" class="form-input" type="number" style="width:100%;text-align:center" /></td></tr>
+                    <tr><td style="padding:0.5rem;font-weight:500">Confort</td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-confort-go" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-confort-so" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-confort-fin" class="form-input" type="number" style="width:100%;text-align:center" /></td></tr>
+                    <tr><td style="padding:0.5rem;font-weight:500">Premium</td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-premium-go" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-premium-so" class="form-input" type="number" style="width:100%;text-align:center" /></td>
+                      <td style="padding:0.3rem"><input id="cfg-breakdown-premium-fin" class="form-input" type="number" style="width:100%;text-align:center" /></td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <!-- Surfaces des pièces -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Surfaces des pièces (m²)</div>
-            <div style="font-size:0.72rem;color:var(--text-3);margin-bottom:0.8rem">Surfaces pré-remplies et minimales par standing. La surface par défaut est celle proposée au client, la surface minimale est le plancher.</div>
-            <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
-              <button class="btn btn-sm" onclick="cfgSurfTab('standard')" id="cfg-surf-tab-standard">Standard</button>
-              <button class="btn btn-sm btn-primary" onclick="cfgSurfTab('confort')" id="cfg-surf-tab-confort">Confort</button>
-              <button class="btn btn-sm" onclick="cfgSurfTab('premium')" id="cfg-surf-tab-premium">Premium</button>
+          <!-- 5. Surfaces des pièces -->
+          <details class="cfg-section">
+            <summary>Surfaces des pièces <span class="cfg-section-hint">Défaut & minimum par standing</span></summary>
+            <div class="cfg-section-body">
+              <div style="font-size:0.72rem;color:var(--text-3);margin-bottom:0.8rem">Surfaces pré-remplies et minimales par standing. La surface par défaut est celle proposée au client, la surface minimale est le plancher.</div>
+              <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
+                <button class="btn btn-sm" onclick="cfgSurfTab('standard')" id="cfg-surf-tab-standard">Standard</button>
+                <button class="btn btn-sm btn-primary" onclick="cfgSurfTab('confort')" id="cfg-surf-tab-confort">Confort</button>
+                <button class="btn btn-sm" onclick="cfgSurfTab('premium')" id="cfg-surf-tab-premium">Premium</button>
+              </div>
+              <div id="cfg-surfaces-table-wrap" style="overflow-x:auto"></div>
             </div>
-            <div id="cfg-surfaces-table-wrap" style="overflow-x:auto"></div>
-          </div>
+          </details>
 
-          <!-- Délais de construction -->
-          <div style="margin-bottom:1.5rem">
-            <div style="font-size:0.82rem;font-weight:500;margin-bottom:0.8rem;color:var(--text)">Délais de construction</div>
-            <div style="font-size:0.72rem;color:var(--text-3);margin-bottom:0.8rem">Phases et durées estimées par type de bâtiment et tranche de surface.</div>
-            <div id="cfg-delais-wrap"></div>
-          </div>
+          <!-- 6. Délais de construction -->
+          <details class="cfg-section">
+            <summary>Délais de construction <span class="cfg-section-hint">Phases & durées par type</span></summary>
+            <div class="cfg-section-body">
+              <div style="font-size:0.72rem;color:var(--text-3);margin-bottom:0.8rem">Phases et durées estimées par type de bâtiment et tranche de surface.</div>
+              <div id="cfg-delais-wrap"></div>
+            </div>
+          </details>
 
           <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1rem">
             <button class="btn btn-sm" onclick="resetCfgParams()">Réinitialiser par défaut</button>

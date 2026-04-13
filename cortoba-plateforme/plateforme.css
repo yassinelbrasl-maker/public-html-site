@@ -1086,4 +1086,39 @@
     }
     #da-docs-checklist label:hover { color: var(--accent); }
     #da-contenu { font-family: var(--mono); font-size: 0.82rem; }
+
+    /* ── Onglets Paramètres ── */
+    .param-tab {
+      padding: 0.7rem 1.1rem; background: none; border: none; cursor: pointer;
+      font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+      white-space: nowrap; transition: all 0.2s;
+      color: var(--text-3); border-bottom: 2px solid transparent;
+      font-family: var(--font);
+    }
+    .param-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .param-tab:hover:not(.active) { color: var(--text-2); }
+
+    /* ── Sections collapsibles configurateur ── */
+    .cfg-section {
+      margin-bottom: 1rem; border: 1px solid var(--border);
+      border-radius: 6px; overflow: hidden;
+    }
+    .cfg-section > summary {
+      padding: 0.85rem 1rem; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; color: var(--text);
+      list-style: none; display: flex; align-items: center; gap: 0.5rem;
+      background: var(--bg-2); transition: color 0.2s;
+      user-select: none;
+    }
+    .cfg-section > summary::-webkit-details-marker { display: none; }
+    .cfg-section > summary::before {
+      content: '▸'; font-size: 0.72rem; color: var(--text-3);
+      transition: transform 0.2s; flex-shrink: 0;
+    }
+    .cfg-section[open] > summary::before { transform: rotate(90deg); }
+    .cfg-section > summary:hover { color: var(--accent); }
+    .cfg-section > summary .cfg-section-hint {
+      font-size: 0.7rem; font-weight: 400; color: var(--text-3); margin-left: auto;
+    }
+    .cfg-section-body { padding: 1rem; }
   </style>
