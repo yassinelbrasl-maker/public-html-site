@@ -2587,7 +2587,7 @@
         surface: document.getElementById('lsProjSurface').value.trim(),
         description: document.getElementById('lsProjDescription').value,
         hero_image: lsHeroImagePath,
-        hero_position: Math.round(lsHeroPositionY),
+        hero_position: encodeHeroPos(lsHeroPositionX, lsHeroPositionY),
         gallery_images: lsGalleryImages,
         link: document.getElementById('lsProjLink').value.trim(),
         grid_class: document.querySelector('#lsGridOptions .grid-opt.selected')?.dataset.val || '',
