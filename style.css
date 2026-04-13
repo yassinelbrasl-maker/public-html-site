@@ -894,10 +894,227 @@ h2 {
 }
 
 /* ─── LIGHT MODE ─────────────────────────── */
-body.light-mode footer { background: #ede9e2; color: #666; border-top-color: rgba(0,0,0,0.1); }
-body.light-mode .whatsapp-float { box-shadow: 0 4px 20px rgba(37,211,102,0.25); }
-body.light-mode .floating-route-button { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+
+/* ── Variables manquantes ── */
+body.light-mode {
+  --bg-alt:    #eae7e1;
+  --accent-dim:rgba(184,148,42,0.12);
+  --white:     #1a1a1a;
+}
+
+/* ── Navbar ── */
+body.light-mode .navbar.scrolled {
+  background: rgba(237,233,226,0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+body.light-mode .nav-logo img {
+  filter: brightness(0) invert(0);
+}
+body.light-mode .nav-center a {
+  color: rgba(0,0,0,0.55);
+}
+body.light-mode .nav-center a:hover {
+  color: #1a1a1a;
+}
+body.light-mode .lang-sep {
+  color: rgba(0,0,0,0.2);
+}
+body.light-mode .language-switcher .lang-btn {
+  color: rgba(0,0,0,0.55);
+}
+body.light-mode .language-switcher .lang-btn:hover {
+  color: rgba(0,0,0,0.85);
+}
+body.light-mode .nav-leaf-btn {
+  color: rgba(0,0,0,0.55);
+  border-color: rgba(0,0,0,0.12);
+}
+body.light-mode .nav-leaf-btn:hover {
+  color: #1a1a1a;
+  background: rgba(123,191,123,0.08);
+}
+body.light-mode .burger-menu span {
+  background: rgba(0,0,0,0.6);
+}
+body.light-mode .burger-menu:hover span {
+  background: #1a1a1a;
+}
 body.light-mode .theme-toggle { border-color: rgba(0,0,0,0.15); }
+
+/* ── Mobile menu ── */
+body.light-mode .mobile-menu {
+  background: #f5f3ef;
+}
+body.light-mode .mobile-menu-close {
+  color: rgba(0,0,0,0.4);
+}
+body.light-mode .mobile-menu-close:hover {
+  color: #1a1a1a;
+}
+body.light-mode .mobile-menu-nav a {
+  color: rgba(0,0,0,0.6);
+}
+body.light-mode .mobile-menu-nav a:hover {
+  color: var(--accent);
+}
+body.light-mode .mobile-menu-lang {
+  color: rgba(0,0,0,0.2);
+}
+body.light-mode .mobile-menu-lang .lang-btn {
+  color: rgba(0,0,0,0.35);
+}
+
+/* ── Hero overlay — conserver lisible sur images ── */
+body.light-mode .overlay > p {
+  color: rgba(255,255,255,0.8);
+}
+body.light-mode .slider-dot {
+  background: rgba(255,255,255,0.5);
+  border-color: rgba(255,255,255,0.7);
+}
+body.light-mode .slider-dot:hover {
+  background: rgba(255,255,255,0.75);
+}
+
+/* ── Services ── */
+body.light-mode .service-card:hover {
+  background: #f0ece4;
+}
+
+/* ── About photo ── */
+body.light-mode .about-photo img {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+/* ── Team ── */
+body.light-mode .team-member img {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+body.light-mode .team-member img:hover {
+  box-shadow: 0 8px 30px rgba(184,148,42,0.25);
+}
+
+/* ── Footer ── */
+body.light-mode footer {
+  background: #ede9e2;
+  color: #666;
+  border-top-color: rgba(0,0,0,0.1);
+}
+
+/* ── Boutons flottants ── */
+body.light-mode .whatsapp-float { box-shadow: 0 4px 20px rgba(37,211,102,0.25); }
+body.light-mode .floating-route-button {
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  border-color: rgba(0,0,0,0.1);
+}
+
+/* ── Configurateur intro banner ── */
+body.light-mode .config-intro-banner {
+  background: #eae7e1;
+  border-top-color: rgba(0,0,0,0.06);
+  border-bottom-color: rgba(0,0,0,0.06);
+}
+
+/* ── Configurateur header + steps ── */
+body.light-mode .cfg-header {
+  background: #ede9e2;
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+body.light-mode .cfg-step-num {
+  border-color: rgba(184,148,42,0.3);
+  color: #777;
+}
+body.light-mode .cfg-step-lbl {
+  color: #777;
+}
+body.light-mode .cfg-step.active .cfg-step-num {
+  background: rgba(184,148,42,0.1);
+}
+body.light-mode .cfg-step.done .cfg-step-num {
+  color: #fff;
+}
+body.light-mode .cfg-step-line {
+  background: rgba(0,0,0,0.08);
+}
+
+/* ── Configurateur page headings ── */
+body.light-mode .cfg-page-heading {
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+body.light-mode .cfg-step-big {
+  color: rgba(0,0,0,0.04);
+}
+
+/* ── Configurateur labels ── */
+body.light-mode .cfg-label {
+  color: rgba(60,55,45,0.65);
+}
+body.light-mode .cfg-opt {
+  color: #777;
+}
+
+/* ── Configurateur cards & inputs ── */
+body.light-mode .cfg-icard {
+  border-color: rgba(0,0,0,0.08);
+}
+body.light-mode .cfg-icard:hover {
+  border-color: rgba(184,148,42,0.4);
+}
+body.light-mode .cfg-icard.selected {
+  background: rgba(184,148,42,0.08);
+}
+
+body.light-mode .cfg-input,
+body.light-mode .cfg-select,
+body.light-mode .cfg-textarea {
+  border-color: rgba(0,0,0,0.1);
+}
+
+body.light-mode .cfg-chk .cfg-chk-box {
+  border-color: rgba(0,0,0,0.18);
+}
+body.light-mode .cfg-chk.checked .cfg-chk-box {
+  color: #fff;
+}
+
+/* ── Configurateur navigation buttons ── */
+body.light-mode .cfg-nav {
+  border-top-color: rgba(0,0,0,0.08);
+}
+body.light-mode .cfg-btn-back {
+  border-color: rgba(0,0,0,0.12);
+}
+body.light-mode .cfg-btn-next {
+  color: #fff;
+}
+
+/* ── Configurateur recap ── */
+body.light-mode .cfg-recap {
+  background: #f5f3ef;
+  border-color: rgba(0,0,0,0.08);
+}
+body.light-mode .cfg-metric-card {
+  border-color: rgba(0,0,0,0.08);
+}
+body.light-mode .cfg-cta-block {
+  background: #eae7e1;
+  border-color: rgba(0,0,0,0.08);
+}
+body.light-mode #cfg-recap-float {
+  background: #ede9e2;
+}
+
+/* ── Configurateur section inline bg fix ── */
+body.light-mode #configurateur {
+  background: var(--bg) !important;
+}
+
+/* ── Map section ── */
+body.light-mode .map-gmaps-btn:hover {
+  color: #fff;
+}
 
 /* ─── FOOTER ─────────────────────────────── */
 footer {
