@@ -575,10 +575,18 @@
           <button class="btn btn-primary" id="addProjectBtn"><i class="fa-solid fa-plus"></i> Nouveau projet</button>
         </div>
         <div class="projects-grid-toolbar" id="gridToolbar" style="display:none">
-          <span class="toolbar-hint"><i class="fa-solid fa-grip"></i> Glissez les projets pour réorganiser la grille. Cliquez <b>▢ ▬ ▮</b> pour changer la taille.</span>
-          <button class="btn-save-layout" id="saveLayoutBtn"><i class="fa-solid fa-check"></i> Enregistrer la disposition</button>
+          <span class="toolbar-hint"><i class="fa-solid fa-grip"></i> Glissez pour réorganiser &middot; Survolez pour changer la taille</span>
+          <div class="device-switcher">
+            <button class="device-btn active" data-device="desktop" onclick="switchDevice('desktop',this)"><i class="fa-solid fa-desktop"></i> PC</button>
+            <button class="device-btn" data-device="tablet" onclick="switchDevice('tablet',this)"><i class="fa-solid fa-tablet-screen-button"></i> Tablette</button>
+            <button class="device-btn" data-device="mobile" onclick="switchDevice('mobile',this)"><i class="fa-solid fa-mobile-screen-button"></i> Mobile</button>
+          </div>
+          <button class="btn-save-layout" id="saveLayoutBtn"><i class="fa-solid fa-check"></i> Enregistrer</button>
         </div>
-        <div id="projectsList" class="projects-list"></div>
+        <div class="projects-list-wrap" id="projectsWrap">
+          <div class="device-frame-label" id="deviceLabel">Desktop — 3 colonnes</div>
+          <div id="projectsList" class="projects-list"></div>
+        </div>
         <div id="projectsEmpty" class="empty-state" style="display:none">
           <i class="fa-solid fa-folder-open"></i>
           <h3>Aucun projet publié</h3>
