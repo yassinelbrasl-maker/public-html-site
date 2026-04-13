@@ -156,11 +156,18 @@ function createPublic() {
             . '<p style="color:#666;font-size:11px;margin:0">CORTOBA Atelier d\'Architecture — Notification automatique</p>'
             . '</td></tr></table></body></html>';
 
+        $fromEmail = 'noreply@cortobaarchitecture.com';
         $headers  = "MIME-Version: 1.0\r\n";
         $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= "From: CORTOBA Architecture <cortobaarchitecture@gmail.com>\r\n";
-        @mail($adminEmail, $subject, $htmlMsg, $headers);
-    } catch (\Throwable $e) { /* non-critique */ }
+        $headers .= "From: CORTOBA Architecture <" . $fromEmail . ">\r\n";
+        $headers .= "Reply-To: cortobaarchitecture@gmail.com\r\n";
+        $mailResult = mail($adminEmail, $subject, $htmlMsg, $headers);
+        if (!$mailResult) {
+            error_log('[CORTOBA] mail() failed for demande ' . $id . ' to ' . $adminEmail);
+        }
+    } catch (\Throwable $e) {
+        error_log('[CORTOBA] mail exception: ' . $e->getMessage());
+    }
 
     jsonOk(['id' => $id, 'statut' => 'nouvelle'], 201);
 }
@@ -550,8 +557,9 @@ function handlePut($id, array $user) {
 </table></body></html>';
                         $headers  = "MIME-Version: 1.0\r\n";
                         $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-                        $headers .= "From: CORTOBA Architecture <cortobaarchitecture@gmail.com>\r\n";
-                        @mail($clientEmail, $subject, $htmlMsg, $headers);
+                        $headers .= "From: CORTOBA Architecture <noreply@cortobaarchitecture.com>\r\n";
+                        $headers .= "Reply-To: cortobaarchitecture@gmail.com\r\n";
+                        mail($clientEmail, $subject, $htmlMsg, $headers);
                     }
                 } catch (\Throwable $e) { /* non-critique */ }
 
