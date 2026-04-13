@@ -2703,6 +2703,7 @@
         cbs.forEach(function(cb){ if (!cb.checked) allChecked = false; });
         cbs.forEach(function(cb){ cb.checked = !allChecked; });
         cfgUpdateMissionCount(catId);
+        cfgRenderSelectedMissions();
       }
 
       function cfgFilterMissions() {
