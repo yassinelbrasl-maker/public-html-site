@@ -15440,6 +15440,16 @@ function notifUpdatePushUI(){
     btn.style.display='none';
     return;
   }
+  // Vérifier si les notifications sont bloquées par le navigateur
+  if('Notification' in window && Notification.permission==='denied'){
+    stateEl.textContent='Bloquées par le navigateur';
+    stateEl.style.color='#d45656';
+    btn.textContent='Débloquer (paramètres navigateur)';
+    btn.style.display='inline-block';
+    btn.style.background='#d4a64a';
+    btn.onclick=function(){alert('Pour débloquer les notifications :\n\n1. Cliquez sur l\'icône cadenas (ou info) dans la barre d\'adresse\n2. Cherchez \"Notifications\"\n3. Changez de \"Bloquer\" à \"Autoriser\"\n4. Rafraîchissez la page');};
+    return;
+  }
   function _pushShowOff(){
     stateEl.textContent='Désactivées';stateEl.style.color='var(--text-3)';
     btn.textContent='Activer les push';btn.style.display='inline-block';btn.style.background='var(--accent)';
