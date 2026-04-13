@@ -2508,7 +2508,9 @@
 
           if (p.hero_image) {
             lsHeroImagePath = p.hero_image;
-            lsHeroPositionY = parseInt(p.hero_position) || 50;
+            const pos = decodeHeroPos(p.hero_position);
+            lsHeroPositionX = pos.x;
+            lsHeroPositionY = pos.y;
             document.getElementById('lsHeroPreview').src = p.hero_image;
             document.getElementById('lsHeroPreviewWrap').classList.add('visible');
             lsApplyHeroPosition();
