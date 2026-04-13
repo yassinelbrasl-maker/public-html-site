@@ -1542,7 +1542,9 @@
 
           if (p.hero_image) {
             heroImagePath = p.hero_image;
-            heroPositionY = parseInt(p.hero_position) || 50;
+            const pos = decodeHeroPos(p.hero_position);
+            heroPositionX = pos.x;
+            heroPositionY = pos.y;
             document.getElementById('heroPreview').src = p.hero_image;
             document.getElementById('heroPreviewWrap').classList.add('visible');
             applyHeroPosition();
