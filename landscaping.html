@@ -1337,6 +1337,8 @@
           let gridStyle = '';
           if (p.grid_class === 'span2row') gridStyle = 'grid-row:span 2';
           else if (p.grid_class === 'span2col') gridStyle = 'grid-column:span 2';
+          else if (p.grid_class === 'span2big') gridStyle = 'grid-column:span 2;grid-row:span 2';
+          else if (p.grid_class === 'span3col') gridStyle = 'grid-column:span 3';
           return `<a class="proj-card ${delayClass}" href="${escHtml(p.link || '#')}" style="${i === 0 ? 'background:#1a2a14;' : ''}${gridStyle}">
             <div class="proj-img" style="background-image:url('${escHtml(img)}');background-position:50% ${pos}%"></div>
             <div class="proj-overlay">
