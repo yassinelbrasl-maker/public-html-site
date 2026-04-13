@@ -15475,7 +15475,17 @@ function notifTogglePush(){
   });
 }
 function _notifPushSubscribe(reg){
-  return apiFetch('api/notification_prefs.php?action=get_vapid_key').then(function(r){
+  // 1. Demander la permission du navigateur
+  return Promise.resolve().then(function(){
+    if(!('Notification' in window))throw new Error('Notifications non supportées');
+    if(Notification.permission==='granted')return 'granted';
+    if(Notification.permission==='denied')throw new Error('Notifications bloquées par le navigateur. Cliquez sur l\'icône cadenas dans la barre d\'adresse pour les autoriser.');
+    return Notification.requestPermission();
+  }).then(function(perm){
+    if(perm!=='granted')throw new Error('Permission refusée. Autorisez les notifications dans les paramètres du navigateur.');
+    // 2. Récupérer la clé VAPID
+    return apiFetch('api/notification_prefs.php?action=get_vapid_key');
+  }).then(function(r){
     var key=(r&&r.data)?r.data.publicKey:null;
     if(!key)throw new Error('Clé VAPID manquante');
     var rawKey=_urlBase64ToUint8Array(key);
