@@ -234,7 +234,9 @@ function generateProjectHTML(PDO $pdo, int $id, string $table): void {
     }
 
     $heroImg = $p['hero_image'] ?: ($gallery[0] ?? '/img/Projets/p1.jpg');
-    $heroPos = (int)($p['hero_position'] ?? 50);
+    $rawPos = (int)($p['hero_position'] ?? 50);
+    $heroPosX = $rawPos > 100 ? ($rawPos % 1000) : 50;
+    $heroPos = $rawPos > 100 ? intdiv($rawPos, 1000) : $rawPos;
     $loc = htmlspecialchars($p['location']);
     $country = htmlspecialchars($p['country']);
     $title = htmlspecialchars($p['title']);
