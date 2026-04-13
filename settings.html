@@ -1585,7 +1585,7 @@
         sort_order: parseInt(document.getElementById('projSortOrder').value) || 0,
         published: document.getElementById('projPublished').checked ? 1 : 0,
         hero_image: heroImagePath,
-        hero_position: Math.round(heroPositionY),
+        hero_position: encodeHeroPos(heroPositionX, heroPositionY),
         gallery_images: galleryImages,
         grid_class: document.querySelector('.grid-opt.selected')?.dataset.val || ''
       };
