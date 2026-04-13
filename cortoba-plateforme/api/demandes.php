@@ -100,6 +100,68 @@ function createPublic() {
         'nouvelle',
     ]);
 
+    // ── Envoi email de notification à l'admin ──
+    try {
+        $stmtEmail = $db->prepare("SELECT setting_value FROM CA_settings WHERE setting_key = ?");
+        $stmtEmail->execute(['cfg_email_destinataire']);
+        $adminEmail = $stmtEmail->fetchColumn();
+        if ($adminEmail) $adminEmail = trim(trim($adminEmail), '"');
+        if (!$adminEmail || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
+            $adminEmail = 'cortobaarchitecture@gmail.com';
+        }
+
+        $cfg = json_decode($cfgRaw, true) ?: [];
+        $standing  = htmlspecialchars($cfg['cfg_standing'] ?? '-');
+        $style     = htmlspecialchars($cfg['cfg_style'] ?? '-');
+        $operation = htmlspecialchars($cfg['cfg_operation'] ?? '-');
+        $typeBat   = htmlspecialchars($cfg['cfg_type'] ?? '-');
+        $email     = htmlspecialchars($body['email'] ?? '-');
+        $surfEst   = !empty($body['surface_estimee']) ? number_format(floatval($body['surface_estimee']), 0, ',', ' ') . ' m²' : '-';
+        $coutLow   = !empty($body['cout_estime_low'])  ? number_format(floatval($body['cout_estime_low']),  0, ',', ' ') . ' TND' : '-';
+        $coutHigh  = !empty($body['cout_estime_high']) ? number_format(floatval($body['cout_estime_high']), 0, ',', ' ') . ' TND' : '-';
+
+        $subject = 'Nouvelle demande configurateur — ' . $nomProjet;
+        $htmlMsg = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>'
+            . '<body style="margin:0;padding:0;background:#0e0e0e;font-family:Arial,sans-serif">'
+            . '<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:20px auto;background:#1a1a1a;border-radius:8px;overflow:hidden">'
+            . '<tr><td style="background:#0a0a0a;padding:20px 30px;border-bottom:1px solid rgba(200,169,110,0.2)">'
+            . '<h1 style="color:#c8a96e;margin:0;font-size:18px;letter-spacing:0.1em">CORTOBA ATELIER</h1>'
+            . '<div style="color:#888;font-size:12px;margin-top:4px">Nouvelle demande depuis le configurateur</div>'
+            . '</td></tr>'
+            . '<tr><td style="padding:30px;color:#e8e4dc">'
+            . '<h2 style="color:#c8a96e;margin:0 0 16px;font-size:16px">' . htmlspecialchars($nomProjet) . '</h2>'
+            . '<table style="width:100%;border-collapse:collapse;margin:0 0 20px">'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Client</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#e8e4dc">' . htmlspecialchars($prenom . ' ' . $nom) . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Téléphone</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#e8e4dc">' . htmlspecialchars($tel) . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Email</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#e8e4dc">' . $email . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Type</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#e8e4dc">' . $typeBat . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Opération</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#e8e4dc">' . $operation . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Standing</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#c8a96e">' . $standing . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Style</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#e8e4dc">' . $style . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Surface estimée</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;color:#e8e4dc">' . $surfEst . '</td></tr>'
+            . '<tr><td style="padding:8px 12px;border:1px solid #333;color:#999;font-size:13px">Coût estimé</td>'
+            . '<td style="padding:8px 12px;border:1px solid #333;font-size:13px;font-weight:bold;color:#c8a96e">' . $coutLow . ' – ' . $coutHigh . '</td></tr>'
+            . '</table>'
+            . '<p style="color:#888;font-size:12px">Connectez-vous à la plateforme pour traiter cette demande.</p>'
+            . '</td></tr>'
+            . '<tr><td style="padding:16px 30px;background:#111;border-top:1px solid #333">'
+            . '<p style="color:#666;font-size:11px;margin:0">CORTOBA Atelier d\'Architecture — Notification automatique</p>'
+            . '</td></tr></table></body></html>';
+
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: CORTOBA Architecture <cortobaarchitecture@gmail.com>\r\n";
+        @mail($adminEmail, $subject, $htmlMsg, $headers);
+    } catch (\Throwable $e) { /* non-critique */ }
+
     jsonOk(['id' => $id, 'statut' => 'nouvelle'], 201);
 }
 

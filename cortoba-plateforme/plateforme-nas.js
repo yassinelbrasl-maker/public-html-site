@@ -9154,6 +9154,63 @@ var CFG_DEFAULTS = {
   },
   cfg_ratios: {
     shob: 1.15, emprise: 40
+  },
+  cfg_email_destinataire: 'cortobaarchitecture@gmail.com',
+  cfg_operation_mult: { neuf: 1, reamenagement: 0.65, extension: 0.8 },
+  cfg_pool_rates: { skimmer: 1500, debordement: 1800 },
+  cfg_ext_items_costs: {
+    terrasse: 15000, cuisine_ext: 8000, sanitaires_ext: 6000,
+    salon_ext: 10000, debarras: 4000, toit_terrasse: 12000,
+    cloture_ml: 150, carport: 8000
+  },
+  cfg_cost_breakdown: {
+    standard: [45, 32, 23], confort: [40, 33, 27], premium: [35, 28, 37]
+  },
+  cfg_circulation_coeff: 1.15,
+  cfg_surfaces: {
+    standard: {
+      salon:{default:18,min:14}, sejour:{default:16,min:12}, entree:{default:7,min:4},
+      cuisine:{default:12,min:8}, salle_manger:{default:10,min:8},
+      sde_complete:{default:5,min:2}, sde_simple:{default:3,min:2},
+      chambre_simple:{default:9,min:8}, chambre_double:{default:11,min:10}, chambre_2doubles:{default:14,min:12},
+      suite_parentale_dressing:{default:28,min:22}, suite_parentale_placard:{default:24,min:22},
+      suite_dressing:{default:24,min:18}, suite_placard:{default:20,min:18},
+      sdb_privative:{default:5,min:4}, bureau:{default:10,min:8}, sport:{default:18,min:12},
+      buanderie:{default:5,min:4}, cellier:{default:5,min:4}, buanderie_cellier:{default:9,min:6},
+      garage_1:{default:18,min:16}, garage_2_cote:{default:36,min:30}, garage_2_ligne:{default:38,min:32}, carport:{default:14,min:12}
+    },
+    confort: {
+      salon:{default:20,min:14}, sejour:{default:18,min:12}, entree:{default:8,min:4},
+      cuisine:{default:14,min:8}, salle_manger:{default:12,min:8},
+      sde_complete:{default:6,min:2}, sde_simple:{default:3,min:2},
+      chambre_simple:{default:10,min:8}, chambre_double:{default:12,min:10}, chambre_2doubles:{default:16,min:12},
+      suite_parentale_dressing:{default:30,min:22}, suite_parentale_placard:{default:26,min:22},
+      suite_dressing:{default:26,min:18}, suite_placard:{default:22,min:18},
+      sdb_privative:{default:6,min:4}, bureau:{default:12,min:8}, sport:{default:20,min:12},
+      buanderie:{default:6,min:4}, cellier:{default:6,min:4}, buanderie_cellier:{default:10,min:6},
+      garage_1:{default:20,min:16}, garage_2_cote:{default:40,min:30}, garage_2_ligne:{default:42,min:32}, carport:{default:16,min:12}
+    },
+    premium: {
+      salon:{default:25,min:14}, sejour:{default:22,min:12}, entree:{default:10,min:4},
+      cuisine:{default:18,min:8}, salle_manger:{default:14,min:8},
+      sde_complete:{default:8,min:2}, sde_simple:{default:4,min:2},
+      chambre_simple:{default:12,min:8}, chambre_double:{default:14,min:10}, chambre_2doubles:{default:18,min:12},
+      suite_parentale_dressing:{default:35,min:22}, suite_parentale_placard:{default:30,min:22},
+      suite_dressing:{default:30,min:18}, suite_placard:{default:26,min:18},
+      sdb_privative:{default:8,min:4}, bureau:{default:15,min:8}, sport:{default:25,min:12},
+      buanderie:{default:8,min:4}, cellier:{default:8,min:4}, buanderie_cellier:{default:14,min:6},
+      garage_1:{default:24,min:16}, garage_2_cote:{default:44,min:30}, garage_2_ligne:{default:46,min:32}, carport:{default:18,min:12}
+    }
+  },
+  cfg_delais: {
+    logement: {
+      small:  { label:'< 120 m²', maxSurface:120, phases:[{name:'Études',dur:'2 mois'},{name:'Terrassement & fondations',dur:'2 mois'},{name:'Gros œuvre',dur:'4 mois'},{name:'Second œuvre',dur:'3 mois'},{name:'Finitions',dur:'2 mois'}] },
+      medium: { label:'120–250 m²', maxSurface:250, phases:[{name:'Études & permis',dur:'3 mois'},{name:'Fondations',dur:'2–3 mois'},{name:'Gros œuvre',dur:'5–6 mois'},{name:'Second œuvre',dur:'4 mois'},{name:'Finitions',dur:'3 mois'}] },
+      large:  { label:'> 250 m²', maxSurface:99999, phases:[{name:'Études & permis',dur:'3–4 mois'},{name:'Fondations',dur:'3 mois'},{name:'Gros œuvre',dur:'7–9 mois'},{name:'Second œuvre',dur:'5–6 mois'},{name:'Finitions',dur:'4–5 mois'}] }
+    },
+    immeuble: {
+      default: { label:'Immeuble (tous)', maxSurface:99999, phases:[{name:'Études & admin.',dur:'3–4 mois'},{name:'Gros œuvre',dur:'6–10 mois'},{name:'Second œuvre',dur:'4–6 mois'},{name:'Finitions',dur:'3–4 mois'}] }
+    }
   }
 };
 
@@ -9189,6 +9246,218 @@ function loadCfgParams() {
   if (elShob) elShob.value = ratios.shob || CFG_DEFAULTS.cfg_ratios.shob;
   var elEmprise = document.getElementById('cfg-ratio-emprise');
   if (elEmprise) elEmprise.value = ratios.emprise || CFG_DEFAULTS.cfg_ratios.emprise;
+
+  // Email destinataire
+  var emailDest = getSetting('cfg_email_destinataire', CFG_DEFAULTS.cfg_email_destinataire);
+  var elEmail = document.getElementById('cfg-email-destinataire');
+  if (elEmail) elEmail.value = emailDest;
+
+  // Multiplicateurs d'opération
+  var opMult = getSetting('cfg_operation_mult', CFG_DEFAULTS.cfg_operation_mult);
+  ['neuf','reamenagement','extension'].forEach(function(k) {
+    var el = document.getElementById('cfg-opmult-' + k);
+    if (el) el.value = opMult[k] !== undefined ? opMult[k] : CFG_DEFAULTS.cfg_operation_mult[k];
+  });
+
+  // Tarifs piscine
+  var poolRates = getSetting('cfg_pool_rates', CFG_DEFAULTS.cfg_pool_rates);
+  ['skimmer','debordement'].forEach(function(k) {
+    var el = document.getElementById('cfg-pool-' + k);
+    if (el) el.value = poolRates[k] !== undefined ? poolRates[k] : CFG_DEFAULTS.cfg_pool_rates[k];
+  });
+
+  // Coûts éléments extérieurs
+  var extItems = getSetting('cfg_ext_items_costs', CFG_DEFAULTS.cfg_ext_items_costs);
+  ['terrasse','cuisine_ext','sanitaires_ext','salon_ext','debarras','toit_terrasse','cloture_ml','carport'].forEach(function(k) {
+    var el = document.getElementById('cfg-extitem-' + k);
+    if (el) el.value = extItems[k] !== undefined ? extItems[k] : CFG_DEFAULTS.cfg_ext_items_costs[k];
+  });
+
+  // Ventilation coûts
+  var breakdown = getSetting('cfg_cost_breakdown', CFG_DEFAULTS.cfg_cost_breakdown);
+  ['standard','confort','premium'].forEach(function(st) {
+    var arr = breakdown[st] || CFG_DEFAULTS.cfg_cost_breakdown[st];
+    var elGo  = document.getElementById('cfg-breakdown-' + st + '-go');
+    var elSo  = document.getElementById('cfg-breakdown-' + st + '-so');
+    var elFin = document.getElementById('cfg-breakdown-' + st + '-fin');
+    if (elGo)  elGo.value  = arr[0];
+    if (elSo)  elSo.value  = arr[1];
+    if (elFin) elFin.value = arr[2];
+  });
+
+  // Coefficient circulation
+  var circCoeff = getSetting('cfg_circulation_coeff', CFG_DEFAULTS.cfg_circulation_coeff);
+  var elCirc = document.getElementById('cfg-circ-coeff');
+  if (elCirc) elCirc.value = circCoeff;
+
+  // Surfaces
+  loadCfgSurfaces();
+
+  // Délais
+  loadCfgDelais();
+}
+
+// ── Surfaces par pièce (tableau dynamique) ──
+var _cfgSurfCurrentTab = 'confort';
+
+function loadCfgSurfaces() {
+  var surfaces = getSetting('cfg_surfaces', CFG_DEFAULTS.cfg_surfaces);
+  window._cfgSurfacesData = surfaces;
+  renderCfgSurfacesTab(_cfgSurfCurrentTab);
+}
+
+function cfgSurfTab(standing) {
+  _cfgSurfCurrentTab = standing;
+  ['standard','confort','premium'].forEach(function(s) {
+    var btn = document.getElementById('cfg-surf-tab-' + s);
+    if (btn) { btn.className = s === standing ? 'btn btn-sm btn-primary' : 'btn btn-sm'; }
+  });
+  renderCfgSurfacesTab(standing);
+}
+
+var CFG_SURF_LABELS = {
+  salon:'Salon', sejour:'Séjour', entree:'Entrée',
+  cuisine:'Cuisine indépendante', salle_manger:'Salle à manger',
+  sde_complete:"Salle d'eau (complète)", sde_simple:"Salle d'eau (simple)",
+  chambre_simple:'Chambre simple', chambre_double:'Chambre double', chambre_2doubles:'Chambre 2 lits doubles',
+  suite_parentale_dressing:'Suite parentale (dressing)', suite_parentale_placard:'Suite parentale (placard)',
+  suite_dressing:'Suite (dressing)', suite_placard:'Suite (placard)',
+  sdb_privative:'SDB privative', bureau:'Bureau / Télétravail', sport:'Espace de sport',
+  buanderie:'Buanderie', cellier:'Cellier', buanderie_cellier:'Buanderie & cellier',
+  garage_1:'Garage 1 voiture', garage_2_cote:'Garage 2 voit. (côte à côte)', garage_2_ligne:'Garage 2 voit. (en ligne)', carport:'Abri de voiture'
+};
+
+function renderCfgSurfacesTab(standing) {
+  var wrap = document.getElementById('cfg-surfaces-table-wrap');
+  if (!wrap) return;
+  var data = (window._cfgSurfacesData || CFG_DEFAULTS.cfg_surfaces)[standing] || {};
+  var keys = Object.keys(CFG_SURF_LABELS);
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">'
+    + '<thead><tr style="border-bottom:1px solid var(--border)">'
+    + '<th style="text-align:left;padding:0.5rem;color:var(--text-3)">Pièce</th>'
+    + '<th style="padding:0.5rem;color:var(--text-3);width:100px">Par défaut (m²)</th>'
+    + '<th style="padding:0.5rem;color:var(--text-3);width:100px">Minimum (m²)</th>'
+    + '</tr></thead><tbody>';
+  keys.forEach(function(key) {
+    var v = data[key] || CFG_DEFAULTS.cfg_surfaces[standing][key] || {default:10,min:4};
+    html += '<tr>'
+      + '<td style="padding:0.4rem 0.5rem;font-weight:500">' + CFG_SURF_LABELS[key] + '</td>'
+      + '<td style="padding:0.3rem"><input id="cfg-surf-' + standing + '-' + key + '-def" class="form-input" type="number" step="1" style="width:100%;text-align:center" value="' + v.default + '" /></td>'
+      + '<td style="padding:0.3rem"><input id="cfg-surf-' + standing + '-' + key + '-min" class="form-input" type="number" step="1" style="width:100%;text-align:center" value="' + v.min + '" /></td>'
+      + '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function collectCfgSurfaces() {
+  var result = {};
+  ['standard','confort','premium'].forEach(function(standing) {
+    result[standing] = {};
+    Object.keys(CFG_SURF_LABELS).forEach(function(key) {
+      var elDef = document.getElementById('cfg-surf-' + standing + '-' + key + '-def');
+      var elMin = document.getElementById('cfg-surf-' + standing + '-' + key + '-min');
+      var defs = CFG_DEFAULTS.cfg_surfaces[standing][key] || {default:10,min:4};
+      result[standing][key] = {
+        default: elDef ? parseFloat(elDef.value) || defs.default : defs.default,
+        min: elMin ? parseFloat(elMin.value) || defs.min : defs.min
+      };
+    });
+  });
+  return result;
+}
+
+// ── Délais de construction (éditeur dynamique) ──
+
+function loadCfgDelais() {
+  var delais = getSetting('cfg_delais', CFG_DEFAULTS.cfg_delais);
+  window._cfgDelaisData = delais;
+  renderCfgDelais();
+}
+
+function renderCfgDelais() {
+  var wrap = document.getElementById('cfg-delais-wrap');
+  if (!wrap) return;
+  var delais = window._cfgDelaisData || CFG_DEFAULTS.cfg_delais;
+  var groupLabels = {logement:'Logement', immeuble:'Immeuble'};
+  var html = '';
+  Object.keys(groupLabels).forEach(function(grp) {
+    var brackets = delais[grp] || {};
+    html += '<details style="margin-bottom:1rem" ' + (grp === 'logement' ? 'open' : '') + '>'
+      + '<summary style="cursor:pointer;font-size:0.82rem;font-weight:500;color:var(--text);padding:0.5rem 0">' + groupLabels[grp] + '</summary>';
+    Object.keys(brackets).forEach(function(bKey) {
+      var b = brackets[bKey];
+      html += '<div style="border:1px solid var(--border);border-radius:6px;padding:0.8rem;margin:0.5rem 0">'
+        + '<div style="display:flex;gap:0.8rem;margin-bottom:0.8rem;align-items:center">'
+        + '<div class="form-field" style="flex:1"><label class="form-label">Tranche</label>'
+        + '<input id="cfg-delai-' + grp + '-' + bKey + '-label" class="form-input" value="' + (b.label || bKey) + '" /></div>'
+        + '<div class="form-field" style="width:100px"><label class="form-label">Surface max</label>'
+        + '<input id="cfg-delai-' + grp + '-' + bKey + '-max" class="form-input" type="number" value="' + (b.maxSurface || 99999) + '" /></div>'
+        + '</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">'
+        + '<thead><tr style="border-bottom:1px solid var(--border)">'
+        + '<th style="text-align:left;padding:0.4rem;color:var(--text-3)">Phase</th>'
+        + '<th style="padding:0.4rem;color:var(--text-3);width:120px">Durée</th>'
+        + '<th style="width:40px"></th></tr></thead><tbody>';
+      (b.phases || []).forEach(function(p, pi) {
+        html += '<tr>'
+          + '<td style="padding:0.3rem"><input id="cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-name" class="form-input" value="' + (p.name || '') + '" style="width:100%" /></td>'
+          + '<td style="padding:0.3rem"><input id="cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-dur" class="form-input" value="' + (p.dur || '') + '" style="width:100%;text-align:center" /></td>'
+          + '<td style="padding:0.3rem"><button class="btn btn-sm" onclick="cfgDelaiRemovePhase(\'' + grp + '\',\'' + bKey + '\',' + pi + ')" title="Supprimer">×</button></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table>'
+        + '<button class="btn btn-sm" style="margin-top:0.4rem" onclick="cfgDelaiAddPhase(\'' + grp + '\',\'' + bKey + '\')">+ Phase</button>'
+        + '</div>';
+    });
+    html += '</details>';
+  });
+  wrap.innerHTML = html;
+}
+
+function cfgDelaiAddPhase(grp, bKey) {
+  var delais = window._cfgDelaisData || CFG_DEFAULTS.cfg_delais;
+  if (!delais[grp] || !delais[grp][bKey]) return;
+  // Collect current values first
+  window._cfgDelaisData = collectCfgDelais();
+  window._cfgDelaisData[grp][bKey].phases.push({name:'Nouvelle phase', dur:'1 mois'});
+  renderCfgDelais();
+}
+
+function cfgDelaiRemovePhase(grp, bKey, idx) {
+  window._cfgDelaisData = collectCfgDelais();
+  if (window._cfgDelaisData[grp] && window._cfgDelaisData[grp][bKey]) {
+    window._cfgDelaisData[grp][bKey].phases.splice(idx, 1);
+  }
+  renderCfgDelais();
+}
+
+function collectCfgDelais() {
+  var delais = window._cfgDelaisData || CFG_DEFAULTS.cfg_delais;
+  var result = {};
+  Object.keys(delais).forEach(function(grp) {
+    result[grp] = {};
+    Object.keys(delais[grp]).forEach(function(bKey) {
+      var b = delais[grp][bKey];
+      var labelEl = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-label');
+      var maxEl   = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-max');
+      var phases = [];
+      (b.phases || []).forEach(function(p, pi) {
+        var nameEl = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-name');
+        var durEl  = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-dur');
+        phases.push({
+          name: nameEl ? nameEl.value : p.name,
+          dur:  durEl  ? durEl.value  : p.dur
+        });
+      });
+      result[grp][bKey] = {
+        label: labelEl ? labelEl.value : b.label,
+        maxSurface: maxEl ? parseInt(maxEl.value) || 99999 : b.maxSurface,
+        phases: phases
+      };
+    });
+  });
+  return result;
 }
 
 function saveCfgParams() {
@@ -9218,11 +9487,62 @@ function saveCfgParams() {
     emprise: parseFloat((document.getElementById('cfg-ratio-emprise') || {}).value) || 40
   };
 
+  // Multiplicateurs d'opération
+  var opMult = {};
+  ['neuf','reamenagement','extension'].forEach(function(k) {
+    var el = document.getElementById('cfg-opmult-' + k);
+    opMult[k] = el ? parseFloat(el.value) || 0 : 0;
+  });
+
+  // Tarifs piscine
+  var poolRates = {};
+  ['skimmer','debordement'].forEach(function(k) {
+    var el = document.getElementById('cfg-pool-' + k);
+    poolRates[k] = el ? parseFloat(el.value) || 0 : 0;
+  });
+
+  // Coûts éléments extérieurs
+  var extItemsCosts = {};
+  ['terrasse','cuisine_ext','sanitaires_ext','salon_ext','debarras','toit_terrasse','cloture_ml','carport'].forEach(function(k) {
+    var el = document.getElementById('cfg-extitem-' + k);
+    extItemsCosts[k] = el ? parseFloat(el.value) || 0 : 0;
+  });
+
+  // Ventilation coûts
+  var breakdown = {};
+  ['standard','confort','premium'].forEach(function(st) {
+    var elGo  = document.getElementById('cfg-breakdown-' + st + '-go');
+    var elSo  = document.getElementById('cfg-breakdown-' + st + '-so');
+    var elFin = document.getElementById('cfg-breakdown-' + st + '-fin');
+    breakdown[st] = [
+      elGo  ? parseFloat(elGo.value)  || 0 : 0,
+      elSo  ? parseFloat(elSo.value)  || 0 : 0,
+      elFin ? parseFloat(elFin.value) || 0 : 0
+    ];
+  });
+
+  var circCoeff = parseFloat((document.getElementById('cfg-circ-coeff') || {}).value) || 1.15;
+  var emailDest = (document.getElementById('cfg-email-destinataire') || {}).value || CFG_DEFAULTS.cfg_email_destinataire;
+
+  // Surfaces — collect from the currently displayed tab, merge with stored data for other tabs
+  var surfaces = collectCfgSurfaces();
+
+  // Délais
+  var delais = collectCfgDelais();
+
   Promise.all([
     saveSetting('cfg_cost_per_m2', costs),
     saveSetting('cfg_zone_coefficients', zones),
     saveSetting('cfg_ext_costs', ext),
-    saveSetting('cfg_ratios', ratios)
+    saveSetting('cfg_ratios', ratios),
+    saveSetting('cfg_email_destinataire', emailDest),
+    saveSetting('cfg_operation_mult', opMult),
+    saveSetting('cfg_pool_rates', poolRates),
+    saveSetting('cfg_ext_items_costs', extItemsCosts),
+    saveSetting('cfg_cost_breakdown', breakdown),
+    saveSetting('cfg_circulation_coeff', circCoeff),
+    saveSetting('cfg_surfaces', surfaces),
+    saveSetting('cfg_delais', delais)
   ]).then(function(results) {
     var errors = results.filter(function(r){ return r && r.error; });
     if (errors.length > 0) {
@@ -9235,10 +9555,12 @@ function saveCfgParams() {
 
 function resetCfgParams() {
   if (!confirm('Réinitialiser tous les paramètres du configurateur aux valeurs par défaut ?')) return;
-  saveSetting('cfg_cost_per_m2', CFG_DEFAULTS.cfg_cost_per_m2);
-  saveSetting('cfg_zone_coefficients', CFG_DEFAULTS.cfg_zone_coefficients);
-  saveSetting('cfg_ext_costs', CFG_DEFAULTS.cfg_ext_costs);
-  saveSetting('cfg_ratios', CFG_DEFAULTS.cfg_ratios);
+  var allKeys = ['cfg_cost_per_m2','cfg_zone_coefficients','cfg_ext_costs','cfg_ratios',
+    'cfg_email_destinataire','cfg_operation_mult','cfg_pool_rates','cfg_ext_items_costs',
+    'cfg_cost_breakdown','cfg_circulation_coeff','cfg_surfaces','cfg_delais'];
+  allKeys.forEach(function(k) { saveSetting(k, CFG_DEFAULTS[k]); });
+  window._cfgSurfacesData = CFG_DEFAULTS.cfg_surfaces;
+  window._cfgDelaisData = CFG_DEFAULTS.cfg_delais;
   loadCfgParams();
   showToast('Paramètres réinitialisés');
 }

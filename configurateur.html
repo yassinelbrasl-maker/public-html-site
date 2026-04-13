@@ -2524,7 +2524,57 @@
         },
         zoneCoeff: {'grand-tunis':1.15, sahel:1.05, sfax:1.00, djerba:1.10, nord:0.95, autres:0.90},
         extCosts: {vrd:80, amenagement:60, branchements:40, honoraires:8},
-        ratios: {shob:1.15, emprise:40}
+        ratios: {shob:1.15, emprise:40},
+        operationMult: {neuf:1, reamenagement:0.65, extension:0.8},
+        poolRates: {skimmer:1500, debordement:1800},
+        extItemsCosts: {terrasse:15000, cuisine_ext:8000, sanitaires_ext:6000, salon_ext:10000, debarras:4000, toit_terrasse:12000, cloture_ml:150, carport:8000},
+        costBreakdown: {standard:[45,32,23], confort:[40,33,27], premium:[35,28,37]},
+        circulationCoeff: 1.15,
+        surfaces: {
+          standard: {
+            salon:{default:18,min:14}, sejour:{default:16,min:12}, entree:{default:7,min:4},
+            cuisine:{default:12,min:8}, salle_manger:{default:10,min:8},
+            sde_complete:{default:5,min:2}, sde_simple:{default:3,min:2},
+            chambre_simple:{default:9,min:8}, chambre_double:{default:11,min:10}, chambre_2doubles:{default:14,min:12},
+            suite_parentale_dressing:{default:28,min:22}, suite_parentale_placard:{default:24,min:22},
+            suite_dressing:{default:24,min:18}, suite_placard:{default:20,min:18},
+            sdb_privative:{default:5,min:4}, bureau:{default:10,min:8}, sport:{default:18,min:12},
+            buanderie:{default:5,min:4}, cellier:{default:5,min:4}, buanderie_cellier:{default:9,min:6},
+            garage_1:{default:18,min:16}, garage_2_cote:{default:36,min:30}, garage_2_ligne:{default:38,min:32}, carport:{default:14,min:12}
+          },
+          confort: {
+            salon:{default:20,min:14}, sejour:{default:18,min:12}, entree:{default:8,min:4},
+            cuisine:{default:14,min:8}, salle_manger:{default:12,min:8},
+            sde_complete:{default:6,min:2}, sde_simple:{default:3,min:2},
+            chambre_simple:{default:10,min:8}, chambre_double:{default:12,min:10}, chambre_2doubles:{default:16,min:12},
+            suite_parentale_dressing:{default:30,min:22}, suite_parentale_placard:{default:26,min:22},
+            suite_dressing:{default:26,min:18}, suite_placard:{default:22,min:18},
+            sdb_privative:{default:6,min:4}, bureau:{default:12,min:8}, sport:{default:20,min:12},
+            buanderie:{default:6,min:4}, cellier:{default:6,min:4}, buanderie_cellier:{default:10,min:6},
+            garage_1:{default:20,min:16}, garage_2_cote:{default:40,min:30}, garage_2_ligne:{default:42,min:32}, carport:{default:16,min:12}
+          },
+          premium: {
+            salon:{default:25,min:14}, sejour:{default:22,min:12}, entree:{default:10,min:4},
+            cuisine:{default:18,min:8}, salle_manger:{default:14,min:8},
+            sde_complete:{default:8,min:2}, sde_simple:{default:4,min:2},
+            chambre_simple:{default:12,min:8}, chambre_double:{default:14,min:10}, chambre_2doubles:{default:18,min:12},
+            suite_parentale_dressing:{default:35,min:22}, suite_parentale_placard:{default:30,min:22},
+            suite_dressing:{default:30,min:18}, suite_placard:{default:26,min:18},
+            sdb_privative:{default:8,min:4}, bureau:{default:15,min:8}, sport:{default:25,min:12},
+            buanderie:{default:8,min:4}, cellier:{default:8,min:4}, buanderie_cellier:{default:14,min:6},
+            garage_1:{default:24,min:16}, garage_2_cote:{default:44,min:30}, garage_2_ligne:{default:46,min:32}, carport:{default:18,min:12}
+          }
+        },
+        delais: {
+          logement: {
+            small:  {label:'< 120 m²',maxSurface:120,phases:[{name:'Études',dur:'2 mois'},{name:'Terrassement & fondations',dur:'2 mois'},{name:'Gros œuvre',dur:'4 mois'},{name:'Second œuvre',dur:'3 mois'},{name:'Finitions',dur:'2 mois'}]},
+            medium: {label:'120–250 m²',maxSurface:250,phases:[{name:'Études & permis',dur:'3 mois'},{name:'Fondations',dur:'2–3 mois'},{name:'Gros œuvre',dur:'5–6 mois'},{name:'Second œuvre',dur:'4 mois'},{name:'Finitions',dur:'3 mois'}]},
+            large:  {label:'> 250 m²',maxSurface:99999,phases:[{name:'Études & permis',dur:'3–4 mois'},{name:'Fondations',dur:'3 mois'},{name:'Gros œuvre',dur:'7–9 mois'},{name:'Second œuvre',dur:'5–6 mois'},{name:'Finitions',dur:'4–5 mois'}]}
+          },
+          immeuble: {
+            default: {label:'Immeuble (tous)',maxSurface:99999,phases:[{name:'Études & admin.',dur:'3–4 mois'},{name:'Gros œuvre',dur:'6–10 mois'},{name:'Second œuvre',dur:'4–6 mois'},{name:'Finitions',dur:'3–4 mois'}]}
+          }
+        }
       };
 
       /* ── Missions par défaut (synchronisées avec la plateforme) ── */
@@ -2651,10 +2701,18 @@
           .then(function(r){ return r.json(); })
           .then(function(j){
             var d = j.data || {};
-            if (d.cfg_cost_per_m2)       cfgSettings.costMap   = typeof d.cfg_cost_per_m2 === 'string' ? JSON.parse(d.cfg_cost_per_m2) : d.cfg_cost_per_m2;
-            if (d.cfg_zone_coefficients) cfgSettings.zoneCoeff = typeof d.cfg_zone_coefficients === 'string' ? JSON.parse(d.cfg_zone_coefficients) : d.cfg_zone_coefficients;
-            if (d.cfg_ext_costs)         cfgSettings.extCosts  = typeof d.cfg_ext_costs === 'string' ? JSON.parse(d.cfg_ext_costs) : d.cfg_ext_costs;
-            if (d.cfg_ratios)            cfgSettings.ratios    = typeof d.cfg_ratios === 'string' ? JSON.parse(d.cfg_ratios) : d.cfg_ratios;
+            function _cfgParse(v) { return typeof v === 'string' ? JSON.parse(v) : v; }
+            if (d.cfg_cost_per_m2)       cfgSettings.costMap         = _cfgParse(d.cfg_cost_per_m2);
+            if (d.cfg_zone_coefficients) cfgSettings.zoneCoeff       = _cfgParse(d.cfg_zone_coefficients);
+            if (d.cfg_ext_costs)         cfgSettings.extCosts        = _cfgParse(d.cfg_ext_costs);
+            if (d.cfg_ratios)            cfgSettings.ratios          = _cfgParse(d.cfg_ratios);
+            if (d.cfg_operation_mult)    cfgSettings.operationMult   = _cfgParse(d.cfg_operation_mult);
+            if (d.cfg_pool_rates)        cfgSettings.poolRates       = _cfgParse(d.cfg_pool_rates);
+            if (d.cfg_ext_items_costs)   cfgSettings.extItemsCosts   = _cfgParse(d.cfg_ext_items_costs);
+            if (d.cfg_cost_breakdown)    cfgSettings.costBreakdown   = _cfgParse(d.cfg_cost_breakdown);
+            if (d.cfg_circulation_coeff) cfgSettings.circulationCoeff = parseFloat(_cfgParse(d.cfg_circulation_coeff)) || 1.15;
+            if (d.cfg_surfaces)          cfgSettings.surfaces        = _cfgParse(d.cfg_surfaces);
+            if (d.cfg_delais)            cfgSettings.delais          = _cfgParse(d.cfg_delais);
             // Charger missions personnalisées depuis la plateforme
             if (d.cortoba_missions) {
               var m = typeof d.cortoba_missions === 'string' ? JSON.parse(d.cortoba_missions) : d.cortoba_missions;
@@ -2674,6 +2732,12 @@
       function cfgCalculate() {
         const group = cfgState.cfg_type_group;
         const type  = cfgState.cfg_type;
+        const standing = cfgState.cfg_standing || 'confort';
+        const style    = cfgState.cfg_style    || 'contemporain';
+
+        // Surface lookup helper
+        const _surfDefs = (cfgSettings.surfaces || {})[standing] || (cfgSettings.surfaces || {}).confort || {};
+        function srf(key, fallback) { return (_surfDefs[key] || {}).default || fallback; }
 
         /* ── SURFACES INTÉRIEURES ── */
         const rooms = [];   // [{label, surface}]
@@ -2681,52 +2745,53 @@
 
         if (group === 'logement') {
           // Espaces de vie
-          if (cfgState.cfg_salon)  { rooms.push({label:'Salon',      s:20}); }
-          if (cfgState.cfg_sejour) { rooms.push({label:'Séjour',     s:18}); }
-          if (cfgState.cfg_entree) { rooms.push({label:'Entrée',     s: 8}); }
+          if (cfgState.cfg_salon)  { rooms.push({label:'Salon',      s:srf('salon',20)}); }
+          if (cfgState.cfg_sejour) { rooms.push({label:'Séjour',     s:srf('sejour',18)}); }
+          if (cfgState.cfg_entree) { rooms.push({label:'Entrée',     s:srf('entree',8)}); }
           // Cuisine
-          const cuisS = cfgState.cfg_cuisine === 'ouverte' ? 0 : 14;
+          const cuisS = cfgState.cfg_cuisine === 'ouverte' ? 0 : srf('cuisine',14);
           if (cuisS) rooms.push({label:'Cuisine indépendante', s:cuisS});
-          if (cfgState.cfg_cuisine_table && cfgState.cfg_cuisine !== 'ouverte') rooms.push({label:'Salle à manger', s:12});
+          if (cfgState.cfg_cuisine_table && cfgState.cfg_cuisine !== 'ouverte') rooms.push({label:'Salle à manger', s:srf('salle_manger',12)});
           // Salle d'eau commune
-          const sdeS = cfgState.cfg_sde_commune === 'complete' ? 6 : 3;
+          const sdeS = cfgState.cfg_sde_commune === 'complete' ? srf('sde_complete',6) : srf('sde_simple',3);
           rooms.push({label:'Salle d\'eau commune', s:sdeS});
           // Chambres
           cfgState.cfg_chambres_list.forEach((c,i) => {
-            const s = c.type==='simple'?10 : c.type==='double'?12 : 16;
+            const s = c.type==='simple'?srf('chambre_simple',10) : c.type==='double'?srf('chambre_double',12) : srf('chambre_2doubles',16);
             rooms.push({label:`Chambre ${i+1}`, s});
           });
           // Suite parentale
           if (cfgState.cfg_suite_parentale) {
-            const s = cfgState.cfg_suite_parentale_type==='dressing' ? 30 : 26;
+            const s = cfgState.cfg_suite_parentale_type==='dressing' ? srf('suite_parentale_dressing',30) : srf('suite_parentale_placard',26);
             rooms.push({label:'Suite parentale', s});
           }
           // Suites
           cfgState.cfg_suites_list.forEach((su,i) => {
-            const s = su.type==='dressing' ? 26 : 22;
+            const s = su.type==='dressing' ? srf('suite_dressing',26) : srf('suite_placard',22);
             rooms.push({label:`Suite ${i+1}`, s});
           });
           // SDB privatives
-          if (cfgState.cfg_sdb > 0) rooms.push({label:`SDB privatives (×${cfgState.cfg_sdb})`, s:cfgState.cfg_sdb*6});
+          if (cfgState.cfg_sdb > 0) rooms.push({label:`SDB privatives (×${cfgState.cfg_sdb})`, s:cfgState.cfg_sdb*srf('sdb_privative',6)});
           // Intérieurs sup
-          if (cfgState.cfg_bureau)           rooms.push({label:'Bureau / Télétravail', s:12});
-          if (cfgState.cfg_sport)            rooms.push({label:'Espace de sport',       s:20});
-          if (cfgState.cfg_buanderie_cellier)rooms.push({label:'Buanderie & cellier',   s:10});
+          if (cfgState.cfg_bureau)           rooms.push({label:'Bureau / Télétravail', s:srf('bureau',12)});
+          if (cfgState.cfg_sport)            rooms.push({label:'Espace de sport',       s:srf('sport',20)});
+          if (cfgState.cfg_buanderie_cellier)rooms.push({label:'Buanderie & cellier',   s:srf('buanderie_cellier',10)});
           else {
-            if (cfgState.cfg_buanderie) rooms.push({label:'Buanderie', s:6});
-            if (cfgState.cfg_cellier)   rooms.push({label:'Cellier',   s:6});
+            if (cfgState.cfg_buanderie) rooms.push({label:'Buanderie', s:srf('buanderie',6)});
+            if (cfgState.cfg_cellier)   rooms.push({label:'Cellier',   s:srf('cellier',6)});
           }
           // Garage (compte dans surface couverte, pas habitable)
-          if (cfgState.cfg_garage1) rooms.push({label:'Garage 1 voiture', s:20, ext:true});
+          if (cfgState.cfg_garage1) rooms.push({label:'Garage 1 voiture', s:srf('garage_1',20), ext:true});
           if (cfgState.cfg_garage2) {
-            const s = cfgState.cfg_garage2_config==='cote' ? 40 : 42;
+            const s = cfgState.cfg_garage2_config==='cote' ? srf('garage_2_cote',40) : srf('garage_2_ligne',42);
             rooms.push({label:`Garage 2 voitures (${cfgState.cfg_garage2_config==='cote'?'côte à côte':'en ligne'})`, s, ext:true});
           }
-          if (cfgState.cfg_carport) rooms.push({label:'Abri de voiture', s:16, ext:true});
+          if (cfgState.cfg_carport) rooms.push({label:'Abri de voiture', s:srf('carport',16), ext:true});
 
           // Surface habitable = pièces sans ext
           const habitableRooms = rooms.filter(r => !r.ext);
-          surfaceInt = Math.round(habitableRooms.reduce((a,r)=>a+r.s,0) * 1.15); // +15% circulations
+          const circCoeff = cfgSettings.circulationCoeff || 1.15;
+          surfaceInt = Math.round(habitableRooms.reduce((a,r)=>a+r.s,0) * circCoeff); // circulations
         } else if (group === 'immeuble') {
           const niveaux = cfgState.cfg_niveaux + 1;
           if (type==='bureautique') surfaceInt = cfgState.cfg_nb_bureaux * 18 * niveaux;
@@ -2742,9 +2807,7 @@
 
         /* ── COÛT VILLA ── */
         const costMap = cfgSettings.costMap;
-        const opMult = {neuf:1, reamenagement:0.65, extension:0.8};
-        const standing = cfgState.cfg_standing  || 'confort';
-        const style    = cfgState.cfg_style      || 'contemporain';
+        const opMult = cfgSettings.operationMult || {neuf:1, reamenagement:0.65, extension:0.8};
         const cpp      = (costMap[standing] || costMap.confort)[style] || 2400;
         const mult     = opMult[cfgState.cfg_operation] || 1;
 
@@ -2753,10 +2816,12 @@
 
         /* ── COÛTS EXTÉRIEURS ── */
         const extItems = [];
+        const _eic = cfgSettings.extItemsCosts || {};
+        const _pr  = cfgSettings.poolRates || {};
 
         // Piscine
         if (cfgState.cfg_piscine) {
-          const tarif = cfgState.cfg_piscine_type === 'debordement' ? 1800 : 1500;
+          const tarif = cfgState.cfg_piscine_type === 'debordement' ? (_pr.debordement || 1800) : (_pr.skimmer || 1500);
           let piscSurf = 0;
           if (cfgState.cfg_piscine_forma === 'rectangulaire') {
             piscSurf = Math.round(cfgState.cfg_pisc_length * cfgState.cfg_pisc_width * 10) / 10;
@@ -2771,14 +2836,14 @@
           });
         }
         // Terrasse
-        if (cfgState.cfg_terrasse)      extItems.push({label:'Terrasse aménagée',              detail:'Dallage, éclairage, végétation', cost:15000});
-        if (cfgState.cfg_cuisine_ext)   extItems.push({label:'Cuisine extérieure',              detail:'Equipement complet', cost:8000});
-        if (cfgState.cfg_sanitaires_ext)extItems.push({label:'Douche & sanitaires extérieurs', detail:'Réseau eau & carrelage', cost:6000});
-        if (cfgState.cfg_salon_ext)     extItems.push({label:'Salon extérieur',                 detail:'Pergola, mobilier, stores', cost:10000});
-        if (cfgState.cfg_debarrat)      extItems.push({label:'Débarras',                        detail:'Local rangement ~8 m²', cost:4000});
-        if (cfgState.cfg_toit_terrasse) extItems.push({label:'Toit terrasse',                   detail:'Etanchéité + aménagement', cost:12000});
-        if (cfgState.cfg_cloture)       extItems.push({label:`Clôture — ${cfgState.cfg_cloture_length} ml`, detail:'Bloc béton ou métal', cost: cfgState.cfg_cloture_length * 150});
-        if (cfgState.cfg_carport)       extItems.push({label:'Abri de voiture (carport)',       detail:'Structure métallique + couverture', cost:8000});
+        if (cfgState.cfg_terrasse)      extItems.push({label:'Terrasse aménagée',              detail:'Dallage, éclairage, végétation', cost:_eic.terrasse||15000});
+        if (cfgState.cfg_cuisine_ext)   extItems.push({label:'Cuisine extérieure',              detail:'Equipement complet', cost:_eic.cuisine_ext||8000});
+        if (cfgState.cfg_sanitaires_ext)extItems.push({label:'Douche & sanitaires extérieurs', detail:'Réseau eau & carrelage', cost:_eic.sanitaires_ext||6000});
+        if (cfgState.cfg_salon_ext)     extItems.push({label:'Salon extérieur',                 detail:'Pergola, mobilier, stores', cost:_eic.salon_ext||10000});
+        if (cfgState.cfg_debarrat)      extItems.push({label:'Débarras',                        detail:'Local rangement ~8 m²', cost:_eic.debarras||4000});
+        if (cfgState.cfg_toit_terrasse) extItems.push({label:'Toit terrasse',                   detail:'Etanchéité + aménagement', cost:_eic.toit_terrasse||12000});
+        if (cfgState.cfg_cloture)       extItems.push({label:`Clôture — ${cfgState.cfg_cloture_length} ml`, detail:'Bloc béton ou métal', cost: cfgState.cfg_cloture_length * (_eic.cloture_ml||150)});
+        if (cfgState.cfg_carport)       extItems.push({label:'Abri de voiture (carport)',       detail:'Structure métallique + couverture', cost:_eic.carport||8000});
 
         const extTotal = extItems.reduce((a,i)=>a+i.cost,0);
         const totalLow  = villaLow  + extTotal;
@@ -2791,16 +2856,17 @@
         cfgState._lastCpp = cpp;
 
         /* ── RENDU ── */
-        // Minimum surfaces per space type (cannot go below)
+        // Minimum surfaces per space type (from settings)
+        const _sm = _surfDefs;
         const SURF_MIN = {
-          'Salon': 14, 'Séjour': 12, 'Entrée': 4,
-          'Cuisine indépendante': 8, 'Salle à manger': 8,
-          "Salle d'eau commune": 2,
-          'Bureau / Télétravail': 8, 'Espace de sport': 12,
-          'Buanderie & cellier': 6, 'Buanderie': 4, 'Cellier': 4,
-          'Suite parentale': 22, 'Garage 1 voiture': 16, 'Abri de voiture': 12,
+          'Salon': (_sm.salon||{}).min||14, 'Séjour': (_sm.sejour||{}).min||12, 'Entrée': (_sm.entree||{}).min||4,
+          'Cuisine indépendante': (_sm.cuisine||{}).min||8, 'Salle à manger': (_sm.salle_manger||{}).min||8,
+          "Salle d'eau commune": (_sm.sde_complete||{}).min||2,
+          'Bureau / Télétravail': (_sm.bureau||{}).min||8, 'Espace de sport': (_sm.sport||{}).min||12,
+          'Buanderie & cellier': (_sm.buanderie_cellier||{}).min||6, 'Buanderie': (_sm.buanderie||{}).min||4, 'Cellier': (_sm.cellier||{}).min||4,
+          'Suite parentale': (_sm.suite_parentale_dressing||{}).min||22, 'Garage 1 voiture': (_sm.garage_1||{}).min||16, 'Abri de voiture': (_sm.carport||{}).min||12,
         };
-        const chambreMin = 8, suiteMin = 18, sdbMin = 4;
+        const chambreMin = (_sm.chambre_simple||{}).min||8, suiteMin = (_sm.suite_dressing||{}).min||18, sdbMin = (_sm.sdb_privative||{}).min||4;
 
         // Bilan surfaces — editable rows
         const bilanEl = document.getElementById('cfg-bilan-surfaces');
@@ -2874,7 +2940,8 @@
         document.getElementById('cfg-villa-range').textContent = 'Fourchette ± 8% · '+ cfgFmtDT(villaHigh-villaLow) + " d'écart";
 
         // Ventilation gros œuvre / second œuvre / finitions
-        const ventPcts = standing === 'standard' ? [45,32,23] : standing === 'premium' ? [35,28,37] : [40,33,27];
+        const _cbd = cfgSettings.costBreakdown || {};
+        const ventPcts = _cbd[standing] || (standing === 'standard' ? [45,32,23] : standing === 'premium' ? [35,28,37] : [40,33,27]);
         const ventEl = {g:document.getElementById('vent-gros'), s:document.getElementById('vent-second'), f:document.getElementById('vent-finit')};
         const ventValEl = {g:document.getElementById('vent-gros-val'), s:document.getElementById('vent-second-val'), f:document.getElementById('vent-finit-val')};
         const villaAvg = (villaLow + villaHigh) / 2;
@@ -3056,41 +3123,29 @@
 
       // ── TIMELINE ──
       function cfgComputeTimeline(surface, group) {
-        // Base durations in months
-        let phases;
+        const delais = cfgSettings.delais || {};
+        const groupDelais = delais[group === 'logement' ? 'logement' : 'immeuble'] || {};
+
         if (group !== 'logement') {
-          phases = [
-            {name:'Études & admin.', dur:'3–4 mois'},
-            {name:'Gros œuvre', dur:'6–10 mois'},
-            {name:'Second œuvre', dur:'4–6 mois'},
-            {name:'Finitions', dur:'3–4 mois'},
-          ];
-        } else if (surface < 120) {
-          phases = [
-            {name:'Études', dur:'2 mois'},
-            {name:'Terrassement & fondations', dur:'2 mois'},
-            {name:'Gros œuvre', dur:'4 mois'},
-            {name:'Second œuvre', dur:'3 mois'},
-            {name:'Finitions', dur:'2 mois'},
-          ];
-        } else if (surface < 250) {
-          phases = [
-            {name:'Études & permis', dur:'3 mois'},
-            {name:'Fondations', dur:'2–3 mois'},
-            {name:'Gros œuvre', dur:'5–6 mois'},
-            {name:'Second œuvre', dur:'4 mois'},
-            {name:'Finitions', dur:'3 mois'},
-          ];
-        } else {
-          phases = [
-            {name:'Études & permis', dur:'3–4 mois'},
-            {name:'Fondations', dur:'3 mois'},
-            {name:'Gros œuvre', dur:'7–9 mois'},
-            {name:'Second œuvre', dur:'5–6 mois'},
-            {name:'Finitions', dur:'4–5 mois'},
+          const def = groupDelais['default'] || groupDelais[Object.keys(groupDelais)[0]];
+          return def ? def.phases : [
+            {name:'Études & admin.',dur:'3–4 mois'},{name:'Gros œuvre',dur:'6–10 mois'},
+            {name:'Second œuvre',dur:'4–6 mois'},{name:'Finitions',dur:'3–4 mois'}
           ];
         }
-        return phases;
+
+        // Find matching bracket by surface threshold
+        const brackets = Object.values(groupDelais).sort(function(a,b){ return (a.maxSurface||99999) - (b.maxSurface||99999); });
+        for (var i = 0; i < brackets.length; i++) {
+          if (surface < (brackets[i].maxSurface || 99999)) {
+            return brackets[i].phases;
+          }
+        }
+        // Fallback to last bracket
+        return brackets.length ? brackets[brackets.length - 1].phases : [
+          {name:'Études',dur:'2 mois'},{name:'Gros œuvre',dur:'4 mois'},
+          {name:'Second œuvre',dur:'3 mois'},{name:'Finitions',dur:'2 mois'}
+        ];
       }
 
       // ── FLOATING RECAP ──
