@@ -1816,18 +1816,40 @@
       if (heroDragging) { heroDragging = false; heroWrap.classList.remove('dragging'); }
     });
 
+    // ── Map grid_class to preview ratio class ──
+    const GRID_RATIO_MAP = {
+      '': 'ratio-normal', 'wide': 'ratio-wide', 'tall': 'ratio-tall',
+      'big': 'ratio-big', 'full': 'ratio-full'
+    };
+    const GRID_RATIO_LABELS = {
+      '': 'Aperçu 1×1', 'wide': 'Aperçu Large 2 col', 'tall': 'Aperçu Grand 2 rows',
+      'big': 'Aperçu XL 2×2', 'full': 'Aperçu Pleine largeur'
+    };
+
     function applyHeroPosition() {
       const img = document.getElementById('heroPreview');
+      const wrap = document.getElementById('heroPreviewWrap');
       img.style.objectFit = 'cover';
-      img.style.height = '350px';
+      img.style.height = '100%';
       img.style.objectPosition = `50% ${Math.round(heroPositionY)}%`;
       document.getElementById('heroPosValue').textContent = Math.round(heroPositionY) + '%';
+
+      // Apply ratio from current grid selection
+      const gc = document.querySelector('#projGridOptions .grid-opt.selected')?.dataset.val || '';
+      wrap.classList.remove('ratio-normal', 'ratio-wide', 'ratio-tall', 'ratio-big', 'ratio-full');
+      wrap.classList.add(GRID_RATIO_MAP[gc] || 'ratio-normal');
+
+      // Update ratio label
+      let label = wrap.querySelector('.hero-ratio-label');
+      if (!label) { wrap.insertAdjacentHTML('afterbegin', '<div class="hero-ratio-label"></div>'); label = wrap.querySelector('.hero-ratio-label'); }
+      label.textContent = GRID_RATIO_LABELS[gc] || '';
     }
 
     // ── Grid option selector ──
     function selectGridOpt(el) {
-      document.querySelectorAll('.grid-opt').forEach(o => o.classList.remove('selected'));
+      document.querySelectorAll('#projGridOptions .grid-opt').forEach(o => o.classList.remove('selected'));
       el.classList.add('selected');
+      applyHeroPosition();
     }
 
     // ── Drag & drop ──
