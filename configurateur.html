@@ -2667,6 +2667,34 @@
           countEl.textContent = checked.length + '/' + all.length;
           countEl.style.color = checked.length > 0 ? 'var(--accent,#c8a96e)' : 'var(--text-muted,#999)';
         }
+        cfgRenderSelectedMissions();
+      }
+
+      function cfgRenderSelectedMissions() {
+        var wrap = document.getElementById('cfg-selected-missions');
+        var tags = document.getElementById('cfg-selected-tags');
+        var countEl = document.getElementById('cfg-selected-count');
+        if (!wrap || !tags) return;
+        var sel = cfgGetSelectedMissions();
+        if (!sel.length) { wrap.style.display = 'none'; return; }
+        wrap.style.display = '';
+        countEl.textContent = sel.length + ' mission' + (sel.length > 1 ? 's' : '');
+        var html = '';
+        sel.forEach(function(m) {
+          html += '<span style="display:inline-flex;align-items:center;gap:0.35rem;background:rgba(200,169,110,0.12);border:1px solid rgba(200,169,110,0.25);border-radius:20px;padding:0.3rem 0.55rem 0.3rem 0.75rem;font-size:0.74rem;color:var(--text,#e8e4dc);transition:all 0.2s">';
+          html += '<span>' + m.nom + '</span>';
+          html += '<button type="button" onclick="cfgRemoveMission(\'' + m.id + '\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#999);font-size:1rem;line-height:1;padding:0 0.1rem;transition:color 0.2s" onmouseover="this.style.color=\'#e74c3c\'" onmouseout="this.style.color=\'var(--text-muted,#999)\'" title="Retirer">&times;</button>';
+          html += '</span>';
+        });
+        tags.innerHTML = html;
+      }
+
+      function cfgRemoveMission(mid) {
+        var cb = document.querySelector('.cfg-mission-cb[data-mid="' + mid + '"]');
+        if (cb) {
+          cb.checked = false;
+          cfgUpdateMissionCount(cb.dataset.cat);
+        }
       }
 
       function cfgToggleMissionCat(catId) {
