@@ -1668,8 +1668,11 @@
           var hero = p.hero_image || (imgs[0] || '');
           var cls = p.grid_class ? ' project-card-' + p.grid_class : '';
           var loc = (p.location || '') + (p.country ? ', ' + p.country : '');
+          var hp = parseInt(p.hero_position) || 50;
+          var posX = hp > 100 ? (hp % 1000) : 50;
+          var posY = hp > 100 ? Math.floor(hp / 1000) : hp;
           html += '<a href="projet-' + p.slug + '.html" class="project-card-link' + cls + '">' +
-            '<div class="project-card-img" style="background-image:url(\'' + hero + '\')">' +
+            '<div class="project-card-img" style="background-image:url(\'' + hero + '\');background-position:' + posX + '% ' + posY + '%">' +
               '<div class="project-card-overlay">' +
                 '<span class="project-tag">' + (p.category || '') + '</span>' +
                 '<h3 class="project-card-title">' + (p.title || '') + '</h3>' +
