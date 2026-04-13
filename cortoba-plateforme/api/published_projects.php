@@ -266,7 +266,7 @@ function generateProjectHTML(PDO $pdo, int $id, string $table): void {
   </nav>
 
   <div class="project-hero">
-    <img src="{$heroImg}" alt="{$title}" style="object-position:50% {$heroPos}%" />
+    <img src="{$heroImg}" alt="{$title}" style="object-position:{$heroPosX}% {$heroPos}%" />
     <div class="project-hero-overlay">
       <span class="project-hero-caption">{$title} · {$loc} · {$year}</span>
       <span class="project-hero-hint">Cliquez pour explorer les photos</span>
