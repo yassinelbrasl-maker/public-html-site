@@ -506,8 +506,13 @@
       .main { padding: 1.5rem; }
       .form-grid { grid-template-columns: 1fr; }
       .projects-list { grid-template-columns: 1fr; }
+      .proj-card.grid-wide, .proj-card.grid-tall, .proj-card.grid-big, .proj-card.grid-full {
+        grid-column: span 1; grid-row: span 1;
+      }
       .editor-body { padding: 1.5rem; }
       .editor-header { padding: 1rem 1.5rem; }
+      .device-switcher { display: none; }
+      .grid-options { flex-wrap: wrap; }
     }
   </style>
 </head>
