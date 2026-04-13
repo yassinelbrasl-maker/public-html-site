@@ -899,7 +899,6 @@ h2 {
 body.light-mode {
   --bg-alt:    #eae7e1;
   --accent-dim:rgba(184,148,42,0.12);
-  --white:     #1a1a1a;
 }
 
 /* ── Navbar ── */
