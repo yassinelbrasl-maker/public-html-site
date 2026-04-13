@@ -1155,6 +1155,15 @@
       document.getElementById('saveLayoutBtn').classList.add('active');
     }
 
+    // ── Grid class config (label, badge color, CSS class) ──
+    const GRID_TYPES = {
+      '':     { label: '1×1',          badge: '',                                     css: '' },
+      'wide': { label: '▬ 2 col',      badge: 'badge-wide',  css: 'grid-wide' },
+      'tall': { label: '▮ 2 rows',     badge: 'badge-tall',  css: 'grid-tall' },
+      'big':  { label: '⬛ 2×2',       badge: 'badge-big',   css: 'grid-big' },
+      'full': { label: '━ pleine',     badge: 'badge-full',  css: 'grid-full' }
+    };
+
     function renderProjects() {
       const list = document.getElementById('projectsList');
       const empty = document.getElementById('projectsEmpty');
@@ -1173,15 +1182,22 @@
         const gallery = Array.isArray(p.gallery_images) ? p.gallery_images : [];
         const img = p.hero_image || gallery[0] || '';
         const gc = p.grid_class || '';
-        const cardCls = gc === 'wide' ? ' grid-wide' : gc === 'tall' ? ' grid-tall' : '';
+        const gt = GRID_TYPES[gc] || GRID_TYPES[''];
+        const cardCls = gt.css ? ' ' + gt.css : '';
         const badge = p.published == 1
           ? '<span class="proj-status-badge badge-published">Publié</span>'
           : '<span class="proj-status-badge badge-draft">Brouillon</span>';
-        const gridBadge = gc === 'wide'
-          ? '<div class="proj-grid-badge badge-wide">▬ 2 col</div>'
-          : gc === 'tall'
-            ? '<div class="proj-grid-badge badge-tall">▮ 2 rows</div>'
-            : '';
+        const gridBadge = gc && gt.badge
+          ? `<div class="proj-grid-badge ${gt.badge}">${gt.label}</div>`
+          : '';
+
+        // Build grid-menu buttons from GRID_TYPES
+        const menuBtns = Object.entries(GRID_TYPES).map(([val, info]) => {
+          const icons = { '': '▢', 'wide': '▬', 'tall': '▮', 'big': '⬛', 'full': '━' };
+          const titles = { '': 'Normal 1×1', 'wide': 'Large 2 col', 'tall': 'Grand 2 rows', 'big': 'XL 2×2', 'full': 'Pleine largeur' };
+          return `<button title="${titles[val]}" data-gc="${val}" class="${gc === val ? 'gm-active' : ''}" onclick="setGridClass(${p.id}, '${val}', this)">${icons[val]}</button>`;
+        }).join('');
+
         return `
           <div class="proj-card${cardCls}" data-id="${p.id}" draggable="true">
             <div class="proj-card-bg" style="background-image:url('${esc(img)}')"></div>
@@ -1196,34 +1212,51 @@
               <div class="proj-card-title">${esc(p.title)}</div>
               <div class="proj-card-loc">${esc(p.location)}${p.country ? ', ' + esc(p.country) : ''}</div>
             </div>
-            <div class="proj-grid-menu">
-              <button title="Normal (1×1)" data-gc="" class="${gc === '' ? 'gm-active' : ''}" onclick="setGridClass(${p.id}, '', this)">▢</button>
-              <button title="Large (2 col)" data-gc="wide" class="${gc === 'wide' ? 'gm-active' : ''}" onclick="setGridClass(${p.id}, 'wide', this)">▬</button>
-              <button title="Grand (2 rows)" data-gc="tall" class="${gc === 'tall' ? 'gm-active' : ''}" onclick="setGridClass(${p.id}, 'tall', this)">▮</button>
-            </div>
+            <div class="proj-grid-menu">${menuBtns}</div>
           </div>`;
       }).join('');
 
       initDragAndDrop();
     }
 
+    // ── Device preview switcher ──
+    function switchDevice(device, btnEl) {
+      document.querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+
+      const wrap = document.getElementById('projectsWrap');
+      const label = document.getElementById('deviceLabel');
+      wrap.classList.remove('preview-tablet', 'preview-mobile');
+
+      if (device === 'tablet') {
+        wrap.classList.add('preview-tablet');
+        label.textContent = 'Tablette — 2 colonnes';
+      } else if (device === 'mobile') {
+        wrap.classList.add('preview-mobile');
+        label.textContent = 'Mobile — 1 colonne';
+      } else {
+        label.textContent = 'Desktop — 3 colonnes';
+      }
+    }
+
     // ── Quick grid_class toggle ──
-    async function setGridClass(id, gc, btnEl) {
+    function setGridClass(id, gc, btnEl) {
       const p = projects.find(x => x.id === id);
       if (!p) return;
       p.grid_class = gc;
+      const gt = GRID_TYPES[gc] || GRID_TYPES[''];
 
       // Update visual immediately
       const card = document.querySelector(`.proj-card[data-id="${id}"]`);
-      card.classList.remove('grid-wide', 'grid-tall');
-      if (gc === 'wide') card.classList.add('grid-wide');
-      else if (gc === 'tall') card.classList.add('grid-tall');
+      card.classList.remove('grid-wide', 'grid-tall', 'grid-big', 'grid-full');
+      if (gt.css) card.classList.add(gt.css);
 
       // Update badge
       const oldBadge = card.querySelector('.proj-grid-badge');
       if (oldBadge) oldBadge.remove();
-      if (gc === 'wide') card.insertAdjacentHTML('afterbegin', '<div class="proj-grid-badge badge-wide">▬ 2 col</div>');
-      else if (gc === 'tall') card.insertAdjacentHTML('afterbegin', '<div class="proj-grid-badge badge-tall">▮ 2 rows</div>');
+      if (gc && gt.badge) {
+        card.insertAdjacentHTML('afterbegin', `<div class="proj-grid-badge ${gt.badge}">${gt.label}</div>`);
+      }
 
       // Update menu buttons
       card.querySelectorAll('.proj-grid-menu button').forEach(b => b.classList.toggle('gm-active', b.dataset.gc === gc));
