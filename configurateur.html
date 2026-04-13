@@ -2453,10 +2453,9 @@
         cfgMap = L.map('cfg-map', { zoomControl: true, attributionControl: true })
           .setView([33.8047, 10.9861], 13);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          attribution: '© OpenStreetMap © CARTO',
-          subdomains: 'abcd',
-          maxZoom: 19
+        L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+          attribution: '© Google',
+          maxZoom: 21
         }).addTo(cfgMap);
 
         cfgMap.on('click', function(e) {
