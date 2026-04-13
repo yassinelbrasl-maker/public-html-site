@@ -318,6 +318,71 @@ function ensureChantierTables() {
 }
 try { ensureChantierTables(); } catch (\Throwable $e) { /* migration errors are non-fatal */ }
 
+// ── Migration: seed detailed phases for all lots ──
+try {
+    $db = getDB();
+    // Check if migration already ran: look for a known new-phase name
+    $check = $db->query("SELECT COUNT(*) FROM CA_param_lot_phases WHERE nom='Implantation topographique'")->fetchColumn();
+    if ($check == 0) {
+        $lotsPhasesMigration = [
+            'Terrassement' => ['Implantation topographique','Decapage terre vegetale','Excavation/Deblais','Remblaiement','Compactage','Evacuation des terres'],
+            'Fondations' => ['Etude geotechnique','Fouilles','Beton de proprete','Ferraillage','Coulage beton','Remblaiement peripherique'],
+            'Gros oeuvre' => ['Coffrage/Ferraillage poteaux','Coulage poteaux','Coffrage/Ferraillage poutres','Coulage poutres','Coffrage/Ferraillage dalles','Coulage dalles','Elevation des murs porteurs'],
+            'Charpente / Toiture' => ['Fabrication charpente','Levage et pose charpente','Pose de la couverture','Faitage et rives','Zinguerie/Descentes EP','Sous-face et habillage'],
+            'Etancheite' => ['Preparation des supports','Pose pare-vapeur','Application primaire','Pose membrane etancheite','Releves et points singuliers','Tests d\'etancheite'],
+            'Maconnerie' => ['Tracage et implantation','Elevation murs exterieurs','Elevation cloisons interieures','Pose des linteaux','Enduit de facade','Joints et finitions'],
+            'Electricite' => ['Passage des gaines (1er fix)','Tirage des cables','Pose du tableau electrique','Pose appareillage (2e fix)','Raccordement reseau','Verification Consuel'],
+            'Plomberie' => ['Passage des canalisations (1er fix)','Alimentation eau chaude/froide','Evacuation eaux usees/vannes','Pose des sanitaires (2e fix)','Pose de la robinetterie','Essais de pression'],
+            'CVC / Climatisation' => ['Dimensionnement et schema','Pose des gaines/tuyauteries','Installation des unites','Raccordement electrique','Mise en gaz/fluide','Mise en service et equilibrage'],
+            'Menuiserie' => ['Prise de cotes','Fabrication/Commande','Pose des huisseries','Pose des portes interieures','Pose des fenetres/baies','Quincaillerie et reglages'],
+            'Revetements sols' => ['Preparation du support','Chape de ragreage','Pose du carrelage/parquet','Joints de carrelage','Plinthes','Nettoyage et protection'],
+            'Revetements muraux' => ['Preparation des murs','Enduit de lissage','Pose de faience','Pose de pierre/parement','Joints et finitions','Nettoyage'],
+            'Peinture' => ['Protection des surfaces','Rebouchage et enduit','Poncage et depoussierage','Sous-couche/Primaire','Application peinture (2 couches)','Retouches et finitions'],
+            'Finitions' => ['Nettoyage general','Retouches peinture','Ajustement portes et fenetres','Pose des accessoires','Verification des reserves','Levee des reserves'],
+            'Amenagements exterieurs' => ['Terrassement exterieur','Dallage/Pavage','Murets et bordures','Eclairage exterieur','Mobilier exterieur','Nettoyage final'],
+            'VRD' => ['Etude et tracage reseau','Tranchees','Pose des reseaux (EU/EP/AEP)','Regards et branchements','Remblaiement et compactage','Voirie et enrobes'],
+            'Demolition / Curage' => ['Diagnostic avant travaux','Protection des ouvrages','Demolition selective','Evacuation des gravats','Nettoyage du site'],
+            'Ferronnerie / Metallerie' => ['Releve de cotes','Fabrication atelier','Traitement anticorrosion','Pose sur site','Finition'],
+            'Vitrerie / Miroiterie' => ['Prise de mesures','Commande verrerie','Pose des vitrages','Joints et etancheite','Nettoyage'],
+            'Isolation thermique et acoustique' => ['Diagnostic thermique','Isolation des murs','Isolation toiture/combles','Isolation plancher','Controle et reception'],
+            'Faux plafonds' => ['Tracage et implantation','Pose de l\'ossature','Pose des plaques/dalles','Joints et bandes','Finitions'],
+            'Ascenseurs / Monte-charges' => ['Etudes techniques','Genie civil gaine','Livraison et montage','Mise en service','Certification'],
+            'Courants faibles / Domotique' => ['Conception du schema','Passage des cables','Installation equipements','Programmation','Tests et recette'],
+            'Securite incendie (SSI)' => ['Etudes reglementaires','Installation detection','Installation extinction','Signaletique securite','Verification et PV'],
+            'Assainissement' => ['Etudes de sol','Terrassement reseau','Pose des canalisations','Raccordement','Essais d\'etancheite'],
+            'Piscine / Bassin' => ['Terrassement','Structure/Coque','Etancheite bassin','Circuit hydraulique','Revetement','Mise en eau'],
+            'Cuisine equipee' => ['Conception/plan','Commande mobilier','Raccordements techniques','Pose du mobilier','Pose electromenager'],
+            'Alarme / Videosurveillance' => ['Etude des risques','Cablage','Pose capteurs/cameras','Parametrage','Tests et validation'],
+            'Ravalement de facade' => ['Echafaudage','Nettoyage/piquage','Reparation du support','Enduit de finition','Peinture/revetement'],
+            'Espaces verts / Plantation' => ['Conception paysagere','Preparation des sols','Plantation','Systeme d\'irrigation','Entretien initial'],
+            'Clotures / Portails' => ['Implantation','Fondations','Pose des clotures','Pose portail/motorisation','Finitions'],
+            'Energie solaire / Photovoltaique' => ['Etude d\'ensoleillement','Structure de support','Pose des panneaux','Raccordement electrique','Mise en service'],
+        ];
+        $maxOrd = (int)$db->query("SELECT COALESCE(MAX(ordre),0) FROM CA_param_lots")->fetchColumn();
+        foreach ($lotsPhasesMigration as $lotName => $phases) {
+            // Check if lot already exists
+            $stmt = $db->prepare("SELECT id FROM CA_param_lots WHERE nom=?");
+            $stmt->execute([$lotName]);
+            $lotId = $stmt->fetchColumn();
+            if ($lotId) {
+                // Existing lot: delete old generic phases, add new ones
+                $db->prepare("DELETE FROM CA_param_lot_phases WHERE param_lot_id=?")->execute([$lotId]);
+            } else {
+                // New lot: insert it
+                $lotId = bin2hex(random_bytes(16));
+                $maxOrd++;
+                $db->prepare("INSERT INTO CA_param_lots (id, nom, ordre) VALUES (?,?,?)")->execute([$lotId, $lotName, $maxOrd]);
+            }
+            // Insert detailed phases
+            $phaseOrd = 1;
+            foreach ($phases as $phaseName) {
+                $pid = bin2hex(random_bytes(16));
+                $db->prepare("INSERT INTO CA_param_lot_phases (id, param_lot_id, nom, ordre) VALUES (?,?,?,?)")->execute([$pid, $lotId, $phaseName, $phaseOrd++]);
+            }
+        }
+    }
+} catch (\Throwable $e) { /* migration non-fatal */ }
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 $id     = isset($_GET['id']) ? $_GET['id'] : null;
