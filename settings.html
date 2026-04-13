@@ -653,8 +653,19 @@
           <h1><i class="fa-solid fa-leaf" style="color:#8dba78;margin-right:0.6rem"></i> Projets paysagers</h1>
           <button class="btn btn-primary" id="lsAddProjectBtn" style="background:#8dba78;color:#0c0d0a"><i class="fa-solid fa-plus"></i> Nouveau projet</button>
         </div>
-        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1.5rem">Gérez les projets affichés sur la page <a href="landscaping.html" target="_blank">Cortoba Landscaping</a>.</p>
-        <div id="lsProjectsList" class="projects-list"></div>
+        <div class="projects-grid-toolbar" id="lsGridToolbar" style="display:none">
+          <span class="toolbar-hint"><i class="fa-solid fa-grip" style="color:#8dba78"></i> Glissez pour réorganiser &middot; Survolez pour changer la taille</span>
+          <div class="device-switcher">
+            <button class="device-btn active" data-device="desktop" onclick="lsSwitchDevice('desktop',this)"><i class="fa-solid fa-desktop"></i> PC</button>
+            <button class="device-btn" data-device="tablet" onclick="lsSwitchDevice('tablet',this)"><i class="fa-solid fa-tablet-screen-button"></i> Tablette</button>
+            <button class="device-btn" data-device="mobile" onclick="lsSwitchDevice('mobile',this)"><i class="fa-solid fa-mobile-screen-button"></i> Mobile</button>
+          </div>
+          <button class="btn-save-layout" id="lsSaveLayoutBtn" style="background:#8dba78"><i class="fa-solid fa-check"></i> Enregistrer</button>
+        </div>
+        <div class="projects-list-wrap" id="lsProjectsWrap">
+          <div class="device-frame-label" id="lsDeviceLabel">Desktop — 3 colonnes</div>
+          <div id="lsProjectsList" class="projects-list"></div>
+        </div>
         <div id="lsProjectsEmpty" class="empty-state" style="display:none">
           <i class="fa-solid fa-leaf"></i>
           <h3>Aucun projet paysager</h3>
