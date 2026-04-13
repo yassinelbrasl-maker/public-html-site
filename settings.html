@@ -2238,35 +2238,173 @@
       }
     }
 
+    // ── Landscaping grid types config ──
+    const LS_GRID_TYPES = {
+      '':         { label: '1×1',          badge: '',           css: '' },
+      'span2col': { label: '▬ 2 col',      badge: 'badge-wide', css: 'grid-wide' },
+      'span2row': { label: '▮ 2 rows',     badge: 'badge-tall', css: 'grid-tall' },
+      'span2big': { label: '⬛ 2×2',       badge: 'badge-big',  css: 'grid-big' },
+      'span3col': { label: '━ pleine',     badge: 'badge-full', css: 'grid-full' }
+    };
+
+    let lsLayoutDirty = false;
+
+    function lsMarkLayoutDirty() {
+      lsLayoutDirty = true;
+      document.getElementById('lsSaveLayoutBtn').classList.add('active');
+    }
+
     function lsRenderProjects() {
       const list = document.getElementById('lsProjectsList');
       const empty = document.getElementById('lsProjectsEmpty');
+      const toolbar = document.getElementById('lsGridToolbar');
+
       if (lsProjects.length === 0) {
         list.innerHTML = '';
         empty.style.display = 'block';
+        toolbar.style.display = 'none';
         return;
       }
       empty.style.display = 'none';
+      toolbar.style.display = 'flex';
+
       list.innerHTML = lsProjects.map(p => {
         const gallery = Array.isArray(p.gallery_images) ? p.gallery_images : [];
         const img = p.hero_image || gallery[0] || '';
+        const gc = p.grid_class || '';
+        const gt = LS_GRID_TYPES[gc] || LS_GRID_TYPES[''];
+        const cardCls = gt.css ? ' ' + gt.css : '';
         const badge = p.published == 1
           ? '<span class="proj-status-badge badge-published">Publié</span>'
           : '<span class="proj-status-badge badge-draft">Brouillon</span>';
+        const gridBadge = gc && gt.badge
+          ? `<div class="proj-grid-badge ${gt.badge}">${gt.label}</div>`
+          : '';
+
+        const menuBtns = Object.entries(LS_GRID_TYPES).map(([val, info]) => {
+          const icons = { '': '▢', 'span2col': '▬', 'span2row': '▮', 'span2big': '⬛', 'span3col': '━' };
+          const titles = { '': 'Normal 1×1', 'span2col': 'Large 2 col', 'span2row': 'Grand 2 rows', 'span2big': 'XL 2×2', 'span3col': 'Pleine largeur' };
+          return `<button title="${titles[val]}" data-gc="${val}" class="${gc === val ? 'gm-active' : ''}" onclick="lsSetGridClass(${p.id}, '${val}', this)">${icons[val]}</button>`;
+        }).join('');
+
         return `
-          <div class="proj-card" data-id="${p.id}">
-            ${img ? `<img class="proj-card-img" src="${img}" alt="${esc(p.title)}" />` : '<div class="proj-card-img" style="background:#1a2a14;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-leaf" style="font-size:2rem;color:#8dba78;opacity:0.3"></i></div>'}
-            <div class="proj-card-body">
+          <div class="proj-card${cardCls}" data-id="${p.id}" data-ctx="ls" draggable="true">
+            <div class="proj-card-bg" style="background-image:url('${esc(img)}')"></div>
+            ${gridBadge}
+            <div class="proj-card-actions">
+              <button title="Modifier" onclick="lsOpenEditor(${p.id})"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn-del" title="Supprimer" onclick="lsConfirmDelete(${p.id})"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <div class="proj-card-content">
               <div class="proj-card-tag" style="color:#8dba78">${esc(p.tag)} ${badge}</div>
               <div class="proj-card-title">${esc(p.title)}</div>
               <div class="proj-card-loc">${esc(p.location)}${p.year ? ' · ' + esc(p.year) : ''}</div>
-              <div class="proj-card-actions">
-                <button class="btn btn-ghost btn-sm" onclick="lsOpenEditor(${p.id})"><i class="fa-solid fa-pen"></i> Modifier</button>
-                <button class="btn btn-danger btn-sm" onclick="lsConfirmDelete(${p.id})"><i class="fa-solid fa-trash"></i></button>
-              </div>
             </div>
+            <div class="proj-grid-menu">${menuBtns}</div>
           </div>`;
       }).join('');
+
+      lsInitDragAndDrop();
+    }
+
+    // ── Landscaping device preview switcher ──
+    function lsSwitchDevice(device, btnEl) {
+      btnEl.closest('.device-switcher').querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+      const wrap = document.getElementById('lsProjectsWrap');
+      const label = document.getElementById('lsDeviceLabel');
+      wrap.classList.remove('preview-tablet', 'preview-mobile');
+      if (device === 'tablet') { wrap.classList.add('preview-tablet'); label.textContent = 'Tablette — 2 colonnes'; }
+      else if (device === 'mobile') { wrap.classList.add('preview-mobile'); label.textContent = 'Mobile — 1 colonne'; }
+      else { label.textContent = 'Desktop — 3 colonnes'; }
+    }
+
+    // ── Quick grid_class toggle for landscaping ──
+    function lsSetGridClass(id, gc) {
+      const p = lsProjects.find(x => x.id === id);
+      if (!p) return;
+      p.grid_class = gc;
+      const gt = LS_GRID_TYPES[gc] || LS_GRID_TYPES[''];
+      const card = document.querySelector(`.proj-card[data-id="${id}"][data-ctx="ls"]`);
+      card.classList.remove('grid-wide', 'grid-tall', 'grid-big', 'grid-full');
+      if (gt.css) card.classList.add(gt.css);
+      const oldBadge = card.querySelector('.proj-grid-badge');
+      if (oldBadge) oldBadge.remove();
+      if (gc && gt.badge) card.insertAdjacentHTML('afterbegin', `<div class="proj-grid-badge ${gt.badge}">${gt.label}</div>`);
+      card.querySelectorAll('.proj-grid-menu button').forEach(b => b.classList.toggle('gm-active', b.dataset.gc === gc));
+      lsMarkLayoutDirty();
+    }
+
+    // ── Landscaping drag & drop ──
+    let lsDragSrcEl = null;
+
+    function lsInitDragAndDrop() {
+      document.querySelectorAll('#lsProjectsList .proj-card[draggable]').forEach(card => {
+        card.addEventListener('dragstart', lsHandleDragStart);
+        card.addEventListener('dragend', lsHandleDragEnd);
+        card.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+        card.addEventListener('dragenter', function(e) { e.preventDefault(); if (this !== lsDragSrcEl) this.classList.add('drag-over-card'); });
+        card.addEventListener('dragleave', function() { this.classList.remove('drag-over-card'); });
+        card.addEventListener('drop', lsHandleDrop);
+      });
+    }
+
+    function lsHandleDragStart(e) {
+      lsDragSrcEl = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.dataset.id);
+    }
+
+    function lsHandleDragEnd() {
+      this.classList.remove('dragging');
+      document.querySelectorAll('#lsProjectsList .proj-card').forEach(c => c.classList.remove('drag-over-card'));
+    }
+
+    function lsHandleDrop(e) {
+      e.preventDefault(); e.stopPropagation();
+      this.classList.remove('drag-over-card');
+      if (lsDragSrcEl === this) return;
+      const srcId = parseInt(lsDragSrcEl.dataset.id);
+      const tgtId = parseInt(this.dataset.id);
+      const srcIdx = lsProjects.findIndex(p => p.id === srcId);
+      const tgtIdx = lsProjects.findIndex(p => p.id === tgtId);
+      if (srcIdx === -1 || tgtIdx === -1) return;
+      const [moved] = lsProjects.splice(srcIdx, 1);
+      lsProjects.splice(tgtIdx, 0, moved);
+      lsProjects.forEach((p, i) => p.sort_order = i);
+      lsMarkLayoutDirty();
+      lsRenderProjects();
+    }
+
+    // ── Save landscaping layout ──
+    async function lsSaveLayout() {
+      const btn = document.getElementById('lsSaveLayoutBtn');
+      btn.innerHTML = '<span class="spinner"></span> Enregistrement...';
+      btn.style.pointerEvents = 'none';
+      try {
+        for (const p of lsProjects) {
+          await fetch(LS_PROJ_API, {
+            method: 'PUT', headers: headers(),
+            body: JSON.stringify({
+              id: p.id, title: p.title, tag: p.tag, year: p.year,
+              location: p.location, surface: p.surface, description: p.description,
+              hero_image: p.hero_image, hero_position: p.hero_position,
+              gallery_images: p.gallery_images, link: p.link,
+              grid_class: p.grid_class || '', sort_order: p.sort_order,
+              published: p.published
+            })
+          });
+        }
+        toast('Disposition paysagère enregistrée', 'success');
+        lsLayoutDirty = false;
+        btn.classList.remove('active');
+        lsLoadProjects();
+      } catch (e) { toast('Erreur: ' + e.message, 'error'); }
+      finally {
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer';
+        btn.style.pointerEvents = '';
+      }
     }
 
     function lsSelectGridOpt(el) {
