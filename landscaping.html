@@ -1332,14 +1332,16 @@
         mosaic.innerHTML = data.data.map((p, i) => {
           const delayClass = i === 0 ? 'reveal' : `reveal reveal-delay-${(i % 2) + 1}`;
           const img = p.hero_image || (Array.isArray(p.gallery_images) && p.gallery_images[0]) || '';
-          const pos = p.hero_position ?? 50;
+          const hp = parseInt(p.hero_position) || 50;
+          const posX = hp > 100 ? (hp % 1000) : 50;
+          const posY = hp > 100 ? Math.floor(hp / 1000) : hp;
           let gridStyle = '';
           if (p.grid_class === 'span2row') gridStyle = 'grid-row:span 2';
           else if (p.grid_class === 'span2col') gridStyle = 'grid-column:span 2';
           else if (p.grid_class === 'span2big') gridStyle = 'grid-column:span 2;grid-row:span 2';
           else if (p.grid_class === 'span3col') gridStyle = 'grid-column:span 3';
           return `<a class="proj-card ${delayClass}" href="${escHtml(p.link || '#')}" style="${i === 0 ? 'background:#1a2a14;' : ''}${gridStyle}">
-            <div class="proj-img" style="background-image:url('${escHtml(img)}');background-position:50% ${pos}%"></div>
+            <div class="proj-img" style="background-image:url('${escHtml(img)}');background-position:${posX}% ${posY}%"></div>
             <div class="proj-overlay">
               <p class="proj-tag">${escHtml(p.tag)}</p>
               <h3 class="proj-name">${escHtml(p.title)}</h3>
