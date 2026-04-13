@@ -2447,6 +2447,7 @@
     function lsSelectGridOpt(el) {
       document.querySelectorAll('#lsGridOptions .grid-opt').forEach(o => o.classList.remove('selected'));
       el.classList.add('selected');
+      lsApplyHeroPosition();
     }
 
     function lsOpenEditor(id) {
