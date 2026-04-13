@@ -42,20 +42,7 @@ function getFactures(){ return _cache.factures; }
 function getDepenses(){ return _cache.depenses; }
 function getDemandes(){ return _cache.demandes; }
 
-// Migration ponctuelle : supprimer virgules + forcer majuscules sur les noms clients
-(function(){
-  if (sessionStorage.getItem('names_normalized_v2')) return;
-  apiFetch('api/clients.php?action=cleanup-commas', {method:'POST', body:{}})
-    .then(function(){ sessionStorage.setItem('names_normalized_v2','1'); })
-    .catch(function(){});
-})();
-
 function loadData(){
-  // NB : ne PAS réinitialiser _clActiveColumns / _pjActiveColumns ici —
-  // elles sont correctement mises en cache après le premier chargement ou
-  // après un toggle utilisateur. Les remettre à null provoquait une course
-  // entre le POST de sauvegarde et le GET de loadSettings(), où le serveur
-  // renvoyait l'ancienne valeur et écrasait la préférence locale.
   return Promise.all([
     // Charger les paramètres en premier pour que les selects soient prêts
     loadSettings(),
@@ -123,14 +110,7 @@ function loadData(){
     }),
     apiFetch('api/data.php?table=depenses').then(function(r){
       _cache.depenses = (r.data||[]).map(function(d){
-        var o={};
-        for(var k in d) o[k]=d[k];
-        o.libelle=d.description; o.date=d.date_dep; o.cat=d.categorie;
-        // Parse lignes_json
-        if(typeof o.lignes_json==='string'&&o.lignes_json){try{o.lignes=JSON.parse(o.lignes_json);}catch(e){o.lignes=[];}}
-        else if(Array.isArray(o.lignes_json)){o.lignes=o.lignes_json;}
-        else{o.lignes=[];}
-        return o;
+        return{id:d.id,libelle:d.description,montant:d.montant,date:d.date_dep,cat:d.categorie};
       });
       return _cache.depenses;
     }),
@@ -238,13 +218,8 @@ function loadSettings() {
         var svEmpty = (sv === null || sv === undefined || sv === '' || (Array.isArray(sv) && sv.length === 0));
         var lvEmpty = (lv === null || lv === undefined || lv === '' || (Array.isArray(lv) && lv.length === 0));
 
-        if (!svEmpty && !lvEmpty && JSON.stringify(sv) !== JSON.stringify(lv)) {
-          // Les deux ont une valeur mais elles diffèrent : garder localStorage
-          // (plus récent dans cette session) et repousser vers le serveur
-          _settingsCache[k] = lv;
-          apiFetch('api/settings.php', {method:'POST', body:{key:k, value:lv}}).catch(function(){});
-        } else if (!svEmpty) {
-          // Serveur a une valeur non-vide (et local identique ou vide) → utiliser serveur
+        if (!svEmpty) {
+          // Serveur a une valeur non-vide → utiliser serveur
           _settingsCache[k] = sv;
           try { localStorage.setItem(k, JSON.stringify(sv)); } catch(e){}
         } else if (!lvEmpty) {
@@ -585,71 +560,7 @@ function populateTypeBatSelect() {
 
   // Restaurer la valeur si elle existe encore
   if (currentVal) sel.value = currentVal;
-  // Sync custom dropdown display
-  syncTypeBatDisplay();
 }
-
-// ── Type bâtiment custom dropdown ──
-var _typeBatDropOpen = false;
-function showTypeBatDropdown() {
-  var dd = document.getElementById('pj-typebat-dropdown'); if (!dd) return;
-  dd.style.display = 'block'; _typeBatDropOpen = true;
-  renderTypeBatDropdown();
-}
-function hideTypeBatDropdown() {
-  setTimeout(function() {
-    var dd = document.getElementById('pj-typebat-dropdown');
-    if (dd) dd.style.display = 'none'; _typeBatDropOpen = false;
-  }, 200);
-}
-function renderTypeBatDropdown() {
-  var dd = document.getElementById('pj-typebat-dropdown'); if (!dd) return;
-  var types = getCfgTypesBatiment();
-  var html = '';
-  types.forEach(function(group) {
-    html += '<div style="padding:0.4rem 1rem;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);background:var(--bg-2);font-weight:600">' + group.icon + ' ' + group.label + '</div>';
-    (group.subtypes || []).forEach(function(st) {
-      var val = group.label + ' ' + st.label;
-      html += '<div onmousedown="selectTypeBat(\'' + val.replace(/'/g, "\\'") + '\')" style="padding:0.5rem 1rem 0.5rem 1.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'">' +
-        st.icon + ' ' + st.label + '</div>';
-    });
-  });
-  dd.innerHTML = html;
-}
-function selectTypeBat(val) {
-  var sel = document.getElementById('pj-type-bat');
-  var input = document.getElementById('pj-typebat-search');
-  var clearBtn = document.getElementById('pj-typebat-clear');
-  if (sel) sel.value = val;
-  if (input) input.value = val;
-  if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
-  hideTypeBatDropdown();
-}
-function clearTypeBatSearch() {
-  var sel = document.getElementById('pj-type-bat');
-  var input = document.getElementById('pj-typebat-search');
-  var clearBtn = document.getElementById('pj-typebat-clear');
-  if (sel) sel.value = '';
-  if (input) input.value = '';
-  if (clearBtn) clearBtn.style.display = 'none';
-}
-function syncTypeBatDisplay() {
-  var sel = document.getElementById('pj-type-bat');
-  var input = document.getElementById('pj-typebat-search');
-  var clearBtn = document.getElementById('pj-typebat-clear');
-  if (!sel || !input) return;
-  var val = sel.value || '';
-  input.value = val;
-  if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
-}
-document.addEventListener('click', function(e) {
-  if (!_typeBatDropOpen) return;
-  var input = document.getElementById('pj-typebat-search');
-  var dd = document.getElementById('pj-typebat-dropdown');
-  if (input && dd && !input.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none'; _typeBatDropOpen = false;
-  }
-});
 
 // ══════════════════════════════════════════════════════════
 //  CODE CLIENT GENERATOR
@@ -679,23 +590,12 @@ function genClientCode(type, prenom, nomOuRaison) {
     codeBase = codNom + initPrenom;
   }
   var clients = getClients();
-  // Exclure le client en cours d'édition + trouver le MAX numéro séquentiel
-  var maxNum = 0;
-  clients.forEach(function(c){
-    if (_editingClientId && c.id === _editingClientId) return;
-    if (c.code && c.code.startsWith(codeBase)) {
-      var numPart = c.code.substring(codeBase.length);
-      var n = parseInt(numPart, 10);
-      if (!isNaN(n) && n > maxNum) maxNum = n;
-    }
-  });
-  return codeBase + String(maxNum + 1).padStart(3,'0');
+  var existing = clients.filter(function(c){ return c.code && c.code.startsWith(codeBase); });
+  var num = existing.length + 1;
+  return codeBase + String(num).padStart(3,'0');
 }
 
 function previewCode() {
-  // Ne pas écraser si l'utilisateur a modifié manuellement
-  var codeInput = document.getElementById('cl-code-input');
-  if (codeInput && codeInput.style.display !== 'none' && codeInput.dataset.manual === '1') return;
   var type = document.querySelector('input[name="cl-type"]:checked');
   if (!type) return;
   var code = '';
@@ -711,32 +611,6 @@ function previewCode() {
   var num = clients.length + 1;
   document.getElementById('cl-code-preview').textContent = code || '—';
   document.getElementById('cl-num-preview').textContent  = code ? '· N° '+String(num).padStart(4,'0') : '';
-}
-
-var _clCodeEditMode = false;
-function toggleClientCodeEdit() {
-  var preview = document.getElementById('cl-code-preview');
-  var input   = document.getElementById('cl-code-input');
-  var btn     = document.getElementById('cl-code-edit-btn');
-  if (!preview || !input) return;
-  _clCodeEditMode = !_clCodeEditMode;
-  if (_clCodeEditMode) {
-    input.value = preview.textContent === '—' ? '' : preview.textContent;
-    input.style.display = '';
-    preview.style.display = 'none';
-    input.dataset.manual = '1';
-    input.focus();
-    btn.textContent = '✓';
-    btn.title = 'Valider le code';
-  } else {
-    var val = input.value.trim().toUpperCase();
-    if (val) preview.textContent = val;
-    input.style.display = 'none';
-    preview.style.display = '';
-    input.dataset.manual = '0';
-    btn.textContent = '✏️';
-    btn.title = 'Modifier le code';
-  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -879,8 +753,8 @@ function addGroupeMembre() {
       '<button type="button" class="btn btn-sm" style="color:#e07070;padding:0.2rem 0.5rem" onclick="document.getElementById(\'cl-gm-'+n+'\').remove()">✕</button>'+
     '</div>'+
     '<div class="form-grid">'+
-      '<div class="form-field"><label class="form-label">Prénom <span style="color:#e07070">*</span></label><input class="form-input cl-gm-prenom" placeholder="Prénom" style="text-transform:uppercase" /></div>'+
-      '<div class="form-field"><label class="form-label">Nom de famille <span style="color:#e07070">*</span></label><input class="form-input cl-gm-nom" placeholder="Nom" style="text-transform:uppercase" /></div>'+
+      '<div class="form-field"><label class="form-label">Prénom <span style="color:#e07070">*</span></label><input class="form-input cl-gm-prenom" placeholder="Prénom" /></div>'+
+      '<div class="form-field"><label class="form-label">Nom de famille <span style="color:#e07070">*</span></label><input class="form-input cl-gm-nom" placeholder="Nom" /></div>'+
       '<div class="form-field"><label class="form-label">Rôle</label><input class="form-input cl-gm-role" placeholder="héritier, associé, gérant…" /></div>'+
       '<div class="form-field"><label class="form-label">Téléphone</label><input class="form-input cl-gm-tel" type="tel" placeholder="+216…" /></div>'+
       '<div class="form-field full"><label class="form-label">Ou lier à un client existant (prénom + nom)</label><select class="form-select cl-gm-id" onchange="prefillMembreFromClient(this,\''+n+'\')">'+opts+'</select></div>'+
@@ -1022,13 +896,8 @@ function saveClient() {
   } else if (type==='morale') {
     displayNom = raison;
   } else {
-    displayNom = nom + (prenom ? ' '+prenom : '');
+    displayNom = nom + (prenom ? ', '+prenom : '');
   }
-  // Normaliser : supprimer virgules + forcer majuscules
-  displayNom = displayNom.replace(/,/g, '').toUpperCase();
-  nom    = nom    ? nom.replace(/,/g, '').toUpperCase()    : nom;
-  prenom = prenom ? prenom.replace(/,/g, '').toUpperCase() : prenom;
-  raison = raison ? raison.replace(/,/g, '').toUpperCase() : raison;
 
   var numClient  = _editingClientId
     ? (clients.find(function(c){ return c.id===_editingClientId; })||{}).numClient || clients.length + 1
@@ -1054,19 +923,9 @@ function saveClient() {
     codeGenere = genClientCode(type, prenom, type==='morale' ? raison : nom);
   }
 
-  // Priorité : code manuel > code affiché dans le preview > code généré
-  var clCodeInput = document.getElementById('cl-code-input');
-  var clCodePreview = document.getElementById('cl-code-preview');
-  var manualCode  = (clCodeInput && clCodeInput.dataset.manual === '1') ? clCodeInput.value.trim().toUpperCase() : '';
-  var finalCode;
-  if (manualCode) {
-    finalCode = manualCode;
-  } else if (clCodePreview && clCodePreview.textContent && clCodePreview.textContent !== '—') {
-    // Utiliser le code affiché dans le preview (cohérent avec ce que l'utilisateur voit)
-    finalCode = clCodePreview.textContent.trim();
-  } else {
-    finalCode = codeGenere;
-  }
+  var finalCode = _editingClientId
+    ? (clients.find(function(c){ return c.id===_editingClientId; })||{}).code || codeGenere
+    : codeGenere;
 
   var body = {
     code: finalCode,
@@ -1112,10 +971,6 @@ function resetClientForm() {
   document.getElementById('cl-contacts-aux-list').innerHTML = '';
   document.getElementById('cl-err').style.display           = 'none';
   document.getElementById('cl-code-preview').textContent    = '—';
-  document.getElementById('cl-code-preview').style.display  = '';
-  var clCodeInp = document.getElementById('cl-code-input'); if(clCodeInp) { clCodeInp.style.display='none'; clCodeInp.dataset.manual='0'; clCodeInp.value=''; }
-  var clCodeBtn = document.getElementById('cl-code-edit-btn'); if(clCodeBtn) { clCodeBtn.textContent='✏️'; clCodeBtn.title='Modifier le code'; }
-  _clCodeEditMode = false;
   document.getElementById('cl-num-preview').textContent     = '';
 
   // Reset groupe (nouveau système radio)
@@ -1155,149 +1010,29 @@ function resetClientForm() {
   setTimeout(initExtensibleSelects, 50);
 }
 
-// ── Client search/filter ──
-function clientFilterChanged(){ renderClients(); }
-function getFilteredClients(){
-  var clients = getClients();
-  var q = (document.getElementById('clients-search')||{value:''}).value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  var fStatut = (document.getElementById('clients-filter-statut')||{value:''}).value;
-  return clients.filter(function(c){
-    if(fStatut && (c.statut||'')!==fStatut) return false;
-    if(!q) return true;
-    var hay = [(c.code||''),(c.displayNom||c.nom||c.raison||''),(c.email||''),(c.whatsapp||c.tel||''),(c.source||'')].join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    return hay.indexOf(q)!==-1;
-  });
-}
-
-// ── Colonnes clients ──
-var ALL_CL_COLUMNS = [
-  {key:'code',     label:'Code',     default:true, locked:false,sortable:true, render:function(c){return'<span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent)">'+c.code+'</span>';}},
-  {key:'nom',      label:'Nom',      default:true, locked:true, sortable:true, render:function(c){return'<span style="font-weight:500">'+(c.displayNom||c.nom||c.raison)+'</span>';}},
-  {key:'whatsapp', label:'WhatsApp', default:true, locked:false,sortable:false,render:function(c){var wa=c.whatsapp||c.tel||'';return wa?'<a href="https://wa.me/'+wa.replace(/[^0-9]/g,'')+'" target="_blank" style="color:#25D366;text-decoration:none" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:3px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'+wa+'</a>':'—';}},
-  {key:'email',    label:'Email',    default:true, locked:false,sortable:true, render:function(c){return c.email?'<a href="mailto:'+c.email+'" style="color:var(--accent)">'+c.email+'</a>':'—';}},
-  {key:'source',   label:'Source',   default:true, locked:false,sortable:true, render:function(c){return c.source?'<span style="font-size:0.7rem;padding:0.15rem 0.4rem;background:var(--bg-2);border-radius:3px;color:var(--text-3)">'+c.source.split('/')[0].split('(')[0].trim()+'</span>':'—';}},
-  {key:'statut',   label:'Statut',   default:true, locked:false,sortable:true, render:function(c){return'<span class="'+badgeClass(c.statut)+'">'+c.statut+'</span>';}},
-  {key:'type',     label:'Type',     default:false,locked:false,sortable:true, render:function(c){return c.type==='morale'?'Morale':c.type==='groupe'?'Groupe':'Physique';}},
-  {key:'tel',      label:'Téléphone',default:false,locked:false,sortable:false,render:function(c){return c.tel||'—';}},
-  {key:'adresse',  label:'Adresse',  default:false,locked:false,sortable:true, render:function(c){return c.adresse||'—';}},
-  {key:'projets',  label:'Projets',  default:false,locked:false,sortable:true, render:function(c){var pjs=getProjets();var count=pjs.filter(function(p){return p.client_code===c.code||(c.id&&(p.client_id===c.id||p.clientId===c.id));}).length;return String(count);}},
-  {key:'creeAt',   label:'Créé le',  default:false,locked:false,sortable:true, render:function(c){if(!c.creeAt&&!c.cree_at) return '—'; var d=new Date(c.creeAt||c.cree_at); return isNaN(d)?'—':d.toLocaleDateString('fr-FR');}},
-  {key:'creePar',  label:'Créé par', default:false,locked:false,sortable:true, render:function(c){return c.creePar||c.cree_par||'—';}},
-  {key:'modifiePar',label:'Modifié par',default:true,locked:false,sortable:true, render:function(c){return c.modifie_par||'—';}}
-];
-var _clActiveColumns = null;
-
-function _userPrefKey(base) {
-  var s = getSession();
-  var uname = (s && s.name) ? s.name.replace(/[^a-zA-Z0-9]/g,'_') : 'default';
-  return base + '_' + uname;
-}
-
-function getClActiveColumns(){
-  if(_clActiveColumns) return _clActiveColumns;
-  var userKey = _userPrefKey('cortoba_cl_col_order');
-  var saved = getSetting(userKey, null);
-  if (!saved) saved = getLS('cortoba_cl_col_order', null); // fallback ancien format
-  _clActiveColumns = (saved&&Array.isArray(saved)) ? saved : ALL_CL_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;});
-  return _clActiveColumns;
-}
-function saveClColumnPrefs(){ var k=_userPrefKey('cortoba_cl_col_order'); setLS(k,_clActiveColumns); saveSetting(k,_clActiveColumns); }
-function toggleClColumn(key){
-  var col=ALL_CL_COLUMNS.find(function(c){return c.key===key;});
-  if(col&&col.locked) return;
-  var idx=_clActiveColumns.indexOf(key);
-  if(idx===-1){
-    // Insérer à la bonne position relative
-    var allKeys=ALL_CL_COLUMNS.map(function(c){return c.key;});
-    var pos=_clActiveColumns.length;
-    for(var i=0;i<_clActiveColumns.length;i++){
-      if(allKeys.indexOf(_clActiveColumns[i])>allKeys.indexOf(key)){pos=i;break;}
-    }
-    _clActiveColumns.splice(pos,0,key);
-  } else {
-    _clActiveColumns.splice(idx,1);
-  }
-  saveClColumnPrefs(); renderClients();
-}
-function resetClColumns(){ _clActiveColumns=ALL_CL_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;}); saveClColumnPrefs(); renderClients(); }
-
-function openClColumnSelector(){
-  var active = getClActiveColumns();
-  var html='<div style="font-size:0.75rem;color:var(--text-3);margin-bottom:0.6rem;display:flex;justify-content:space-between;align-items:center"><span>Colonnes visibles</span><button class="btn btn-sm" onclick="resetClColumns();this.closest(\'.modal-overlay\').remove()" style="font-size:0.68rem">Réinitialiser</button></div>';
-  ALL_CL_COLUMNS.forEach(function(col){
-    var checked = active.indexOf(col.key)!==-1;
-    var disabled = col.locked;
-    html+='<label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;cursor:'+(disabled?'default':'pointer')+';opacity:'+(disabled?'0.5':'1')+'">'+
-      '<input type="checkbox" '+(checked?'checked':'')+' '+(disabled?'disabled':'')+' onchange="toggleClColumn(\''+col.key+'\')" style="accent-color:var(--accent)">'+
-      '<span style="font-size:0.82rem">'+col.label+'</span></label>';
-  });
-  var ov=document.createElement('div');
-  ov.className='modal-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center';
-  ov.onclick=function(e){if(e.target===ov)ov.remove();};
-  ov.innerHTML='<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.2rem 1.5rem;max-width:340px;width:90%">'+html+'</div>';
-  document.body.appendChild(ov);
-}
-
-// ── Tri clients ──
-var _clSortKey = 'nom', _clSortDir = 1;
-function sortByClColumn(key) {
-  if (_clSortKey === key) _clSortDir *= -1;
-  else { _clSortKey = key; _clSortDir = 1; }
-  renderClients();
-}
-window.sortByClColumn = sortByClColumn;
-
 // ── Render Clients ──
 function renderClients() {
   var tb = document.getElementById('clients-tbody'); if (!tb) return;
-  var th = document.getElementById('clients-thead');
-  var allClients = getClients();
-  var clients = getFilteredClients();
-  var active = getClActiveColumns();
-  var ct = document.getElementById('clients-count');
-  if(ct) ct.textContent = clients.length===allClients.length ? clients.length+' client'+(clients.length>1?'s':'') : clients.length+' / '+allClients.length+' clients';
-
-  // Tri des clients
-  var sk = _clSortKey, sd = _clSortDir;
-  clients.sort(function(a, b) {
-    var va, vb;
-    if (sk === 'nom') { va = (a.displayNom||a.nom||a.raison||'').toLowerCase(); vb = (b.displayNom||b.nom||b.raison||'').toLowerCase(); }
-    else if (sk === 'projets') {
-      var pjs = getProjets();
-      va = pjs.filter(function(p){return p.client_code===a.code;}).length;
-      vb = pjs.filter(function(p){return p.client_code===b.code;}).length;
-    }
-    else if (sk === 'creeAt') { va = a.creeAt||a.cree_at||''; vb = b.creeAt||b.cree_at||''; }
-    else { va = (a[sk]||'').toString().toLowerCase(); vb = (b[sk]||'').toString().toLowerCase(); }
-    if (va < vb) return -1 * sd; if (va > vb) return 1 * sd; return 0;
-  });
-
-  // Header avec tri
-  function clSortIcon(key) {
-    if (_clSortKey !== key) return '<span style="margin-left:3px;font-size:0.6rem;color:var(--border);vertical-align:middle">⇅</span>';
-    return '<span style="margin-left:3px;font-size:0.65rem;color:var(--accent);vertical-align:middle">' + (_clSortDir === 1 ? '▲' : '▼') + '</span>';
-  }
-  if(th){
-    th.innerHTML = active.map(function(key){
-      var col=ALL_CL_COLUMNS.find(function(x){return x.key===key;});
-      if(!col) return '';
-      var s = 'padding:0.45rem 0.8rem;font-size:0.7rem;white-space:nowrap;' + (col.sortable ? 'cursor:pointer;user-select:none' : '');
-      return '<th style="'+s+'" '+(col.sortable?'onclick="sortByClColumn(\''+key+'\')"':'')+'>'+col.label+(col.sortable?clSortIcon(key):'')+'</th>';
-    }).join('') + '<th style="padding:0.45rem 0.8rem"></th>';
-  }
+  var clients = getClients();
   tb.innerHTML = clients.length === 0
-    ? '<tr><td colspan="'+(active.length+1)+'" style="text-align:center;color:var(--text-3);padding:2rem">'+(allClients.length?'Aucun résultat.':'Aucun client. Créez votre premier client.')+'</td></tr>'
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:2rem">Aucun client. Créez votre premier client.</td></tr>'
     : clients.map(function(c) {
-        var cells = active.map(function(key){
-          var col=ALL_CL_COLUMNS.find(function(x){return x.key===key;});
-          if(!col) return '<td style="padding:0.35rem 0.8rem">—</td>';
-          var stopProp = (key==='whatsapp'||key==='email') ? ' onclick="event.stopPropagation()"' : '';
-          return '<td style="padding:0.35rem 0.8rem"'+stopProp+'>'+col.render(c)+'</td>';
-        }).join('');
+        var wa = c.whatsapp || c.tel || '';
+        var waLink = wa
+          ? '<a href="https://wa.me/'+wa.replace(/[^0-9]/g,'')+'" target="_blank" style="color:#25D366;text-decoration:none" title="WhatsApp">'+
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:3px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'+
+            wa+'</a>'
+          : '—';
+        var mailLink = c.email ? '<a href="mailto:'+c.email+'" style="color:var(--accent)">'+c.email+'</a>' : '—';
+        var srcBadge = c.source ? '<span style="font-size:0.7rem;padding:0.15rem 0.4rem;background:var(--bg-2);border-radius:3px;color:var(--text-3)">'+c.source.split('/')[0].split('(')[0].trim()+'</span>' : '—';
         return '<tr onclick="openClientDetail(\''+c.id+'\')" style="cursor:pointer" title="Voir la fiche">'+
-          cells+
-          '<td onclick="event.stopPropagation()" style="white-space:nowrap;padding:0.35rem 0.8rem">'+
+          '<td><span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent)">'+c.code+'</span></td>'+
+          '<td style="font-weight:500">'+(c.displayNom||c.nom||c.raison)+'</td>'+
+          '<td onclick="event.stopPropagation()">'+waLink+'</td>'+
+          '<td onclick="event.stopPropagation()">'+mailLink+'</td>'+
+          '<td>'+srcBadge+'</td>'+
+          '<td><span class="'+badgeClass(c.statut)+'">'+c.statut+'</span></td>'+
+          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+
             '<button class="btn btn-sm" onclick="openEditClient(\''+c.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>'+
             (canDelete() ? '<button class="btn btn-sm" onclick="deleteRow(\'client\',\''+c.id+'\')" style="color:#e07070" title="Supprimer">✕</button>' : '')+
           '</td>'+
@@ -1311,8 +1046,8 @@ var _editingClientId = null;
 function openClientDetail(id) {
   var c = getClients().find(function(x){ return x.id===id; });
   if (!c) return;
-  var projets = getProjets().filter(function(p){ return p.client_code===c.code||p.client===c.displayNom||p.client===(c.nom+(c.prenom?' '+c.prenom:'')); });
-  var devis   = getDevis().filter(function(d){   return d.client===c.displayNom||d.client===(c.nom+(c.prenom?' '+c.prenom:'')); });
+  var projets = getProjets().filter(function(p){ return p.client===c.displayNom||p.client===(c.nom+(c.prenom?', '+c.prenom:'')); });
+  var devis   = getDevis().filter(function(d){   return d.client===c.displayNom||d.client===(c.nom+(c.prenom?', '+c.prenom:'')); });
   var groupe  = c.groupe ? '<b>Groupe :</b> '+(c.groupe.titre||'—')+' ('+c.groupe.membres.length+' membres)' : '';
   var info = [
     '<b>Code :</b> '+c.code+' · N° '+String(c.numClient||'—').padStart(4,'0'),
@@ -1465,157 +1200,6 @@ function canDelete(){
   var s = getSession();
   return s && (s.isAdmin || s.role === 'Architecte gérant');
 }
-// ── Restrictions dynamiques par rôle ──
-var _restrictionsCache = null;
-var _RESTRICTION_DEFAULTS = {
-  stagiaire: {
-    creer_projets: true, creer_clients: true, creer_devis: true, creer_factures: true,
-    supprimer: true
-  },
-  membre: {
-    creer_projets: false, creer_clients: false, creer_devis: false, creer_factures: false,
-    supprimer: true, voir_salaires: true, voir_contacts_perso: true, gerer_parametres: true
-  }
-};
-var _RESTRICTION_LABELS = {
-  creer_projets:      'Création de projets',
-  creer_clients:      'Création de clients',
-  creer_devis:        'Création de devis',
-  creer_factures:     'Création de factures',
-  supprimer:          'Suppression d\'éléments',
-  voir_salaires:      'Accès aux salaires et charges',
-  voir_contacts_perso:'Accès aux contacts personnels',
-  gerer_parametres:   'Gestion des rôles et paramètres'
-};
-var _ROLE_META = {
-  stagiaire: {label:'Stagiaire', color:'#e07b72', bg:'rgba(224,112,112,0.1)', border:'rgba(224,112,112,0.25)',
-    icon:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
-    desc:'Accès limité — stagiaire / observateur'},
-  membre: {label:'Membre standard', color:'var(--accent)', bg:'rgba(200,169,110,0.12)', border:'rgba(200,169,110,0.25)',
-    icon:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
-    desc:'Tout rôle hors Admin / Architecte gérant'}
-};
-
-function getRestrictions() {
-  if (_restrictionsCache) return _restrictionsCache;
-  var saved = getSetting('cfg_restrictions', null);
-  if (saved && typeof saved === 'object') {
-    // Merge with defaults to ensure new keys are included
-    var merged = {};
-    for (var role in _RESTRICTION_DEFAULTS) {
-      merged[role] = {};
-      for (var key in _RESTRICTION_DEFAULTS[role]) {
-        merged[role][key] = (saved[role] && saved[role][key] !== undefined) ? saved[role][key] : _RESTRICTION_DEFAULTS[role][key];
-      }
-    }
-    _restrictionsCache = merged;
-  } else {
-    _restrictionsCache = JSON.parse(JSON.stringify(_RESTRICTION_DEFAULTS));
-  }
-  return _restrictionsCache;
-}
-
-function isRestricted(roleGroup, action) {
-  var r = getRestrictions();
-  return r[roleGroup] && r[roleGroup][action] === true;
-}
-
-function getUserRoleGroup() {
-  var s = getSession();
-  if (!s) return null;
-  if (s.isAdmin || s.role === 'Architecte gérant') return null; // no restrictions
-  if ((s.role || '').toLowerCase() === 'stagiaire') return 'stagiaire';
-  return 'membre';
-}
-
-function canCreate(action) {
-  var group = getUserRoleGroup();
-  if (!group) return true;
-  // Map action to restriction key
-  var map = {'projet':'creer_projets','client':'creer_clients','devis':'creer_devis','facture':'creer_factures'};
-  if (action && map[action]) return !isRestricted(group, map[action]);
-  // General check: any creation blocked?
-  if (isRestricted(group, 'creer_projets') && isRestricted(group, 'creer_clients') &&
-      isRestricted(group, 'creer_devis') && isRestricted(group, 'creer_factures')) return false;
-  // Check all individually
-  for (var k in map) { if (isRestricted(group, map[k])) return false; }
-  return true;
-}
-
-function renderRestrictions() {
-  var container = document.getElementById('restrictions-container');
-  if (!container) return;
-  var r = getRestrictions();
-  var html = '';
-  var roles = ['stagiaire', 'membre'];
-  for (var ri = 0; ri < roles.length; ri++) {
-    var role = roles[ri];
-    var meta = _ROLE_META[role];
-    var rules = r[role];
-    html += '<div style="margin-bottom:' + (ri < roles.length - 1 ? '1.5rem' : '0') + '">';
-    html += '<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.8rem">';
-    html += '<span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.22rem 0.7rem;border-radius:20px;font-size:0.72rem;background:' + meta.bg + ';color:' + meta.color + ';border:1px solid ' + meta.border + ';font-weight:600;letter-spacing:0.03em">' + meta.icon + ' ' + meta.label + '</span>';
-    html += '<span style="font-size:0.72rem;color:var(--text-3)">— ' + meta.desc + '</span>';
-    html += '</div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.5rem">';
-    for (var key in rules) {
-      var blocked = rules[key];
-      var label = _RESTRICTION_LABELS[key] || key;
-      var id = 'restrict-' + role + '-' + key;
-      html += '<label for="' + id + '" style="display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.9rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;font-size:0.78rem;cursor:pointer;transition:all .15s;user-select:none">';
-      html += '<div style="position:relative;width:34px;height:18px;flex-shrink:0">';
-      html += '<input type="checkbox" id="' + id + '" ' + (blocked ? 'checked' : '') + ' onchange="onRestrictionToggle()" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;margin:0;z-index:1">';
-      html += '<div style="position:absolute;top:0;left:0;width:34px;height:18px;border-radius:9px;background:' + (blocked ? '#e07b72' : 'var(--green)') + ';transition:background .2s"></div>';
-      html += '<div style="position:absolute;top:2px;' + (blocked ? 'left:18px' : 'left:2px') + ';width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></div>';
-      html += '</div>';
-      html += '<span style="color:var(--text);flex:1">' + label + '</span>';
-      html += '<span style="font-size:0.65rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:' + (blocked ? '#e07b72' : 'var(--green)') + '">' + (blocked ? 'Bloqué' : 'Autorisé') + '</span>';
-      html += '</label>';
-    }
-    html += '</div></div>';
-  }
-  container.innerHTML = html;
-}
-
-function onRestrictionToggle() {
-  document.getElementById('btn-save-restrictions').style.display = '';
-  // Update visual state of all toggles
-  document.querySelectorAll('#restrictions-container input[type="checkbox"]').forEach(function(cb) {
-    var track = cb.nextElementSibling;
-    var thumb = track.nextElementSibling;
-    var statusEl = cb.closest('label').querySelector('span:last-child');
-    if (cb.checked) {
-      track.style.background = '#e07b72';
-      thumb.style.left = '18px';
-      statusEl.style.color = '#e07b72';
-      statusEl.textContent = 'Bloqué';
-    } else {
-      track.style.background = 'var(--green)';
-      thumb.style.left = '2px';
-      statusEl.style.color = 'var(--green)';
-      statusEl.textContent = 'Autorisé';
-    }
-  });
-}
-
-function saveRestrictions() {
-  var r = {};
-  var roles = ['stagiaire', 'membre'];
-  for (var i = 0; i < roles.length; i++) {
-    var role = roles[i];
-    r[role] = {};
-    for (var key in _RESTRICTION_DEFAULTS[role]) {
-      var cb = document.getElementById('restrict-' + role + '-' + key);
-      r[role][key] = cb ? cb.checked : _RESTRICTION_DEFAULTS[role][key];
-    }
-  }
-  _restrictionsCache = r;
-  saveSetting('cfg_restrictions', r).then(function() {
-    document.getElementById('btn-save-restrictions').style.display = 'none';
-    applyModuleAccess();
-    showToast && showToast('Restrictions enregistrées');
-  });
-}
 function deleteRow(type, id){
   if (!canDelete()) { alert('Seul un Architecte gérant peut supprimer.'); return; }
   if (!confirm('Supprimer cet élément ?')) return;
@@ -1653,12 +1237,7 @@ function openDevisDetail(id){
     + '<tr><td style="padding:0.4rem 0.8rem 0.4rem 0;color:var(--text-3);font-size:0.78rem">Date</td><td style="padding:0.4rem 0;font-size:0.85rem">'+fmtDate(d.date)+'</td></tr>'
     + '<tr><td style="padding:0.4rem 0.8rem 0.4rem 0;color:var(--text-3);font-size:0.78rem">Statut</td><td style="padding:0.4rem 0">'+badge+'</td></tr>'
     + '</table>'
-    + '<div style="margin-top:1.2rem;display:flex;gap:0.6rem;flex-wrap:wrap">'
-    + (d.statut === 'Accepté' ? '<button id="devis-to-facture-btn" class="btn btn-sm btn-primary">Convertir en facture</button>' : '')
-    + (d.statut !== 'Accepté' && d.statut !== 'Facturé' ? '<button id="devis-to-facture-force-btn" class="btn btn-sm" style="color:var(--accent)">Forcer la conversion</button>' : '')
-    + '<button id="devis-pdf-btn" class="btn btn-sm">PDF</button>'
-    + '<button id="devis-email-btn" class="btn btn-sm">Envoyer</button>'
-    + '<div style="flex:1"></div>'
+    + '<div style="margin-top:1.2rem;display:flex;gap:0.6rem;justify-content:flex-end">'
     + '<button id="close-devis-btn" class="btn btn-sm">Fermer</button>'
     + '<button id="del-devis-btn" class="btn btn-sm" style="color:#e07070">\u2715 Supprimer</button>'
     + '</div></div>';
@@ -1668,17 +1247,6 @@ function openDevisDetail(id){
   ov.querySelector('#del-devis-btn').addEventListener('click', function(){
     if(confirm('Supprimer ce devis ?')){ deleteRow('devis', d.id); ov.remove(); }
   });
-  // Convertir en facture
-  var facBtn = ov.querySelector('#devis-to-facture-btn');
-  if (facBtn) facBtn.addEventListener('click', function(){ ov.remove(); convertDevisToFacture(d.id, false); });
-  var facForceBtn = ov.querySelector('#devis-to-facture-force-btn');
-  if (facForceBtn) facForceBtn.addEventListener('click', function(){ ov.remove(); convertDevisToFacture(d.id, true); });
-  // PDF
-  var pdfBtn = ov.querySelector('#devis-pdf-btn');
-  if (pdfBtn) pdfBtn.addEventListener('click', function(){ generateDocumentPDF('devis', d.id); });
-  // Email
-  var emailBtn = ov.querySelector('#devis-email-btn');
-  if (emailBtn) emailBtn.addEventListener('click', function(){ sendDocumentByEmail('devis', d.id); });
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
 }
@@ -1764,7 +1332,7 @@ function saveDevis(){
 
 // ── Filtres et tri projets ──
 var PHASES_ORDER = ['Étude préliminaire','APS','APD','PC','DCE','EXE','Livré'];
-var _pjSortKey='code', _pjSortDir=1, _pjColDropOpen=false;
+var _pjSortKey='nom', _pjSortDir=1, _pjColDropOpen=false;
 var _pjPage=1, _pjPerPage=10, _pjAnneeInitDone=false;
 
 function getFilteredSortedProjets(){
@@ -1833,7 +1401,7 @@ function renderProjets(){
   };
   var ths = active.map(function(key){
     var col = ALL_PJ_COLUMNS.find(function(c){ return c.key===key; }); if(!col) return '';
-    var s = 'padding:0.45rem 0.8rem;white-space:nowrap;user-select:none;'; if(col.sortable) s+='cursor:pointer;';
+    var s = 'padding:0.7rem 0.8rem;white-space:nowrap;user-select:none;'; if(col.sortable) s+='cursor:pointer;';
     return '<th style="'+s+'" '+(col.sortable?'onclick="sortByPjColumn(\''+key+'\')"':'')+'>'+col.label+(col.sortable?sortIcon(key):'')+'</th>';
   }).join('');
   var burgerTh = '<th style="width:28px;padding:0.4rem 0.5rem;text-align:center"><button id="pj-col-burger" onclick="togglePjColDropdown(event)" title="Colonnes visibles" style="background:none;border:none;cursor:pointer;color:var(--text-3);opacity:0.6;padding:2px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></th>';
@@ -1864,20 +1432,19 @@ function renderProjets(){
   }
   tb.innerHTML = pageList.map(function(p){
     var cells = active.map(function(key){
-      var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td style="padding:0.35rem 0.8rem">—</td>';
-      return '<td style="padding:0.35rem 0.8rem">'+col.render(p)+'</td>';
+      var col=ALL_PJ_COLUMNS.find(function(x){return x.key===key;}); if(!col) return '<td>—</td>';
+      return '<td>'+col.render(p)+'</td>';
     }).join('');
-    var actionBtns = '<div style="display:flex;gap:2px;align-items:center">'+
-      '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent);padding:0.2rem 0.4rem;font-size:0.75rem">✎</button>'+
-      (canDelete() ? '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" title="Supprimer" style="color:#e07070;padding:0.2rem 0.4rem;font-size:0.75rem">✕</button>' : '')+
-      '</div>';
+    var editBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditProjet(\''+p.id+'\')" title="Modifier" style="color:var(--accent);margin-right:3px">✎</button>';
     return '<tr onclick="openProjetDetail(\''+p.id+'\')" style="cursor:pointer">'+cells+
-      '<td onclick="event.stopPropagation()" style="padding:0.35rem 0.5rem">'+actionBtns+'</td><td style="padding:0.35rem 0.5rem"></td></tr>';
+      '<td onclick="event.stopPropagation()">'+editBtn+(canDelete() ? '<button class="btn btn-sm" onclick="event.stopPropagation();deleteRow(\'projet\',\''+p.id+'\')" style="color:#e07070">✕</button>' : '')+'</td><td></td></tr>';
   }).join('');
   renderPjPagination(totalFiltered, totalPages);
   if(document.getElementById('page-projets')&&document.getElementById('page-projets').classList.contains('active')){
     if(typeof refreshGlobalMap==='function') setTimeout(refreshGlobalMap,100);
   }
+  var b = document.querySelector('[onclick="showPage(\'projets\')"] .nav-badge');
+  if(b) b.textContent = list.filter(function(p){ return (p.statut||'')==='Actif'; }).length || '';
 }
 
 // ── Pagination projets ──
@@ -1926,7 +1493,7 @@ function refreshGlobalMap(){
   if(!_globalMap){
     _globalMap = L.map('projets-global-map',{zoomControl:true}).setView([33.84,10.88],10);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Esri',maxZoom:19}).addTo(_globalMap);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:19,subdomains:'abcd',opacity:1}).addTo(_globalMap);
+    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{attribution:'',maxZoom:19,opacity:0.8}).addTo(_globalMap);
   }
   _globalMarkers.forEach(function(m){ try{_globalMap.removeLayer(m);}catch(e){} });
   _globalMarkers = [];
@@ -2010,20 +1577,12 @@ function switchPjTab(tab, btn){
 function genProjetCode(annee, clientDisplayNom, clientCode){
   var yy      = String(annee||new Date().getFullYear()).slice(-2);
   var projets = getProjets();
-  // Trouver le numéro séquentiel MAX parmi les projets de la même année
-  var maxSeq = 0;
-  projets.forEach(function(p){
-    if(_editingProjetId && p.id===_editingProjetId) return;
-    if(p.annee==annee || (p.code && p.code.indexOf('_'+yy+'_')!==-1)){
-      // Extraire le numéro séquentiel du code (premier segment avant _)
-      var match = (p.code||'').match(/^(\d+)_/);
-      if(match){
-        var n = parseInt(match[1], 10);
-        if(n > maxSeq) maxSeq = n;
-      }
-    }
+  // Exclure le projet en cours d'édition du comptage
+  var sameYear = projets.filter(function(p){
+    if(_editingProjetId && p.id===_editingProjetId) return false;
+    return p.annee==annee || (p.code && p.code.indexOf('_'+yy+'_')!==-1);
   });
-  var seq  = String(maxSeq+1).padStart(2,'0');
+  var seq  = String(sameYear.length+1).padStart(2,'0');
   var code = clientCode || '';
   if (!code && clientDisplayNom) {
     var c = getClients().find(function(x){ return x.displayNom===clientDisplayNom||x.display_nom===clientDisplayNom; });
@@ -2043,37 +1602,8 @@ function previewPjCode(){
   var clientNom = client ? (client.displayNom||client.display_nom||client.nom||'') : '';
   var clientCode= client ? client.code : '';
   if (!clientVal) { codeEl.textContent='—'; return; }
-  // Ne pas écraser si l'utilisateur a modifié manuellement
-  var codeInput = document.getElementById('pj-code-input');
-  if (codeInput && codeInput.style.display !== 'none' && codeInput.dataset.manual === '1') return;
   var code    = genProjetCode(annee, clientNom, clientCode);
   codeEl.textContent = code;
-}
-
-var _codeEditMode = false;
-function toggleCodeEdit() {
-  var preview = document.getElementById('pj-code-preview');
-  var input   = document.getElementById('pj-code-input');
-  var btn     = document.getElementById('pj-code-edit-btn');
-  if (!preview || !input) return;
-  _codeEditMode = !_codeEditMode;
-  if (_codeEditMode) {
-    input.value = preview.textContent === '—' ? '' : preview.textContent;
-    input.style.display = '';
-    preview.style.display = 'none';
-    input.dataset.manual = '1';
-    input.focus();
-    btn.textContent = '✓';
-    btn.title = 'Valider le code';
-  } else {
-    var val = input.value.trim();
-    if (val) preview.textContent = val;
-    input.style.display = 'none';
-    preview.style.display = '';
-    input.dataset.manual = '0';
-    btn.textContent = '✏️';
-    btn.title = 'Modifier le code';
-  }
 }
 
 function populateClientSelect(){
@@ -2085,100 +1615,6 @@ function populateClientSelect(){
     sel.innerHTML += '<option value="'+c.id+'">'+nom+' ('+(c.code||'')+')</option>';
   });
 }
-
-// ── Client searchable dropdown ──
-var _clientDropdownOpen = false;
-
-function filterClientDropdown() {
-  var input = document.getElementById('pj-client-search');
-  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  var clearBtn = document.getElementById('pj-client-clear');
-  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-  renderClientDropdown(q);
-  showClientDropdown();
-}
-
-function showClientDropdown() {
-  var dd = document.getElementById('pj-client-dropdown');
-  if (!dd) return;
-  dd.style.display = 'block';
-  _clientDropdownOpen = true;
-  var q = (document.getElementById('pj-client-search').value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  renderClientDropdown(q);
-}
-
-function hideClientDropdown() {
-  setTimeout(function() {
-    var dd = document.getElementById('pj-client-dropdown');
-    if (dd) dd.style.display = 'none';
-    _clientDropdownOpen = false;
-  }, 200);
-}
-
-function renderClientDropdown(q) {
-  var dd = document.getElementById('pj-client-dropdown');
-  if (!dd) return;
-  var clients = getClients();
-  var filtered = clients.filter(function(c) {
-    if (!q) return true;
-    var nom = (c.displayNom || c.display_nom || c.nom || c.raison || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    var code = (c.code || '').toLowerCase();
-    return nom.indexOf(q) !== -1 || code.indexOf(q) !== -1;
-  });
-
-  if (filtered.length === 0) {
-    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucun client trouvé</div>';
-    return;
-  }
-
-  dd.innerHTML = filtered.map(function(c) {
-    var nom = c.displayNom || c.display_nom || c.nom || c.raison || '';
-    var code = c.code || '';
-    return '<div class="client-dd-item" onmousedown="selectClient(\'' + c.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'">' +
-      '<span style="color:var(--text-1)">' + nom + '</span>' +
-      (code ? ' <span style="color:var(--text-3);font-size:0.72rem">(' + code + ')</span>' : '') +
-      '</div>';
-  }).join('');
-}
-
-function selectClient(clientId) {
-  var sel = document.getElementById('pj-client');
-  var input = document.getElementById('pj-client-search');
-  var clearBtn = document.getElementById('pj-client-clear');
-  sel.value = clientId;
-  var selectedOpt = sel.selectedOptions[0];
-  if (selectedOpt && clientId) {
-    input.value = selectedOpt.textContent;
-  } else {
-    input.value = '';
-  }
-  if (clearBtn) clearBtn.style.display = clientId ? 'block' : 'none';
-  hideClientDropdown();
-  previewPjCode();
-}
-
-function clearClientSearch() {
-  var input = document.getElementById('pj-client-search');
-  var sel = document.getElementById('pj-client');
-  var clearBtn = document.getElementById('pj-client-clear');
-  input.value = '';
-  sel.value = '';
-  if (clearBtn) clearBtn.style.display = 'none';
-  input.focus();
-  showClientDropdown();
-  previewPjCode();
-}
-
-// Close dropdown on outside click
-document.addEventListener('click', function(e) {
-  if (!_clientDropdownOpen) return;
-  var container = document.getElementById('pj-client-search');
-  var dd = document.getElementById('pj-client-dropdown');
-  if (container && dd && !container.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none';
-    _clientDropdownOpen = false;
-  }
-});
 
 // A2 — Missions avec liste par défaut
 var MISSION_CATEGORIES = [
@@ -2317,28 +1753,6 @@ function toggleMissionCat(btn, catId){
   btn.textContent = allChecked ? 'tout cocher' : 'tout décocher';
 }
 
-function filterPjMissions() {
-  var q = (document.getElementById('pj-mission-search') || {value:''}).value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  var labels = document.querySelectorAll('#pj-missions-list label');
-  var catHeaders = document.querySelectorAll('#pj-missions-list > div');
-  labels.forEach(function(lbl) {
-    var txt = (lbl.textContent || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    lbl.style.display = (!q || txt.indexOf(q) !== -1) ? '' : 'none';
-  });
-  // Masquer les catégories dont toutes les missions sont cachées
-  catHeaders.forEach(function(catDiv) {
-    var visibleLabels = catDiv.querySelectorAll('label:not([style*="display: none"])');
-    // fallback : compter manuellement
-    var count = 0;
-    catDiv.querySelectorAll('label').forEach(function(l){ if(l.style.display !== 'none') count++; });
-    var header = catDiv.querySelector('div');
-    if (header && catDiv.querySelectorAll('label').length > 0) {
-      catDiv.style.display = count > 0 ? '' : 'none';
-    }
-  });
-}
-window.filterPjMissions = filterPjMissions;
-
 function getSelectedMissions(){
   var checks = document.querySelectorAll('#pj-missions-list input[type=checkbox]:checked');
   return Array.from(checks).map(function(c){ return c.value; });
@@ -2394,8 +1808,8 @@ function initPjMap(){
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     {attribution:'Esri World Imagery', maxZoom:19}).addTo(_pjMap);
   // Couche étiquettes par-dessus
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-    {attribution:'', maxZoom:19, subdomains:'abcd', opacity:1}).addTo(_pjMap);
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'', maxZoom:19, opacity:0.85}).addTo(_pjMap);
 
   var markerIcon = L.divIcon({
     className:'',
@@ -2440,13 +1854,9 @@ function resetProjetForm(){
 
   var pjStatut = document.getElementById('pj-statut');  if(pjStatut) pjStatut.value = 'Actif';
   var pjType   = document.getElementById('pj-type-bat');if(pjType)   pjType.value   = '';
-  clearTypeBatSearch();
 
   var err     = document.getElementById('pj-err');     if(err)    err.style.display='none';
-  var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) { codeEl.textContent='—'; codeEl.style.display=''; }
-  var codeInput = document.getElementById('pj-code-input'); if(codeInput) { codeInput.style.display='none'; codeInput.dataset.manual='0'; codeInput.value=''; }
-  var codeBtn = document.getElementById('pj-code-edit-btn'); if(codeBtn) { codeBtn.textContent='✏️'; codeBtn.title='Modifier le code'; }
-  _codeEditMode = false;
+  var codeEl  = document.getElementById('pj-code-preview'); if(codeEl) codeEl.textContent='—';
   var latEl   = document.getElementById('pj-lat');      if(latEl)  latEl.value='';
   var lngEl   = document.getElementById('pj-lng');      if(lngEl)  lngEl.value='';
   var coordsD = document.getElementById('pj-coords-display'); if(coordsD) coordsD.style.display='none';
@@ -2457,16 +1867,8 @@ function resetProjetForm(){
   var eyebrow = document.getElementById('pj-modal-eyebrow');if(eyebrow) eyebrow.textContent='NOUVEAU PROJET';
   var saveBtn = document.getElementById('pj-save-btn');     if(saveBtn) saveBtn.textContent='Créer le projet →';
   var chatChk = document.getElementById('pj-chat-create');  if(chatChk) chatChk.checked = false;
-  var nasChk  = document.getElementById('pj-nas-create');   if(nasChk)  nasChk.checked = false;
-  var portalBtn = document.getElementById('pj-portal-btn'); if(portalBtn) portalBtn.style.display = 'none';
-  var nasLinkBtn = document.getElementById('pj-nas-link-btn'); if(nasLinkBtn) nasLinkBtn.style.display = 'none';
-  var nasPathInput = document.getElementById('pj-nas-path-input'); if(nasPathInput) nasPathInput.value = '';
-  var nasEditPanel = document.getElementById('pj-nas-edit-panel'); if(nasEditPanel) nasEditPanel.style.display = 'none';
-  var msSearch = document.getElementById('pj-mission-search'); if(msSearch) msSearch.value = '';
 
   populateClientSelect();
-  var csInput = document.getElementById('pj-client-search'); if (csInput) csInput.value = '';
-  var csClear = document.getElementById('pj-client-clear'); if (csClear) csClear.style.display = 'none';
   populateMissionsList([]);
 
   // Construire et revenir au premier onglet
@@ -2479,7 +1881,6 @@ function resetProjetForm(){
 
 // ── Ouvrir le configurateur dans un nouvel onglet ──
 function openConfigurateur(){
-  if (!canCreate('projet')) { alert('Vous n\'êtes pas autorisé à créer des projets.'); return; }
   var token=sessionStorage.getItem('cortoba_token');
   if(token){
     localStorage.setItem('cortoba_xfer_token',JSON.stringify({token:token,ts:Date.now()}));
@@ -2533,7 +1934,6 @@ function openEditProjet(id){
     typeBatSel.appendChild(tmpOpt);
     typeBatSel.value = typeBatVal;
   }
-  syncTypeBatDisplay();
 
   if (p.lat && p.lng) {
     document.getElementById('pj-lat').value = p.lat;
@@ -2556,13 +1956,7 @@ function openEditProjet(id){
     return c.id===p.clientId || c.id===p.client_id ||
            (c.displayNom||c.display_nom)===p.client;
   });
-  if (sel && client) {
-    sel.value = client.id;
-    var searchInput = document.getElementById('pj-client-search');
-    if (searchInput) searchInput.value = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '';
-    var clearBtn = document.getElementById('pj-client-clear');
-    if (clearBtn) clearBtn.style.display = client.id ? 'block' : 'none';
-  }
+  if (sel && client) sel.value = client.id;
   previewPjCode();
 
   populateMissionsList(p.missions||[]);
@@ -2570,341 +1964,37 @@ function openEditProjet(id){
 
   document.getElementById('pj-code-preview').textContent = p.code||'—';
 
-  // Vérifier si une room chat existe déjà pour ce projet
-  var chatChk = document.getElementById('pj-chat-create');
-  var chatWrap = document.getElementById('pj-chat-create-wrap');
-  if (chatChk) {
-    chatChk.checked = false;
-    chatChk.disabled = false;
-    if (chatWrap) chatWrap.title = '';
-    apiFetch('api/chat.php?action=rooms').then(function(r) {
-      var rooms = (r.data || []);
-      var hasRoom = rooms.some(function(rm) { return rm.type === 'projet' && rm.projet_id === id; });
-      if (hasRoom) {
-        chatChk.checked = true;
-        chatChk.disabled = true;
-        if (chatWrap) chatWrap.title = 'Groupe de discussion déjà créé';
-      }
-    }).catch(function(){});
-  }
-
-  // Afficher le bouton portail client en mode édition
-  var portalBtn = document.getElementById('pj-portal-btn');
-  if (!portalBtn) {
-    // Créer dynamiquement si absent du HTML (cache navigateur)
-    var footer = document.querySelector('#modal-projet .modal-footer');
-    if (footer) {
-      portalBtn = document.createElement('button');
-      portalBtn.id = 'pj-portal-btn';
-      portalBtn.className = 'btn';
-      portalBtn.innerHTML = '&#128279; Créer accès portail';
-      footer.insertBefore(portalBtn, footer.children[1] || footer.children[0]);
-    }
-  }
-  if (portalBtn) {
-    portalBtn.style.cssText = 'display:inline-block;margin-right:auto;background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:0.45rem 0.9rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font)';
-    portalBtn.onclick = function(){ openCreatePortalAccess(_editingProjetId, document.getElementById('pj-client')?.selectedOptions[0]?.text||'', document.getElementById('pj-client')?.value||''); };
-  }
-
-  // Afficher le bouton NAS en mode édition + charger le chemin sauvegardé
-  var nasBtn = document.getElementById('pj-nas-link-btn');
-  if (nasBtn) {
-    nasBtn.style.display = 'inline-flex';
-    nasBtn.setAttribute('data-projet-id', id);
-  }
-  var nasPathInput = document.getElementById('pj-nas-path-input');
-  if (nasPathInput) nasPathInput.value = p.nas_path || p.nasPath || '';
-
   // Ouvrir la modale directement (sans passer par openModal pour éviter le double reset)
   document.getElementById('modal-projet').classList.add('open');
-}
-
-// ── Ouvrir le dossier NAS depuis la modale d'édition ──
-function buildCurrentNasPath() {
-  var cfg = getNasConfig();
-  var ip = cfg.local || '192.168.1.165';
-  var code = (document.getElementById('pj-code-preview').textContent || '').trim();
-  var clientSel = document.getElementById('pj-client');
-  var clientObj = clientSel ? getClients().find(function(c){ return c.id === clientSel.value; }) : null;
-  var clientName = clientObj ? (clientObj.displayNom || clientObj.display_nom || clientObj.nom || clientObj.raison || '') : '';
-  clientName = clientName.replace(/,/g, '');
-  var annee = (document.getElementById('pj-annee').value || new Date().getFullYear());
-  if (code === '—') code = '';
-  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*,]/g, '_').replace(/\s+/g, ' ').trim();
-  return '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
-}
-
-function openNasFolder() {
-  // Utiliser le chemin personnalisé s'il existe
-  var customInput = document.getElementById('pj-nas-path-input');
-  var nasPath = (customInput && customInput.value.trim()) ? customInput.value.trim() : buildCurrentNasPath();
-  navigator.clipboard.writeText(nasPath).then(function() {
-    showToast('Chemin NAS copié : ' + nasPath, 'success');
-  });
-}
-
-function toggleNasPathEdit() {
-  var panel = document.getElementById('pj-nas-edit-panel');
-  if (!panel) return;
-  var visible = panel.style.display !== 'none';
-  panel.style.display = visible ? 'none' : 'block';
-  if (!visible) {
-    var input = document.getElementById('pj-nas-path-input');
-    if (input && !input.value) input.value = buildCurrentNasPath();
-    input.focus();
-    input.select();
-  }
-}
-
-function resetNasPath() {
-  var input = document.getElementById('pj-nas-path-input');
-  if (input) { input.value = buildCurrentNasPath(); input.select(); }
-}
-
-function saveNasPath() {
-  var input = document.getElementById('pj-nas-path-input');
-  var path = input ? input.value.trim() : '';
-  if (!path) { showToast('Chemin vide', 'error'); return; }
-  if (!_editingProjetId) { showToast('Sauvegardez d\'abord le projet', 'error'); return; }
-  apiFetch('api/projets.php?id=' + _editingProjetId, {
-    method: 'PUT',
-    body: { nasPath: path }
-  }).then(function() {
-    showToast('Chemin NAS sauvegardé ✓', 'success');
-    var panel = document.getElementById('pj-nas-edit-panel');
-    if (panel) panel.style.display = 'none';
-    loadData().then(function(){ renderProjets(); });
-  }).catch(function() { showToast('Erreur de sauvegarde', 'error'); });
-}
-window.saveNasPath = saveNasPath;
-
-function copyNasPathFromInput() {
-  var input = document.getElementById('pj-nas-path-input');
-  var path = input ? input.value.trim() : '';
-  if (!path) { showToast('Chemin vide', 'error'); return; }
-  navigator.clipboard.writeText(path).then(function() {
-    showToast('Chemin NAS copié ✓', 'success');
-  });
-}
-window.copyNasPathFromInput = copyNasPathFromInput;
-
-function applyNasPath() { saveNasPath(); }
-
-// ── NAS folder button for project detail ──
-function _buildNasPaths(p) {
-  var cfg = getNasConfig();
-  var ip = cfg.local || '192.168.1.165';
-  var wdPort = (cfg.webdavPort || '5005').toString().replace(/\D/g, '') || '5005';
-  var annee = p.annee || new Date().getFullYear();
-  var code = p.code || '';
-  var client = p.client || p.nom || '';
-  var folderName = (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-  var uncPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
-  // WebDAV avec port explicite (ex: http://192.168.1.165:5005/Public/...)
-  var hostPort = (wdPort === '80') ? ip : ip + ':' + wdPort;
-  var webdavUrl = 'http://' + hostPort + '/Public/CAS_PROJETS/' + annee + '/' + encodeURIComponent(folderName) + '/';
-  return { unc: uncPath, webdav: webdavUrl };
-}
-function buildNasFolderButton(p) {
-  var paths = _buildNasPaths(p);
-  var btnStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:0.4rem;text-decoration:none';
-  var copyStyle = 'border:1px solid var(--border);background:var(--bg-2);color:var(--text-3);border-radius:5px;padding:0.45rem 0.6rem;font-size:0.78rem;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center';
-  return '<a href="' + esc(paths.webdav) + '" target="_blank" style="' + btnStyle + '" title="Ouvrir dans le navigateur">' +
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-    ' Dossier NAS</a>' +
-    '<button onclick="copyNasUncPath(this)" data-unc="' + esc(paths.unc) + '" style="' + copyStyle + '" title="Copier le chemin réseau">' +
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>';
-}
-function copyNasUncPath(btn) {
-  var unc = btn.getAttribute('data-unc');
-  navigator.clipboard.writeText(unc).then(function() {
-    showToast('Chemin copié : ' + unc, 'success');
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
-    setTimeout(function() {
-      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-    }, 2000);
-  }).catch(function() { showToast(unc, 'success'); });
 }
 
 function openProjetDetail(id){
   var p = getProjets().find(function(x){ return x.id===id; }); if(!p) return;
   var typeBatVal = p.typeBat||p.type_bat||'';
-
-  // ── Section : Informations générales ──
-  var general = [
+  var rows = [
     ['Code dossier','<span style="font-family:var(--mono);color:var(--accent);font-weight:700">'+(p.code||'—')+'</span>'],
     ['Statut','<span class="'+badgeClass(p.statut)+'">'+(p.statut||'—')+'</span>'],
-    p.phase ? ['Phase','<span class="'+phaseBadgeClass(p.phase)+'">'+(p.phase)+'</span>'] : null,
     ['Client', p.client||'—'],
     typeBatVal ? ['Type de bâtiment', typeBatVal] : null,
-    p.description ? ['Description','<em style="color:var(--text-2)">'+esc(p.description)+'</em>'] : null,
-    p.adresse ? ['Adresse', esc(p.adresse)] : null,
-    p.annee ? ['Année', p.annee] : null,
-    p.delai ? ['Délai', fmtDate(p.delai)] : null
-  ].filter(Boolean);
-
-  // ── Section : Surfaces ──
-  var surfaces = [
+    p.description ? ['Description','<em style="color:var(--text-2)">'+p.description+'</em>'] : null,
+    ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'],
+    p.budget  ? ['Budget client', fmtMontant(p.budget)] : null,
     p.surface ? ['Surface', p.surface+' m²'] : null,
-    (p.surface_shon||p.surfaceShon) ? ['SHON', (p.surface_shon||p.surfaceShon)+' m²'] : null,
-    (p.surface_shob||p.surfaceShob) ? ['SHOB', (p.surface_shob||p.surfaceShob)+' m²'] : null,
-    (p.surface_terrain||p.surfaceTerrain) ? ['Terrain', (p.surface_terrain||p.surfaceTerrain)+' m²'] : null,
-    p.standing ? ['Standing', esc(p.standing)] : null,
-    p.zone ? ['Zone', esc(p.zone)] : null
+    p.adresse ? ['Lieu', p.adresse] : null
   ].filter(Boolean);
-
-  // ── Section : Finances ──
-  var _honAlert = p.alerte_budget || '';
-  var _honColor = _honAlert==='red'?'#e74c3c':(_honAlert==='orange'?'#e67e22':(_honAlert==='yellow'?'#f1c40f':'#2ecc71'));
-  var _honDot = _honAlert ? ' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+_honColor+';margin-left:6px" title="Alerte budget: '+_honAlert+'"></span>' : '';
-  var _honLink = ' <a href="#" onclick="event.preventDefault();showPage(\'honoraires\');setTimeout(function(){var s=document.getElementById(\'hon-projet-sel\');if(s){s.value=\''+p.id+'\';s.dispatchEvent(new Event(\'change\'))}},200)" style="font-size:0.72rem;color:var(--accent);margin-left:8px">Voir honoraires</a>';
-  var finances = [
-    ['Honoraires HT','<strong>'+fmtMontant(p.honoraires||0)+'</strong>'+_honDot+_honLink],
-    p.budget ? ['Budget client', fmtMontant(p.budget)] : null,
-    (p.cout_construction||p.coutConstruction) ? ['Coût construction', fmtMontant(p.cout_construction||p.coutConstruction)] : null,
-    (p.cout_m2||p.coutM2) ? ['Coût / m²', fmtMontant(p.cout_m2||p.coutM2)+'/m²'] : null
-  ].filter(Boolean);
-
-  // ── Section : Missions ──
-  var missionsHtml = '';
-  if (p.missions && p.missions.length) {
-    missionsHtml = '<div style="margin-top:0.3rem;display:flex;flex-wrap:wrap;gap:0.3rem">'+
-      p.missions.map(function(m){
-        var label = (typeof m === 'string') ? m : (m.abbr || m.nom || m.id || '');
-        return '<span style="display:inline-block;padding:0.2rem 0.55rem;background:rgba(200,169,110,0.15);color:var(--accent);border-radius:4px;font-size:0.72rem;font-weight:600">'+esc(label)+'</span>';
-      }).join('')+'</div>';
-  }
-
-  // ── Section : Intervenants ──
-  var intervenantsHtml = '';
-  if (p.intervenants && p.intervenants.length) {
-    intervenantsHtml = '<div style="margin-top:0.3rem">'+
-      p.intervenants.map(function(iv){
-        var nom = iv.nom || iv.name || '';
-        var role = iv.role || iv.fonction || '';
-        return '<div style="display:flex;justify-content:space-between;padding:0.25rem 0;font-size:0.8rem">'+
-          '<span style="color:var(--text)">'+esc(nom)+'</span>'+
-          (role ? '<span style="color:var(--text-3);font-size:0.72rem">'+esc(role)+'</span>' : '')+
-          '</div>';
-      }).join('')+'</div>';
-  }
-
-  function _sect(title, rows) {
-    if (!rows.length) return '';
-    var tr = rows.map(function(r){
-      return '<tr><td style="padding:0.4rem 1rem 0.4rem 0;color:var(--text-3);font-size:0.78rem;white-space:nowrap;vertical-align:top">'+r[0]+'</td>'+
-        '<td style="padding:0.4rem 0;font-size:0.85rem">'+r[1]+'</td></tr>';
-    }).join('');
-    return '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.4rem;font-weight:600">'+title+'</div>'+
-      '<table style="width:100%;border-collapse:collapse">'+tr+'</table></div>';
-  }
-
-  var body = _sect('Informations générales', general)+
-    _sect('Surfaces & Caractéristiques', surfaces)+
-    _sect('Finances', finances);
-
-  if (missionsHtml) {
-    body += '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.4rem;font-weight:600">Missions</div>'+missionsHtml+'</div>';
-  }
-  if (intervenantsHtml) {
-    body += '<div style="margin-bottom:1rem"><div style="font-size:0.68rem;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.4rem;font-weight:600">Intervenants</div>'+intervenantsHtml+'</div>';
-  }
-
-  // ── Métadonnées ──
-  var meta = [];
-  if (p.cree_par||p.creePar) meta.push('Créé par '+(p.cree_par||p.creePar));
-  if (p.cree_at||p.creeAt) meta.push('le '+fmtDate(p.cree_at||p.creeAt));
-  var metaHtml = meta.length ? '<div style="font-size:0.7rem;color:var(--text-3);margin-bottom:0.8rem">'+meta.join(' ')+'</div>' : '';
-
+  var tr = rows.map(function(r){
+    return '<tr><td style="padding:0.5rem 1rem 0.5rem 0;color:var(--text-3);font-size:0.78rem;white-space:nowrap;vertical-align:top">'+r[0]+'</td>'+
+      '<td style="padding:0.5rem 0;font-size:0.85rem">'+r[1]+'</td></tr>';
+  }).join('');
   var ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center';
-  ov.innerHTML = '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;max-width:620px;width:94%;max-height:85vh;overflow:auto">'+
+  ov.innerHTML = '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;max-width:560px;width:94%;max-height:85vh;overflow:auto">'+
     '<div style="padding:1.2rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
     '<div><div style="font-size:0.62rem;color:var(--text-3);letter-spacing:0.15em;text-transform:uppercase">FICHE PROJET</div>'+
     '<div style="font-size:1.1rem;font-weight:600">'+(p.nom||'')+'</div></div>'+
     '<button onclick="this.closest(\'div[style*=position]\').remove()" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button></div>'+
-    '<div style="padding:1.2rem 1.5rem">'+metaHtml+body+
-    '<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem;flex-wrap:wrap">'+
-    buildNasFolderButton(p)+
-    '<button onclick="openCreatePortalAccess(\''+p.id+'\',\''+esc(p.client||'').replace(/'/g,"\\'")+'\',\''+(p.clientId||p.client_id||'')+'\')" style="background:var(--accent);color:#1a1a1a;border:none;border-radius:5px;padding:0.45rem 1rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:0.4rem">'+
-    '<span style="font-size:0.9rem">&#128279;</span> Créer accès portail</button>'+
-    '</div></div></div>';
+    '<div style="padding:1.2rem 1.5rem"><table style="width:100%;border-collapse:collapse">'+tr+'</table></div></div>';
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
-  document.body.appendChild(ov);
-}
-
-// ── Créer accès portail client ──
-function openCreatePortalAccess(projetId, clientName, clientId) {
-  if (!clientId) { showToast('Ce projet n\'a pas de client associé','error'); return; }
-  var client = getClients().find(function(c){ return c.id === clientId; });
-  var email = client ? (client.email||'') : '';
-  var nom   = client ? (client.displayNom||client.display_nom||client.nom||clientName||'') : clientName;
-
-  var ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10000;display:flex;align-items:center;justify-content:center';
-  ov.innerHTML = '<div style="background:var(--bg-1);border:1px solid var(--border);border-radius:8px;max-width:440px;width:94%;max-height:85vh;overflow:auto">'+
-    '<div style="padding:1.2rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">'+
-    '<div><div style="font-size:0.62rem;color:var(--text-3);letter-spacing:0.15em;text-transform:uppercase">PORTAIL CLIENT</div>'+
-    '<div style="font-size:1rem;font-weight:600">Créer un accès portail</div></div>'+
-    '<button id="portal-close" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button></div>'+
-    '<div style="padding:1.2rem 1.5rem">'+
-    '<div style="margin-bottom:0.8rem"><label style="display:block;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Nom du client</label>'+
-    '<input id="portal-nom" type="text" value="'+esc(nom)+'" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:var(--font)"></div>'+
-    '<div style="margin-bottom:0.8rem"><label style="display:block;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Email</label>'+
-    '<input id="portal-email" type="email" value="'+esc(email)+'" placeholder="client@email.com" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:var(--font)"></div>'+
-    '<div style="margin-bottom:0.8rem"><label style="display:block;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem">Mot de passe</label>'+
-    '<input id="portal-pass" type="text" value="" placeholder="Minimum 6 caractères" style="width:100%;padding:0.5rem 0.7rem;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:var(--font)">'+
-    '<button id="portal-gen-pass" style="background:none;border:none;color:var(--accent);font-size:0.72rem;cursor:pointer;margin-top:0.3rem;font-family:var(--font)">Générer un mot de passe</button></div>'+
-    '<div id="portal-error" style="display:none;color:var(--red);font-size:0.8rem;margin-bottom:0.5rem"></div>'+
-    '<div id="portal-success" style="display:none;background:rgba(90,171,110,0.1);border:1px solid var(--green);border-radius:5px;padding:0.8rem;margin-bottom:0.5rem"></div>'+
-    '<button id="portal-submit" style="width:100%;padding:0.55rem;background:var(--accent);color:#1a1a1a;border:none;border-radius:5px;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:var(--font)">Créer le compte</button>'+
-    '</div></div>';
-  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
-  ov.querySelector('#portal-close').addEventListener('click', function(){ ov.remove(); });
-  ov.querySelector('#portal-gen-pass').addEventListener('click', function(){
-    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    var pass = '';
-    for(var i=0;i<10;i++) pass += chars.charAt(Math.floor(Math.random()*chars.length));
-    document.getElementById('portal-pass').value = pass;
-  });
-  ov.querySelector('#portal-submit').addEventListener('click', function(){
-    var emailVal = (document.getElementById('portal-email').value||'').trim();
-    var nomVal   = (document.getElementById('portal-nom').value||'').trim();
-    var passVal  = (document.getElementById('portal-pass').value||'').trim();
-    var errEl    = document.getElementById('portal-error');
-    var succEl   = document.getElementById('portal-success');
-    errEl.style.display = 'none';
-    succEl.style.display = 'none';
-
-    if(!emailVal||!nomVal||passVal.length<6){
-      errEl.textContent = 'Email, nom et mot de passe (min 6 car.) requis';
-      errEl.style.display = 'block'; return;
-    }
-    var btn = document.getElementById('portal-submit');
-    btn.disabled = true; btn.textContent = 'Création...';
-
-    apiFetch('api/client_portal_admin.php?action=create_account', {
-      method:'POST',
-      body:{ client_id:clientId, email:emailVal, nom:nomVal, password:passVal }
-    }).then(function(resp){
-      var d = resp.data || resp;
-      var portalUrl = window.location.origin + window.location.pathname.replace(/[^/]+$/, '') + 'portail-client.html';
-      succEl.innerHTML = '<div style="font-weight:600;color:var(--green);margin-bottom:0.5rem">&#10003; Compte créé avec succès</div>'+
-        '<div style="font-size:0.8rem;color:var(--text-2);margin-bottom:0.5rem">Transmettez ces identifiants au client :</div>'+
-        '<div style="background:var(--bg-2);border-radius:5px;padding:0.6rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">'+
-        '<div><strong>URL :</strong> <a href="'+esc(portalUrl)+'" target="_blank" style="color:var(--accent)">'+esc(portalUrl)+'</a></div>'+
-        '<div><strong>Email :</strong> '+esc(emailVal)+'</div>'+
-        '<div><strong>Mot de passe :</strong> '+esc(passVal)+'</div></div>'+
-        '<button onclick="navigator.clipboard.writeText(\'URL: '+esc(portalUrl)+'\\nEmail: '+esc(emailVal)+'\\nMot de passe: '+esc(passVal)+'\').then(function(){showToast(\'Copié !\',\'success\')})" '+
-        'style="margin-top:0.5rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:0.35rem 0.8rem;font-size:0.75rem;cursor:pointer;font-family:var(--font)">Copier les identifiants</button>';
-      succEl.style.display = 'block';
-      btn.style.display = 'none';
-    }).catch(function(e){
-      errEl.textContent = e.message || 'Erreur création';
-      errEl.style.display = 'block';
-      btn.disabled = false; btn.textContent = 'Créer le compte';
-    });
-  });
   document.body.appendChild(ov);
 }
 
@@ -2957,13 +2047,9 @@ function saveProjet(){
   var lat         = parseFloat(document.getElementById('pj-lat').value)||null;
   var lng         = parseFloat(document.getElementById('pj-lng').value)||null;
   var displayNom  = client.displayNom||client.display_nom||client.nom||client.raison||'';
-  // Lire le code : priorité au champ manuel s'il est actif
-  var codeInputEl = document.getElementById('pj-code-input');
-  var codeManual  = (codeInputEl && codeInputEl.dataset.manual === '1') ? codeInputEl.value.trim() : '';
-  var code        = codeManual
-    || (_editingProjetId
-      ? (document.getElementById('pj-code-preview').textContent || genProjetCode(annee, displayNom, client.code))
-      : genProjetCode(annee, displayNom, client.code));
+  var code        = _editingProjetId
+    ? (document.getElementById('pj-code-preview').textContent || genProjetCode(annee, displayNom, client.code))
+    : genProjetCode(annee, displayNom, client.code);
 
   var body = {
     nom:nom, client:displayNom, clientId:clientId,
@@ -2982,19 +2068,12 @@ function saveProjet(){
     cout_construction: parseFloat((document.getElementById('pj-cout-construction')||{}).value)||null,
     cout_m2: parseFloat((document.getElementById('pj-cout-m2')||{}).value)||null,
     missions:getSelectedMissions(),
-    intervenants:getIntervenants(),
-    create_chat_room: (document.getElementById('pj-chat-create') || {}).checked || false,
-    nasPath: (document.getElementById('pj-nas-path-input') || {}).value || null,
+    intervenants:getIntervenants()
   };
-  var wantNas = !_editingProjetId && ((document.getElementById('pj-nas-create') || {}).checked || false);
-  // Ouvrir la popup NAS AVANT l'appel async (sinon popup blocker)
-  var nasPopup = null;
-  if (wantNas) {
-    nasPopup = window.open('about:blank', 'nas-bridge', 'width=520,height=420');
-  }
 
   var method, url;
   if (_editingProjetId) {
+    // A5 — Modification : PUT avec id dans l'URL
     body.id = _editingProjetId;
     method  = 'PUT';
     url     = 'api/projets.php?id=' + _editingProjetId;
@@ -3005,19 +2084,11 @@ function saveProjet(){
 
   apiFetch(url, {method:method, body:body})
     .then(function(resp){
-      var projet = resp.data || resp || {};
-      var finalCode = projet.code || code;
-      if (nasPopup) {
-        nasPopup.location.href = buildNasBridgeUrl(finalCode, displayNom, annee);
-      }
       loadData().then(function(){ renderProjets(); populateProjetSelect(); });
       closeModal('modal-projet');
       resetProjetForm();
     })
-    .catch(function(e){
-      if (nasPopup) try { nasPopup.close(); } catch(x) {}
-      err.textContent=e.message||'Erreur'; err.style.display='block';
-    });
+    .catch(function(e){ err.textContent=e.message||'Erreur'; err.style.display='block'; });
 }
 
 // ── Colonnes projets ──
@@ -3026,48 +2097,24 @@ var ALL_PJ_COLUMNS = [
   {key:'nom',       label:'Projet',     default:true, locked:true, sortable:true, render:function(p){return'<span style="font-weight:500">'+(p.nom||'—')+'</span>';}},
   {key:'client',    label:'Client',     default:true, locked:false,sortable:true, render:function(p){return p.client||'—';}},
   {key:'statut',    label:'Statut',     default:true, locked:false,sortable:true, render:function(p){return'<span class="'+badgeClass(p.statut||'')+'">'+(p.statut||'—')+'</span>';}},
-  {key:'annee',     label:'Année',      default:false,locked:false,sortable:true, render:function(p){return p.annee||'—';}},
   {key:'typeBat',   label:'Type bât.',  default:false,locked:false,sortable:true, render:function(p){return p.typeBat||p.type_bat||'—';}},
-  {key:'standing',  label:'Standing',   default:false,locked:false,sortable:true, render:function(p){return p.standing||'—';}},
-  {key:'zone',      label:'Zone',       default:false,locked:false,sortable:true, render:function(p){return p.zone||'—';}},
   {key:'honoraires',label:'Honoraires', default:true, locked:false,sortable:true, render:function(p){return'<span class="inline-val">'+fmtMontant(p.honoraires||0)+'</span>';}},
-  {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}},
-  {key:'creeAt',    label:'Créé le',    default:false,locked:false,sortable:true, render:function(p){if(!p.cree_at) return '—'; var d=new Date(p.cree_at); return isNaN(d)?'—':d.toLocaleDateString('fr-FR');}},
-  {key:'creePar',   label:'Créé par',   default:false,locked:false,sortable:true, render:function(p){return p.cree_par||'—';}},
-  {key:'modifiePar',label:'Modifié par',default:false,locked:false,sortable:true, render:function(p){return p.modifie_par||'—';}},
-  {key:'nasPath',   label:'Dossier NAS',default:false,locked:false,sortable:false,render:function(p){var cfg=getNasConfig();var ip=cfg.local||'192.168.1.165';var cl=(p.client||p.nom||'').replace(/,/g,'');var fn=(p.code||'')+'_'+cl;var path='\\\\'+ip+'\\Public\\CAS_PROJETS\\'+(p.annee||'')+'\\'+fn;var safeP=path.replace(/\\/g,'\\\\').replace(/'/g,"\\'");return'<span onclick="event.stopPropagation();navigator.clipboard.writeText(\''+safeP+'\');showToast(\'Chemin copié\',\'success\')" style="cursor:pointer;font-size:0.7rem;color:var(--text-3);text-decoration:underline dotted" title="'+path.replace(/"/g,'&quot;')+'">'+fn.substring(0,20)+(fn.length>20?'…':'')+'</span>';}}
+  {key:'adresse',   label:'Lieu',       default:false,locked:false,sortable:true, render:function(p){return p.adresse||'—';}}
 ];
 var _pjActiveColumns = null;
 
 function getPjActiveColumns(){
   if (_pjActiveColumns) return _pjActiveColumns;
-  var userKey = _userPrefKey('cortoba_pj_col_order');
-  var saved = getSetting(userKey, null);
-  if (!saved) saved = getLS('cortoba_pj_col_order', null); // fallback ancien format
+  var saved = getLS('cortoba_pj_col_order', null);
   _pjActiveColumns = (saved&&Array.isArray(saved)) ? saved : ALL_PJ_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;});
   return _pjActiveColumns;
 }
-function savePjColumnPrefs(){ var k=_userPrefKey('cortoba_pj_col_order'); setLS(k,_pjActiveColumns); saveSetting(k,_pjActiveColumns); }
+function savePjColumnPrefs(){ setLS('cortoba_pj_col_order', _pjActiveColumns); }
 function resetPjColumns(){ _pjActiveColumns=ALL_PJ_COLUMNS.filter(function(c){return c.default;}).map(function(c){return c.key;}); savePjColumnPrefs(); renderProjets(); }
 function togglePjColDropdown(e){
   e.stopPropagation(); _pjColDropOpen=!_pjColDropOpen;
   var dd=document.getElementById('pj-col-dropdown'); var btn=document.getElementById('pj-col-burger');
-  if(_pjColDropOpen){
-    renderPjColDropdown();
-    if(dd&&btn){
-      var rect=btn.getBoundingClientRect();
-      var spaceBelow=window.innerHeight-rect.bottom-10;
-      dd.style.position='fixed';
-      dd.style.top=(rect.bottom+4)+'px';
-      dd.style.right=(window.innerWidth-rect.right)+'px';
-      dd.style.left='auto';
-      dd.style.bottom='auto';
-      dd.style.overflowY='auto';
-      dd.style.maxHeight=Math.max(spaceBelow,200)+'px';
-      dd.style.display='block';
-    }
-    if(btn){btn.style.color='var(--accent)';btn.style.opacity='1';}
-  }
+  if(_pjColDropOpen){ renderPjColDropdown(); if(dd)dd.style.display='block'; if(btn){btn.style.color='var(--accent)';btn.style.opacity='1';} }
   else { if(dd)dd.style.display='none'; if(btn){btn.style.color='';btn.style.opacity='';} }
 }
 function renderPjColDropdown(){
@@ -3110,110 +2157,23 @@ document.addEventListener('click',function(e){
 //  FACTURATION — version complète loi tunisienne 2026
 // ══════════════════════════════════════════════════════════
 
-// ── Facture : Searchable Projet dropdown ──
-
-var _faProjetDropOpen = false;
-var _faProjetId = '';
-var _faMissionValue = '';
-
 function populateProjetSelect(){
+  var sel=document.getElementById('fa-projet'); if(!sel) return;
+  var p=getProjets();
+  sel.innerHTML='<option value="">— Sélectionner un projet —</option>'+
+    p.map(function(x){return'<option value="'+x.id+'" data-nom="'+x.nom+'" data-client="'+x.client+'">'+x.nom+'</option>';}).join('');
   // Remplir la datalist client (autocomplete)
   var dl = document.getElementById('fa-client-list');
   if (dl) dl.innerHTML = getClients().map(function(c){
     var nom = c.displayNom||c.display_nom||c.nom||c.raison||'';
     return '<option value="'+nom+'">';
   }).join('');
-  // Reset search
-  _faProjetId = '';
-  var search = document.getElementById('fa-projet-search'); if (search) search.value = '';
-  var clear = document.getElementById('fa-projet-clear'); if (clear) clear.style.display = 'none';
-  var sel = document.getElementById('fa-projet'); if (sel) sel.value = '';
-}
-
-function _buildFaProjetItems() {
-  var projets = getProjets();
-  return projets.map(function(p) {
-    var code = p.code || '';
-    var nom = p.nom || '';
-    var client = p.client || '';
-    var label = (code ? code + ' — ' : '') + nom;
-    var searchText = (label + ' ' + client).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return { id: p.id, label: label, client: client, search: searchText };
-  });
-}
-
-function openFaProjetDropdown() {
-  _faProjetDropOpen = true;
-  filterFaProjetDropdown();
-}
-
-function filterFaProjetDropdown() {
-  var dd = document.getElementById('fa-projet-dropdown');
-  if (!dd) return;
-  var input = document.getElementById('fa-projet-search');
-  var q = ((input && input.value) || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  var clearBtn = document.getElementById('fa-projet-clear');
-  if (clearBtn) clearBtn.style.display = q ? 'block' : (_faProjetId ? 'block' : 'none');
-
-  var items = _buildFaProjetItems();
-  var filtered = items.filter(function(it) { return !q || it.search.indexOf(q) !== -1; });
-
-  if (filtered.length === 0) {
-    dd.innerHTML = '<div style="padding:0.7rem 1rem;color:var(--text-3);font-size:0.8rem">Aucun projet trouvé</div>';
-  } else {
-    dd.innerHTML = filtered.map(function(it) {
-      var isCurrent = (it.id === _faProjetId);
-      var clientHtml = it.client ? '<span style="font-size:0.72rem;color:var(--text-3);margin-left:0.4rem">' + it.client + '</span>' : '';
-      return '<div onmousedown="selectFaProjet(\'' + it.id + '\')"' +
-        ' style="padding:0.5rem 0.9rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '"' +
-        ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : '') + '\'">' +
-        '<span style="color:var(--text-1)">' + it.label + '</span>' + clientHtml + '</div>';
-    }).join('');
-  }
-  dd.style.display = 'block';
-}
-
-function hideFaProjetDropdown() {
-  setTimeout(function() {
-    var dd = document.getElementById('fa-projet-dropdown');
-    if (dd) dd.style.display = 'none';
-    _faProjetDropOpen = false;
-  }, 200);
-}
-
-function selectFaProjet(projetId) {
-  _faProjetId = projetId || '';
-  var sel = document.getElementById('fa-projet'); if (sel) sel.value = _faProjetId;
-  var input = document.getElementById('fa-projet-search');
-  var clearBtn = document.getElementById('fa-projet-clear');
-  if (_faProjetId) {
-    var items = _buildFaProjetItems();
-    var found = items.filter(function(it) { return it.id === _faProjetId; })[0];
-    if (found && input) input.value = found.label;
-    if (clearBtn) clearBtn.style.display = 'block';
-  } else {
-    if (input) input.value = '';
-    if (clearBtn) clearBtn.style.display = 'none';
-  }
-  var dd = document.getElementById('fa-projet-dropdown');
-  if (dd) dd.style.display = 'none';
-  _faProjetDropOpen = false;
-  prefillClientFromProjet();
-}
-
-function clearFaProjetSearch() {
-  selectFaProjet('');
-  var input = document.getElementById('fa-projet-search');
-  if (input) { input.value = ''; input.focus(); }
-  openFaProjetDropdown();
 }
 
 function prefillClientFromProjet(){
-  if (!_faProjetId) return;
-  var projets = getProjets();
-  var p = projets.find(function(x){ return x.id === _faProjetId; });
-  if (!p) return;
-  var clientNom = p.client || '';
+  var sel = document.getElementById('fa-projet'); if(!sel||!sel.value) return;
+  var opt = sel.options[sel.selectedIndex];
+  var clientNom = opt.dataset.client||'';
   var clientEl  = document.getElementById('fa-client');
   if (clientEl && clientNom) clientEl.value = clientNom;
   // Chercher adresse et MF du client
@@ -3226,153 +2186,6 @@ function prefillClientFromProjet(){
     var mfEl = document.getElementById('fa-client-mf');
     if (mfEl && c.matricule) mfEl.value = c.matricule;
   }
-}
-
-// ── Facture : Searchable Mission dropdown (getMissions()) ──
-
-var _faMissionDropOpen = false;
-
-function _buildFaMissionItems() {
-  var missions = typeof getMissions === 'function' ? getMissions() : [];
-  var cats = typeof getMissionCategories === 'function' ? getMissionCategories() : [];
-  var catMap = {};
-  cats.forEach(function(c) { catMap[c.id] = c.label; });
-
-  // Aussi inclure les missions affectées au projet sélectionné
-  var projetMissions = [];
-  if (_faProjetId) {
-    var projets = typeof getProjets === 'function' ? getProjets() : [];
-    var proj = projets.find(function(p) { return p.id === _faProjetId; });
-    if (proj) {
-      var raw;
-      try { raw = Array.isArray(proj.missions) ? proj.missions : (proj.missions ? JSON.parse(proj.missions) : []); }
-      catch(e) { raw = []; }
-      if (typeof window._normalizeProjetMissions === 'function') {
-        projetMissions = window._normalizeProjetMissions(raw);
-      } else {
-        projetMissions = Array.isArray(raw) ? raw.map(String) : [];
-      }
-    }
-  }
-
-  var items = [];
-  // Sections : missions du projet d'abord (si un projet est sélectionné), puis toutes les missions par catégorie
-  if (projetMissions.length > 0) {
-    items.push({ type: 'header', label: '📌 Missions du projet' });
-    projetMissions.forEach(function(nom) {
-      items.push({ type: 'item', nom: nom, search: nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), context: 'projet' });
-    });
-    items.push({ type: 'separator' });
-    items.push({ type: 'header', label: '📋 Toutes les missions' });
-  }
-
-  // Grouper par catégorie
-  var byCat = {};
-  missions.forEach(function(m) {
-    var c = m.cat || '?';
-    if (!byCat[c]) byCat[c] = [];
-    byCat[c].push(m);
-  });
-  cats.forEach(function(c) {
-    var group = byCat[c.id];
-    if (!group || !group.length) return;
-    items.push({ type: 'header', label: c.label });
-    group.forEach(function(m) {
-      var nom = m.nom || m.label || '';
-      items.push({ type: 'item', nom: nom, search: nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), context: 'catalogue' });
-    });
-  });
-
-  return items;
-}
-
-function openFaMissionDropdown() {
-  _faMissionDropOpen = true;
-  filterFaMissionDropdown();
-}
-
-function filterFaMissionDropdown() {
-  var dd = document.getElementById('fa-mission-dropdown');
-  if (!dd) return;
-  var input = document.getElementById('fa-mission-phase');
-  var q = ((input && input.value) || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  // Si l'input contient la valeur sélectionnée exacte, ne pas filtrer (l'utilisateur n'a pas encore tapé)
-  var isExactMatch = _faMissionValue && input && input.value === _faMissionValue;
-  var searchQ = isExactMatch ? '' : q;
-
-  var items = _buildFaMissionItems();
-  var hasResults = false;
-
-  var html = '';
-  var lastHeaderVisible = false;
-  var pendingHeader = '';
-
-  items.forEach(function(it) {
-    if (it.type === 'header') {
-      pendingHeader = '<div style="padding:0.35rem 0.9rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);background:var(--bg-2);font-weight:700;border-bottom:1px solid var(--border)">' + it.label + '</div>';
-      lastHeaderVisible = false;
-      return;
-    }
-    if (it.type === 'separator') {
-      html += '<div style="height:1px;background:var(--border);margin:0.2rem 0"></div>';
-      return;
-    }
-    // Filter
-    if (searchQ && it.search.indexOf(searchQ) === -1) return;
-
-    // Show pending header
-    if (pendingHeader && !lastHeaderVisible) {
-      html += pendingHeader;
-      lastHeaderVisible = true;
-      pendingHeader = '';
-    }
-
-    hasResults = true;
-    var isCurrent = (_faMissionValue === it.nom);
-    var contextIcon = it.context === 'projet' ? '<span style="color:var(--accent);margin-right:0.3rem" title="Mission du projet">●</span>' : '';
-    var safe = it.nom.replace(/'/g, "\\'");
-    html += '<div onmousedown="selectFaMission(\'' + safe + '\')"' +
-      ' style="padding:0.45rem 0.9rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '"' +
-      ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : '') + '\'">' +
-      contextIcon + '<span style="color:var(--text-1)">' + it.nom + '</span></div>';
-  });
-
-  if (!hasResults) {
-    html = '<div style="padding:0.7rem 1rem;color:var(--text-3);font-size:0.8rem">Aucune mission trouvée</div>';
-  }
-  dd.innerHTML = html;
-  dd.style.display = 'block';
-}
-
-function hideFaMissionDropdown() {
-  setTimeout(function() {
-    var dd = document.getElementById('fa-mission-dropdown');
-    if (dd) dd.style.display = 'none';
-    _faMissionDropOpen = false;
-    // Restaurer la valeur sélectionnée si l'utilisateur a quitté sans choisir
-    var input = document.getElementById('fa-mission-phase');
-    if (input && _faMissionValue && input.value !== _faMissionValue) {
-      input.value = _faMissionValue;
-    }
-  }, 200);
-}
-
-function selectFaMission(nom) {
-  _faMissionValue = nom || '';
-  var input = document.getElementById('fa-mission-phase');
-  var clearBtn = document.getElementById('fa-mission-clear');
-  if (input) input.value = _faMissionValue;
-  if (clearBtn) clearBtn.style.display = _faMissionValue ? 'block' : 'none';
-  var dd = document.getElementById('fa-mission-dropdown');
-  if (dd) dd.style.display = 'none';
-  _faMissionDropOpen = false;
-}
-
-function clearFaMission() {
-  selectFaMission('');
-  var input = document.getElementById('fa-mission-phase');
-  if (input) { input.value = ''; input.focus(); }
-  openFaMissionDropdown();
 }
 
 // Onglets facture
@@ -3530,12 +2343,6 @@ function resetFactureForm(){
     var el=document.getElementById(id); if(el) el.value='';
   });
   var proj = document.getElementById('fa-projet'); if(proj) proj.value='';
-  _faProjetId = '';
-  var projSearch = document.getElementById('fa-projet-search'); if(projSearch) projSearch.value='';
-  var projClear = document.getElementById('fa-projet-clear'); if(projClear) projClear.style.display='none';
-  _faMissionValue = '';
-  var missionInput = document.getElementById('fa-mission-phase'); if(missionInput) missionInput.value='';
-  var missionClear = document.getElementById('fa-mission-clear'); if(missionClear) missionClear.style.display='none';
   var stat = document.getElementById('fa-statut'); if(stat) stat.value='Impayée';
   var mode = document.getElementById('fa-mode-paiement'); if(mode) mode.selectedIndex=0;
   var rasAct = document.getElementById('fa-ras-active'); if(rasAct) { rasAct.checked=false; toggleRas(); }
@@ -3614,7 +2421,8 @@ function saveFacture(){
   var rasAmt   = Math.round(ttc*rasTaux/100*1000)/1000;
   var netPayer = Math.round((ttc-rasAmt)*1000)/1000;
 
-  var proj   = getProjets().find(function(p){return p.id===(_faProjetId||'');});
+  var projet = document.getElementById('fa-projet');
+  var proj   = getProjets().find(function(p){return p.id===(projet?projet.value:'');});
 
   var body = {
     numero: num,
@@ -3635,9 +2443,7 @@ function saveFacture(){
     rib: (document.getElementById('fa-rib').value||'').trim(),
     refElfatoora: (document.getElementById('fa-ref-elfatoora').value||'').trim(),
     signatureElec: (document.getElementById('fa-signature-elec').value||'').trim(),
-    montantLettres: montantEnLettres(ttc),
-    missionPhase: _faMissionValue||'',
-    mission_phase: _faMissionValue||''
+    montantLettres: montantEnLettres(ttc)
   };
 
   // Tentative sauvegarde API — fallback localStorage si erreur serveur
@@ -3677,9 +2483,7 @@ function saveFacture(){
     signatureElec:   (document.getElementById('fa-signature-elec').value||'').trim(),
     signature_elec:  (document.getElementById('fa-signature-elec').value||'').trim(),
     montantLettres:  montantEnLettres(ttc),
-    montant_lettres: montantEnLettres(ttc),
-    missionPhase:    _faMissionValue||'',
-    mission_phase:   _faMissionValue||''
+    montant_lettres: montantEnLettres(ttc)
   });
 
   var btn = document.getElementById('fa-save-btn');
@@ -3756,15 +2560,11 @@ function _fillEditFacture(f, lignes, id){
     el = document.getElementById('fa-client-mf');     if(el) el.value = f.client_mf||f.clientMF||'';
     el = document.getElementById('fa-objet');         if(el) el.value = f.objet||'';
 
-    // Projet lié (searchable dropdown)
-    var pid = f.projet_id||f.projetId||'';
-    if(pid) {
-      selectFaProjet(pid);
-    }
-    // Mission phase
-    var mp = f.mission_phase||f.missionPhase||'';
-    if(mp) {
-      selectFaMission(mp);
+    // Projet lié
+    var projSel = document.getElementById('fa-projet');
+    if(projSel){
+      var pid = f.projet_id||f.projetId||'';
+      Array.from(projSel.options).forEach(function(o){ if(o.value===pid) o.selected=true; });
     }
 
     // ── Onglet Prestations — recharger les lignes ──
@@ -3848,20 +2648,9 @@ function renderFactures(){
         var ttc = f.montantTtc||f.montant_ttc||f.montant||0;
         var ht  = f.montantHt||f.montant_ht||0;
         var modBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditFacture(\''+f.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>';
-        var pdfBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();generateDocumentPDF(\'facture\',\''+f.id+'\')" style="color:#6fa8d6;margin-right:3px" title="PDF">⬇ PDF</button>';
-        var emailBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();sendDocumentByEmail(\'facture\',\''+f.id+'\')" style="color:var(--text-2);margin-right:3px" title="Envoyer par email">✉</button>';
+        var pdfBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();exportUneFacturePDF(\''+f.id+'\')" style="color:#6fa8d6;margin-right:3px" title="Exporter PDF">⬇ PDF</button>';
+        var printBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();imprimerFacture(\''+f.id+'\')" style="color:var(--text-2);margin-right:3px" title="Imprimer">🖨</button>';
         var delBtn   = '<button class="btn btn-sm" onclick="deleteRow(\'facture\',\''+f.id+'\')" style="color:#e07070" title="Supprimer">✕</button>';
-        // Bouton paiement pour factures non payées
-        var payBtn   = '';
-        var reste    = (parseFloat(f.net_payer||f.netPayer||ttc)||0) - (parseFloat(f.montant_paye||f.montantPaye)||0);
-        if(f.statut!=='Payée' && f.statut!=='Annulée' && reste > 0 && typeof openPaiementForFacture==='function'){
-          payBtn = '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openPaiementForFacture(\''+f.id+'\','+reste+')" style="margin-right:3px" title="Enregistrer un paiement">$</button>';
-        }
-        // Bouton reçu si déjà payé partiellement
-        var recuBtn  = '';
-        if(parseFloat(f.montant_paye||f.montantPaye||0) > 0 && typeof openRecuListForFacture==='function'){
-          recuBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();openRecuListForFacture(\''+f.id+'\')" style="color:#2d7a50;margin-right:3px" title="Reçu de paiement">&#9998;</button>';
-        }
         return '<tr>'+
           '<td class="inline-val" style="font-family:var(--mono);font-size:0.78rem">'+(f.num||f.numero||'—')+'</td>'+
           '<td style="font-weight:500">'+(f.client||'—')+'</td>'+
@@ -3870,13 +2659,10 @@ function renderFactures(){
           '<td class="inline-val" style="color:var(--accent)">'+fmtMontant(ttc)+'</td>'+
           '<td>'+fmtDate(f.echeance||f.dateEcheance||f.date_echeance)+'</td>'+
           '<td><span class="'+badgeClass(f.statut)+'">'+f.statut+'</span></td>'+
-          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+payBtn+recuBtn+modBtn+pdfBtn+emailBtn+delBtn+'</td></tr>';
+          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+modBtn+pdfBtn+printBtn+delBtn+'</td></tr>';
       }).join('');
-  // Update nav badge
-  var b=document.getElementById('creances-badge');
-  if(b){var nb=list.filter(function(f){return f.statut==='Impayée';}).length; if(nb>0){b.textContent=nb;b.style.display='';}else{b.style.display='none';}}
-  // Update facturation KPIs
-  if(typeof renderFacturationKPIs==='function') renderFacturationKPIs();
+  var b=document.querySelector('[onclick="showPage(\'facturation\')"] .nav-badge');
+  if(b)b.textContent=list.filter(function(f){return f.statut==='Impayée';}).length||'';
 }
 
 // Logo dans Paramètres
@@ -4116,9 +2902,7 @@ function calcDepTotal(){
     totalTVA += ht * tva / 100;
   });
   var ttcBase = totalHT + totalTVA;
-  var timbreToggle = document.getElementById('dep-timbre-toggle');
-  var timbreEnabled = timbreToggle ? timbreToggle.checked : true;
-  var timbre  = (timbreEnabled && ttcBase >= 10) ? 1.000 : 0;
+  var timbre  = ttcBase >= 10 ? 1.000 : 0; // 1 TND fixe — loi tunisienne
   var ttc     = ttcBase + timbre;
   function fmt(n){ return n.toFixed(3).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' TND'; }
   var htEl  = document.getElementById('dep-total-ht');   if(htEl)  htEl.textContent  = fmt(totalHT);
@@ -4188,9 +2972,7 @@ function saveDepense(){
     lignes.push({desc:(dEl?dEl.value.trim():''), ht:ht, tva:tva});
   });
   var ttcBase = totalHT + totalTVA;
-  var timbreToggle = document.getElementById('dep-timbre-toggle');
-  var timbreEnabled = timbreToggle ? timbreToggle.checked : true;
-  var timbre  = (timbreEnabled && ttcBase >= 10) ? 1.000 : 0;
+  var timbre  = ttcBase >= 10 ? 1.000 : 0; // 1 TND fixe — loi tunisienne
   var ttc     = ttcBase + timbre;
 
   if (lignes.length === 0 || totalHT === 0) { alert('Ajoutez au moins un montant.'); return; }
@@ -4213,30 +2995,13 @@ function saveDepense(){
 
   // ── Étape A : insérer la dépense immédiate (si applicable) ──
   if (insertImmediateExpense) {
-    var sess = getSession();
-    var depenseParVal = (document.getElementById('dep-depense-par')||{value:''}).value;
-    var depensePar = depenseParVal || (sess ? sess.name : null);
-    var rembToggle = document.getElementById('dep-remboursement-toggle');
-    var isRemb = rembToggle && rembToggle.checked;
-    var rembStatut = null, remboursePar = null;
-    if (isRemb) { rembStatut = 'demande'; }
-    if (sess && sess.isAdmin && _editingDepenseId) {
-      var rembStatutEl = document.getElementById('dep-remb-statut');
-      var rembParEl    = document.getElementById('dep-rembourse-par');
-      if (rembStatutEl && rembStatutEl.value) rembStatut = rembStatutEl.value;
-      if (rembParEl && rembParEl.value) remboursePar = rembParEl.value;
-    }
     var body = {
       description: libelle, montant: ttc, dateDep: depDate,
       categorie: cat, reference: ref||null,
       fournisseur: fourn||null, codeTvaFournisseur: codeTva||null,
       montantHt: totalHT, montantTva: totalTVA, timbre: timbre,
       montantTtc: ttc, lignesJson: lignes,
-      templateId: _depFromTemplateId || null,
-      depensePar: depensePar,
-      remboursePar: remboursePar,
-      remboursementStatut: rembStatut,
-      remboursementDate: (rembStatut === 'rembourse') ? new Date().toISOString().slice(0,19).replace('T',' ') : null
+      templateId: _depFromTemplateId || null
     };
     // Si dépense de type salaire → lier au membre + snapshot fiche de paie
     if (cat === 'Salaires & charges' && _currentSalaryMember) {
@@ -4297,43 +3062,13 @@ function saveDepense(){
     });
   }
 
-  // ── Étape D : notifications de remboursement ──
-  if (insertImmediateExpense) {
-    var _rembStatut = rembStatut;
-    var _isEditing  = !!_editingDepenseId;
-    var _editId     = _editingDepenseId;
-    var _desc       = libelle;
-    var _ttc        = ttc;
-    var _sess       = getSession();
-
-    p = p.then(function(response) {
-      var savedId = (response && response.data && response.data.id) ? response.data.id : (_editId || null);
-      if (!savedId) return;
-
-      // Nouveau remboursement demandé par un membre
-      if (_rembStatut === 'demande' && !_isEditing) {
-        return apiFetch('api/remboursement.php?action=demander', {
-          method: 'POST',
-          body: { depense_id: savedId, description: _desc, montant: _ttc }
-        });
-      }
-      // Admin change le statut d'un remboursement existant
-      if (_isEditing && _sess && _sess.isAdmin && _rembStatut && _rembStatut !== 'demande') {
-        return apiFetch('api/remboursement.php?action=statut', {
-          method: 'POST',
-          body: { depense_id: savedId, statut: _rembStatut }
-        });
-      }
-    });
-  }
-
   // ── Finalisation ──
   p.then(function(){
     return loadData();
   })
   .then(function(){
     if (typeof renderDepenses === 'function') renderDepenses();
-    refreshNotifBadge();
+    refreshNotifBadge(); // rafraîchir la cloche
     closeModal('modal-depense');
     resetDepenseForm();
     showToast(isRecurrent ? 'Dépense + modèle récurrent enregistrés ✓' : 'Dépense enregistrée ✓');
@@ -4367,63 +3102,10 @@ function resetDepenseForm(){
   if(depDateEl) depDateEl.value = new Date().toISOString().split('T')[0];
   var cat=document.getElementById('dep-categorie'); if(cat) cat.value='';
   var wrap=document.getElementById('dep-lignes-wrap'); if(wrap) wrap.innerHTML='';
-  // Reset timbre toggle
-  var timbreToggle = document.getElementById('dep-timbre-toggle');
-  if (timbreToggle) timbreToggle.checked = true;
-  // Reset reimbursement
-  var rembToggle = document.getElementById('dep-remboursement-toggle');
-  if (rembToggle) rembToggle.checked = false;
-  var rembAdmin = document.getElementById('dep-remb-admin-section');
-  if (rembAdmin) rembAdmin.style.display = 'none';
-  var depParEl = document.getElementById('dep-depense-par');
-  if (depParEl) depParEl.value = '';
-  var rembStatutEl = document.getElementById('dep-remb-statut');
-  if (rembStatutEl) rembStatutEl.value = 'demande';
-  var rembParEl = document.getElementById('dep-rembourse-par');
-  if (rembParEl) rembParEl.value = '';
-  populateDepMemberSelects();
   calcDepTotal();
   initDepDatalist();
   // Ajouter une ligne par défaut
   addDepenseLigne();
-}
-
-// ── Remboursement : toggle section ──
-function toggleRemboursementSection(){
-  var cb = document.getElementById('dep-remboursement-toggle');
-  var wrap = document.getElementById('dep-remb-switch-wrap');
-  if (wrap) {
-    var track = wrap.querySelector('.dep-switch-track');
-    if (track) track.style.background = (cb && cb.checked) ? 'var(--accent)' : '';
-  }
-}
-
-// ── Populate member selects for depense_par / rembourse_par ──
-function populateDepMemberSelects(){
-  var membres = getMembres() || [];
-  var sess = getSession();
-  var depParEl = document.getElementById('dep-depense-par');
-  if (depParEl) {
-    var curVal = depParEl.value;
-    depParEl.innerHTML = '<option value="">— Moi-même (' + (sess ? sess.name : '') + ') —</option>';
-    membres.forEach(function(m){
-      var name = ((m.prenom||'') + ' ' + (m.nom||'')).trim();
-      if (name) depParEl.innerHTML += '<option value="' + name + '">' + name + '</option>';
-    });
-    if (curVal) depParEl.value = curVal;
-  }
-  var rembParEl = document.getElementById('dep-rembourse-par');
-  if (rembParEl) {
-    var curVal2 = rembParEl.value;
-    rembParEl.innerHTML = '<option value="">— Sélectionner —</option>';
-    membres.forEach(function(m){
-      if (m.role === 'Architecte gérant' || m.role === 'admin') {
-        var name = ((m.prenom||'') + ' ' + (m.nom||'')).trim();
-        if (name) rembParEl.innerHTML += '<option value="' + name + '">' + name + '</option>';
-      }
-    });
-    if (curVal2) rembParEl.value = curVal2;
-  }
 }
 
 // ── Scan facture IA ──
@@ -4721,67 +3403,28 @@ function openEditDepense(id) {
     var tva = (d.montantTVA && ht) ? Math.round(d.montantTVA/ht*100) : 0;
     addDepenseLigne({desc:d.libelle||d.description||'', ht:ht, tva:tva+'%'});
   }
-  // Restore reimbursement fields
-  var depParEl = document.getElementById('dep-depense-par');
-  if (depParEl) depParEl.value = d.depensePar || d.depense_par || '';
-  var rembStatut = d.remboursementStatut || d.remboursement_statut || null;
-  if (rembStatut) {
-    var rembToggle = document.getElementById('dep-remboursement-toggle');
-    if (rembToggle) rembToggle.checked = true;
-    toggleRemboursementSection();
-    var sess2 = getSession();
-    if (sess2 && sess2.isAdmin) {
-      // Admin: show editable reimbursement management section
-      var rembAdminSec = document.getElementById('dep-remb-admin-section');
-      if (rembAdminSec) rembAdminSec.style.display = '';
-      var rembStatutEl = document.getElementById('dep-remb-statut');
-      if (rembStatutEl) rembStatutEl.value = rembStatut;
-      var rembParEl = document.getElementById('dep-rembourse-par');
-      if (rembParEl) rembParEl.value = d.remboursePar || d.rembourse_par || '';
-    }
-  }
   document.getElementById('modal-depense').classList.add('open');
 }
 
 // ── Render all ──
 function renderAll(){ renderClients(); renderDevisList(); renderProjets(); renderFactures(); renderDepenses(); renderDemandes(); populateProjetSelect(); renderCharts(); renderFiscalAlerts(); }
 
-function _rembBadge(statut, remboursePar){
-  if (!statut) return '<span style="font-size:0.7rem;color:var(--text-3)">—</span>';
-  var colors = {demande:'#e0a020',approuve:'#6fa8d6',refuse:'#e07070',rembourse:'#5aab6e'};
-  var labels = {demande:'En attente',approuve:'Approuvé',refuse:'Refusé',rembourse:'Remboursé'};
-  var c = colors[statut]||'var(--text-3)';
-  var l = labels[statut]||statut;
-  var extra = (statut==='rembourse' && remboursePar) ? '<div style="font-size:0.65rem;color:var(--text-3)">par '+remboursePar+'</div>' : '';
-  return '<span class="badge" style="font-size:0.68rem;background:'+c+'22;color:'+c+';border:1px solid '+c+'44">'+l+'</span>'+extra;
-}
-
 function renderDepenses(){
   var tb=document.getElementById('depenses-tbody'); if(!tb) return;
   var list=getDepenses();
-  var sess = getSession();
-  var isAdmin = sess && sess.isAdmin;
-  var statsGrid = document.getElementById('depenses-stats-grid');
-  if (statsGrid) statsGrid.style.display = isAdmin ? '' : 'none';
-  tb.innerHTML=list.length===0?'<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucune dépense.</td></tr>'
+  tb.innerHTML=list.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:2rem">Aucune dépense.</td></tr>'
     :list.map(function(d){
-      var ttc = d.montantTTC||d.montant_ttc||d.montant||0;
-      var depPar = d.depensePar||d.depense_par||d.creePar||d.cree_par||'—';
-      var rembStatut = d.remboursementStatut||d.remboursement_statut||null;
-      var rembPar = d.remboursePar||d.rembourse_par||null;
-      var actions = '<button class="btn btn-sm" onclick="openEditDepense(\''+d.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>';
-      if (isAdmin) {
-        actions += '<button class="btn btn-sm" onclick="deleteRow(\'depense\',\''+d.id+'\')" style="color:#e07070" title="Supprimer">✕</button>';
-      }
+      var ttc = d.montantTTC||d.montant||0;
       return'<tr>'+
-        '<td>'+fmtDate(d.date||d.dateDep||d.date_dep)+'</td>'+
+        '<td>'+fmtDate(d.date||d.dateDep)+'</td>'+
         '<td style="font-weight:500">'+(d.libelle||d.description||'—')+'</td>'+
         '<td>'+(d.fournisseur?'<span style="font-size:0.78rem;color:var(--text-2)">'+d.fournisseur+'</span>':'—')+'</td>'+
         '<td><span class="badge badge-blue" style="font-size:0.7rem">'+(d.cat||d.categorie||'—')+'</span></td>'+
-        '<td style="font-size:0.78rem">'+depPar+'</td>'+
         '<td class="inline-val">'+fmtMontant(ttc)+'</td>'+
-        '<td>'+_rembBadge(rembStatut, rembPar)+'</td>'+
-        '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+actions+'</td>'+
+        '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+
+          '<button class="btn btn-sm" onclick="openEditDepense(\''+d.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>'+
+          '<button class="btn btn-sm" onclick="deleteRow(\'depense\',\''+d.id+'\')" style="color:#e07070" title="Supprimer">✕</button>'+
+        '</td>'+
       '</tr>';
     }).join('');
 }
@@ -4816,21 +3459,12 @@ function refreshNotifBadge(){
 
   Promise.all([pNotifs, pDue]).then(function(){
     var unread = _personalNotifCache.filter(function(n){ return !parseInt(n.is_read||0,10); }).length;
-    var chatUnread = window.__chatUnread || 0;
-    var total = unread + retards.length + devisAtt.length + _dueTemplatesCache.length + chatUnread;
+    var total = unread + retards.length + devisAtt.length + _dueTemplatesCache.length;
     var badge = document.getElementById('notif-badge');
     if (badge) {
       badge.textContent = String(total);
       badge.style.display = total > 0 ? '' : 'none';
     }
-  });
-}
-
-// Écouter les mises à jour du compteur chat pour rafraîchir le badge cloche
-if (!window.__chatBellWired) {
-  window.__chatBellWired = true;
-  document.addEventListener('chat-unread', function() {
-    refreshNotifBadge();
   });
 }
 
@@ -5322,14 +3956,8 @@ function showToast(msg, color){
 //  GESTION DES ACCÈS PAR MODULE
 // ══════════════════════════════════════════════════════════════
 
-// Liste des modules de la plateforme (lazy — MODULES_PLATEFORME est déclaré plus bas)
-var NAV_MODULE_IDS = null;
-function getNavModuleIds() {
-  if (!NAV_MODULE_IDS && typeof MODULES_PLATEFORME !== 'undefined' && Array.isArray(MODULES_PLATEFORME) && MODULES_PLATEFORME.length > 0) {
-    NAV_MODULE_IDS = MODULES_PLATEFORME.map(function(m){ return m.id; });
-  }
-  return NAV_MODULE_IDS || ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','equipe','clients','demandes-admin','conges','parametres','chantier','chantier-journal','chantier-intervenants','chantier-reunions','chantier-photos','chantier-reserves','chantier-visas','chantier-securite','flotte','flotte-reservations','flotte-km','flotte-entretien','flotte-couts','flotte-conformite','portail','portail-docs','portail-messages'];
-}
+// Liste des modules de la plateforme
+var NAV_MODULE_IDS = ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','conges','parametres'];
 
 // Lire la session courante
 function getSession() {
@@ -5348,7 +3976,7 @@ function getAllowedModules() {
 function applyModuleAccess() {
   var allowed = getAllowedModules(); // null = tout, [] = rien, [...] = liste
 
-  getNavModuleIds().forEach(function(moduleId) {
+  NAV_MODULE_IDS.forEach(function(moduleId) {
     var allNavBtns = document.querySelectorAll('.nav-item');
     var btn = null;
     for (var i = 0; i < allNavBtns.length; i++) {
@@ -5376,25 +4004,6 @@ function applyModuleAccess() {
   var isAdmin = session && session.isAdmin;
   var el = document.getElementById('param-roles-card');
   if (el) el.style.display = isAdmin ? '' : 'none';
-
-  // Carte des restrictions visible uniquement pour Admin / Architecte gérant
-  var isGerant = isAdmin || (session && session.role === 'Architecte gérant');
-  var rCard = document.getElementById('equipe-restrictions-card');
-  if (rCard) {
-    rCard.style.display = isGerant ? '' : 'none';
-    if (isGerant) renderRestrictions();
-  }
-
-  // Masquer les boutons de création selon les restrictions dynamiques
-  document.querySelectorAll('.btn-create-only').forEach(function(b){
-    var onclick = b.getAttribute('onclick') || '';
-    var action = null;
-    if (onclick.indexOf('modal-projet') !== -1 || onclick.indexOf('openConfigurateur') !== -1) action = 'projet';
-    else if (onclick.indexOf('modal-client') !== -1) action = 'client';
-    else if (onclick.indexOf('modal-devis') !== -1) action = 'devis';
-    else if (onclick.indexOf('modal-facture') !== -1) action = 'facture';
-    b.style.display = (action && !canCreate(action)) ? 'none' : '';
-  });
 }
 
 // Contrôle d'accès intégré directement dans showPage() ci-dessous
@@ -5446,8 +4055,7 @@ function doLogin(){
       loadModulesFromAPI(); // peupler la liste des modules dès la connexion
       loadData().then(function(){
         renderAll();
-        showPage(_getStartPage());
-        _openLinkedProjet();
+        showPage('dashboard');
         refreshNotifBadge();
         setTimeout(function(){ try { if (typeof checkDeadlinesPopup === 'function') checkDeadlinesPopup(); } catch(e) {} }, 1200);
       });
@@ -5468,8 +4076,6 @@ function doLogin(){
 function doLogout(){
   sessionStorage.removeItem('cortoba_token');
   sessionStorage.removeItem('cortoba_session');
-  _clActiveColumns = null;
-  _pjActiveColumns = null;
   applyModuleAccess(); // reset sidebar
   var ls = document.getElementById('login-screen');
   var ap = document.getElementById('app');
@@ -5481,38 +4087,12 @@ function doLogout(){
 }
 
 // ── Navigation ──
-function _getStartPage(){
-  try { var p = new URLSearchParams(window.location.search).get('page'); if(p && document.getElementById('page-'+p)) return p; } catch(e){}
-  return 'dashboard';
-}
-function _openLinkedProjet(){
-  try {
-    var pid = new URLSearchParams(window.location.search).get('projet');
-    if(!pid) return;
-    setTimeout(function(){
-      var found = getProjets().find(function(x){ return x.id===pid; });
-      if(found) { openProjetDetail(pid); return; }
-      apiFetch('api/projets.php').then(function(r){
-        _cache.projets = (r.data||[]).map(function(p){
-          if(p.type_bat !== undefined && p.typeBat === undefined) p.typeBat = p.type_bat;
-          if(p.client_id !== undefined && p.clientId === undefined) p.clientId = p.client_id;
-          return p;
-        });
-        if(typeof populateAnneeFilter==='function') populateAnneeFilter();
-        if(typeof renderProjets==='function') renderProjets();
-        openProjetDetail(pid);
-      }).catch(function(){});
-    }, 400);
-  } catch(e){}
-}
-var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation & Paiements','paiements-clients':'Paiements clients',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres',chantier:'Tableau de bord chantier','chantier-journal':'Journal de chantier','chantier-intervenants':'Intervenants','chantier-reunions':'Réunions & PV','chantier-photos':'Photos & Médias','chantier-reserves':'Réserves & RFI','chantier-visas':'Visas d\'exécution','chantier-securite':'Sécurité',flotte:'Tableau de bord flotte','flotte-reservations':'Réservations & Attributions','flotte-km':'Kilométrage & Carburant','flotte-entretien':'Entretien & Maintenance','flotte-couts':'Coûts & TCO','flotte-conformite':'Conformité & Assurances',portail:'Comptes clients','portail-docs':'Documents partagés','portail-messages':'Messages clients',honoraires:'Suivi des Honoraires',creances:'Créances & Relances'};
+var pageLabels={dashboard:'Tableau de bord',demandes:'Demandes',devis:'Offres & Devis',projets:'Projets',suivi:'Suivi des missions',journal:'Journal du jour',rendement:'Rendement',timesheet:'Timesheet',gantt:'Gantt',charge:'Charge de travail',facturation:'Facturation',bilans:'Bilans',depenses:'Dépenses',fiscalite:'Fiscalité & Impôts',nas:'Serveur NAS',equipe:'Équipe',clients:'Clients','demandes-admin':'Demandes administratives',conges:'Congés & absences',notifications:'Notifications',parametres:'Paramètres'};
 function showPage(id){
   // Contrôle d'accès : rediriger si module non autorisé
   // ('notifications' est toujours accessible : ouvert depuis la cloche)
-  // Alias: 'creances' → 'facturation' (modules fusionnés)
   var _allowed = getAllowedModules();
-  var _checkId = (id === 'creances') ? 'facturation' : id;
-  if (_checkId !== 'notifications' && _allowed !== null && _allowed.indexOf(_checkId) === -1 && _allowed.indexOf(id) === -1) {
+  if (id !== 'notifications' && _allowed !== null && _allowed.indexOf(id) === -1) {
     var _first = _allowed[0] || 'dashboard';
     if (_first !== id) showPage(_first);
     return;
@@ -5522,11 +4102,8 @@ function showPage(id){
   document.getElementById('page-'+id).classList.add('active');
   var btn=document.querySelector('[onclick="showPage(\''+id+'\')"]');
   if(btn) btn.classList.add('active');
-  // Auto-développer la section sidebar contenant la page active
-  if (typeof _expandSidebarForPage === 'function') _expandSidebarForPage(id);
   var _secLabel = document.getElementById('section-label');
   if (_secLabel) _secLabel.textContent=pageLabels[id]||'';
-  if(id==='dashboard')  setTimeout(renderDashboard,80);
   if(id==='demandes')   setTimeout(renderDemandes,80);
   if(id==='projets')    setTimeout(refreshGlobalMap,300);
   if(id==='suivi')      setTimeout(function(){ loadTaches().then(function(){ renderSuiviPage(); }).catch(function(e){ console.error('[suivi] init error', e); }); },80);
@@ -5537,34 +4114,10 @@ function showPage(id){
   if(id==='charge')     setTimeout(function(){ if(typeof renderChargePage==='function') renderChargePage(); },80);
   if(id==='demandes-admin') setTimeout(renderDemandesAdminPage,80);
   if(id==='conges')     setTimeout(function(){ if(typeof renderCongesPage==='function') renderCongesPage(); },80);
-  if(id==='corbeille') setTimeout(function(){ if(typeof renderCorbeillePage==='function') renderCorbeillePage(); },80);
   if(id==='notifications') setTimeout(function(){ if(typeof renderNotificationsPage==='function') renderNotificationsPage(); },40);
   if(id==='nas')        setTimeout(renderNasPage,80);
-  if(id==='chantier')   setTimeout(function(){ if(typeof renderChantierDashboard==='function') renderChantierDashboard(); },80);
-  if(id==='chantier-journal')     setTimeout(function(){ if(typeof renderChantierJournalPage==='function') renderChantierJournalPage(); },80);
-  if(id==='chantier-intervenants') setTimeout(function(){ if(typeof renderChantierIntervenantsPage==='function') renderChantierIntervenantsPage(); },80);
-  if(id==='chantier-reunions')    setTimeout(function(){ if(typeof renderChantierReunionsPage==='function') renderChantierReunionsPage(); },80);
-  if(id==='chantier-photos')      setTimeout(function(){ if(typeof renderChantierPhotosPage==='function') renderChantierPhotosPage(); },80);
-  if(id==='chantier-reserves')    setTimeout(function(){ if(typeof renderChantierReservesPage==='function') renderChantierReservesPage(); },80);
-  if(id==='chantier-visas')       setTimeout(function(){ if(typeof renderChantierVisasPage==='function') renderChantierVisasPage(); },80);
-  if(id==='chantier-securite')    setTimeout(function(){ if(typeof renderChantierSecuritePage==='function') renderChantierSecuritePage(); },80);
-  if(id==='flotte')              setTimeout(function(){ if(typeof renderFlotteDashboard==='function') renderFlotteDashboard(); },80);
-  if(id==='flotte-reservations') setTimeout(function(){ if(typeof renderFlotteResaPage==='function') renderFlotteResaPage(); },80);
-  if(id==='flotte-km')           setTimeout(function(){ if(typeof renderFlotteKmPage==='function') renderFlotteKmPage(); },80);
-  if(id==='flotte-entretien')    setTimeout(function(){ if(typeof renderFlotteEntretienPage==='function') renderFlotteEntretienPage(); },80);
-  if(id==='flotte-couts')        setTimeout(function(){ if(typeof renderFlotteCoutsPage==='function') renderFlotteCoutsPage(); },80);
-  if(id==='flotte-conformite')   setTimeout(function(){ if(typeof renderFlotteConformitePage==='function') renderFlotteConformitePage(); },80);
-  if(id==='portail')    setTimeout(function(){ if(typeof renderPortailAccounts==='function') renderPortailAccounts(); },80);
-  if(id==='portail-docs') setTimeout(function(){ if(typeof renderPortailDocs==='function') renderPortailDocs(); },80);
-  if(id==='portail-messages') setTimeout(function(){ if(typeof renderPortailMessages==='function') renderPortailMessages(); },80);
-  if(id==='portail-journal') setTimeout(function(){ if(typeof renderPortailJournal==='function') renderPortailJournal(); },80);
-  if(id==='journal-membres') setTimeout(function(){ if(typeof renderJournalMembres==='function') renderJournalMembres(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
-  if(id==='facturation') setTimeout(function(){ if(typeof renderCreancesPage==='function') renderCreancesPage(); },80);
-  if(id==='paiements-clients') setTimeout(function(){ if(typeof renderPaiementsClientsPage==='function') renderPaiementsClientsPage(); },80);
   if(id==='fiscalite')  setTimeout(renderFiscalitePage,100);
-  if(id==='honoraires') setTimeout(function(){ if(typeof renderHonorairesPage==='function') renderHonorairesPage(); },80);
-  if(id==='creances') { id='facturation'; showPage('facturation'); setTimeout(function(){ if(typeof switchFacturationTab==='function') switchFacturationTab('receivables',document.querySelector('#facturation-tabs .tab-btn:nth-child(2)')); },150); return; }
   if(id==='parametres') {
     // Attendre que loadSettings soit terminé avant de remplir les champs
     var fillParams = function(){
@@ -5587,8 +4140,6 @@ function showPage(id){
       var mentEl = document.getElementById('param-fa-mentions');
       if(mentEl) mentEl.value = getSetting('cortoba_fa_mentions', '');
       if (typeof loadPaieParams === 'function') loadPaieParams();
-      if (typeof loadParamPhases === 'function') loadParamPhases();
-      if (typeof loadParamLots === 'function') loadParamLots();
       // Activer l'onglet par défaut (Agence) à l'ouverture de la page
       if (typeof switchParamTab === 'function') {
         var defBtn = document.querySelector('#param-tabs-bar .param-tab[data-param-tab="agence"]');
@@ -5608,93 +4159,8 @@ function showPage(id){
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-backdrop').classList.toggle('open'); }
 function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('open'); }
 
-// ── Sidebar sections collapsibles ──
-var _sidebarSectionState = {};
-try { _sidebarSectionState = JSON.parse(localStorage.getItem('sidebar_sections') || '{}'); } catch(e){}
-
-function toggleSidebarSection(labelEl) {
-  var section = labelEl.closest('.sidebar-section');
-  if (!section || !section.dataset.section) return;
-  section.classList.toggle('collapsed');
-  _sidebarSectionState[section.dataset.section] = section.classList.contains('collapsed');
-  try { localStorage.setItem('sidebar_sections', JSON.stringify(_sidebarSectionState)); } catch(e){}
-}
-window.toggleSidebarSection = toggleSidebarSection;
-
-function _initSidebarSections() {
-  var sections = document.querySelectorAll('.sidebar-section[data-section]');
-  for (var i = 0; i < sections.length; i++) {
-    var s = sections[i];
-    var key = s.dataset.section;
-    // Restaurer l'état sauvegardé (mais pas si la section contient la page active)
-    var hasActive = s.querySelector('.nav-item.active');
-    if (_sidebarSectionState[key] && !hasActive) {
-      s.classList.add('collapsed');
-    }
-  }
-}
-
-function _expandSidebarForPage(pageId) {
-  var sections = document.querySelectorAll('.sidebar-section[data-section]');
-  for (var i = 0; i < sections.length; i++) {
-    var s = sections[i];
-    var items = s.querySelectorAll('.nav-item');
-    for (var j = 0; j < items.length; j++) {
-      var onclick = items[j].getAttribute('onclick') || '';
-      if (onclick.indexOf("'" + pageId + "'") !== -1) {
-        s.classList.remove('collapsed');
-        _sidebarSectionState[s.dataset.section] = false;
-        try { localStorage.setItem('sidebar_sections', JSON.stringify(_sidebarSectionState)); } catch(e){}
-        return;
-      }
-    }
-  }
-}
-
-// Initialiser au chargement
-document.addEventListener('DOMContentLoaded', _initSidebarSections);
-
-// ── Sidebar search ──
-function _initSidebarSearch() {
-  var input = document.getElementById('sidebarSearch');
-  if (!input) return;
-  input.addEventListener('input', function() {
-    var q = this.value.toLowerCase().trim();
-    var sections = document.querySelectorAll('.sidebar-section');
-    for (var i = 0; i < sections.length; i++) {
-      var section = sections[i];
-      var label = section.querySelector('.sidebar-label');
-      var labelText = label ? label.textContent.toLowerCase() : '';
-      var items = section.querySelectorAll('.nav-item');
-      var visibleCount = 0;
-      var sectionMatches = q && labelText.indexOf(q) !== -1;
-      for (var j = 0; j < items.length; j++) {
-        var item = items[j];
-        var text = item.textContent.toLowerCase();
-        var match = !q || sectionMatches || text.indexOf(q) !== -1;
-        item.classList.toggle('search-hidden', !match);
-        if (match) visibleCount++;
-      }
-      section.classList.toggle('search-hidden', q && visibleCount === 0 && !sectionMatches);
-      // Quand on cherche, déplier les sections
-      if (q && section.dataset.section) {
-        section.classList.remove('collapsed');
-      } else if (!q && section.dataset.section && _sidebarSectionState[section.dataset.section]) {
-        section.classList.add('collapsed');
-      }
-    }
-  });
-}
-document.addEventListener('DOMContentLoaded', _initSidebarSearch);
-
 // A1 — openModal: modal-projet ouvre correctement sans déclencher modal-client
 function openModal(id){
-  var _createModalMap = {'modal-client':'client','modal-projet':'projet','modal-devis':'devis','modal-facture':'facture'};
-  var _createModalLabels = {'modal-client':'clients','modal-projet':'projets','modal-devis':'devis','modal-facture':'factures'};
-  if (_createModalMap[id] && !canCreate(_createModalMap[id])) {
-    alert('Vous n\'êtes pas autorisé à créer des ' + _createModalLabels[id] + '.');
-    return;
-  }
   document.getElementById(id).classList.add('open');
   if(id==='modal-facture'){
     resetFactureForm();
@@ -5725,17 +4191,6 @@ function openModal(id){
   if(id==='modal-devis'){
     populateDevisMissions([]);
   }
-  if(id==='modal-chantier'){
-    if(typeof _chPopulateProjetSelect==='function') _chPopulateProjetSelect();
-  }
-  if(id==='modal-ch-journal'){
-    // Reset form if not editing
-    if(!document.getElementById('chj-edit-id').value) {
-      _chResetJournalForm();
-    }
-    // Populate phases
-    if(typeof _chLoadPhases==='function') _chLoadPhases().then(function(){ _chPopulatePhaseSelects(); });
-  }
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
@@ -5746,8 +4201,7 @@ function nasConnect(){
 
 // ── Charts ──
 function renderCharts(){
-  renderDashboard();
-  // Trésorerie prévisionnelle (bilans page) — toujours depuis cache local
+  // CA mensuel dynamique depuis les factures
   var factures = getFactures();
   var now = new Date();
   var year = now.getFullYear();
@@ -5759,7 +4213,18 @@ function renderCharts(){
       caParMois[d.getMonth()] += (f.montantTtc||f.montant_ttc||f.montant||0)/1000;
     }
   });
+  // Afficher Jan→mois courant + 3 mois futurs
   var curMonth = now.getMonth();
+  var caData = [];
+  for (var i=0; i<=Math.min(curMonth+3, 11); i++){
+    var val = Math.round(caParMois[i]*10)/10;
+    var maxVal = Math.max.apply(null, caParMois.map(function(v){ return v||1; })) * 1.2;
+    caData.push({label:mois[i], val:val, max:maxVal, future: i > curMonth});
+  }
+  if (caData.length === 0) caData = [{label:'Jan',val:0,max:10}];
+  renderBarChart('ca-chart', caData, 'k');
+
+  // Trésorerie prévisionnelle (CA encaissé cumulé)
   var cumul = 0;
   var trData = [];
   for (var j=0; j<=Math.min(curMonth+3, 11); j++){
@@ -5769,317 +4234,6 @@ function renderCharts(){
   }
   renderBarChart('tresorerie-chart', trData, 'k', true);
 }
-
-// ═══════════════════════════════════════════════════════════
-//  DASHBOARD — Données réelles depuis api/dashboard.php
-// ═══════════════════════════════════════════════════════════
-var _dashData = null;
-
-function renderDashboard(){
-  apiFetch('api/dashboard.php').then(function(r){
-    _dashData = r.data;
-    _renderDashKpis(_dashData.kpis);
-    _renderDashCaChart(_dashData.ca_mensuel, _dashData.ca_mensuel_prev, _dashData.annee, _dashData.mois_courant);
-    _renderDashActivity(_dashData.activity);
-    _renderDashProjets(_dashData.projets_actifs);
-    _renderDashDepenses(_dashData.depenses_par_cat, _dashData.kpis.depenses_mois);
-    renderDashSoldes(_dashData);
-    // Mettre à jour le label mois
-    var MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-    var el = document.getElementById('dash-current-month');
-    if(el) el.textContent = MOIS_NOMS[_dashData.mois_courant-1]+' '+_dashData.annee;
-    var yEl = document.getElementById('dash-chart-year');
-    if(yEl) yEl.textContent = _dashData.annee;
-    var ypEl = document.getElementById('dash-chart-year-prev');
-    if(ypEl) ypEl.textContent = _dashData.annee - 1;
-    if(window.ergoHideSkeletons) window.ergoHideSkeletons();
-  }).catch(function(e){
-    console.error('[dashboard] load error:', e);
-    // Fallback : données locales depuis le cache
-    _renderDashboardFromCache();
-  });
-}
-
-// Fallback : construire le dashboard depuis les données déjà en cache (loadData)
-function _renderDashboardFromCache(){
-  var now = new Date();
-  var year = now.getFullYear();
-  var month = now.getMonth(); // 0-based
-  var MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-
-  var factures = getFactures();
-  var devis = getDevis();
-  var projets = getProjets();
-  var depenses = getDepenses();
-
-  // KPIs
-  var caYtd = 0;
-  factures.forEach(function(f){
-    var d = new Date(f.dateEmission||f.date_emission||'');
-    if(!isNaN(d) && d.getFullYear()===year && f.statut==='Payée') caYtd += (f.montantTtc||f.montant_ttc||f.montant||0);
-  });
-  var projEnCours = projets.filter(function(p){ return p.statut==='En cours'; });
-  var devisEnAttente = devis.filter(function(d){ return d.statut==='En attente'; });
-  var devisTotal = 0; devisEnAttente.forEach(function(d){ devisTotal += parseFloat(d.montant)||0; });
-  var factImpayees = factures.filter(function(f){ return f.statut==='Émise'||f.statut==='En retard'||f.statut==='Impayée'; });
-  var factTotal = 0; factImpayees.forEach(function(f){ factTotal += (f.montantTtc||f.montant_ttc||f.montant||0); });
-  var depMois = 0;
-  depenses.forEach(function(d){
-    var dd = new Date(d.date||'');
-    if(!isNaN(dd) && dd.getFullYear()===year && dd.getMonth()===month) depMois += parseFloat(d.montant)||0;
-  });
-
-  _renderDashKpis({
-    ca_ytd: caYtd, ca_delta: 0,
-    projets_en_cours: projEnCours.length, phase_detail: '',
-    devis_en_attente: devisEnAttente.length, devis_total: devisTotal,
-    factures_impayees: factImpayees.length, factures_total: factTotal, jours_retard: 0,
-    depenses_mois: depMois, dep_delta: 0,
-    taux_occupation: 0, heures_saisies: 0, heures_dispo: 0
-  });
-
-  // CA chart depuis factures cache
-  var caParMois = new Array(12).fill(0);
-  factures.forEach(function(f){
-    var d = new Date(f.dateEmission||f.date_emission||'');
-    if(!isNaN(d) && d.getFullYear()===year && f.statut==='Payée') caParMois[d.getMonth()] += (f.montantTtc||f.montant_ttc||f.montant||0);
-  });
-  _renderDashCaChart(caParMois, new Array(12).fill(0), year, month+1);
-
-  // Activity depuis devis/factures récents
-  var act = [];
-  devis.slice(0,4).forEach(function(d){
-    var color = d.statut==='Accepté'?'green':(d.statut==='Refusé'?'red':'accent');
-    act.push({type:'devis', text:'Devis <strong>'+(d.ref||'')+'</strong> · '+(d.client||'')+' · '+(d.statut||''), time:d.date||'', color:color});
-  });
-  _renderDashActivity(act.length ? act : []);
-
-  // Projets actifs
-  var pa = projEnCours.slice(0,6).map(function(p){ return {nom:p.nom, phase:p.phase||'', total_taches:0, taches_terminees:0, avancement:0}; });
-  _renderDashProjets(pa);
-
-  _renderDashDepenses([], depMois);
-
-  var el = document.getElementById('dash-current-month');
-  if(el) el.textContent = MOIS_NOMS[month]+' '+year;
-  var yEl = document.getElementById('dash-chart-year');
-  if(yEl) yEl.textContent = year;
-  var ypEl = document.getElementById('dash-chart-year-prev');
-  if(ypEl) ypEl.textContent = year - 1;
-  if(window.ergoHideSkeletons) window.ergoHideSkeletons();
-}
-
-function _fmtMontant(v){
-  if(v>=1000000) return (Math.round(v/100000)/10)+'M';
-  if(v>=1000) return (Math.round(v/100)/10)+'k';
-  return Math.round(v)+'';
-}
-
-function _renderDashKpis(k){
-  var el = document.getElementById('dash-kpis');
-  if(!el) return;
-  var svgUp = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>';
-  var svgDown = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>';
-
-  var cards = [
-    {
-      label: "Chiffre d'affaires YTD",
-      value: _fmtMontant(k.ca_ytd),
-      unit: ' TND',
-      delta: (k.ca_delta>=0?'+':'')+k.ca_delta+'% vs '+(new Date().getFullYear()-1),
-      dir: k.ca_delta>=0?'up':'down',
-      icon: svgUp
-    },
-    {
-      label: 'Projets en cours',
-      value: k.projets_en_cours,
-      unit: '',
-      delta: k.phase_detail || '',
-      dir: 'neutral'
-    },
-    {
-      label: 'Devis en attente',
-      value: k.devis_en_attente,
-      unit: '',
-      delta: _fmtMontant(k.devis_total)+' TND',
-      dir: k.devis_en_attente>0?'up':'neutral',
-      icon: svgUp
-    },
-    {
-      label: 'Factures impayées',
-      value: k.factures_impayees,
-      unit: '',
-      delta: k.factures_impayees>0?_fmtMontant(k.factures_total)+' TND'+(k.jours_retard>0?' · '+k.jours_retard+'j retard':''):'Aucune',
-      dir: k.factures_impayees>0?'down':'neutral',
-      icon: k.factures_impayees>0?svgDown:''
-    },
-    {
-      label: 'Dépenses du mois',
-      value: _fmtMontant(k.depenses_mois),
-      unit: ' TND',
-      delta: k.dep_delta!==0?((k.dep_delta>0?'+':'')+k.dep_delta+'% vs mois préc.'):'Stable',
-      dir: k.dep_delta>0?'down':(k.dep_delta<0?'up':'neutral'),
-      icon: k.dep_delta>0?svgDown:(k.dep_delta<0?svgUp:'')
-    },
-    {
-      label: 'Taux occupation',
-      value: k.taux_occupation,
-      unit: '%',
-      delta: Math.round(k.heures_saisies)+'h / '+Math.round(k.heures_dispo)+'h',
-      dir: k.taux_occupation>=70?'up':(k.taux_occupation>=40?'neutral':'down'),
-      icon: k.taux_occupation>=70?svgUp:''
-    }
-  ];
-
-  el.innerHTML = cards.map(function(c){
-    return '<div class="kpi-card">' +
-      '<div class="kpi-label">'+c.label+'</div>' +
-      '<div class="kpi-value">'+c.value+(c.unit?'<span class="kpi-unit">'+c.unit+'</span>':'')+'</div>' +
-      '<div class="kpi-delta '+c.dir+'">'+(c.icon||'')+' '+c.delta+'</div>' +
-    '</div>';
-  }).join('');
-}
-
-function _renderDashCaChart(caMensuel, caPrev, annee, moisCourant){
-  var el = document.getElementById('ca-chart');
-  if(!el) return;
-  var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  var maxMonth = Math.min(moisCourant + 2, 12); // afficher jusqu'à mois courant + 2
-  var allVals = caMensuel.concat(caPrev);
-  var maxVal = Math.max.apply(null, allVals.map(function(v){return v||1;}))*1.15;
-  if(maxVal<=0) maxVal = 1000;
-
-  var html = '<div class="dash-ca-grid">';
-  // Y-axis labels
-  var steps = 4;
-  html += '<div class="dash-ca-yaxis">';
-  for(var s=steps; s>=0; s--){
-    var yVal = Math.round(maxVal/steps*s);
-    html += '<div class="dash-ca-ylabel">'+_fmtMontant(yVal)+'</div>';
-  }
-  html += '</div>';
-
-  html += '<div class="dash-ca-bars">';
-  // Grid lines
-  for(var g=0; g<=steps; g++){
-    var pct = (g/steps)*100;
-    html += '<div class="dash-ca-gridline" style="bottom:'+pct+'%"></div>';
-  }
-
-  for(var i=0; i<maxMonth; i++){
-    var val = caMensuel[i]||0;
-    var prevVal = caPrev[i]||0;
-    var hCur = maxVal>0?Math.max(val>0?2:0,(val/maxVal)*100):0;
-    var hPrev = maxVal>0?Math.max(prevVal>0?2:0,(prevVal/maxVal)*100):0;
-    var isFuture = i >= moisCourant;
-    html += '<div class="dash-ca-col'+(isFuture?' dash-ca-future':'')+'">' +
-      '<div class="dash-ca-bar-group">' +
-        '<div class="dash-ca-bar dash-ca-bar-prev" style="height:'+hPrev+'%"'+(prevVal>0?' title="'+(annee-1)+': '+_fmtMontant(prevVal)+' TND"':'')+'></div>' +
-        '<div class="dash-ca-bar dash-ca-bar-cur" style="height:'+hCur+'%"'+(val>0?' title="'+annee+': '+_fmtMontant(val)+' TND"':'')+'>' +
-          (val>0?'<span class="dash-ca-val">'+_fmtMontant(val)+'</span>':'') +
-        '</div>' +
-      '</div>' +
-      '<div class="dash-ca-label">'+MOIS[i]+'</div>' +
-    '</div>';
-  }
-  html += '</div></div>';
-  el.innerHTML = html;
-}
-
-function _renderDashActivity(items){
-  var el = document.getElementById('dash-activity');
-  if(!el) return;
-  if(!items || !items.length){
-    el.innerHTML = '<div class="dash-empty">Aucune activité récente</div>';
-    return;
-  }
-  var colorMap = {green:'var(--green)',red:'var(--red)',blue:'var(--blue)',accent:'var(--accent)',orange:'var(--orange)'};
-  el.innerHTML = items.map(function(it){
-    var col = colorMap[it.color]||'var(--accent)';
-    var timeStr = _formatRelativeTime(it.time);
-    return '<div class="activity-item">' +
-      '<div class="activity-dot" style="background:'+col+'"></div>' +
-      '<div><div class="activity-text">'+it.text+'</div>' +
-      '<div class="activity-time">'+timeStr+'</div></div>' +
-    '</div>';
-  }).join('');
-}
-
-function _formatRelativeTime(dateStr){
-  if(!dateStr) return '';
-  var d = new Date(dateStr);
-  if(isNaN(d)) return dateStr;
-  var now = new Date();
-  var diff = Math.floor((now - d)/86400000);
-  var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  if(diff===0) return "Aujourd'hui";
-  if(diff===1) return 'Hier';
-  if(diff<7) return 'Il y a '+diff+' jours';
-  return d.getDate()+' '+MOIS[d.getMonth()]+' '+d.getFullYear();
-}
-
-function _renderDashProjets(projets){
-  var el = document.getElementById('dash-projets-actifs');
-  if(!el) return;
-  if(!projets || !projets.length){
-    el.innerHTML = '<div class="dash-empty">Aucun projet en cours</div>';
-    return;
-  }
-  var colors = ['','blue','green','','blue','green'];
-  el.innerHTML = projets.map(function(p, idx){
-    var av = p.avancement||0;
-    var fillColor = av>=80?'background:var(--green)':av>=50?'':'background:var(--blue)';
-    var phaseLabel = p.phase?' — Phase '+p.phase:'';
-    return '<div class="progress-bar-wrap'+(idx>0?' dash-progress-mt':'')+'">' +
-      '<div class="progress-info">' +
-        '<span class="progress-info-label">'+p.nom+phaseLabel+'</span>' +
-        '<span class="progress-info-val">'+av+'%</span>' +
-      '</div>' +
-      '<div class="progress-track"><div class="progress-fill" style="width:'+av+'%;'+fillColor+'"></div></div>' +
-      '<div class="dash-projet-tasks">'+p.taches_terminees+'/'+p.total_taches+' tâches</div>' +
-    '</div>';
-  }).join('');
-}
-
-function _renderDashDepenses(cats, totalMois){
-  var el = document.getElementById('dash-depenses-cat');
-  if(!el) return;
-  if(!cats || !cats.length){
-    el.innerHTML = '<div class="dash-empty">Aucune dépense ce mois</div>';
-    return;
-  }
-  var catColors = ['var(--accent)','var(--blue)','var(--green)','var(--orange)','var(--red)'];
-  var total = 0;
-  cats.forEach(function(c){ total += parseFloat(c.total)||0; });
-  if(total<=0) total = 1;
-
-  var html = '<div class="dash-dep-bars">';
-  // Barre horizontale empilée
-  html += '<div class="dash-dep-stacked">';
-  cats.forEach(function(c, i){
-    var pct = Math.round(parseFloat(c.total)/total*100);
-    html += '<div class="dash-dep-seg" style="width:'+pct+'%;background:'+catColors[i%catColors.length]+'" title="'+c.categorie+': '+_fmtMontant(parseFloat(c.total))+' TND ('+pct+'%)"></div>';
-  });
-  html += '</div>';
-
-  // Légende
-  html += '<div class="dash-dep-legend">';
-  cats.forEach(function(c, i){
-    html += '<div class="dash-dep-legend-item">' +
-      '<span class="dash-dep-legend-dot" style="background:'+catColors[i%catColors.length]+'"></span>' +
-      '<span class="dash-dep-legend-label">'+(c.categorie||'Autre')+'</span>' +
-      '<span class="dash-dep-legend-val">'+_fmtMontant(parseFloat(c.total))+' TND</span>' +
-    '</div>';
-  });
-  html += '</div>';
-
-  // Total
-  html += '<div class="dash-dep-total">Total : <strong>'+_fmtMontant(totalMois)+' TND</strong></div>';
-  html += '</div>';
-  el.innerHTML = html;
-}
-
-// Legacy bar chart fallback (used by trésorerie etc.)
 function renderBarChart(containerId,data,unit,isGreen){
   var el=document.getElementById(containerId); if(!el) return; el.innerHTML='';
   var maxVal=Math.max.apply(null,data.map(function(d){return d.max||d.val||1;}));
@@ -6092,19 +4246,11 @@ function renderBarChart(containerId,data,unit,isGreen){
   });
 }
 
-// ── Confirmation avant fermeture d'une fenêtre par clic extérieur ──
-function _confirmCloseModal() {
-  return confirm('Voulez-vous vraiment fermer cette fenêtre ? Les modifications non enregistrées seront perdues.');
-}
-window._confirmCloseModal = _confirmCloseModal;
-
 // ── Init ──
 document.addEventListener('DOMContentLoaded',function(){
-  // Fermer les modals en cliquant le fond (avec confirmation)
+  // Fermer les modals en cliquant le fond
   document.querySelectorAll('.modal-overlay').forEach(function(m){
-    m.addEventListener('click',function(e){
-      if(e.target===m && _confirmCloseModal()) m.classList.remove('open');
-    });
+    m.addEventListener('click',function(e){ if(e.target===m) m.classList.remove('open'); });
   });
 
   // S'assurer que le login-screen est visible par défaut
@@ -6124,7 +4270,7 @@ document.addEventListener('DOMContentLoaded',function(){
         if (appEl)       appEl.style.display       = 'block';
         applyModuleAccess();
         loadModulesFromAPI();
-        Promise.all([loadMembresFromAPI(), loadData()]).then(function(){ renderAll(); showPage(_getStartPage()); _openLinkedProjet(); refreshNotifBadge(); });
+        loadData().then(function(){ renderAll(); showPage('dashboard'); refreshNotifBadge(); });
       })
       .catch(function(){
         // Token invalide ou API inaccessible → retour au login sans bloquer
@@ -6768,66 +4914,25 @@ function renderFiscalitePage() {
 
 // ── Modules disponibles dans la plateforme (cache / fallback) ──
 // La liste réelle est chargée dynamiquement depuis api/modules.php
-var MODULES_PLATEFORME_SECTIONS = [
-  { section: 'Principal', modules: [
-    { id: 'dashboard',   label: 'Tableau de bord' },
-  ]},
-  { section: 'Activité', modules: [
-    { id: 'demandes',    label: 'Demandes' },
-    { id: 'devis',       label: 'Offres & Devis' },
-    { id: 'projets',     label: 'Projets' },
-    { id: 'suivi',       label: 'Suivi' },
-    { id: 'journal',     label: 'Journal' },
-    { id: 'rendement',   label: 'Rendement' },
-    { id: 'timesheet',   label: 'Timesheet' },
-    { id: 'gantt',       label: 'Gantt' },
-    { id: 'charge',      label: 'Charge de travail' },
-    { id: 'facturation', label: 'Facturation' },
-  ]},
-  { section: 'Finance', modules: [
-    { id: 'bilans',      label: 'Bilans' },
-    { id: 'depenses',    label: 'Dépenses' },
-    { id: 'fiscalite',   label: 'Fiscalité' },
-  ]},
-  { section: 'Ressources', modules: [
-    { id: 'equipe',          label: 'Équipe' },
-    { id: 'clients',         label: 'Clients' },
-    { id: 'conges',          label: 'Congés' },
-    { id: 'demandes-admin',  label: 'Demandes admin' },
-    { id: 'journal-membres', label: "Journal acces membres" },
-  ]},
-  { section: 'Chantier', modules: [
-    { id: 'chantier',              label: 'Tableau de bord' },
-    { id: 'chantier-journal',      label: 'Journal chantier' },
-    { id: 'chantier-intervenants', label: 'Intervenants' },
-    { id: 'chantier-reunions',     label: 'Réunions & PV' },
-    { id: 'chantier-photos',       label: 'Photos & Médias' },
-    { id: 'chantier-reserves',     label: 'Réserves & RFI' },
-    { id: 'chantier-visas',        label: 'Visas' },
-    { id: 'chantier-securite',     label: 'Sécurité' },
-  ]},
-  { section: 'Flotte véhicules', modules: [
-    { id: 'flotte',             label: 'Tableau de bord' },
-    { id: 'flotte-reservations',label: 'Réservations' },
-    { id: 'flotte-km',          label: 'Km & Carburant' },
-    { id: 'flotte-entretien',   label: 'Entretien' },
-    { id: 'flotte-couts',       label: 'Coûts & TCO' },
-    { id: 'flotte-conformite',  label: 'Conformité' },
-  ]},
-  { section: 'Portail Client', modules: [
-    { id: 'portail',          label: 'Comptes clients' },
-    { id: 'portail-docs',     label: 'Documents partagés' },
-    { id: 'portail-messages', label: 'Messages clients' },
-    { id: 'portail-journal', label: "Journal acces clients" },
-  ]},
-  { section: 'Paramètres', modules: [
-    { id: 'corbeille',   label: 'Corbeille' },
-    { id: 'parametres',  label: 'Paramètres' },
-  ]},
+var MODULES_PLATEFORME = [
+  { id: 'dashboard',   label: 'Tableau de bord' },
+  { id: 'demandes',    label: 'Demandes' },
+  { id: 'devis',       label: 'Offres & Devis' },
+  { id: 'projets',     label: 'Projets' },
+  { id: 'suivi',       label: 'Suivi' },
+  { id: 'journal',     label: 'Journal quotidien' },
+  { id: 'rendement',   label: 'Rendement' },
+  { id: 'facturation', label: 'Facturation' },
+  { id: 'bilans',      label: 'Bilans' },
+  { id: 'depenses',    label: 'Dépenses' },
+  { id: 'fiscalite',   label: 'Fiscalité' },
+  { id: 'nas',         label: 'Serveur NAS' },
+  { id: 'equipe',      label: 'Équipe' },
+  { id: 'clients',     label: 'Clients' },
+  { id: 'demandes-admin', label: 'Demandes admin' },
+  { id: 'conges',      label: 'Congés' },
+  { id: 'parametres',  label: 'Paramètres' },
 ];
-// Flat list for backward compat
-var MODULES_PLATEFORME = [];
-MODULES_PLATEFORME_SECTIONS.forEach(function(s){ s.modules.forEach(function(m){ MODULES_PLATEFORME.push(m); }); });
 
 // Charge la liste dynamique depuis l'API (avec fallback cache local)
 function loadModulesFromAPI() {
@@ -6879,12 +4984,12 @@ function canViewSensitiveMember() {
 
 // Modules par défaut selon rôle (pré-coché automatiquement à la sélection)
 var MODULES_PAR_ROLE = {
-  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','honoraires','nas','equipe','clients','demandes-admin','parametres'],
-  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','rendement','depenses','nas','clients','demandes-admin'],
-  'Décorateur':              ['dashboard','projets','suivi','journal','depenses','nas','clients'],
-  'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite','honoraires'],
-  'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','depenses','nas','clients','demandes-admin'],
-  'Stagiaire':               ['dashboard','projets','suivi','journal','depenses'],
+  'Architecte gérant':       ['dashboard','demandes','devis','projets','suivi','journal','rendement','facturation','bilans','depenses','fiscalite','nas','equipe','clients','demandes-admin','parametres'],
+  'Architecte collaborateur':['dashboard','devis','projets','suivi','journal','rendement','nas','clients','demandes-admin'],
+  'Décorateur':              ['dashboard','projets','suivi','journal','nas','clients'],
+  'Comptable':               ['dashboard','facturation','bilans','depenses','fiscalite'],
+  'Ingénieur paysagiste':    ['dashboard','projets','suivi','journal','nas','clients','demandes-admin'],
+  'Stagiaire':               ['dashboard','projets','suivi','journal'],
 };
 
 // Rôles par défaut
@@ -7009,50 +5114,11 @@ function escHtml(s) {
 }
 
 // ── Tableau récap accès ──
-function toggleMembreModuleAccess(membreId, moduleId) {
-  var membres = getMembres();
-  var m = membres.find(function(x){ return x.id === membreId; });
-  if (!m) return;
-  if (!Array.isArray(m.modules)) m.modules = [];
-  var idx = m.modules.indexOf(moduleId);
-  if (idx !== -1) {
-    m.modules.splice(idx, 1);
-  } else {
-    m.modules.push(moduleId);
-  }
-  saveMembresData(membres);
-  renderEquipeAccesTable();
-  showToast((idx !== -1 ? 'Accès retiré' : 'Accès accordé'), idx !== -1 ? 'info' : 'success');
-}
-window.toggleMembreModuleAccess = toggleMembreModuleAccess;
-
-function _toggleSectionModules(membreId, sectionIdx) {
-  var membres = getMembres();
-  var m = membres.find(function(x){ return x.id === membreId; });
-  if (!m) return;
-  if (!Array.isArray(m.modules)) m.modules = [];
-  var sec = MODULES_PLATEFORME_SECTIONS[sectionIdx];
-  if (!sec) return;
-  // Si tous les modules de la section sont déjà cochés → tout décocher, sinon tout cocher
-  var allOn = sec.modules.every(function(mod){ return m.modules.indexOf(mod.id) !== -1; });
-  sec.modules.forEach(function(mod){
-    var idx = m.modules.indexOf(mod.id);
-    if (allOn) { if (idx !== -1) m.modules.splice(idx, 1); }
-    else       { if (idx === -1) m.modules.push(mod.id); }
-  });
-  saveMembresData(membres);
-  renderEquipeAccesTable();
-  showToast(allOn ? 'Section désactivée' : 'Section activée', allOn ? 'info' : 'success');
-}
-window._toggleSectionModules = _toggleSectionModules;
-
 function renderEquipeAccesTable() {
   var membres = getMembres();
   var thead = document.getElementById('equipe-acces-thead');
   var tbody = document.getElementById('equipe-acces-tbody');
   if (!thead || !tbody) return;
-
-  var colCount = 2 + membres.length; // Module + Admin + membres
 
   // En-tête : Module | Admin | Membre1 | Membre2 ...
   thead.innerHTML = '<tr>'
@@ -7064,50 +5130,21 @@ function renderEquipeAccesTable() {
       }).join('')
     + '</tr>';
 
-  // Corps : groupé par section avec en-tête de section
-  var rows = '';
-  MODULES_PLATEFORME_SECTIONS.forEach(function(sec, secIdx) {
-    // Ligne en-tête de section
-    rows += '<tr>'
-      + '<td colspan="2" style="padding:0.55rem 0.7rem;font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.12em;border-bottom:1px solid var(--border);background:var(--bg-2)">'
-      + escHtml(sec.section) + ' <span style="font-weight:400;color:var(--text-3);font-size:0.65rem">(' + sec.modules.length + ')</span></td>'
+  // Corps : une ligne par module
+  tbody.innerHTML = MODULES_PLATEFORME.map(function(mod) {
+    return '<tr>'
+      + '<td style="padding:0.4rem 0.7rem;font-size:0.78rem;color:var(--text-2);border-bottom:1px solid rgba(255,255,255,0.04)">' + mod.label + '</td>'
+      + '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="color:var(--accent);font-size:0.85rem">✓</span></td>'
       + membres.map(function(m){
-          // Checkbox section : cocher/décocher tout le groupe
-          var mods = m.modules || [];
-          var countOn = sec.modules.filter(function(mod){ return mods.indexOf(mod.id) !== -1; }).length;
-          var allOn = countOn === sec.modules.length;
-          var someOn = countOn > 0 && !allOn;
-          return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid var(--border);background:var(--bg-2);cursor:pointer;user-select:none" '
-            + 'onclick="_toggleSectionModules(\'' + m.id + '\',' + secIdx + ')" '
-            + 'title="' + (allOn ? 'Retirer toute la section' : 'Accorder toute la section') + '">'
-            + (allOn
-              ? '<span style="color:var(--green);font-size:0.8rem;font-weight:700">✓</span>'
-              : someOn
-                ? '<span style="color:var(--yellow, #e2b93d);font-size:0.8rem">◐</span>'
-                : '<span style="color:rgba(255,255,255,0.12);font-size:0.8rem">—</span>')
+          var ok = Array.isArray(m.modules) && m.modules.indexOf(mod.id) !== -1;
+          return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04)">'
+            + (ok
+              ? '<span style="color:var(--green);font-size:0.85rem">✓</span>'
+              : '<span style="color:rgba(255,255,255,0.12);font-size:0.85rem">—</span>')
             + '</td>';
         }).join('')
       + '</tr>';
-
-    // Lignes modules de cette section
-    sec.modules.forEach(function(mod) {
-      rows += '<tr>'
-        + '<td style="padding:0.4rem 0.7rem 0.4rem 1.4rem;font-size:0.78rem;color:var(--text-2);border-bottom:1px solid rgba(255,255,255,0.04)">' + escHtml(mod.label) + '</td>'
-        + '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04)"><span style="color:var(--accent);font-size:0.85rem">✓</span></td>'
-        + membres.map(function(m){
-            var ok = Array.isArray(m.modules) && m.modules.indexOf(mod.id) !== -1;
-            return '<td style="text-align:center;padding:0.4rem;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;user-select:none" '
-              + 'onclick="toggleMembreModuleAccess(\'' + m.id + '\',\'' + mod.id + '\')" '
-              + 'title="Cliquer pour ' + (ok ? 'retirer' : 'accorder') + ' l\'accès">'
-              + (ok
-                ? '<span style="color:var(--green);font-size:0.85rem">✓</span>'
-                : '<span style="color:rgba(255,255,255,0.12);font-size:0.85rem">—</span>')
-              + '</td>';
-          }).join('')
-        + '</tr>';
-    });
-  });
-  tbody.innerHTML = rows;
+  }).join('');
 }
 
 // ── Modal membre : ouvrir / éditer ──
@@ -7214,8 +5251,6 @@ function editMembre(id) {
   setVal('mb-salaire', m.salaire_net);
   setVal('mb-charges', m.charges_sociales);
   setVal('mb-subv',    m.subventions);
-  var cbDir = document.getElementById('mb-subv-directe');
-  if (cbDir) cbDir.checked = !!parseInt(m.subv_directe);
   setVal('mb-avant',   m.avantages_nature);
   setVal('mb-heures',  m.heures_mois || 160);
   // Projection
@@ -7333,22 +5368,12 @@ function recomputeCoutEmployeur() {
   var subv    = v('mb-subv');
   var avant   = v('mb-avant');
   var heures  = Math.max(1, v('mb-heures') || 160);
-  var directe = document.getElementById('mb-subv-directe');
-  var isDirecte = directe && directe.checked;
-  // Si versé directement au membre, ne pas déduire la subvention du coût employeur
-  var coutTot = isDirecte ? (salaire + charges + avant) : (salaire + charges) - subv + avant;
+  var coutTot = (salaire + charges) - subv + avant;
   var coutH   = coutTot / heures;
   var ct = document.getElementById('mb-cout-total');
   var ch = document.getElementById('mb-cout-horaire');
   if (ct) ct.textContent = fmtTnd(coutTot);
   if (ch) ch.textContent = fmtTnd(coutH) + '/h';
-  // Mise à jour de la formule affichée et du hint
-  var formule = document.getElementById('mb-cout-formule');
-  if (formule) formule.textContent = isDirecte
-    ? '(Salaire + Charges) + Avantages (subvention versée directement)'
-    : '(Salaire + Charges) − Subventions + Avantages';
-  var hint = document.getElementById('mb-subv-directe-hint');
-  if (hint) hint.style.display = isDirecte ? 'block' : 'none';
   // Re-calcul projection (dépend du salaire)
   recomputeProjectionAugm();
 }
@@ -7472,20 +5497,13 @@ function renderModulesCheckboxes(preChecked) {
   preChecked = preChecked || [];
 
   function doRender() {
-    wrap.innerHTML = MODULES_PLATEFORME_SECTIONS.map(function(sec) {
-      var secHtml = '<div style="margin-bottom:0.6rem">';
-      secHtml += '<div style="font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;padding:0.3rem 0;margin-bottom:0.3rem;border-bottom:1px solid var(--border)">' + escHtml(sec.section) + '</div>';
-      secHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.35rem">';
-      secHtml += sec.modules.map(function(mod) {
-        var checked = preChecked.indexOf(mod.id) !== -1;
-        return '<label style="display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.7rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;background:var(--bg-2)" '
-          + 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
-          + '<input type="checkbox" name="mb-mod" value="'+mod.id+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">'
-          + '<span style="font-size:0.78rem;color:var(--text-2)">'+escHtml(mod.label)+'</span>'
-          + '</label>';
-      }).join('');
-      secHtml += '</div></div>';
-      return secHtml;
+    wrap.innerHTML = MODULES_PLATEFORME.map(function(mod) {
+      var checked = preChecked.indexOf(mod.id) !== -1;
+      return '<label style="display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;background:var(--bg-2)" '
+        + 'onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+        + '<input type="checkbox" name="mb-mod" value="'+mod.id+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0">'
+        + '<span style="font-size:0.8rem;color:var(--text-2)">'+escHtml(mod.label)+'</span>'
+        + '</label>';
     }).join('');
   }
 
@@ -7584,7 +5602,6 @@ function saveMembre() {
     payload.salaire_net        = num('mb-salaire');
     payload.charges_sociales   = num('mb-charges');
     payload.subventions        = num('mb-subv');
-    payload.subv_directe       = document.getElementById('mb-subv-directe').checked ? 1 : 0;
     payload.avantages_nature   = num('mb-avant');
     payload.heures_mois        = num('mb-heures') || 160;
     payload.date_embauche      = val('mb-date-embauche') || null;
@@ -7869,128 +5886,6 @@ function loadNasParams() {
     var el = document.getElementById(id);
     if (el && map[id] !== undefined) el.value = map[id];
   });
-  // Champs supplémentaires de la section Projets NAS
-  var rootEl = document.getElementById('param-nas-projets-root');
-  if (rootEl) rootEl.value = getSetting('cortoba_nas_projets_root', '');
-  var tplEl = document.getElementById('param-nas-template-folder');
-  if (tplEl) tplEl.value = getSetting('cortoba_nas_template_folder', '00-Dossier Type');
-  renderNasSubfolders();
-}
-
-// ── Sous-dossiers par défaut NAS ──
-function _getNasSubfolders() {
-  var val = getSetting('cortoba_nas_subfolders', []);
-  return Array.isArray(val) ? val : [];
-}
-function renderNasSubfolders() {
-  var list = document.getElementById('param-nas-subfolders-list');
-  if (!list) return;
-  var subs = _getNasSubfolders();
-  if (subs.length === 0) {
-    list.innerHTML = '<span style="font-size:0.75rem;color:var(--text-3);font-style:italic">Aucun sous-dossier configuré</span>';
-    return;
-  }
-  list.innerHTML = subs.map(function(s, i) {
-    return '<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;background:var(--bg-2);border-radius:5px;border:1px solid var(--border)">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-      '<span style="flex:1;font-size:0.8rem">' + s + '</span>' +
-      '<button class="btn btn-sm" onclick="removeNasSubfolder(' + i + ')" style="color:#e07070;padding:0.1rem 0.3rem;font-size:0.7rem" title="Supprimer">✕</button>' +
-      '</div>';
-  }).join('');
-}
-window.renderNasSubfolders = renderNasSubfolders;
-
-function addNasSubfolder() {
-  var input = document.getElementById('param-nas-subfolder-input');
-  if (!input) return;
-  var name = input.value.trim().replace(/[<>:"\/\\|?*]/g, '_');
-  if (!name) return;
-  var subs = _getNasSubfolders();
-  if (subs.indexOf(name) !== -1) { showToast('Ce sous-dossier existe déjà', 'error'); return; }
-  subs.push(name);
-  _settingsCache['cortoba_nas_subfolders'] = subs;
-  setLS('cortoba_nas_subfolders', subs);
-  input.value = '';
-  renderNasSubfolders();
-}
-window.addNasSubfolder = addNasSubfolder;
-
-function removeNasSubfolder(idx) {
-  var subs = _getNasSubfolders();
-  subs.splice(idx, 1);
-  _settingsCache['cortoba_nas_subfolders'] = subs;
-  setLS('cortoba_nas_subfolders', subs);
-  renderNasSubfolders();
-}
-window.removeNasSubfolder = removeNasSubfolder;
-
-// ── Sauvegarder config dossiers projets NAS ──
-function saveNasProjectConfig() {
-  var fields = {
-    cortoba_nas_projets_root:    'param-nas-projets-root',
-    cortoba_nas_template_folder: 'param-nas-template-folder',
-  };
-  var promises = [];
-  Object.keys(fields).forEach(function(key) {
-    var el = document.getElementById(fields[key]);
-    if (!el) return;
-    var val = el.value;
-    _settingsCache[key] = val;
-    setLS(key, val);
-    promises.push(
-      apiFetch('api/settings.php', {method:'POST', body:{key:key, value:val}})
-        .catch(function(e) { console.error('NAS project config save error:', e); return {error:true}; })
-    );
-  });
-  // Sauvegarder aussi les sous-dossiers
-  var subs = _getNasSubfolders();
-  _settingsCache['cortoba_nas_subfolders'] = subs;
-  setLS('cortoba_nas_subfolders', subs);
-  promises.push(
-    apiFetch('api/settings.php', {method:'POST', body:{key:'cortoba_nas_subfolders', value:subs}})
-      .catch(function(e) { console.error('NAS subfolders save error:', e); return {error:true}; })
-  );
-  Promise.all(promises).then(function(results) {
-    var errors = results.filter(function(r) { return r && r.error; });
-    if (errors.length > 0) {
-      showToast('Erreur lors de la sauvegarde', 'error');
-    } else {
-      showToast('Configuration dossiers projets NAS enregistrée');
-    }
-  });
-}
-
-// ── Construire l'URL du bridge NAS (HTTP sur le NAS local) ──
-function buildNasBridgeUrl(code, clientName, annee) {
-  var cfg = getNasConfig();
-  var ip = cfg.local || '192.168.1.165';
-  var user = cfg.user || 'CASNAS';
-  var pass = cfg.pass || 'Cortoba2026';
-  var port = cfg.webdavPort || '5005';
-
-  clientName = (clientName||'').replace(/,/g, '');
-  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*,]/g, '_').replace(/\s+/g, ' ').trim();
-  var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
-  var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
-
-  var tplRaw = getSetting('cortoba_nas_template_folder', '00-Dossier Type') || '00-Dossier Type';
-  // Extraire le nom du dossier si chemin UNC ou absolu saisi (ex: \\192.168.1.165\Public\...\00-Dossier Type)
-  var tplName = tplRaw.replace(/\\/g, '/').split('/').filter(function(s){return s;}).pop() || '00-Dossier Type';
-  var projRoot = getSetting('cortoba_nas_projets_root', '/Public/CAS_PROJETS').replace(/^\//, '');
-  var templateFolder = projRoot + '/' + tplName;
-
-  var subfolders = _getNasSubfolders();
-
-  var hash = 'ip=' + encodeURIComponent(ip)
-    + '&user=' + encodeURIComponent(user)
-    + '&pass=' + encodeURIComponent(pass)
-    + '&port=' + port
-    + '&folders=' + encodeURIComponent(folders)
-    + '&nasPath=' + encodeURIComponent(nasPath)
-    + '&template=' + encodeURIComponent(templateFolder)
-    + (subfolders.length ? '&subfolders=' + encodeURIComponent(JSON.stringify(subfolders)) : '');
-
-  return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge-v2.html#' + hash;
 }
 
 // ── Ping NAS local via Image trick (contourne CORS) ──
@@ -8779,19 +6674,6 @@ function openDemande(id) {
   if (btnProjet) btnProjet.disabled = !d.client_id || !!d.projet_id;
   if (btnDevis)  btnDevis.disabled  = !d.projet_id;
 
-  // Accept button state
-  var btnAccept = document.getElementById('dem-btn-accepter');
-  var acceptBlock = document.getElementById('dem-accept-block');
-  var acceptResult = document.getElementById('dem-accept-result');
-  if (acceptResult) acceptResult.style.display = 'none';
-  if (d.devis_id || d.statut === 'devis_cree') {
-    if (btnAccept) { btnAccept.disabled = true; btnAccept.textContent = 'Déjà acceptée'; }
-    if (acceptBlock) { acceptBlock.style.borderColor = 'rgba(90,171,110,0.4)'; acceptBlock.style.background = 'rgba(90,171,110,0.06)'; }
-  } else {
-    if (btnAccept) { btnAccept.disabled = false; btnAccept.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Accepter en 1 clic'; }
-    if (acceptBlock) { acceptBlock.style.borderColor = 'rgba(200,169,110,0.25)'; acceptBlock.style.background = 'linear-gradient(135deg,rgba(200,169,110,0.08),rgba(200,169,110,0.02))'; }
-  }
-
   openModal('modal-demande');
 }
 
@@ -8893,250 +6775,6 @@ function archiveDemande() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  WORKFLOW : ACCEPTER DEMANDE (1 clic)
-// ══════════════════════════════════════════════════════════
-
-function accepterDemande() {
-  if (!_openDemandeId) return;
-  var d = getDemandes().find(function(x) { return x.id === _openDemandeId; });
-  if (d && d.devis_id) {
-    showToast('Cette demande a déjà été acceptée', 'error');
-    return;
-  }
-  var btn = document.getElementById('dem-btn-accepter');
-  if (btn) { btn.disabled = true; btn.textContent = 'Traitement en cours…'; }
-  var resultEl = document.getElementById('dem-accept-result');
-
-  apiFetch('api/demandes.php?id=' + _openDemandeId, {
-    method: 'PUT',
-    body: { action: 'accepter_demande' }
-  }).then(function(r) {
-    var data = r.data || r;
-    if (resultEl) {
-      resultEl.style.display = 'block';
-      resultEl.innerHTML = '<strong>Demande acceptée avec succès !</strong><br>'
-        + 'Client créé · Projet créé · Devis <strong>' + (data.devis_numero || '') + '</strong> généré<br>'
-        + 'Montant HT : ' + fmtMontant(data.montant_ht || 0) + ' — TTC : ' + fmtMontant(data.montant_ttc || 0)
-        + '<br><span style="font-size:0.72rem;color:var(--text-3)">Le client a été notifié par email.</span>';
-    }
-    showToast('Demande acceptée — Client, projet et devis créés automatiquement');
-    return loadData();
-  }).then(function() {
-    renderAll();
-    // Update button states
-    var btnClient = document.getElementById('dem-btn-client');
-    var btnProjet = document.getElementById('dem-btn-projet');
-    var btnDevis = document.getElementById('dem-btn-devis');
-    if (btnClient) btnClient.disabled = true;
-    if (btnProjet) btnProjet.disabled = true;
-    if (btnDevis) btnDevis.disabled = true;
-    if (btn) { btn.disabled = true; btn.textContent = 'Déjà acceptée'; }
-    // Hide accept block
-    var block = document.getElementById('dem-accept-block');
-    if (block) { block.style.borderColor = 'rgba(90,171,110,0.4)'; block.style.background = 'rgba(90,171,110,0.06)'; }
-  }).catch(function(e) {
-    showToast('Erreur : ' + e.message, 'error');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Accepter en 1 clic'; }
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  WORKFLOW : DEVIS → FACTURE
-// ══════════════════════════════════════════════════════════
-
-function convertDevisToFacture(devisId, force) {
-  if (!devisId) return;
-  if (!confirm('Convertir ce devis en facture ? Une facture sera créée et le client sera notifié par email.')) return;
-
-  apiFetch('api/workflow.php?action=devis_to_facture', {
-    method: 'POST',
-    body: { devis_id: devisId, force: !!force }
-  }).then(function(r) {
-    var f = r.data || r;
-    showToast('Facture ' + (f.numero || '') + ' créée depuis le devis');
-    loadData().then(function() {
-      renderDevisList();
-      renderFactures();
-    });
-  }).catch(function(e) {
-    showToast('Erreur : ' + e.message, 'error');
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  WORKFLOW : PDF GENERATION
-// ══════════════════════════════════════════════════════════
-
-function generateDocumentPDF(type, id) {
-  apiFetch('api/workflow.php?action=generate_pdf&type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id))
-    .then(function(r) {
-      var doc = r.data || r;
-      _openPDFPreview(doc);
-    }).catch(function(e) {
-      showToast('Erreur PDF : ' + e.message, 'error');
-    });
-}
-
-function _openPDFPreview(doc) {
-  var type = doc._type || 'document';
-  var title = doc._title || 'Document';
-  var company = doc._company || {};
-  var lignes = doc._lignes || [];
-
-  // Build HTML for print
-  var lignesHtml = '';
-  if (lignes.length > 0) {
-    lignesHtml = '<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:12px">'
-      + '<thead><tr style="background:#f5f0e8;border-bottom:2px solid #c8a96e">'
-      + '<th style="text-align:left;padding:8px">Description</th>'
-      + '<th style="text-align:center;padding:8px">Qté</th>'
-      + '<th style="text-align:right;padding:8px">P.U.</th>'
-      + '<th style="text-align:right;padding:8px">Montant</th></tr></thead><tbody>';
-    lignes.forEach(function(l) {
-      lignesHtml += '<tr style="border-bottom:1px solid #eee">'
-        + '<td style="padding:6px 8px">' + (l.description || '') + '</td>'
-        + '<td style="text-align:center;padding:6px 8px">' + (l.quantite || 1) + '</td>'
-        + '<td style="text-align:right;padding:6px 8px">' + fmtMontant(l.prix_unitaire || 0) + '</td>'
-        + '<td style="text-align:right;padding:6px 8px">' + fmtMontant(l.montant || 0) + '</td></tr>';
-    });
-    lignesHtml += '</tbody></table>';
-  }
-
-  // Totals section
-  var totalsHtml = '<table style="width:50%;margin-left:auto;border-collapse:collapse;font-size:12px">';
-  if (type === 'recu') {
-    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Montant payé</td><td style="text-align:right;padding:4px 8px;font-weight:bold;color:#c8a96e">' + fmtMontant(doc.montant || 0) + ' TND</td></tr>';
-    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Total payé sur la facture</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.total_paye_facture || 0) + ' TND</td></tr>';
-    totalsHtml += '<tr style="border-top:2px solid #c8a96e"><td style="padding:6px 8px;font-weight:bold">Reste à payer</td><td style="text-align:right;padding:6px 8px;font-weight:bold">' + fmtMontant(doc._reste || 0) + ' TND</td></tr>';
-  } else {
-    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Montant HT</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.montant_ht || 0) + ' TND</td></tr>';
-    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">TVA</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.tva || 0) + ' TND</td></tr>';
-    totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Montant TTC</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.montant_ttc || 0) + ' TND</td></tr>';
-    if (doc.timbre) totalsHtml += '<tr><td style="padding:4px 8px;color:#666">Timbre</td><td style="text-align:right;padding:4px 8px">' + fmtMontant(doc.timbre) + ' TND</td></tr>';
-    if (doc.ras_amt) totalsHtml += '<tr><td style="padding:4px 8px;color:#666">RAS (' + (doc.ras_taux||10) + '%)</td><td style="text-align:right;padding:4px 8px">-' + fmtMontant(doc.ras_amt) + ' TND</td></tr>';
-    if (doc.net_payer) totalsHtml += '<tr style="border-top:2px solid #c8a96e"><td style="padding:6px 8px;font-weight:bold">Net à payer</td><td style="text-align:right;padding:6px 8px;font-weight:bold;font-size:14px">' + fmtMontant(doc.net_payer) + ' TND</td></tr>';
-  }
-  totalsHtml += '</table>';
-
-  // Client info
-  var clientName = doc.client_nom || doc.client_nom_full || doc.client || '';
-  var clientAddr = doc.client_adresse || '';
-  var clientMF = doc.client_mf || '';
-
-  // Specific fields for recu
-  var recuHtml = '';
-  if (type === 'recu') {
-    recuHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin:16px 0">'
-      + '<tr><td style="padding:4px 8px;color:#666;width:40%">Facture</td><td style="padding:4px 8px">' + (doc.facture_numero || '') + '</td></tr>'
-      + '<tr><td style="padding:4px 8px;color:#666">Projet</td><td style="padding:4px 8px">' + (doc.projet_nom || '') + '</td></tr>'
-      + '<tr><td style="padding:4px 8px;color:#666">Date de paiement</td><td style="padding:4px 8px">' + (doc.date_paiement || '') + '</td></tr>'
-      + '<tr><td style="padding:4px 8px;color:#666">Mode de paiement</td><td style="padding:4px 8px">' + (doc.mode_paiement || '') + '</td></tr>'
-      + '<tr><td style="padding:4px 8px;color:#666">Référence</td><td style="padding:4px 8px">' + (doc.reference || '-') + '</td></tr>'
-      + '</table>';
-  }
-
-  var printHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + title + '</title>'
-    + '<style>@page{size:A4;margin:20mm}body{font-family:Arial,sans-serif;color:#333;margin:0;padding:20px}'
-    + '.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #c8a96e;padding-bottom:16px;margin-bottom:24px}'
-    + '.logo-side h1{color:#c8a96e;font-size:18px;margin:0}.logo-side p{color:#888;font-size:11px;margin:2px 0}'
-    + '.doc-label{text-align:right}.doc-label h2{color:#222;font-size:15px;margin:0 0 4px}.doc-label p{font-size:11px;color:#666;margin:2px 0}'
-    + '.client-box{background:#f9f7f3;border:1px solid #e8e0d0;border-radius:6px;padding:12px 16px;margin-bottom:20px}'
-    + '.client-box strong{display:block;font-size:13px;margin-bottom:4px}.client-box span{font-size:11px;color:#666}'
-    + '.notes{margin-top:20px;padding:12px;background:#f8f8f8;border-radius:4px;font-size:11px;color:#666;white-space:pre-wrap}'
-    + '.footer{margin-top:40px;border-top:1px solid #ddd;padding-top:12px;font-size:10px;color:#999;text-align:center}'
-    + '@media print{body{padding:0}}</style></head><body>'
-    + '<div class="header"><div class="logo-side"><h1>' + (company.nom || 'CORTOBA Architecture') + '</h1>'
-    + '<p>' + (company.adresse || '') + '</p><p>' + (company.email || '') + '</p>'
-    + (company.mf ? '<p>MF : ' + company.mf + '</p>' : '') + '</div>'
-    + '<div class="doc-label"><h2>' + title + '</h2>'
-    + '<p>Date : ' + (doc.date_devis || doc.date_facture || doc.date_paiement || new Date().toISOString().split('T')[0]) + '</p>'
-    + (doc.date_expiry ? '<p>Validité : ' + doc.date_expiry + '</p>' : '')
-    + (doc.date_echeance ? '<p>Échéance : ' + doc.date_echeance + '</p>' : '')
-    + '</div></div>'
-    + '<div class="client-box"><strong>' + clientName + '</strong>'
-    + (clientAddr ? '<span>' + clientAddr + '</span><br>' : '')
-    + (clientMF ? '<span>MF : ' + clientMF + '</span>' : '')
-    + '</div>'
-    + (doc.objet || doc.facture_objet ? '<p style="margin-bottom:16px"><strong>Objet : </strong>' + (doc.objet || doc.facture_objet || '') + '</p>' : '')
-    + recuHtml
-    + lignesHtml
-    + totalsHtml
-    + (doc.montant_lettres ? '<p style="margin-top:12px;font-size:12px;font-style:italic">Arrêté la présente à la somme de : <strong>' + doc.montant_lettres + '</strong></p>' : '')
-    + '<div class="footer">' + (company.nom || 'CORTOBA Architecture') + ' · ' + (company.adresse || '') + ' · ' + (company.email || '') + '</div>'
-    + '</body></html>';
-
-  var win = window.open('', '_blank');
-  if (win) {
-    win.document.write(printHtml);
-    win.document.close();
-    setTimeout(function() { win.print(); }, 500);
-  }
-}
-
-function sendDocumentByEmail(type, id) {
-  var email = prompt('Envoyer par email à :');
-  if (!email) return;
-  var message = prompt('Message personnalisé (optionnel) :') || '';
-
-  apiFetch('api/workflow.php?action=send_document', {
-    method: 'POST',
-    body: { type: type, id: id, email: email, message: message }
-  }).then(function(r) {
-    showToast('Document envoyé à ' + (r.data ? r.data.email : email));
-  }).catch(function(e) {
-    showToast('Erreur envoi : ' + e.message, 'error');
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  DASHBOARD : SOLDES PROJETS
-// ══════════════════════════════════════════════════════════
-
-function renderDashSoldes(data) {
-  var soldes = (data && data.soldes_projets) || [];
-  var kpis = (data && data.kpis) || {};
-  var tbody = document.getElementById('dash-soldes-tbody');
-  var totauxEl = document.getElementById('dash-soldes-totaux');
-
-  if (!tbody) return;
-
-  if (soldes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text-3);font-size:0.8rem">Aucun projet avec honoraires configurés</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = soldes.map(function(p) {
-    var prevus = parseFloat(p.honoraires_prevus) || 0;
-    var facture = parseFloat(p.honoraires_factures) || 0;
-    var encaisse = parseFloat(p.honoraires_encaisses) || 0;
-    var reste = facture - encaisse;
-    var pct = prevus > 0 ? Math.round(encaisse / prevus * 100) : 0;
-    var barColor = pct >= 80 ? 'var(--green)' : (pct >= 40 ? 'var(--accent)' : 'var(--orange)');
-
-    return '<tr style="border-bottom:1px solid var(--border)">'
-      + '<td style="padding:0.5rem 0.8rem;font-weight:500;font-size:0.82rem">' + (p.nom || '—') + '<div style="font-size:0.68rem;color:var(--text-3)">' + (p.phase || '') + '</div></td>'
-      + '<td style="padding:0.5rem 0.8rem;font-size:0.82rem;color:var(--text-2)">' + (p.client || '—') + '</td>'
-      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">' + fmtMontant(prevus) + '</td>'
-      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">' + fmtMontant(facture) + '</td>'
-      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono);color:var(--green)">' + fmtMontant(encaisse) + '</td>'
-      + '<td style="text-align:right;padding:0.5rem 0.8rem;font-size:0.82rem;font-family:var(--mono);font-weight:600;color:' + (reste > 0 ? 'var(--orange)' : 'var(--green)') + '">' + fmtMontant(reste) + '</td>'
-      + '<td style="padding:0.5rem 0.8rem;width:100px"><div style="height:6px;background:var(--bg-3);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width 0.5s"></div></div><div style="font-size:0.65rem;color:var(--text-3);text-align:center;margin-top:2px">' + pct + '%</div></td>'
-      + '</tr>';
-  }).join('');
-
-  if (totauxEl) {
-    var tp = parseFloat(kpis.total_hono_prevus) || 0;
-    var tf = parseFloat(kpis.total_hono_facture) || 0;
-    var te = parseFloat(kpis.total_hono_encaisse) || 0;
-    var tr = parseFloat(kpis.total_reste_a_payer) || 0;
-    totauxEl.innerHTML = '<span>Prévu : <strong style="color:var(--text)">' + fmtMontant(tp) + '</strong></span>'
-      + '<span>Facturé : <strong style="color:var(--text)">' + fmtMontant(tf) + '</strong></span>'
-      + '<span>Encaissé : <strong style="color:var(--green)">' + fmtMontant(te) + '</strong></span>'
-      + '<span>Reste : <strong style="color:var(--orange)">' + fmtMontant(tr) + '</strong></span>';
-  }
-}
-
-// ══════════════════════════════════════════════════════════
 //  PARAMÈTRES CONFIGURATEUR
 // ══════════════════════════════════════════════════════════
 
@@ -9154,63 +6792,6 @@ var CFG_DEFAULTS = {
   },
   cfg_ratios: {
     shob: 1.15, emprise: 40
-  },
-  cfg_email_destinataire: 'cortobaarchitecture@gmail.com',
-  cfg_operation_mult: { neuf: 1, reamenagement: 0.65, extension: 0.8 },
-  cfg_pool_rates: { skimmer: 1500, debordement: 1800 },
-  cfg_ext_items_costs: {
-    terrasse: 15000, cuisine_ext: 8000, sanitaires_ext: 6000,
-    salon_ext: 10000, debarras: 4000, toit_terrasse: 12000,
-    cloture_ml: 150, carport: 8000
-  },
-  cfg_cost_breakdown: {
-    standard: [45, 32, 23], confort: [40, 33, 27], premium: [35, 28, 37]
-  },
-  cfg_circulation_coeff: 1.15,
-  cfg_surfaces: {
-    standard: {
-      salon:{default:18,min:14}, sejour:{default:16,min:12}, entree:{default:7,min:4},
-      cuisine:{default:12,min:8}, salle_manger:{default:10,min:8},
-      sde_complete:{default:5,min:2}, sde_simple:{default:3,min:2},
-      chambre_simple:{default:9,min:8}, chambre_double:{default:11,min:10}, chambre_2doubles:{default:14,min:12},
-      suite_parentale_dressing:{default:28,min:22}, suite_parentale_placard:{default:24,min:22},
-      suite_dressing:{default:24,min:18}, suite_placard:{default:20,min:18},
-      sdb_privative:{default:5,min:4}, bureau:{default:10,min:8}, sport:{default:18,min:12},
-      buanderie:{default:5,min:4}, cellier:{default:5,min:4}, buanderie_cellier:{default:9,min:6},
-      garage_1:{default:18,min:16}, garage_2_cote:{default:36,min:30}, garage_2_ligne:{default:38,min:32}, carport:{default:14,min:12}
-    },
-    confort: {
-      salon:{default:20,min:14}, sejour:{default:18,min:12}, entree:{default:8,min:4},
-      cuisine:{default:14,min:8}, salle_manger:{default:12,min:8},
-      sde_complete:{default:6,min:2}, sde_simple:{default:3,min:2},
-      chambre_simple:{default:10,min:8}, chambre_double:{default:12,min:10}, chambre_2doubles:{default:16,min:12},
-      suite_parentale_dressing:{default:30,min:22}, suite_parentale_placard:{default:26,min:22},
-      suite_dressing:{default:26,min:18}, suite_placard:{default:22,min:18},
-      sdb_privative:{default:6,min:4}, bureau:{default:12,min:8}, sport:{default:20,min:12},
-      buanderie:{default:6,min:4}, cellier:{default:6,min:4}, buanderie_cellier:{default:10,min:6},
-      garage_1:{default:20,min:16}, garage_2_cote:{default:40,min:30}, garage_2_ligne:{default:42,min:32}, carport:{default:16,min:12}
-    },
-    premium: {
-      salon:{default:25,min:14}, sejour:{default:22,min:12}, entree:{default:10,min:4},
-      cuisine:{default:18,min:8}, salle_manger:{default:14,min:8},
-      sde_complete:{default:8,min:2}, sde_simple:{default:4,min:2},
-      chambre_simple:{default:12,min:8}, chambre_double:{default:14,min:10}, chambre_2doubles:{default:18,min:12},
-      suite_parentale_dressing:{default:35,min:22}, suite_parentale_placard:{default:30,min:22},
-      suite_dressing:{default:30,min:18}, suite_placard:{default:26,min:18},
-      sdb_privative:{default:8,min:4}, bureau:{default:15,min:8}, sport:{default:25,min:12},
-      buanderie:{default:8,min:4}, cellier:{default:8,min:4}, buanderie_cellier:{default:14,min:6},
-      garage_1:{default:24,min:16}, garage_2_cote:{default:44,min:30}, garage_2_ligne:{default:46,min:32}, carport:{default:18,min:12}
-    }
-  },
-  cfg_delais: {
-    logement: {
-      small:  { label:'< 120 m²', maxSurface:120, phases:[{name:'Études',dur:'2 mois'},{name:'Terrassement & fondations',dur:'2 mois'},{name:'Gros œuvre',dur:'4 mois'},{name:'Second œuvre',dur:'3 mois'},{name:'Finitions',dur:'2 mois'}] },
-      medium: { label:'120–250 m²', maxSurface:250, phases:[{name:'Études & permis',dur:'3 mois'},{name:'Fondations',dur:'2–3 mois'},{name:'Gros œuvre',dur:'5–6 mois'},{name:'Second œuvre',dur:'4 mois'},{name:'Finitions',dur:'3 mois'}] },
-      large:  { label:'> 250 m²', maxSurface:99999, phases:[{name:'Études & permis',dur:'3–4 mois'},{name:'Fondations',dur:'3 mois'},{name:'Gros œuvre',dur:'7–9 mois'},{name:'Second œuvre',dur:'5–6 mois'},{name:'Finitions',dur:'4–5 mois'}] }
-    },
-    immeuble: {
-      default: { label:'Immeuble (tous)', maxSurface:99999, phases:[{name:'Études & admin.',dur:'3–4 mois'},{name:'Gros œuvre',dur:'6–10 mois'},{name:'Second œuvre',dur:'4–6 mois'},{name:'Finitions',dur:'3–4 mois'}] }
-    }
   }
 };
 
@@ -9246,218 +6827,6 @@ function loadCfgParams() {
   if (elShob) elShob.value = ratios.shob || CFG_DEFAULTS.cfg_ratios.shob;
   var elEmprise = document.getElementById('cfg-ratio-emprise');
   if (elEmprise) elEmprise.value = ratios.emprise || CFG_DEFAULTS.cfg_ratios.emprise;
-
-  // Email destinataire
-  var emailDest = getSetting('cfg_email_destinataire', CFG_DEFAULTS.cfg_email_destinataire);
-  var elEmail = document.getElementById('cfg-email-destinataire');
-  if (elEmail) elEmail.value = emailDest;
-
-  // Multiplicateurs d'opération
-  var opMult = getSetting('cfg_operation_mult', CFG_DEFAULTS.cfg_operation_mult);
-  ['neuf','reamenagement','extension'].forEach(function(k) {
-    var el = document.getElementById('cfg-opmult-' + k);
-    if (el) el.value = opMult[k] !== undefined ? opMult[k] : CFG_DEFAULTS.cfg_operation_mult[k];
-  });
-
-  // Tarifs piscine
-  var poolRates = getSetting('cfg_pool_rates', CFG_DEFAULTS.cfg_pool_rates);
-  ['skimmer','debordement'].forEach(function(k) {
-    var el = document.getElementById('cfg-pool-' + k);
-    if (el) el.value = poolRates[k] !== undefined ? poolRates[k] : CFG_DEFAULTS.cfg_pool_rates[k];
-  });
-
-  // Coûts éléments extérieurs
-  var extItems = getSetting('cfg_ext_items_costs', CFG_DEFAULTS.cfg_ext_items_costs);
-  ['terrasse','cuisine_ext','sanitaires_ext','salon_ext','debarras','toit_terrasse','cloture_ml','carport'].forEach(function(k) {
-    var el = document.getElementById('cfg-extitem-' + k);
-    if (el) el.value = extItems[k] !== undefined ? extItems[k] : CFG_DEFAULTS.cfg_ext_items_costs[k];
-  });
-
-  // Ventilation coûts
-  var breakdown = getSetting('cfg_cost_breakdown', CFG_DEFAULTS.cfg_cost_breakdown);
-  ['standard','confort','premium'].forEach(function(st) {
-    var arr = breakdown[st] || CFG_DEFAULTS.cfg_cost_breakdown[st];
-    var elGo  = document.getElementById('cfg-breakdown-' + st + '-go');
-    var elSo  = document.getElementById('cfg-breakdown-' + st + '-so');
-    var elFin = document.getElementById('cfg-breakdown-' + st + '-fin');
-    if (elGo)  elGo.value  = arr[0];
-    if (elSo)  elSo.value  = arr[1];
-    if (elFin) elFin.value = arr[2];
-  });
-
-  // Coefficient circulation
-  var circCoeff = getSetting('cfg_circulation_coeff', CFG_DEFAULTS.cfg_circulation_coeff);
-  var elCirc = document.getElementById('cfg-circ-coeff');
-  if (elCirc) elCirc.value = circCoeff;
-
-  // Surfaces
-  loadCfgSurfaces();
-
-  // Délais
-  loadCfgDelais();
-}
-
-// ── Surfaces par pièce (tableau dynamique) ──
-var _cfgSurfCurrentTab = 'confort';
-
-function loadCfgSurfaces() {
-  var surfaces = getSetting('cfg_surfaces', CFG_DEFAULTS.cfg_surfaces);
-  window._cfgSurfacesData = surfaces;
-  renderCfgSurfacesTab(_cfgSurfCurrentTab);
-}
-
-function cfgSurfTab(standing) {
-  _cfgSurfCurrentTab = standing;
-  ['standard','confort','premium'].forEach(function(s) {
-    var btn = document.getElementById('cfg-surf-tab-' + s);
-    if (btn) { btn.className = s === standing ? 'btn btn-sm btn-primary' : 'btn btn-sm'; }
-  });
-  renderCfgSurfacesTab(standing);
-}
-
-var CFG_SURF_LABELS = {
-  salon:'Salon', sejour:'Séjour', entree:'Entrée',
-  cuisine:'Cuisine indépendante', salle_manger:'Salle à manger',
-  sde_complete:"Salle d'eau (complète)", sde_simple:"Salle d'eau (simple)",
-  chambre_simple:'Chambre simple', chambre_double:'Chambre double', chambre_2doubles:'Chambre 2 lits doubles',
-  suite_parentale_dressing:'Suite parentale (dressing)', suite_parentale_placard:'Suite parentale (placard)',
-  suite_dressing:'Suite (dressing)', suite_placard:'Suite (placard)',
-  sdb_privative:'SDB privative', bureau:'Bureau / Télétravail', sport:'Espace de sport',
-  buanderie:'Buanderie', cellier:'Cellier', buanderie_cellier:'Buanderie & cellier',
-  garage_1:'Garage 1 voiture', garage_2_cote:'Garage 2 voit. (côte à côte)', garage_2_ligne:'Garage 2 voit. (en ligne)', carport:'Abri de voiture'
-};
-
-function renderCfgSurfacesTab(standing) {
-  var wrap = document.getElementById('cfg-surfaces-table-wrap');
-  if (!wrap) return;
-  var data = (window._cfgSurfacesData || CFG_DEFAULTS.cfg_surfaces)[standing] || {};
-  var keys = Object.keys(CFG_SURF_LABELS);
-  var html = '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">'
-    + '<thead><tr style="border-bottom:1px solid var(--border)">'
-    + '<th style="text-align:left;padding:0.5rem;color:var(--text-3)">Pièce</th>'
-    + '<th style="padding:0.5rem;color:var(--text-3);width:100px">Par défaut (m²)</th>'
-    + '<th style="padding:0.5rem;color:var(--text-3);width:100px">Minimum (m²)</th>'
-    + '</tr></thead><tbody>';
-  keys.forEach(function(key) {
-    var v = data[key] || CFG_DEFAULTS.cfg_surfaces[standing][key] || {default:10,min:4};
-    html += '<tr>'
-      + '<td style="padding:0.4rem 0.5rem;font-weight:500">' + CFG_SURF_LABELS[key] + '</td>'
-      + '<td style="padding:0.3rem"><input id="cfg-surf-' + standing + '-' + key + '-def" class="form-input" type="number" step="1" style="width:100%;text-align:center" value="' + v.default + '" /></td>'
-      + '<td style="padding:0.3rem"><input id="cfg-surf-' + standing + '-' + key + '-min" class="form-input" type="number" step="1" style="width:100%;text-align:center" value="' + v.min + '" /></td>'
-      + '</tr>';
-  });
-  html += '</tbody></table>';
-  wrap.innerHTML = html;
-}
-
-function collectCfgSurfaces() {
-  var result = {};
-  ['standard','confort','premium'].forEach(function(standing) {
-    result[standing] = {};
-    Object.keys(CFG_SURF_LABELS).forEach(function(key) {
-      var elDef = document.getElementById('cfg-surf-' + standing + '-' + key + '-def');
-      var elMin = document.getElementById('cfg-surf-' + standing + '-' + key + '-min');
-      var defs = CFG_DEFAULTS.cfg_surfaces[standing][key] || {default:10,min:4};
-      result[standing][key] = {
-        default: elDef ? parseFloat(elDef.value) || defs.default : defs.default,
-        min: elMin ? parseFloat(elMin.value) || defs.min : defs.min
-      };
-    });
-  });
-  return result;
-}
-
-// ── Délais de construction (éditeur dynamique) ──
-
-function loadCfgDelais() {
-  var delais = getSetting('cfg_delais', CFG_DEFAULTS.cfg_delais);
-  window._cfgDelaisData = delais;
-  renderCfgDelais();
-}
-
-function renderCfgDelais() {
-  var wrap = document.getElementById('cfg-delais-wrap');
-  if (!wrap) return;
-  var delais = window._cfgDelaisData || CFG_DEFAULTS.cfg_delais;
-  var groupLabels = {logement:'Logement', immeuble:'Immeuble'};
-  var html = '';
-  Object.keys(groupLabels).forEach(function(grp) {
-    var brackets = delais[grp] || {};
-    html += '<details style="margin-bottom:1rem" ' + (grp === 'logement' ? 'open' : '') + '>'
-      + '<summary style="cursor:pointer;font-size:0.82rem;font-weight:500;color:var(--text);padding:0.5rem 0">' + groupLabels[grp] + '</summary>';
-    Object.keys(brackets).forEach(function(bKey) {
-      var b = brackets[bKey];
-      html += '<div style="border:1px solid var(--border);border-radius:6px;padding:0.8rem;margin:0.5rem 0">'
-        + '<div style="display:flex;gap:0.8rem;margin-bottom:0.8rem;align-items:center">'
-        + '<div class="form-field" style="flex:1"><label class="form-label">Tranche</label>'
-        + '<input id="cfg-delai-' + grp + '-' + bKey + '-label" class="form-input" value="' + (b.label || bKey) + '" /></div>'
-        + '<div class="form-field" style="width:100px"><label class="form-label">Surface max</label>'
-        + '<input id="cfg-delai-' + grp + '-' + bKey + '-max" class="form-input" type="number" value="' + (b.maxSurface || 99999) + '" /></div>'
-        + '</div>'
-        + '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">'
-        + '<thead><tr style="border-bottom:1px solid var(--border)">'
-        + '<th style="text-align:left;padding:0.4rem;color:var(--text-3)">Phase</th>'
-        + '<th style="padding:0.4rem;color:var(--text-3);width:120px">Durée</th>'
-        + '<th style="width:40px"></th></tr></thead><tbody>';
-      (b.phases || []).forEach(function(p, pi) {
-        html += '<tr>'
-          + '<td style="padding:0.3rem"><input id="cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-name" class="form-input" value="' + (p.name || '') + '" style="width:100%" /></td>'
-          + '<td style="padding:0.3rem"><input id="cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-dur" class="form-input" value="' + (p.dur || '') + '" style="width:100%;text-align:center" /></td>'
-          + '<td style="padding:0.3rem"><button class="btn btn-sm" onclick="cfgDelaiRemovePhase(\'' + grp + '\',\'' + bKey + '\',' + pi + ')" title="Supprimer">×</button></td>'
-          + '</tr>';
-      });
-      html += '</tbody></table>'
-        + '<button class="btn btn-sm" style="margin-top:0.4rem" onclick="cfgDelaiAddPhase(\'' + grp + '\',\'' + bKey + '\')">+ Phase</button>'
-        + '</div>';
-    });
-    html += '</details>';
-  });
-  wrap.innerHTML = html;
-}
-
-function cfgDelaiAddPhase(grp, bKey) {
-  var delais = window._cfgDelaisData || CFG_DEFAULTS.cfg_delais;
-  if (!delais[grp] || !delais[grp][bKey]) return;
-  // Collect current values first
-  window._cfgDelaisData = collectCfgDelais();
-  window._cfgDelaisData[grp][bKey].phases.push({name:'Nouvelle phase', dur:'1 mois'});
-  renderCfgDelais();
-}
-
-function cfgDelaiRemovePhase(grp, bKey, idx) {
-  window._cfgDelaisData = collectCfgDelais();
-  if (window._cfgDelaisData[grp] && window._cfgDelaisData[grp][bKey]) {
-    window._cfgDelaisData[grp][bKey].phases.splice(idx, 1);
-  }
-  renderCfgDelais();
-}
-
-function collectCfgDelais() {
-  var delais = window._cfgDelaisData || CFG_DEFAULTS.cfg_delais;
-  var result = {};
-  Object.keys(delais).forEach(function(grp) {
-    result[grp] = {};
-    Object.keys(delais[grp]).forEach(function(bKey) {
-      var b = delais[grp][bKey];
-      var labelEl = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-label');
-      var maxEl   = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-max');
-      var phases = [];
-      (b.phases || []).forEach(function(p, pi) {
-        var nameEl = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-name');
-        var durEl  = document.getElementById('cfg-delai-' + grp + '-' + bKey + '-p' + pi + '-dur');
-        phases.push({
-          name: nameEl ? nameEl.value : p.name,
-          dur:  durEl  ? durEl.value  : p.dur
-        });
-      });
-      result[grp][bKey] = {
-        label: labelEl ? labelEl.value : b.label,
-        maxSurface: maxEl ? parseInt(maxEl.value) || 99999 : b.maxSurface,
-        phases: phases
-      };
-    });
-  });
-  return result;
 }
 
 function saveCfgParams() {
@@ -9487,62 +6856,11 @@ function saveCfgParams() {
     emprise: parseFloat((document.getElementById('cfg-ratio-emprise') || {}).value) || 40
   };
 
-  // Multiplicateurs d'opération
-  var opMult = {};
-  ['neuf','reamenagement','extension'].forEach(function(k) {
-    var el = document.getElementById('cfg-opmult-' + k);
-    opMult[k] = el ? parseFloat(el.value) || 0 : 0;
-  });
-
-  // Tarifs piscine
-  var poolRates = {};
-  ['skimmer','debordement'].forEach(function(k) {
-    var el = document.getElementById('cfg-pool-' + k);
-    poolRates[k] = el ? parseFloat(el.value) || 0 : 0;
-  });
-
-  // Coûts éléments extérieurs
-  var extItemsCosts = {};
-  ['terrasse','cuisine_ext','sanitaires_ext','salon_ext','debarras','toit_terrasse','cloture_ml','carport'].forEach(function(k) {
-    var el = document.getElementById('cfg-extitem-' + k);
-    extItemsCosts[k] = el ? parseFloat(el.value) || 0 : 0;
-  });
-
-  // Ventilation coûts
-  var breakdown = {};
-  ['standard','confort','premium'].forEach(function(st) {
-    var elGo  = document.getElementById('cfg-breakdown-' + st + '-go');
-    var elSo  = document.getElementById('cfg-breakdown-' + st + '-so');
-    var elFin = document.getElementById('cfg-breakdown-' + st + '-fin');
-    breakdown[st] = [
-      elGo  ? parseFloat(elGo.value)  || 0 : 0,
-      elSo  ? parseFloat(elSo.value)  || 0 : 0,
-      elFin ? parseFloat(elFin.value) || 0 : 0
-    ];
-  });
-
-  var circCoeff = parseFloat((document.getElementById('cfg-circ-coeff') || {}).value) || 1.15;
-  var emailDest = (document.getElementById('cfg-email-destinataire') || {}).value || CFG_DEFAULTS.cfg_email_destinataire;
-
-  // Surfaces — collect from the currently displayed tab, merge with stored data for other tabs
-  var surfaces = collectCfgSurfaces();
-
-  // Délais
-  var delais = collectCfgDelais();
-
   Promise.all([
     saveSetting('cfg_cost_per_m2', costs),
     saveSetting('cfg_zone_coefficients', zones),
     saveSetting('cfg_ext_costs', ext),
-    saveSetting('cfg_ratios', ratios),
-    saveSetting('cfg_email_destinataire', emailDest),
-    saveSetting('cfg_operation_mult', opMult),
-    saveSetting('cfg_pool_rates', poolRates),
-    saveSetting('cfg_ext_items_costs', extItemsCosts),
-    saveSetting('cfg_cost_breakdown', breakdown),
-    saveSetting('cfg_circulation_coeff', circCoeff),
-    saveSetting('cfg_surfaces', surfaces),
-    saveSetting('cfg_delais', delais)
+    saveSetting('cfg_ratios', ratios)
   ]).then(function(results) {
     var errors = results.filter(function(r){ return r && r.error; });
     if (errors.length > 0) {
@@ -9555,12 +6873,10 @@ function saveCfgParams() {
 
 function resetCfgParams() {
   if (!confirm('Réinitialiser tous les paramètres du configurateur aux valeurs par défaut ?')) return;
-  var allKeys = ['cfg_cost_per_m2','cfg_zone_coefficients','cfg_ext_costs','cfg_ratios',
-    'cfg_email_destinataire','cfg_operation_mult','cfg_pool_rates','cfg_ext_items_costs',
-    'cfg_cost_breakdown','cfg_circulation_coeff','cfg_surfaces','cfg_delais'];
-  allKeys.forEach(function(k) { saveSetting(k, CFG_DEFAULTS[k]); });
-  window._cfgSurfacesData = CFG_DEFAULTS.cfg_surfaces;
-  window._cfgDelaisData = CFG_DEFAULTS.cfg_delais;
+  saveSetting('cfg_cost_per_m2', CFG_DEFAULTS.cfg_cost_per_m2);
+  saveSetting('cfg_zone_coefficients', CFG_DEFAULTS.cfg_zone_coefficients);
+  saveSetting('cfg_ext_costs', CFG_DEFAULTS.cfg_ext_costs);
+  saveSetting('cfg_ratios', CFG_DEFAULTS.cfg_ratios);
   loadCfgParams();
   showToast('Paramètres réinitialisés');
 }
@@ -9581,7 +6897,6 @@ function loadTaches(projetId) {
       if (t.parent_id !== undefined)   t.parentId    = t.parent_id;
       if (t.projet_nom !== undefined)  t.projetNom   = t.projet_nom;
       if (t.projet_code !== undefined) t.projetCode  = t.projet_code;
-      if (t.projet_client !== undefined) t.projetClient = t.projet_client;
       if (t.date_debut !== undefined)  t.dateDebut   = t.date_debut;
       if (t.date_echeance !== undefined) t.dateEcheance = t.date_echeance;
       if (t.cree_par !== undefined)    t.creePar     = t.cree_par;
@@ -9592,15 +6907,6 @@ function loadTaches(projetId) {
       t.ordre       = parseInt(t.ordre, 10) || 0;
       t.livrables_total = parseInt(t.livrables_total, 10) || 0;
       t.livrables_done  = parseInt(t.livrables_done,  10) || 0;
-      // Fallback: enrich from cached projects if SQL JOIN didn't resolve
-      if ((!t.projetNom || !t.projetClient) && t.projet_id) {
-        var _cp = getProjets().find(function(p){ return p.id === t.projet_id; });
-        if (_cp) {
-          if (!t.projetNom)    t.projetNom    = _cp.nom  || '';
-          if (!t.projetCode)   t.projetCode   = _cp.code || '';
-          if (!t.projetClient) t.projetClient = _cp.client || '';
-        }
-      }
       return t;
     });
     console.info('[loadTaches] ' + _suiviCache.length + ' tâches chargées');
@@ -9746,7 +7052,6 @@ function renderSuiviTree(items) {
       projetMap[pid] = {
         nom: t.projetNom || 'Projet inconnu',
         code: t.projetCode || '',
-        client: t.projetClient || '',
         year: _extractProjetYear(t.projetCode, t.creeAt || t.cree_at),
         items: []
       };
@@ -9788,52 +7093,20 @@ function renderSuiviTree(items) {
     html += '<svg class="suivi-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
     html += '<span class="suivi-projet-code">' + (proj.code || '') + '</span>';
     html += '<span class="suivi-projet-nom">' + proj.nom + '</span>';
-    if (proj.client) html += '<span class="suivi-projet-client" style="font-size:0.75rem;color:var(--text-3);margin-left:0.5rem">— ' + proj.client + '</span>';
     html += '</div>';
     html += '<div class="suivi-projet-right">';
     html += '<span class="suivi-projet-stats">' + done + '/' + totalTasks + '</span>';
     html += suiviProgressBar(projProg);
-    html += '<button class="btn btn-sm" onclick="event.stopPropagation();openReassignProjetModal(\'' + pid + '\')" title="Réassigner le projet" style="font-size:0.7rem">✎ Projet</button>';
     html += '<button class="btn btn-sm" onclick="event.stopPropagation();openSuiviModal(0, null, \'' + pid + '\')" title="Ajouter une mission">+ Mission</button>';
-    if (canDelete()) html += '<button class="btn btn-sm suivi-del" onclick="event.stopPropagation();deleteProjetTaches(\'' + pid + '\')" title="Supprimer toutes les missions de ce projet" style="color:#c0392b;border-color:rgba(192,57,43,0.3)">✕</button>';
     html += '</div>';
     html += '</div>';
 
-    // Missions (niveau 0) groupées par catégorie
+    // Missions (niveau 0)
     var missionsList = projItems.filter(function(t){ return t.niveau === 0; });
     missionsList.sort(function(a,b){ return a.ordre - b.ordre; });
 
-    // Grouper par catégorie
-    var cats = getMissionCategories();
-    var catOrder = cats.map(function(c){ return c.id; });
-    var catMap = {};
-    missionsList.forEach(function(m) {
-      var catId = m.categorie || '_other';
-      if (!catMap[catId]) catMap[catId] = [];
-      catMap[catId].push(m);
-    });
-    // Trier les catégories selon l'ordre défini, puis "Autres" à la fin
-    var catKeys = Object.keys(catMap).sort(function(a,b){
-      var ia = catOrder.indexOf(a), ib = catOrder.indexOf(b);
-      if (ia === -1) ia = 9999;
-      if (ib === -1) ib = 9999;
-      return ia - ib;
-    });
-
     html += '<div class="suivi-projet-body">';
-    catKeys.forEach(function(catId) {
-      var catMissions = catMap[catId];
-      var catObj = cats.find(function(c){ return c.id === catId; });
-      var catLabel = catObj ? catObj.label : 'Autres';
-      // En-tête catégorie
-      html += '<div class="suivi-cat-group">';
-      html += '<div class="suivi-cat-header" onclick="this.parentElement.classList.toggle(\'collapsed\')" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.5rem;margin:0.3rem 0 0.15rem 0.8rem;cursor:pointer;font-size:0.75rem;font-weight:600;color:var(--accent);letter-spacing:0.06em;text-transform:uppercase;border-left:2px solid var(--accent);border-radius:0 2px 2px 0;background:var(--bg-2);user-select:none">';
-      html += '<svg class="suivi-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>';
-      html += '<span>' + (catObj ? catId + ' — ' : '') + catLabel + '</span>';
-      html += '<span style="font-weight:400;color:var(--text-3);font-size:0.7rem">(' + catMissions.length + ')</span>';
-      html += '</div>';
-      html += '<div class="suivi-cat-body">';
-    catMissions.forEach(function(m) {
+    missionsList.forEach(function(m) {
       var children = projItems.filter(function(t){ return t.parent_id === m.id && t.niveau === 1; });
       children.sort(function(a,b){ return a.ordre - b.ordre; });
 
@@ -9860,7 +7133,7 @@ function renderSuiviTree(items) {
       html += '<div class="suivi-actions">';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(1, \'' + m.id + '\', \'' + pid + '\')" title="Ajouter tâche">+ Tâche</button>';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + m.id + '\')" title="Modifier">✎</button>';
-      if (canDelete()) html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + m.id + '\')" title="Supprimer">✕</button>';
+      html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + m.id + '\')" title="Supprimer">✕</button>';
       html += '</div>';
       html += '</div>';
       html += '</div>';
@@ -9893,7 +7166,7 @@ function renderSuiviTree(items) {
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openTimesheetModal(\'' + tache.id + '\')" title="Saisir du temps">⏱</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(2, \'' + tache.id + '\', \'' + pid + '\')" title="Ajouter sous-tâche">+</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + tache.id + '\')" title="Modifier">✎</button>';
-        if (canDelete()) html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + tache.id + '\')" title="Supprimer">✕</button>';
+        html += '<button class="suivi-action-btn suivi-del" onclick="event.stopPropagation();deleteTache(\'' + tache.id + '\')" title="Supprimer">✕</button>';
         html += '</div>';
         html += '</div>';
         html += '</div>';
@@ -9912,7 +7185,7 @@ function renderSuiviTree(items) {
             html += suiviProgressBar(st.progression || 0);
             if (st.assignee) html += '<span class="suivi-assignee">' + _memberDot(st.assignee) + st.assignee.split(' ')[0] + '</span>';
             html += '<button class="suivi-action-btn" onclick="editTache(\'' + st.id + '\')" title="Modifier">✎</button>';
-            if (canDelete()) html += '<button class="suivi-action-btn suivi-del" onclick="deleteTache(\'' + st.id + '\')" title="Supprimer">✕</button>';
+            html += '<button class="suivi-action-btn suivi-del" onclick="deleteTache(\'' + st.id + '\')" title="Supprimer">✕</button>';
             html += '</div>';
             html += '</div>';
           });
@@ -9923,9 +7196,6 @@ function renderSuiviTree(items) {
       html += '</div>'; // .suivi-children
       html += '</div>'; // .suivi-mission-card
     });
-    html += '</div>'; // .suivi-cat-body
-    html += '</div>'; // .suivi-cat-group
-    }); // catKeys
     html += '</div>'; // .suivi-projet-body
     html += '</div>'; // .suivi-projet-group
     }); // year projects
@@ -10085,186 +7355,50 @@ function _renderMembreColumn(nom, taches) {
   html += suiviProgressBar(pct);
   html += '</div>';
 
-  // Liste des tâches — affichage hiérarchique
+  // Liste des tâches
   html += '<div class="suivi-membre-tasks">';
-
-  // Indexer les items de ce membre par id
-  var byId = {};
-  taches.forEach(function(t) { byId[t.id] = t; });
-
-  // Séparer par niveau
-  var missions  = taches.filter(function(t){ return t.niveau === 0; });
-  var tachesN1  = taches.filter(function(t){ return t.niveau === 1; });
-  var sousTaches = taches.filter(function(t){ return t.niveau === 2; });
-
-  // Ordre de tri par statut
+  // Trier : Bloqué > En cours > A faire > Terminé
   var ordre = {'Bloqué': 0, 'En cours': 1, 'A faire': 2, 'Terminé': 3};
-  var sortFn = function(a, b) { return (ordre[a.statut] || 9) - (ordre[b.statut] || 9); };
+  taches.sort(function(a, b) { return (ordre[a.statut] || 9) - (ordre[b.statut] || 9); });
 
-  // Helper: rendre une ligne de tâche
-  function renderRow(t, indent) {
+  taches.forEach(function(t) {
     var niveauLabel = t.niveau === 0 ? '🎯' : t.niveau === 1 ? '◆' : '•';
-    var pad = indent * 1.2;
-    var s = '<div class="suivi-membre-task-row" onclick="editTache(\'' + t.id + '\')" style="padding-left:' + (1 + pad) + 'rem">';
-    s += '<span class="suivi-membre-task-niveau">' + niveauLabel + '</span>';
-    s += '<div class="suivi-membre-task-body">';
-    s += '<div class="suivi-membre-task-titre">' + (t.titre || '') + '</div>';
-    if (t.projetNom) s += '<div class="suivi-membre-task-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
-    s += '</div>';
-    s += '<div class="suivi-membre-task-meta">';
-    s += suiviStatutBadge(t.statut);
-    s += suiviPrioriteBadge(t.priorite);
-    if (t.dateEcheance) s += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
-    s += '</div>';
-    s += '</div>';
-    return s;
-  }
-
-  // Helper: rendre un header contextuel pour un parent absent (pas assigné à ce membre)
-  function renderParentContext(t, indent) {
-    var pad = indent * 1.2;
-    var icon = t.niveau === 0 ? '🎯' : '◆';
-    return '<div style="padding:0.25rem 1rem 0.15rem ' + (1 + pad) + 'rem;font-size:0.72rem;color:var(--text-3);display:flex;align-items:center;gap:0.3rem;user-select:none">'
-      + '<span>' + icon + '</span><span style="opacity:0.7">' + (t.titre || '—') + '</span></div>';
-  }
-
-  // Collecter les IDs de missions rendues pour éviter les doublons
-  var renderedMissions = {};
-  var renderedTaches = {};
-
-  // 1) Rendre les missions avec leurs enfants
-  missions.sort(sortFn);
-  missions.forEach(function(m) {
-    renderedMissions[m.id] = true;
-    html += renderRow(m, 0);
-    // Tâches enfants de cette mission (assignées à ce membre)
-    var childTaches = tachesN1.filter(function(t){ return t.parent_id === m.id; });
-    childTaches.sort(sortFn);
-    childTaches.forEach(function(tache) {
-      renderedTaches[tache.id] = true;
-      html += renderRow(tache, 1);
-      // Sous-tâches enfants
-      var subs = sousTaches.filter(function(st){ return st.parent_id === tache.id; });
-      subs.sort(sortFn);
-      subs.forEach(function(st) { html += renderRow(st, 2); });
-    });
-    // Sous-tâches orphelines dont le parent tâche n'est pas assigné à ce membre mais dont la mission parente l'est
-    sousTaches.filter(function(st) {
-      if (st.parent_id && byId[st.parent_id]) return false; // déjà rendu via tâche parente
-      var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
-      return parentTache && parentTache.parent_id === m.id;
-    }).sort(sortFn).forEach(function(st) {
-      var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
-      if (parentTache) html += renderParentContext(parentTache, 1);
-      html += renderRow(st, 2);
-    });
+    html += '<div class="suivi-membre-task-row" onclick="editTache(\'' + t.id + '\')">';
+    html += '<span class="suivi-membre-task-niveau">' + niveauLabel + '</span>';
+    html += '<div class="suivi-membre-task-body">';
+    html += '<div class="suivi-membre-task-titre">' + (t.titre || '') + '</div>';
+    if (t.projetNom) html += '<div class="suivi-membre-task-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
+    html += '</div>';
+    html += '<div class="suivi-membre-task-meta">';
+    html += suiviStatutBadge(t.statut);
+    html += suiviPrioriteBadge(t.priorite);
+    if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
+    html += '</div>';
+    html += '</div>';
   });
-
-  // 2) Tâches orphelines (parent mission pas assigné à ce membre)
-  var orphanTaches = tachesN1.filter(function(t){ return !renderedTaches[t.id]; });
-  orphanTaches.sort(sortFn);
-  orphanTaches.forEach(function(tache) {
-    renderedTaches[tache.id] = true;
-    // Afficher la mission parente comme contexte
-    if (tache.parent_id) {
-      var parentMission = _suiviCache.find(function(x){ return x.id === tache.parent_id && x.niveau === 0; });
-      if (parentMission && !renderedMissions[parentMission.id]) {
-        renderedMissions[parentMission.id] = true;
-        html += renderParentContext(parentMission, 0);
-      }
-    }
-    html += renderRow(tache, 1);
-    // Sous-tâches enfants
-    var subs = sousTaches.filter(function(st){ return st.parent_id === tache.id; });
-    subs.sort(sortFn);
-    subs.forEach(function(st) { html += renderRow(st, 2); });
-  });
-
-  // 3) Sous-tâches orphelines restantes
-  var orphanSubs = sousTaches.filter(function(st) {
-    // Pas déjà rendu ?
-    var parentRendered = st.parent_id && renderedTaches[st.parent_id];
-    if (parentRendered) return false;
-    // Déjà rendu dans la section missions orphelines ?
-    var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
-    if (parentTache && renderedTaches[parentTache.id]) return false;
-    // Vérifie si rendu via missions section 1
-    if (parentTache) {
-      var gp = _suiviCache.find(function(x){ return x.id === parentTache.parent_id && x.niveau === 0; });
-      if (gp && renderedMissions[gp.id]) return false;
-    }
-    return true;
-  });
-  orphanSubs.sort(sortFn);
-  orphanSubs.forEach(function(st) {
-    // Afficher le contexte parent
-    var parentTache = _suiviCache.find(function(x){ return x.id === st.parent_id; });
-    if (parentTache) {
-      var parentMission = _suiviCache.find(function(x){ return x.id === parentTache.parent_id && x.niveau === 0; });
-      if (parentMission && !renderedMissions[parentMission.id]) {
-        renderedMissions[parentMission.id] = true;
-        html += renderParentContext(parentMission, 0);
-      }
-      if (!renderedTaches[parentTache.id]) {
-        renderedTaches[parentTache.id] = true;
-        html += renderParentContext(parentTache, 1);
-      }
-    }
-    html += renderRow(st, 2);
-  });
-
   html += '</div></div>';
   return html;
 }
 
 // ── Toggle vue liste / kanban / membres ──
 var _suiviViews = ['list', 'kanban', 'membres'];
-function suiviSetView(view) {
-  _suiviView = view;
+function suiviToggleView() {
+  var btn = document.getElementById('suivi-toggle-view');
+  var idx = _suiviViews.indexOf(_suiviView);
+  _suiviView = _suiviViews[(idx + 1) % _suiviViews.length];
 
-  document.getElementById('suivi-list-view').style.display    = view === 'list'    ? '' : 'none';
-  document.getElementById('suivi-kanban-view').style.display   = view === 'kanban'  ? '' : 'none';
-  document.getElementById('suivi-membres-view').style.display  = view === 'membres' ? '' : 'none';
+  document.getElementById('suivi-list-view').style.display    = _suiviView === 'list'    ? '' : 'none';
+  document.getElementById('suivi-kanban-view').style.display   = _suiviView === 'kanban'  ? '' : 'none';
+  document.getElementById('suivi-membres-view').style.display  = _suiviView === 'membres' ? '' : 'none';
 
-  // Mettre à jour l'état actif des boutons
-  _suiviViews.forEach(function(v){
-    var b = document.getElementById('suivi-view-' + v);
-    if (b) {
-      if (v === view) { b.classList.add('active'); }
-      else { b.classList.remove('active'); }
-    }
-  });
-
-  // Masquer le bouton tout développer/réduire si pas en vue liste
-  var expandBtn = document.getElementById('suivi-expand-toggle');
-  if (expandBtn) expandBtn.style.display = view === 'list' ? '' : 'none';
-
+  var icons = {
+    list:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Vue Kanban',
+    kanban:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Vue Membres',
+    membres: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Vue Liste'
+  };
+  btn.innerHTML = icons[_suiviView] || icons.list;
   renderSuiviPage();
 }
-window.suiviSetView = suiviSetView;
-
-// ── Tout développer / Tout réduire (vue liste) ──
-var _suiviExpanded = false;
-function suiviToggleExpand() {
-  _suiviExpanded = !_suiviExpanded;
-  var tree = document.getElementById('suivi-tree');
-  if (!tree) return;
-  var groups = tree.querySelectorAll('.suivi-projet-group, .suivi-mission-card, .suivi-tache-card');
-  for (var i = 0; i < groups.length; i++) {
-    if (_suiviExpanded) {
-      groups[i].classList.remove('collapsed');
-    } else {
-      groups[i].classList.add('collapsed');
-    }
-  }
-  var btn = document.getElementById('suivi-expand-toggle');
-  if (btn) {
-    btn.innerHTML = _suiviExpanded
-      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg> Tout réduire'
-      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg> Tout développer';
-  }
-}
-window.suiviToggleExpand = suiviToggleExpand;
 
 // ── Modal ouverture ──
 function openSuiviModal(niveau, parentId, projetId) {
@@ -10313,29 +7447,13 @@ function openSuiviModal(niveau, parentId, projetId) {
 
   // Réinitialiser la barre de recherche projet
   var _sProj = document.getElementById('tache-projet-search');
-  if (_sProj) {
-    if (projetId) {
-      var _pp = getProjets().find(function(p){ return p.id === projetId; });
-      _sProj.value = _pp ? ((_pp.code ? _pp.code + ' — ' : '') + _pp.nom) : '';
-      _sProj.readOnly = !!projetId && niveau > 0;
-    } else {
-      _sProj.value = '';
-      _sProj.readOnly = false;
-    }
-  }
-  // Réinitialiser la recherche mission
-  var _sMiss = document.getElementById('tache-mission-search');
-  if (_sMiss) _sMiss.value = '';
-  var _ddMiss = document.getElementById('tache-mission-dropdown');
-  if (_ddMiss) _ddMiss.style.display = 'none';
-  _missionDropOpen = false;
+  if (_sProj) { _sProj.value = ''; filterTacheProjetSelect(''); }
 
   // Re-populer les missions après que le projet soit défini pour avoir le bon contexte
   if (niveau === 0) _populateMissionsSelect('');
 
-  // Populate assignee select with team members — default to current user
-  var _currentUserName = (window._currentUser || {}).name || '';
-  _populateAssigneeSelect(_currentUserName);
+  // Populate assignee select with team members
+  _populateAssigneeSelect('');
 
   openModal('modal-tache');
 }
@@ -10420,7 +7538,8 @@ function _populateMissionsSelect(selectedValue) {
   var makeOpt = function(m, unaffected){
     var opt = document.createElement('option');
     opt.value = m.nom;
-    opt.textContent = (unaffected ? '◌ ' : '') + m.nom;
+    var cl = catLabel(m.cat);
+    opt.textContent = (unaffected ? '◌ ' : '') + (cl ? '['+cl+'] ' : '') + m.nom;
     if (unaffected) {
       opt.setAttribute('data-unaffected', '1');
       opt.title = 'Non affectée — la sélectionner l\'ajoutera à la fiche projet';
@@ -10428,48 +7547,8 @@ function _populateMissionsSelect(selectedValue) {
     return opt;
   };
 
-  if (hasContext) {
-    // 1) Missions affectées au projet en tête, groupées par catégorie
-    cats.forEach(function(cat) {
-      var catAff = missions.filter(function(m) { return m.cat === cat.id && isAffectee(m.nom); });
-      if (catAff.length === 0) return;
-      var og = document.createElement('optgroup');
-      og.label = cat.label;
-      catAff.forEach(function(m){ og.appendChild(makeOpt(m, false)); });
-      sel.appendChild(og);
-    });
-    var orphAff = missions.filter(function(m) { return (!m.cat || !cats.find(function(c){ return c.id === m.cat; })) && isAffectee(m.nom); });
-    if (orphAff.length) {
-      var ogOA = document.createElement('optgroup');
-      ogOA.label = 'Autres';
-      orphAff.forEach(function(m){ ogOA.appendChild(makeOpt(m, false)); });
-      sel.appendChild(ogOA);
-    }
-    // 2) Séparateur + missions non affectées
-    var hasUnaff = missions.some(function(m) { return !isAffectee(m.nom); });
-    if (hasUnaff) {
-      var ogSep = document.createElement('optgroup');
-      ogSep.label = '── Autres missions ──';
-      ogSep.disabled = true;
-      sel.appendChild(ogSep);
-      cats.forEach(function(cat) {
-        var catUnaff = missions.filter(function(m) { return m.cat === cat.id && !isAffectee(m.nom); });
-        if (catUnaff.length === 0) return;
-        var og = document.createElement('optgroup');
-        og.label = cat.label;
-        catUnaff.forEach(function(m){ og.appendChild(makeOpt(m, true)); });
-        sel.appendChild(og);
-      });
-      var orphUnaff = missions.filter(function(m) { return (!m.cat || !cats.find(function(c){ return c.id === m.cat; })) && !isAffectee(m.nom); });
-      if (orphUnaff.length) {
-        var ogOU = document.createElement('optgroup');
-        ogOU.label = 'Autres';
-        orphUnaff.forEach(function(m){ ogOU.appendChild(makeOpt(m, true)); });
-        sel.appendChild(ogOU);
-      }
-    }
-  } else {
-    // Pas de contexte projet : toutes les missions groupées par catégorie
+  if (!hasContext) {
+    // Pas de projet sélectionné → groupement classique par catégorie
     cats.forEach(function(cat) {
       var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
       if (catMissions.length === 0) return;
@@ -10485,211 +7564,55 @@ function _populateMissionsSelect(selectedValue) {
       orphans.forEach(function(m){ og2.appendChild(makeOpt(m, false)); });
       sel.appendChild(og2);
     }
+  } else {
+    // Contexte projet → 2 groupes : affectées / autres
+    var aff = missions.filter(function(m){ return isAffectee(m.nom); });
+    var other = missions.filter(function(m){ return !isAffectee(m.nom); });
+
+    if (aff.length) {
+      var ogA = document.createElement('optgroup');
+      ogA.label = '✓ Affectées à ce projet';
+      aff.forEach(function(m){ ogA.appendChild(makeOpt(m, false)); });
+      sel.appendChild(ogA);
+    } else {
+      var ogEmpty = document.createElement('optgroup');
+      ogEmpty.label = '✓ Affectées à ce projet (aucune pour l\'instant)';
+      sel.appendChild(ogEmpty);
+    }
+    if (other.length) {
+      var ogB = document.createElement('optgroup');
+      ogB.label = '◌ Autres missions disponibles';
+      other.forEach(function(m){ ogB.appendChild(makeOpt(m, true)); });
+      sel.appendChild(ogB);
+    }
   }
 
   if (selectedValue) sel.value = selectedValue;
 }
 
 // ── Recherche dans le select projet (filtre les <option>) ──
-// ── Searchable dropdown pour le projet dans le modal tâche ──
-var _tacheProjetDropOpen = false;
-function _buildTacheProjetItems() {
-  var projets = getProjets();
-  var clients = getClients();
-  return projets.map(function(p) {
-    var clientName = p.client || '';
-    if (!clientName && p.client_code) {
-      var cl = clients.find(function(c){ return c.code === p.client_code; });
-      if (cl) clientName = cl.displayNom || cl.nom || '';
-    }
-    var label = (p.code ? p.code + ' — ' : '') + p.nom;
-    return { id: p.id, label: label, search: (label + ' ' + clientName).toLowerCase(), client: clientName };
-  });
-}
-function openTacheProjetDropdown() {
-  _tacheProjetDropOpen = true;
-  filterTacheProjetDropdown(document.getElementById('tache-projet-search').value);
-}
-function filterTacheProjetDropdown(query) {
-  var dd = document.getElementById('tache-projet-dropdown');
-  if (!dd) return;
-  var q = (query || '').trim().toLowerCase();
-  var items = _buildTacheProjetItems();
-  var qNorm = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  var filtered = items.filter(function(it) { return !qNorm || it.search.normalize('NFD').replace(/[\u0300-\u036f]/g, '').indexOf(qNorm) !== -1; });
-  dd.innerHTML = filtered.length === 0
-    ? '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.78rem">Aucun projet trouvé</div>'
-    : filtered.map(function(it) {
-        var clientHtml = it.client ? '<span style="font-size:0.72rem;color:var(--text-3);margin-left:0.4rem">' + it.client + '</span>' : '';
-        return '<div onmousedown="selectTacheProjet(\'' + it.id + '\',\'' + it.label.replace(/'/g, "\\'") + '\')"' +
-          ' style="padding:0.5rem 0.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background 0.15s"' +
-          ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'\'">' +
-          it.label + clientHtml + '</div>';
-      }).join('');
-  dd.style.display = 'block';
-}
-function selectTacheProjet(id, label) {
+function filterTacheProjetSelect(query) {
   var sel = document.getElementById('tache-projet');
-  var search = document.getElementById('tache-projet-search');
-  var dd = document.getElementById('tache-projet-dropdown');
-  if (sel) { sel.value = id; }
-  if (search) search.value = label;
-  if (dd) dd.style.display = 'none';
-  _tacheProjetDropOpen = false;
-  onTacheProjetChange();
-}
-window.selectTacheProjet = selectTacheProjet;
-window.openTacheProjetDropdown = openTacheProjetDropdown;
-window.filterTacheProjetDropdown = filterTacheProjetDropdown;
-// Fermer dropdown si clic ailleurs
-document.addEventListener('click', function(e) {
-  if (!_tacheProjetDropOpen) return;
-  var search = document.getElementById('tache-projet-search');
-  var dd = document.getElementById('tache-projet-dropdown');
-  if (search && dd && !search.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none'; _tacheProjetDropOpen = false;
+  if (!sel) return;
+  var q = (query || '').trim().toLowerCase();
+  var opts = sel.querySelectorAll('option');
+  var firstVisible = null;
+  for (var i = 0; i < opts.length; i++) {
+    var o = opts[i];
+    if (!o.value) { o.hidden = false; continue; }
+    var txt = (o.textContent || '').toLowerCase();
+    var match = !q || txt.indexOf(q) !== -1;
+    o.hidden = !match;
+    if (match && !firstVisible) firstVisible = o;
   }
-});
-// Compatibilité ancienne fonction
-function filterTacheProjetSelect(query) { filterTacheProjetDropdown(query); }
+  // Si la sélection courante est masquée, basculer sur le premier visible
+  var cur = sel.options[sel.selectedIndex];
+  if (cur && cur.hidden && firstVisible) {
+    sel.value = firstVisible.value;
+    onTacheProjetChange();
+  }
+}
 window.filterTacheProjetSelect = filterTacheProjetSelect;
-
-// ── Searchable dropdown pour les missions ──
-var _missionDropOpen = false;
-
-function _buildMissionDropdownItems() {
-  var missions = getMissions();
-  var cats = getMissionCategories();
-  var projetId = (document.getElementById('tache-projet') || {}).value;
-  var affectees = null;
-  if (projetId) {
-    var projet = (getProjets() || []).find(function(p) { return p.id === projetId; });
-    if (projet) {
-      var raw;
-      try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
-      catch (e) { raw = []; }
-      affectees = _normalizeProjetMissions(raw);
-    }
-  }
-  var hasContext = !!affectees;
-  var isAffectee = function(nom) { return !hasContext || affectees.indexOf(nom) !== -1; };
-  var items = [];
-
-  if (hasContext) {
-    // 1) Missions affectées au projet en tête, groupées par catégorie
-    cats.forEach(function(cat) {
-      var catAff = missions.filter(function(m) { return m.cat === cat.id && isAffectee(m.nom); });
-      if (catAff.length === 0) return;
-      items.push({ type: 'header', label: cat.label });
-      catAff.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
-    });
-    var orphAff = missions.filter(function(m) { return (!m.cat || !cats.find(function(c){ return c.id === m.cat; })) && isAffectee(m.nom); });
-    if (orphAff.length) {
-      items.push({ type: 'header', label: 'Autres' });
-      orphAff.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
-    }
-    // 2) Séparateur puis missions non affectées, groupées par catégorie
-    var hasUnaffected = missions.some(function(m) { return !isAffectee(m.nom); });
-    if (hasUnaffected) {
-      items.push({ type: 'separator', label: 'Autres missions' });
-      cats.forEach(function(cat) {
-        var catUnaff = missions.filter(function(m) { return m.cat === cat.id && !isAffectee(m.nom); });
-        if (catUnaff.length === 0) return;
-        items.push({ type: 'header', label: cat.label });
-        catUnaff.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: true }); });
-      });
-      var orphUnaff = missions.filter(function(m) { return (!m.cat || !cats.find(function(c){ return c.id === m.cat; })) && !isAffectee(m.nom); });
-      if (orphUnaff.length) {
-        items.push({ type: 'header', label: 'Autres' });
-        orphUnaff.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: true }); });
-      }
-    }
-  } else {
-    // Pas de contexte projet : toutes les missions groupées par catégorie
-    cats.forEach(function(cat) {
-      var catMissions = missions.filter(function(m) { return m.cat === cat.id; });
-      if (catMissions.length === 0) return;
-      items.push({ type: 'header', label: cat.label });
-      catMissions.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
-    });
-    var orphans = missions.filter(function(m) { return !m.cat || !cats.find(function(c) { return c.id === m.cat; }); });
-    if (orphans.length) {
-      items.push({ type: 'header', label: 'Autres' });
-      orphans.forEach(function(m) { items.push({ type: 'item', nom: m.nom, unaffected: false }); });
-    }
-  }
-  return items;
-}
-
-function openMissionDropdown() {
-  _missionDropOpen = true;
-  filterMissionDropdown(document.getElementById('tache-mission-search').value);
-}
-window.openMissionDropdown = openMissionDropdown;
-
-function filterMissionDropdown(query) {
-  var dd = document.getElementById('tache-mission-dropdown');
-  if (!dd) return;
-  var q = (query || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  var items = _buildMissionDropdownItems();
-  var html = '';
-  var lastHeaderHtml = '';
-  var hasVisibleInGroup = false;
-
-  items.forEach(function(it, idx) {
-    if (it.type === 'separator') {
-      html += '<div style="padding:0.5rem 0.8rem;font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;background:var(--bg-1);border-top:2px solid var(--border);border-bottom:1px solid var(--border);margin-top:0.3rem">' + it.label + '</div>';
-      lastHeaderHtml = '';
-      hasVisibleInGroup = false;
-    } else if (it.type === 'header') {
-      lastHeaderHtml = '<div style="padding:0.4rem 0.8rem;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">' + it.label + '</div>';
-      hasVisibleInGroup = false;
-    } else {
-      var txt = it.nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      if (!q || txt.indexOf(q) !== -1) {
-        if (lastHeaderHtml && !hasVisibleInGroup) { html += lastHeaderHtml; hasVisibleInGroup = true; }
-        var style = 'padding:0.5rem 0.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background 0.15s' +
-          (it.unaffected ? ';color:var(--text-3);font-style:italic' : '');
-        html += '<div onmousedown="selectMissionDropdown(\'' + it.nom.replace(/'/g, "\\'") + '\',' + (it.unaffected ? 'true' : 'false') + ')"' +
-          ' style="' + style + '"' +
-          ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'\'">' +
-          (it.unaffected ? '◌ ' : '') + it.nom + '</div>';
-      }
-    }
-  });
-
-  if (!html) html = '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.78rem">Aucune mission trouvée</div>';
-  dd.innerHTML = html;
-  dd.style.display = 'block';
-}
-window.filterMissionDropdown = filterMissionDropdown;
-
-function selectMissionDropdown(nom, unaffected) {
-  var sel = document.getElementById('tache-titre-select');
-  var search = document.getElementById('tache-mission-search');
-  var dd = document.getElementById('tache-mission-dropdown');
-  if (sel) { sel.value = nom; }
-  if (search) search.value = nom;
-  if (dd) dd.style.display = 'none';
-  _missionDropOpen = false;
-  // Trigger the unaffected mission check
-  if (unaffected && sel) onTacheTitreSelectChange(sel);
-}
-window.selectMissionDropdown = selectMissionDropdown;
-
-// Fermer dropdown mission si clic ailleurs
-document.addEventListener('click', function(e) {
-  if (!_missionDropOpen) return;
-  var search = document.getElementById('tache-mission-search');
-  var dd = document.getElementById('tache-mission-dropdown');
-  if (search && dd && !search.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none'; _missionDropOpen = false;
-  }
-});
-
-// Compat ancienne fonction
-function filterMissionSelect(query) { filterMissionDropdown(query); }
-window.filterMissionSelect = filterMissionSelect;
 
 // ── Changement de projet → recharger la liste des missions (demi-teinte à jour) ──
 function onTacheProjetChange() {
@@ -10762,22 +7685,7 @@ function editTache(id) {
     sel.appendChild(opt);
   });
   sel.value = t.projet_id;
-  sel.disabled = false;
-
-  // Mettre à jour le search input projet
-  var _spE = document.getElementById('tache-projet-search');
-  if (_spE) {
-    var _ppE = getProjets().find(function(p){ return p.id === t.projet_id; });
-    _spE.value = _ppE ? ((_ppE.code ? _ppE.code + ' — ' : '') + _ppE.nom) : (t.projetNom || '');
-    _spE.readOnly = false;
-  }
-  // Pré-remplir la recherche mission avec le titre existant
-  var _smE = document.getElementById('tache-mission-search');
-  if (_smE) _smE.value = (t.niveau === 0 && t.titre) ? t.titre : '';
-  // Fermer le dropdown mission
-  var _ddM = document.getElementById('tache-mission-dropdown');
-  if (_ddM) _ddM.style.display = 'none';
-  _missionDropOpen = false;
+  sel.disabled = true;
 
   // Populate assignee select with team members
   _populateAssigneeSelect(t.assignee || '');
@@ -10796,10 +7704,10 @@ function editTache(id) {
 function saveTache() {
   var id       = document.getElementById('tache-id').value;
   var niveau   = parseInt(document.getElementById('tache-niveau').value) || 0;
-  // Titre : dropdown mission (0) ou tâche-type (1 avec liste), sinon input libre
+  // Titre : select si mission (0) ou tâche-type (1 avec liste), sinon input libre
   var selectVisible = document.getElementById('tache-titre-field-select').style.display !== 'none';
   var titre = selectVisible
-    ? (document.getElementById('tache-titre-select').value.trim() || document.getElementById('tache-mission-search').value.trim())
+    ? document.getElementById('tache-titre-select').value.trim()
     : document.getElementById('tache-titre').value.trim();
   var projetId = document.getElementById('tache-projet').value;
   var errEl    = document.getElementById('tache-err');
@@ -10818,14 +7726,6 @@ function saveTache() {
     return;
   }
 
-  // Déterminer la catégorie de la mission sélectionnée (niveau 0 uniquement)
-  var categorie = null;
-  if (niveau === 0 && titre) {
-    var _allMissions = getMissions();
-    var _foundM = _allMissions.find(function(m){ return m.nom === titre; });
-    if (_foundM && _foundM.cat) categorie = _foundM.cat;
-  }
-
   var body = {
     projet_id:     projetId,
     parent_id:     document.getElementById('tache-parent-id').value || null,
@@ -10838,7 +7738,6 @@ function saveTache() {
     progression:   parseInt(document.getElementById('tache-progression').value) || 0,
     date_debut:    document.getElementById('tache-date-debut').value || null,
     date_echeance: document.getElementById('tache-date-echeance').value || null,
-    categorie:     categorie,
     location_type: (document.getElementById('tache-location-type')||{}).value || 'Bureau',
     location_zone: ((document.getElementById('tache-location-zone')||{}).value || '').trim(),
     heures_estimees: heuresEst,
@@ -10890,126 +7789,6 @@ function deleteTache(id) {
     .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
 }
 
-// ── Supprimer toutes les tâches/missions d'un projet dans le suivi ──
-function deleteProjetTaches(projetId) {
-  var items = _suiviCache.filter(function(t){ return t.projet_id === projetId; });
-  if (!items.length) { showToast('Aucune mission à supprimer', 'info'); return; }
-  var proj = items[0];
-  var projLabel = (proj.projetCode ? proj.projetCode + ' — ' : '') + (proj.projetNom || 'ce projet');
-  if (!confirm('Supprimer les ' + items.length + ' mission(s)/tâche(s) du projet :\n' + projLabel + ' ?\n\nCette action est irréversible.')) return;
-
-  // Supprimer toutes les tâches racine (niveau 0) — l'API supprime les enfants en cascade
-  var roots = items.filter(function(t){ return t.niveau === 0; });
-  // Si pas de racines, supprimer tout individuellement
-  var toDelete = roots.length > 0 ? roots : items;
-
-  var promises = toDelete.map(function(t){
-    return apiFetch('api/taches.php?id=' + t.id, { method: 'DELETE' });
-  });
-
-  Promise.all(promises)
-    .then(function() {
-      showToast('✓ ' + items.length + ' élément(s) supprimé(s)');
-      loadTaches().then(function(){ renderSuiviPage(); });
-    })
-    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
-}
-window.deleteProjetTaches = deleteProjetTaches;
-
-// ── Réassigner toutes les missions d'un projet vers un autre projet ──
-function openReassignProjetModal(oldProjetId) {
-  document.getElementById('reassign-old-projet-id').value = oldProjetId;
-  var sel = document.getElementById('reassign-projet-select');
-  sel.innerHTML = '<option value="">— Choisir un projet —</option>';
-  getProjets().forEach(function(p) {
-    if (p.id === oldProjetId) return; // Exclure le projet actuel
-    var opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
-    sel.appendChild(opt);
-  });
-  var searchEl = document.getElementById('reassign-projet-search');
-  if (searchEl) searchEl.value = '';
-  var ddEl = document.getElementById('reassign-projet-dropdown');
-  if (ddEl) ddEl.style.display = 'none';
-  var errEl = document.getElementById('reassign-err');
-  if (errEl) errEl.style.display = 'none';
-  openModal('modal-reassign-projet');
-}
-window.openReassignProjetModal = openReassignProjetModal;
-
-function _buildReassignProjetItems(excludeId) {
-  var items = _buildTacheProjetItems();
-  return items.filter(function(it){ return it.id !== excludeId; });
-}
-
-function openReassignProjetDropdown() {
-  filterReassignProjetDropdown('');
-}
-
-function filterReassignProjetDropdown(q) {
-  var dd = document.getElementById('reassign-projet-dropdown');
-  if (!dd) return;
-  var oldId = document.getElementById('reassign-old-projet-id').value;
-  var items = _buildReassignProjetItems(oldId);
-  var qNorm = (q||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  var filtered = items.filter(function(it){ return !qNorm || it.search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').indexOf(qNorm) !== -1; });
-  dd.innerHTML = filtered.length === 0
-    ? '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.78rem">Aucun projet trouvé</div>'
-    : filtered.map(function(it) {
-        var clientHtml = it.client ? '<span style="font-size:0.72rem;color:var(--text-3);margin-left:0.4rem">' + it.client + '</span>' : '';
-        return '<div onmousedown="selectReassignProjet(\'' + it.id + '\',\'' + it.label.replace(/'/g, "\\'") + '\')"' +
-          ' style="padding:0.5rem 0.8rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background 0.15s"' +
-          ' onmouseenter="this.style.background=\'var(--bg-2)\'" onmouseleave="this.style.background=\'\'">' +
-          it.label + clientHtml + '</div>';
-      }).join('');
-  dd.style.display = 'block';
-}
-window.filterReassignProjetDropdown = filterReassignProjetDropdown;
-
-function selectReassignProjet(id, label) {
-  document.getElementById('reassign-projet-select').value = id;
-  document.getElementById('reassign-projet-search').value = label;
-  document.getElementById('reassign-projet-dropdown').style.display = 'none';
-}
-window.selectReassignProjet = selectReassignProjet;
-
-function confirmReassignProjet() {
-  var oldId = document.getElementById('reassign-old-projet-id').value;
-  var newId = document.getElementById('reassign-projet-select').value;
-  var errEl = document.getElementById('reassign-err');
-
-  if (!newId) { errEl.textContent = 'Veuillez choisir un projet.'; errEl.style.display = 'block'; return; }
-
-  var items = _suiviCache.filter(function(t){ return t.projet_id === oldId; });
-  if (!items.length) { closeModal('modal-reassign-projet'); return; }
-
-  // Mettre à jour chaque tâche racine (niveau 0) avec le nouveau projet
-  var roots = items.filter(function(t){ return t.niveau === 0; });
-  var toUpdate = roots.length > 0 ? roots : items;
-
-  var promises = toUpdate.map(function(t) {
-    return apiFetch('api/taches.php?id=' + t.id, { method: 'PUT', body: { projet_id: newId } });
-  });
-  // Mettre aussi à jour les enfants (niveau 1, 2) qui ont l'ancien projet_id
-  var children = items.filter(function(t){ return t.niveau > 0; });
-  children.forEach(function(t) {
-    promises.push(apiFetch('api/taches.php?id=' + t.id, { method: 'PUT', body: { projet_id: newId } }));
-  });
-
-  Promise.all(promises)
-    .then(function() {
-      closeModal('modal-reassign-projet');
-      showToast('✓ ' + items.length + ' mission(s) réassignée(s)');
-      loadTaches().then(function(){ renderSuiviPage(); });
-    })
-    .catch(function(e) {
-      errEl.textContent = e.message || 'Erreur lors de la réassignation';
-      errEl.style.display = 'block';
-    });
-}
-window.confirmReassignProjet = confirmReassignProjet;
-
 // ═══════════════════════════════════════════════════════════
 //  JOURNAL QUOTIDIEN — Suivi journalier par membre
 // ═══════════════════════════════════════════════════════════
@@ -11041,32 +7820,20 @@ function journalNextDay() {
 
 function renderJournalPage() {
   var dateJour = getJournalDate();
-  var me = window._currentUser || {};
-  var isGerant = !!(me.isAdmin || me.role === 'Architecte gérant');
+  var membreFilter = document.getElementById('journal-membre').value;
 
+  // Populate membre select (une seule fois)
   var selMembre = document.getElementById('journal-membre');
-
-  if (!isGerant) {
-    // Non-gérant : forcer sur son propre nom, cacher le filtre
-    var myName = (me.name || '').trim();
-    selMembre.value = myName;
-    selMembre.style.display = 'none';
-  } else {
-    selMembre.style.display = '';
-    // Populate membre select (une seule fois)
-    if (selMembre.options.length <= 1) {
-      getMembres().forEach(function(m) {
-        var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
-        if (!fullName) return;
-        var opt = document.createElement('option');
-        opt.value = fullName;
-        opt.textContent = fullName + (m.role ? ' (' + m.role + ')' : '');
-        selMembre.appendChild(opt);
-      });
-    }
+  if (selMembre.options.length <= 1) {
+    getMembres().forEach(function(m) {
+      var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
+      if (!fullName) return;
+      var opt = document.createElement('option');
+      opt.value = fullName;
+      opt.textContent = fullName + (m.role ? ' (' + m.role + ')' : '');
+      selMembre.appendChild(opt);
+    });
   }
-
-  var membreFilter = selMembre.value;
 
   // Charger les tâches et le journal du jour en parallèle
   Promise.all([
@@ -11150,7 +7917,7 @@ function _renderJournalTasks(taches, entries, dateJour) {
   var projetMap = {};
   taches.forEach(function(t) {
     var pid = t.projet_id;
-    if (!projetMap[pid]) projetMap[pid] = { nom: t.projetNom || '—', code: t.projetCode || '', client: t.projetClient || '', items: [] };
+    if (!projetMap[pid]) projetMap[pid] = { nom: t.projetNom || '—', code: t.projetCode || '', items: [] };
     projetMap[pid].items.push(t);
   });
 
@@ -11579,109 +8346,6 @@ function switchRdmTab(tab) {
   document.querySelectorAll('.rdm-tab').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-rdm-tab') === tab);
   });
-  document.querySelectorAll(".rdm-tab-panel").forEach(function(p) {
-    var isActive = p.id === "rdm-panel-" + tab;
-    p.classList.toggle("active", isActive);
-    p.style.display = isActive ? "block" : "none";
-  });
-
-
-
-}
-
-function renderRendementPage() {
-  if (!_rdmState.from || !_rdmState.to) {
-    var to = _rdmToday();
-    var from = new Date(to); from.setDate(to.getDate() - 29);
-    _rdmState.from = from; _rdmState.to = to;
-  }
-  var df = _rdmIso(_rdmState.from);
-  var dt = _rdmIso(_rdmState.to);
-
-  Promise.all([
-    loadTaches(),
-    apiFetch('api/journal.php?date_from=' + df + '&date_to=' + dt).catch(function() { return { data: [] }; }),
-    apiFetch('api/timesheets.php?date_from=' + df + '&date_to=' + dt).catch(function() { return { data: [] }; }),
-    Promise.resolve(getMembres() || [])
-  ]).then(function(results) {
-    var taches  = results[0] || [];
-    var journal = (results[1] && results[1].data) || [];
-    var ts      = (results[2] && results[2].data) || [];
-    var users   = results[3] || [];
-
-    _rdmState.taches = taches;
-    _rdmState.journal = journal;
-    _rdmState.timesheets = ts;
-    _rdmState.users = users;
-
-    _renderRendementKPIs(taches, journal, ts, users);
-    _renderRendementMembres(taches, journal, ts, users);
-    _renderRendementHistorique(taches, journal, ts);
-  });
-}
-
-function _rdmFindMemberByName(fullName) {
-  if (!fullName) return null;
-  var key = String(fullName).trim().toLowerCase();
-  var list = getMembres() || [];
-  for (var i = 0; i < list.length; i++) {
-    var fn = ((list[i].prenom || '') + ' ' + (list[i].nom || '')).trim().toLowerCase();
-    if (fn === key) return list[i];
-  }
-  return null;
-}
-
-function toggleRdmDatePicker() {
-  var pop = document.getElementById('rdm-drp-pop');
-  if (!pop) return;
-  pop.style.display = (pop.style.display === 'none' || !pop.style.display) ? 'block' : 'none';
-}
-
-function applyRdmPreset(preset) {
-  var to = _rdmToday();
-  var from = new Date(to);
-  var label = '';
-  switch (preset) {
-    case 'today':     label = "Aujourd'hui"; break;
-    case '7':         from.setDate(to.getDate() - 6);  label = '7 derniers jours'; break;
-    case '30':        from.setDate(to.getDate() - 29); label = '30 derniers jours'; break;
-    case 'month':     from = new Date(to.getFullYear(), to.getMonth(), 1); label = 'Ce mois-ci'; break;
-    case 'lastmonth':
-      from = new Date(to.getFullYear(), to.getMonth()-1, 1);
-      to   = new Date(to.getFullYear(), to.getMonth(), 0);
-      label = 'Mois dernier';
-      break;
-    case 'year':      from = new Date(to.getFullYear(), 0, 1); label = 'Année en cours'; break;
-    case 'all':       from = new Date('2020-01-01'); label = 'Depuis le début'; break;
-    default:          from.setDate(to.getDate() - 29); label = '30 derniers jours';
-  }
-  _rdmState.preset = preset;
-  _rdmState.from = from; _rdmState.to = to; _rdmState.label = label;
-  var lbl = document.getElementById('rdm-drp-label'); if (lbl) lbl.textContent = label;
-  var pop = document.getElementById('rdm-drp-pop'); if (pop) pop.style.display = 'none';
-  renderRendementPage();
-}
-
-function applyRdmCustom() {
-  var f = (document.getElementById('rdm-drp-from') || {}).value;
-  var t = (document.getElementById('rdm-drp-to') || {}).value;
-  if (!f || !t) { alert('Veuillez choisir deux dates'); return; }
-  var from = new Date(f + 'T00:00:00');
-  var to   = new Date(t + 'T00:00:00');
-  if (from > to) { alert('La date de début doit être avant la date de fin'); return; }
-  _rdmState.preset = 'custom';
-  _rdmState.from = from; _rdmState.to = to;
-  _rdmState.label = _rdmFmtFR(from) + ' → ' + _rdmFmtFR(to);
-  var lbl = document.getElementById('rdm-drp-label'); if (lbl) lbl.textContent = _rdmState.label;
-  var pop = document.getElementById('rdm-drp-pop'); if (pop) pop.style.display = 'none';
-  renderRendementPage();
-}
-
-function switchRdmTab(tab) {
-  _rdmState.tab = tab;
-  document.querySelectorAll('.rdm-tab').forEach(function(b) {
-    b.classList.toggle('active', b.getAttribute('data-rdm-tab') === tab);
-  });
   document.querySelectorAll('.rdm-tab-panel').forEach(function(p) {
     p.classList.toggle('active', p.id === 'rdm-panel-' + tab);
   });
@@ -12001,6 +8665,7 @@ function _rdmDonutSvg(billable, internal) {
   svg += '</svg>';
   return svg;
 }
+
 
 // ═══════════════════════════════════════════════════════════
 //  DEMANDES ADMINISTRATIVES
@@ -12521,126 +9186,49 @@ function _daPopulateProjets(selectedProjetId, clientId) {
   });
 }
 
-// ── Dropdown search client pour demandes admin ──
-var _daClientDropdownOpen = false;
-
+// Remplit le select des clients en appliquant la recherche courante
 function _daPopulateClients(selectedClientId) {
   var cSel = document.getElementById('da-client');
   if (!cSel) return;
-  // Remplir le select caché pour compatibilité (saveDemandeAdmin lit da-client.value)
+  _daEnsureClientSearch();
+  var q = ((document.getElementById('da-client-search') || {}).value || '').trim().toLowerCase();
   cSel.innerHTML = '<option value="">-- Aucun --</option>';
-  (getClients() || []).forEach(function(c) {
+  var list = (getClients() || []).slice().sort(function(a, b) {
+    return String(a.display_nom || a.nom || '').localeCompare(String(b.display_nom || b.nom || ''), 'fr', { sensitivity: 'base' });
+  });
+  if (q) {
+    list = list.filter(function(c) {
+      var hay = ((c.code || '') + ' ' + (c.display_nom || '') + ' ' + (c.nom || '') + ' ' + (c.raison || '') + ' ' + (c.email || '') + ' ' + (c.tel || '')).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+  }
+  list.forEach(function(c) {
     var o = document.createElement('option');
     o.value = c.id;
     o.textContent = (c.code ? c.code + ' — ' : '') + (c.display_nom || c.nom || c.raison || '—');
     if (selectedClientId && c.id === selectedClientId) o.selected = true;
     cSel.appendChild(o);
   });
-  // Mettre à jour l'input de recherche avec le nom du client sélectionné
-  var input = document.getElementById('da-client-search');
-  var clearBtn = document.getElementById('da-client-clear');
-  if (input) {
-    if (selectedClientId && cSel.selectedOptions[0] && cSel.selectedOptions[0].value) {
-      input.value = cSel.selectedOptions[0].textContent;
-      if (clearBtn) clearBtn.style.display = 'block';
-    } else {
-      input.value = '';
-      if (clearBtn) clearBtn.style.display = 'none';
-    }
-  }
+  var info = document.getElementById('da-client-count');
+  if (info) info.textContent = list.length + ' client(s)';
 }
 
-function _daFilterClientDropdown() {
-  var input = document.getElementById('da-client-search');
-  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  var clearBtn = document.getElementById('da-client-clear');
-  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-  _daRenderClientDropdown(q);
-  _daShowClientDropdown();
-}
-
-function _daShowClientDropdown() {
-  var dd = document.getElementById('da-client-dropdown');
-  if (!dd) return;
-  dd.style.display = 'block';
-  _daClientDropdownOpen = true;
-  var q = ((document.getElementById('da-client-search') || {}).value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  _daRenderClientDropdown(q);
-}
-
-function _daHideClientDropdown() {
-  setTimeout(function() {
-    var dd = document.getElementById('da-client-dropdown');
-    if (dd) dd.style.display = 'none';
-    _daClientDropdownOpen = false;
-  }, 200);
-}
-
-function _daRenderClientDropdown(q) {
-  var dd = document.getElementById('da-client-dropdown');
-  if (!dd) return;
-  var clients = (getClients() || []).slice().sort(function(a, b) {
-    return String(a.display_nom || a.nom || '').localeCompare(String(b.display_nom || b.nom || ''), 'fr', { sensitivity: 'base' });
+// Injecte (une seule fois) un input de recherche au-dessus du select client
+function _daEnsureClientSearch() {
+  if (document.getElementById('da-client-search')) return;
+  var cSel = document.getElementById('da-client');
+  if (!cSel) return;
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.3rem';
+  wrap.innerHTML =
+    '<input id="da-client-search" class="form-input" placeholder="Rechercher un client…" style="flex:1;font-size:0.8rem" />' +
+    '<span id="da-client-count" style="font-size:0.72rem;color:var(--text-3);white-space:nowrap"></span>';
+  cSel.parentNode.insertBefore(wrap, cSel);
+  document.getElementById('da-client-search').addEventListener('input', function() {
+    var current = cSel.value;
+    _daPopulateClients(current);
   });
-  var filtered = clients.filter(function(c) {
-    if (!q) return true;
-    var hay = ((c.code || '') + ' ' + (c.display_nom || '') + ' ' + (c.nom || '') + ' ' + (c.raison || '') + ' ' + (c.email || '') + ' ' + (c.tel || '')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return hay.indexOf(q) !== -1;
-  });
-
-  if (filtered.length === 0) {
-    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucun client trouv\u00e9</div>';
-    return;
-  }
-
-  dd.innerHTML = filtered.map(function(c) {
-    var nom = c.display_nom || c.nom || c.raison || '';
-    var code = c.code || '';
-    return '<div class="da-client-dd-item" onmousedown="_daSelectClient(\'' + c.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'">' +
-      '<span style="color:var(--text-1)">' + nom + '</span>' +
-      (code ? ' <span style="color:var(--text-3);font-size:0.72rem">(' + code + ')</span>' : '') +
-      '</div>';
-  }).join('');
 }
-
-function _daSelectClient(clientId) {
-  var sel = document.getElementById('da-client');
-  var input = document.getElementById('da-client-search');
-  var clearBtn = document.getElementById('da-client-clear');
-  sel.value = clientId;
-  var selectedOpt = sel.selectedOptions[0];
-  if (selectedOpt && clientId) {
-    input.value = selectedOpt.textContent;
-  } else {
-    input.value = '';
-  }
-  if (clearBtn) clearBtn.style.display = clientId ? 'block' : 'none';
-  _daHideClientDropdown();
-  _daOnClientChange();
-}
-
-function _daClearClientSearch() {
-  var input = document.getElementById('da-client-search');
-  var sel = document.getElementById('da-client');
-  var clearBtn = document.getElementById('da-client-clear');
-  input.value = '';
-  sel.value = '';
-  if (clearBtn) clearBtn.style.display = 'none';
-  input.focus();
-  _daShowClientDropdown();
-  _daOnClientChange();
-}
-
-// Fermer dropdown client DA au clic extérieur
-document.addEventListener('click', function(e) {
-  if (!_daClientDropdownOpen) return;
-  var container = document.getElementById('da-client-search');
-  var dd = document.getElementById('da-client-dropdown');
-  if (container && dd && !container.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none';
-    _daClientDropdownOpen = false;
-  }
-});
 
 function _daOnClientChange() {
   var cSel = document.getElementById('da-client');
@@ -14041,30 +10629,14 @@ function renderGanttPage() {
   }
   var projetId = selP ? selP.value : '';
   loadTaches(projetId || null).then(function(list){
-    // Normaliser les dates au format YYYY-MM-DD strict pour frappe-gantt
-    function normDate(d) {
-      if (!d) return null;
-      var s = String(d).substring(0, 10); // YYYY-MM-DD
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-      return s;
-    }
     var tasks = (list||[]).filter(function(t){
-      var sd = normDate(t.date_debut || t.dateDebut);
-      var ed = normDate(t.date_echeance || t.dateEcheance);
-      return sd && ed && sd <= ed;
+      return (t.date_debut || t.dateDebut) && (t.date_echeance || t.dateEcheance);
     }).map(function(t){
-      var sd = normDate(t.date_debut || t.dateDebut);
-      var ed = normDate(t.date_echeance || t.dateEcheance);
-      // frappe-gantt exige que end soit > start (au moins 1 jour)
-      if (sd === ed) {
-        var d = new Date(ed); d.setDate(d.getDate() + 1);
-        ed = d.toISOString().substring(0, 10);
-      }
       return {
-        id: String(t.id),
+        id: t.id,
         name: (t.projetCode?t.projetCode+' · ':'') + (t.titre||''),
-        start: sd,
-        end:   ed,
+        start: t.date_debut || t.dateDebut,
+        end:   t.date_echeance || t.dateEcheance,
         progress: parseInt(t.progression,10) || 0,
         dependencies: ''
       };
@@ -14085,18 +10657,9 @@ function renderGanttPage() {
       window._ganttInstance = new Gantt('#gantt-svg', tasks, {
         view_mode: (document.getElementById('gantt-scale')||{}).value || 'Week',
         language: 'fr',
-        bar_height: 24,
-        padding: 18,
-        column_width: 45,
-        on_click: function(task){ editTache(task.id); },
-        on_date_change: function() {},
-        on_progress_change: function() {},
-        custom_popup_html: function(task) {
-          return '<div class="details-container" style="padding:8px 12px;background:var(--bg-card,#1a1a2e);border:1px solid var(--border,#333);border-radius:6px;color:var(--text-1,#fff);font-size:0.8rem">' +
-            '<b>' + task.name + '</b><br>' +
-            '<span style="color:var(--text-3)">' + task.progress + '% terminé</span>' +
-            '</div>';
-        }
+        bar_height: 22,
+        padding: 16,
+        on_click: function(task){ editTache(task.id); }
       });
     } catch (e) {
       container.innerHTML = '<div style="color:var(--red);padding:1rem">Erreur Gantt : '+e.message+'</div>';
@@ -14108,64 +10671,14 @@ function renderGanttPage() {
 //  CHARGE DE TRAVAIL — capacité vs planifié
 // ═══════════════════════════════════════════════════════════════
 
-var _chargePeriod = 'week'; // 'today', 'week', 'month', 'custom'
-
-function setChargePeriod(period) {
-  _chargePeriod = period;
-  var today = new Date();
-  var fromEl = document.getElementById('charge-from');
-  var toEl   = document.getElementById('charge-to');
-  var todayStr = today.toISOString().split('T')[0];
-
-  if (period === 'today') {
-    fromEl.value = todayStr;
-    toEl.value   = todayStr;
-  } else if (period === 'week') {
-    var day = today.getDay(); // 0=dim
-    var monday = new Date(today);
-    monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
-    var sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    fromEl.value = monday.toISOString().split('T')[0];
-    toEl.value   = sunday.toISOString().split('T')[0];
-  } else if (period === 'month') {
-    var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    var lastDay  = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    fromEl.value = firstDay.toISOString().split('T')[0];
-    toEl.value   = lastDay.toISOString().split('T')[0];
-  }
-  // custom : on garde les valeurs des inputs
-
-  // Mise à jour visuelle des boutons
-  ['today','week','month'].forEach(function(p){
-    var btn = document.getElementById('charge-btn-' + p);
-    if (btn) {
-      btn.style.background = (p === period) ? 'var(--accent)' : '';
-      btn.style.color      = (p === period) ? 'var(--bg-1)' : '';
-    }
-  });
-
-  renderChargePage();
-}
-window.setChargePeriod = setChargePeriod;
-
-function _countWorkDays(d1, d2) {
-  var count = 0;
-  var cur = new Date(d1);
-  while (cur <= d2) {
-    var day = cur.getDay();
-    if (day !== 0 && day !== 6) count++; // Exclure samedi/dimanche
-    cur.setDate(cur.getDate() + 1);
-  }
-  return Math.max(count, 1);
-}
-
 function renderChargePage() {
   var df = (document.getElementById('charge-from')||{}).value;
   var dt = (document.getElementById('charge-to')||{}).value;
   if (!df || !dt) {
-    setChargePeriod('week');
-    return;
+    var today = new Date();
+    var weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+    if (!df) { document.getElementById('charge-from').value = today.toISOString().split('T')[0]; df = today.toISOString().split('T')[0]; }
+    if (!dt) { document.getElementById('charge-to').value = weekEnd.toISOString().split('T')[0]; dt = weekEnd.toISOString().split('T')[0]; }
   }
   loadTaches().then(function(list){
     var membres = getMembres();
@@ -14191,40 +10704,20 @@ function renderChargePage() {
       byMember[t.assignee].planifie += he;
       byMember[t.assignee].tasks.push(t);
     });
-
-    // Capacité = heures_mois / jours ouvrés du mois × jours ouvrés de la période
-    var workDaysPeriod = _countWorkDays(d1, d2);
-    var workDaysMonth  = _countWorkDays(
-      new Date(d1.getFullYear(), d1.getMonth(), 1),
-      new Date(d1.getFullYear(), d1.getMonth() + 1, 0)
-    );
-
-    // Libellé période
-    var periodLabel = '';
-    if (_chargePeriod === 'today')  periodLabel = "Aujourd'hui — " + workDaysPeriod + ' jour ouvré';
-    else if (_chargePeriod === 'week')  periodLabel = 'Cette semaine — ' + workDaysPeriod + ' jours ouvrés';
-    else if (_chargePeriod === 'month') periodLabel = 'Ce mois — ' + workDaysPeriod + ' jours ouvrés';
-    else periodLabel = 'Période personnalisée — ' + workDaysPeriod + ' jour' + (workDaysPeriod > 1 ? 's' : '') + ' ouvré' + (workDaysPeriod > 1 ? 's' : '');
-
+    // Capacité hebdo = heures_mois / 4 ; ajuster selon longueur période
+    var periodDays = Math.max(1, Math.round((d2-d1)/86400000) + 1);
     var wrap = document.getElementById('charge-wrap');
     if (!wrap) return;
     var html = '';
-    html += '<div style="font-size:0.72rem;color:var(--accent);margin-bottom:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">' + periodLabel + '</div>';
-
     var names = Object.keys(byMember);
-    if (!names.length) { wrap.innerHTML = html + '<div style="color:var(--text-3);font-size:0.82rem">Aucun collaborateur.</div>'; return; }
-
-    var totalPlanifie = 0, totalCapacite = 0;
+    if (!names.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucun collaborateur.</div>'; return; }
     names.forEach(function(n){
       var d = byMember[n];
-      var heuresMois = parseFloat(d.membre.heures_mois || 160);
-      var capacite = (heuresMois / workDaysMonth) * workDaysPeriod;
+      var capWeek = parseFloat(d.membre.heures_mois || 160) / 4;
+      var capacite = capWeek * (periodDays / 7);
       var pct = capacite > 0 ? Math.round(d.planifie / capacite * 100) : 0;
       var color = d.membre.color || '#c8a96e';
       var barColor = pct > 100 ? '#c0392b' : (pct > 80 ? '#d18e1e' : color);
-      totalPlanifie += d.planifie;
-      totalCapacite += capacite;
-
       html += '<div style="margin-bottom:1rem">';
       html += '<div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem">';
       html += '<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+color+';margin-right:0.4rem"></span>'+n+'</span>';
@@ -14232,27 +10725,10 @@ function renderChargePage() {
       html += '</div>';
       html += '<div style="height:8px;background:var(--bg-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+barColor+';transition:width .3s"></div></div>';
       if (d.tasks.length) {
-        html += '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">';
-        d.tasks.forEach(function(tk){
-          var he = parseFloat(tk.heures_estimees)||0;
-          html += '<span style="display:inline-block;margin-right:0.6rem">• ' + (tk.titre||'').substring(0,35) + (he ? ' <strong>'+he.toFixed(1)+'h</strong>':'') + '</span>';
-        });
-        html += '</div>';
+        html += '<div style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem">'+d.tasks.length+' tâche(s) active(s)</div>';
       }
       html += '</div>';
     });
-
-    // Total équipe
-    var totalPct = totalCapacite > 0 ? Math.round(totalPlanifie / totalCapacite * 100) : 0;
-    var totalBarColor = totalPct > 100 ? '#c0392b' : (totalPct > 80 ? '#d18e1e' : 'var(--accent)');
-    html += '<div style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid var(--border)">';
-    html += '<div style="display:flex;justify-content:space-between;font-size:0.82rem;font-weight:600;margin-bottom:0.3rem">';
-    html += '<span>Total équipe</span>';
-    html += '<span style="color:var(--text-3)">'+totalPlanifie.toFixed(1)+' h / '+totalCapacite.toFixed(1)+' h <strong style="color:'+totalBarColor+'">('+totalPct+'%)</strong></span>';
-    html += '</div>';
-    html += '<div style="height:8px;background:var(--bg-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(totalPct,100)+'%;background:'+totalBarColor+';transition:width .3s"></div></div>';
-    html += '</div>';
-
     wrap.innerHTML = html;
   });
 }
@@ -14484,23 +10960,15 @@ function switchCongeTab(tab, btn){
   }
   document.getElementById('cg-panel-mine').style.display  = tab === 'mine'  ? '' : 'none';
   document.getElementById('cg-panel-admin').style.display = tab === 'admin' ? '' : 'none';
-  var tcPanel = document.getElementById('cg-panel-teamcal');
-  if (tcPanel) tcPanel.style.display = tab === 'teamcal' ? '' : 'none';
   if (tab === 'admin') renderCongesAdmin();
-  if (tab === 'teamcal') renderTeamCalendar();
 }
 
 function renderCongesPage(){
   _congesState.isManager = _cgIsManager();
   var tabAdmin = document.getElementById('cg-tab-admin');
   if (tabAdmin) tabAdmin.style.display = _congesState.isManager ? '' : 'none';
-  if (_congesState.isManager) {
-    _ensureTeamCalTab();
-    refreshCongesPendingBadge();
-  }
-  // Charger les fériés globalement
-  _cgLoadHolidays().catch(function(){});
   renderCongesMine();
+  if (_congesState.isManager) refreshCongesPendingBadge();
 }
 
 // ── Vue collaborateur ──
@@ -14542,14 +11010,8 @@ function renderCongesMine(){
       if (r.statut === 'En attente'){
         html += '<button class="btn btn-sm" onclick="cancelConge(\'' + r.id + '\')" style="font-size:0.7rem">Annuler</button>';
       }
-      if (r.justificatif_url){
-        html += ' <a href="' + _cgEscape(r.justificatif_url) + '" target="_blank" title="Voir le justificatif" style="color:var(--accent);text-decoration:none">📎</a>';
-      }
       if (r.commentaire_admin){
         html += ' <span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3)">💬</span>';
-      }
-      if (canDelete() && (r.statut === 'Annulé' || r.statut === 'Refusé')){
-        html += ' <button class="btn btn-sm" onclick="deleteConge(\'' + r.id + '\')" style="font-size:0.7rem;color:#e07070" title="Supprimer définitivement">✕</button>';
       }
       html += '</td></tr>';
     });
@@ -14629,9 +11091,7 @@ function renderHeatmap(containerId, days, from, to, teamAbsences){
       var dayDate = new Date(y, m, d);
       var dow = dayDate.getDay();
       var isWeekend = (dow === 0 || dow === 6);
-      var hol = (_congesState.holidays || {})[key];
-      if (hol) { bg = parseInt(hol.pont||0,10) ? 'rgba(155,107,214,0.25)' : 'rgba(255,255,255,0.12)'; }
-      else if (isWeekend){ bg = 'rgba(255,255,255,0.04)'; }
+      if (isWeekend){ bg = 'rgba(255,255,255,0.04)'; }
       var items = info && info.items ? info.items : [];
       var tipLines = items.map(function(it){
         return '• ' + it.titre + (it.projet ? ' — ' + it.projet : '') + ' (échéance ' + _cgFmtDate(it.date_echeance) + ')';
@@ -14647,12 +11107,11 @@ function renderHeatmap(containerId, days, from, to, teamAbsences){
         tipLines.push('⚠ Sous-effectif : ' + absents.length + ' absent(s) — ' + names);
         absentBadge = '<div style="position:absolute;top:-4px;right:-4px;background:#9b6bd6;color:#fff;font-size:0.55rem;min-width:14px;height:14px;padding:0 3px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;border:1px solid var(--bg-1)">' + absents.length + '</div>';
       }
-      if (hol) { tipLines.unshift('🏷 ' + hol.libelle + (parseInt(hol.pont||0,10) ? ' (pont)' : ' (férié)')); }
       var tip = tipLines.length
         ? tipLines.join('\n')
         : (isWeekend ? 'Week-end' : 'Aucune deadline majeure — disponibilité normale');
       monthsHtml += '<div class="cg-hm-cell" data-key="' + key + '" title="' + _cgEscape(tip) + '" '
-        + 'style="position:relative;background:' + bg + ';color:#fff;font-size:0.65rem;text-align:center;padding:6px 2px;border-radius:3px;cursor:help;font-weight:500;opacity:' + ((isWeekend||hol)?'0.5':'1') + extraBorder + '">'
+        + 'style="position:relative;background:' + bg + ';color:#fff;font-size:0.65rem;text-align:center;padding:6px 2px;border-radius:3px;cursor:help;font-weight:500;opacity:' + (isWeekend?'0.4':'1') + extraBorder + '">'
         + d + absentBadge + '</div>';
     }
     monthsHtml += '</div></div>';
@@ -14670,9 +11129,6 @@ function openCongeForm(){
   document.getElementById('cg-motif').value = '';
   document.getElementById('cg-delegation').value = '';
   document.getElementById('cg-warning').style.display = 'none';
-  _ensureCongeJustifField();
-  var justifInput = document.getElementById('cg-justif-file');
-  if (justifInput) justifInput.value = '';
   openModal('modal-conge');
 
   // Charger la heatmap dans le modal et la rendre cliquable
@@ -14738,12 +11194,10 @@ function onCongeDatesChange(){
   var s = new Date(d1); var e = new Date(d2);
   if (e < s) { document.getElementById('cg-jours').value = '0'; return; }
   var count = 0;
-  var hols = _congesState.holidays || {};
   var cur = new Date(s);
   while (cur <= e){
     var dow = cur.getDay();
-    var kk = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
-    if (dow !== 0 && dow !== 6 && !hols[kk]) count++;
+    if (dow !== 0 && dow !== 6) count++;
     cur.setDate(cur.getDate()+1);
   }
   document.getElementById('cg-jours').value = count;
@@ -14794,13 +11248,6 @@ function submitCongeRequest(){
   apiFetch('api/conges.php?action=create', { method:'POST', body: body })
     .then(function(r){
       var d = r.data || r;
-      // Upload justificatif si fichier sélectionné
-      var uploadP = _uploadCongeJustif(d.id).catch(function(ue){
-        console.warn('[conges] upload justif error', ue);
-      });
-      return uploadP.then(function(){ return d; });
-    })
-    .then(function(d){
       var msg = 'Demande soumise (' + d.jours + ' jour(s) ouvrés). En attente de validation.';
       if (d.conflicts && d.conflicts.length){
         msg += '\n\n⚠ Conflits potentiels détectés :\n' + d.conflicts.map(function(c){
@@ -14822,22 +11269,8 @@ function cancelConge(id){
     .catch(function(e){ alert('Erreur : ' + e.message); });
 }
 
-function deleteConge(id){
-  if (!confirm('Supprimer définitivement cette demande de congé ?\n\nCette action est irréversible.')) return;
-  apiFetch('api/conges.php?action=delete&id=' + encodeURIComponent(id), { method:'POST', body: {} })
-    .then(function(){
-      showToast('Demande supprimée');
-      renderCongesMine();
-      renderCongesAdmin();
-      refreshCongesPendingBadge();
-    })
-    .catch(function(e){ alert('Erreur : ' + e.message); });
-}
-window.deleteConge = deleteConge;
-
 // ── Vue admin ──
 function renderCongesAdmin(){
-  renderCongesHolidays();
   // Demandes en attente + historique
   apiFetch('api/conges.php?action=list').then(function(r){
     var list = r.data || r || [];
@@ -14897,13 +11330,9 @@ function renderCongesAdminTable(containerId, list, withActions){
       + '<td style="text-align:right">';
     if (withActions){
       html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem">Décider</button>';
-      html += ' <button class="btn btn-sm" onclick="deleteConge(\'' + r.id + '\')" style="font-size:0.7rem;color:#e07070" title="Supprimer">✕</button>';
     } else {
       if (r.statut === 'Approuvé' || r.statut === 'Refusé') {
         html += '<button class="btn btn-sm" onclick="openCongeDecide(\'' + r.id + '\')" style="font-size:0.7rem" title="Modifier la décision">✎ Modifier</button> ';
-      }
-      if (r.justificatif_url){
-        html += ' <a href="' + _cgEscape(r.justificatif_url) + '" target="_blank" title="Justificatif" style="color:var(--accent);text-decoration:none;margin-left:4px">📎</a>';
       }
       if (r.commentaire_admin){
         html += '<span title="' + _cgEscape(r.commentaire_admin) + '" style="cursor:help;color:var(--text-3);margin-left:4px">💬</span>';
@@ -14911,7 +11340,6 @@ function renderCongesAdminTable(containerId, list, withActions){
       if (r.statut === 'Approuvé' && parseInt(r.partage||0,10) === 0) {
         html += ' <span title="Non partagé avec le calendrier équipe" style="cursor:help;color:var(--text-3);margin-left:4px">🔒</span>';
       }
-      html += ' <button class="btn btn-sm" onclick="deleteConge(\'' + r.id + '\')" style="font-size:0.7rem;color:#e07070" title="Supprimer">✕</button>';
     }
     html += '</td></tr>';
   });
@@ -14972,8 +11400,7 @@ function openCongeDecide(id){
       '<strong>' + _cgEscape(req.type) + '</strong> · ' + _cgFmtDate(req.date_debut) + ' → ' + _cgFmtDate(req.date_fin)
       + ' (' + parseFloat(req.jours||0).toFixed(1).replace(/\.0$/,'') + ' j)'
       + (req.motif ? '<br><em>Motif :</em> ' + _cgEscape(req.motif) : '')
-      + '<br><em>Délégation :</em> ' + _cgEscape(req.delegation)
-      + (req.justificatif_url ? '<br><a href="' + _cgEscape(req.justificatif_url) + '" target="_blank" style="color:var(--accent)">📎 Voir le justificatif</a>' : '');
+      + '<br><em>Délégation :</em> ' + _cgEscape(req.delegation);
     document.getElementById('cg-decide-comment').value = req.commentaire_admin || '';
     // Case "partage" : pré-cocher selon l'état courant (défaut : coché)
     var partageCb = _ensureDecideExtras();
@@ -15107,461 +11534,8 @@ function refreshCongesPendingBadge(){
 // Lancer le badge au chargement
 setTimeout(function(){ try { refreshCongesPendingBadge(); } catch(e){} }, 2500);
 
-// ═══════════════════════════════════════════════════════════
-//  CONGÉS — Déclaration d'absence (admin)
-// ═══════════════════════════════════════════════════════════
 
-function openAbsenceForm(){
-  // Reset form
-  document.getElementById('abs-type').value = 'Absence injustifiée';
-  document.getElementById('abs-date-debut').value = '';
-  document.getElementById('abs-date-fin').value = '';
-  document.getElementById('abs-jours').value = '0';
-  document.getElementById('abs-motif').value = '';
-  document.getElementById('abs-commentaire').value = '';
-  document.getElementById('abs-deduire').checked = false;
-  document.getElementById('abs-deduire-options').style.display = 'none';
-  document.getElementById('abs-deduire-type').value = 'Congés annuels';
-  document.getElementById('abs-partage').checked = true;
-  document.getElementById('abs-solde-info').textContent = '';
-  var justifCb = document.getElementById('abs-justif-fourni');
-  if (justifCb) justifCb.checked = false;
-  var justifFile = document.getElementById('abs-justif-file');
-  if (justifFile) justifFile.value = '';
-  var radios = document.querySelectorAll('input[name="abs-duree"]');
-  radios.forEach(function(r){ r.checked = r.value === 'journee'; });
-
-  // Charger les membres dans le sélecteur
-  var sel = document.getElementById('abs-user');
-  sel.innerHTML = '<option value="">— Sélectionner un membre —</option>';
-  apiFetch('api/conges.php?action=team_calendar&from=2000-01-01&to=2000-01-02').then(function(r){
-    var members = (r.data || r).members || [];
-    members.forEach(function(m){
-      var opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.name;
-      sel.appendChild(opt);
-    });
-  }).catch(function(){});
-
-  openModal('modal-absence');
-}
-
-function onAbsenceDatesChange(){
-  var d1 = document.getElementById('abs-date-debut').value;
-  var d2 = document.getElementById('abs-date-fin').value;
-  if (!d1 || !d2){ document.getElementById('abs-jours').value = '0'; return; }
-  var s = new Date(d1), e = new Date(d2);
-  if (e < s){ document.getElementById('abs-jours').value = '0'; return; }
-  var count = 0;
-  var hols = _congesState.holidays || {};
-  var cur = new Date(s);
-  while (cur <= e){
-    var dow = cur.getDay();
-    var kk = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
-    if (dow !== 0 && dow !== 6 && !hols[kk]) count++;
-    cur.setDate(cur.getDate()+1);
-  }
-  var duree = document.querySelector('input[name="abs-duree"]:checked');
-  if (duree && duree.value !== 'journee') count = Math.max(0.5, count - 0.5);
-  document.getElementById('abs-jours').value = count;
-  // Mettre à jour le solde si déduction active
-  if (document.getElementById('abs-deduire').checked) _loadAbsSolde();
-}
-
-function toggleAbsDeduction(){
-  var checked = document.getElementById('abs-deduire').checked;
-  document.getElementById('abs-deduire-options').style.display = checked ? '' : 'none';
-  if (checked) _loadAbsSolde();
-}
-
-function _loadAbsSolde(){
-  var uid = document.getElementById('abs-user').value;
-  var el = document.getElementById('abs-solde-info');
-  if (!uid){ el.textContent = 'Sélectionnez d\'abord un collaborateur.'; return; }
-  var deduireType = document.getElementById('abs-deduire-type').value;
-  apiFetch('api/conges.php?action=balance&user_id=' + encodeURIComponent(uid)).then(function(r){
-    var d = r.data || r;
-    var bal = d.balance || {};
-    var usage = d.usage || {};
-    var col = deduireType === 'Congés annuels' ? 'conges_annuels' : deduireType === 'Maladie' ? 'maladie' : 'recuperation';
-    var total = parseFloat(bal[col] || 0);
-    var used = (usage[deduireType] || {}).approved || 0;
-    var rest = total - used;
-    var jours = parseFloat(document.getElementById('abs-jours').value) || 0;
-    el.innerHTML = 'Solde actuel <strong>' + deduireType + '</strong> : '
-      + rest.toFixed(1).replace(/\.0$/,'') + ' j restant(s)'
-      + (jours > 0 ? ' → après déduction : <strong>' + Math.max(0, rest - jours).toFixed(1).replace(/\.0$/,'') + ' j</strong>' : '');
-    if (jours > rest && jours > 0) el.innerHTML += ' <span style="color:var(--red)">⚠ Solde insuffisant</span>';
-  }).catch(function(){ el.textContent = 'Impossible de charger le solde.'; });
-}
-
-function submitAbsence(){
-  var uid = document.getElementById('abs-user').value;
-  if (!uid) return alert('Veuillez sélectionner un collaborateur.');
-  var d1 = document.getElementById('abs-date-debut').value;
-  var d2 = document.getElementById('abs-date-fin').value;
-  if (!d1 || !d2) return alert('Dates requises.');
-
-  var duree = document.querySelector('input[name="abs-duree"]:checked');
-  var body = {
-    user_id:      uid,
-    type:         document.getElementById('abs-type').value,
-    date_debut:   d1,
-    date_fin:     d2,
-    demi_journee: duree ? duree.value : 'journee',
-    motif:        document.getElementById('abs-motif').value,
-    commentaire:  document.getElementById('abs-commentaire').value,
-    deduire:      document.getElementById('abs-deduire').checked ? 1 : 0,
-    deduire_type: document.getElementById('abs-deduire-type').value,
-    partage:      document.getElementById('abs-partage').checked ? 1 : 0
-  };
-
-  apiFetch('api/conges.php?action=declare_absence', { method:'POST', body: body })
-    .then(function(r){
-      var d = r.data || r;
-      // Upload justificatif si fichier sélectionné
-      var justifFile = document.getElementById('abs-justif-file');
-      if (justifFile && justifFile.files && justifFile.files.length > 0) {
-        var fd = new FormData();
-        fd.append('file', justifFile.files[0]);
-        fd.append('request_id', d.id);
-        return apiFetch('api/conges.php?action=upload_justif', { method:'POST', body: fd, raw: true })
-          .catch(function(ue){ console.warn('[absence] upload justif error', ue); })
-          .then(function(){ return d; });
-      }
-      return d;
-    })
-    .then(function(d){
-      var msg = 'Absence enregistrée pour ' + _cgEscape(d.user_name) + ' — ' + d.jours + ' jour(s).';
-      if (d.balance) msg += '\n' + d.balance.deduit + ' jour(s) déduit(s) de ' + d.balance.type + ' (restant : ' + d.balance.restant + ').';
-      closeModal('modal-absence');
-      showToast(msg);
-      renderCongesAdmin();
-    })
-    .catch(function(e){ alert('Erreur : ' + e.message); });
-}
-
-// ═══════════════════════════════════════════════════════════
-//  CONGÉS — Jours fériés (CRUD admin + overlay heatmap)
-// ═══════════════════════════════════════════════════════════
-
-// Cache global des jours fériés { 'YYYY-MM-DD': { id, libelle, pont } }
-_congesState.holidays = {};
-_congesState.holidaysList = [];
-_congesState.teamCalYear = new Date().getFullYear();
-_congesState.teamCalMonth = new Date().getMonth();
-
-function _cgLoadHolidays(annee){
-  annee = annee || new Date().getFullYear();
-  return apiFetch('api/conges.php?action=holidays_list&annee=' + annee).then(function(r){
-    var list = r.data || r || [];
-    _congesState.holidaysList = list;
-    _congesState.holidays = {};
-    list.forEach(function(h){ _congesState.holidays[h.date] = h; });
-    return list;
-  });
-}
-
-// Injecte le panneau "Jours fériés" dans l'admin
-function _ensureHolidaysPanel(){
-  if (document.getElementById('cg-admin-holidays')) return;
-  var hist = document.querySelector('#cg-panel-admin .card:last-child');
-  if (!hist) return;
-  var card = document.createElement('div');
-  card.className = 'card';
-  card.id = 'cg-admin-holidays';
-  card.style.marginTop = '1rem';
-  card.innerHTML = '<div class="card-title" style="display:flex;justify-content:space-between;align-items:center">'
-    + '<span>Jours fériés & ponts</span>'
-    + '<button class="btn btn-sm" onclick="openHolidayForm()" style="font-size:0.7rem">+ Ajouter</button>'
-    + '</div>'
-    + '<div id="cg-holidays-list" style="font-size:0.82rem"><div style="color:var(--text-3);padding:0.8rem;text-align:center">Chargement…</div></div>';
-  hist.parentNode.insertBefore(card, hist.nextSibling);
-}
-
-function renderCongesHolidays(){
-  _ensureHolidaysPanel();
-  _cgLoadHolidays().then(function(list){
-    var el = document.getElementById('cg-holidays-list');
-    if (!el) return;
-    if (!list.length){
-      el.innerHTML = '<div style="color:var(--text-3);padding:0.8rem;text-align:center">Aucun jour férié défini pour ' + new Date().getFullYear() + '.</div>';
-      return;
-    }
-    var html = '<table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">'
-      + '<th style="padding:0.4rem">Date</th><th>Libellé</th><th>Statut</th><th>Pont</th><th></th></tr></thead><tbody>';
-    list.forEach(function(h){
-      var isPaye = parseInt(h.paye,10);
-      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
-        + '<td style="padding:0.45rem 0.4rem">' + _cgFmtDate(h.date) + '</td>'
-        + '<td>' + _cgEscape(h.libelle) + '</td>'
-        + '<td>' + (isPaye ? '<span style="color:#4caf50">Chômé & payé</span>' : '<span style="color:#ff9800">Chômé & non payé</span>') + '</td>'
-        + '<td>' + (parseInt(h.pont,10) ? '<span style="color:#9b6bd6">Pont</span>' : '—') + '</td>'
-        + '<td style="text-align:right">'
-        + '<button class="btn btn-sm" onclick="openHolidayForm(' + h.id + ')" style="font-size:0.68rem" title="Modifier">✎</button> '
-        + '<button class="btn btn-sm" onclick="deleteHoliday(' + h.id + ')" style="font-size:0.68rem;color:var(--red)" title="Supprimer">✕</button>'
-        + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    el.innerHTML = html;
-  }).catch(function(e){
-    var el = document.getElementById('cg-holidays-list');
-    if (el) el.innerHTML = '<div style="color:var(--red);padding:0.8rem">' + _cgEscape(e.message) + '</div>';
-  });
-}
-
-function openHolidayForm(id){
-  var existing = id ? (_congesState.holidaysList||[]).find(function(h){ return String(h.id) === String(id); }) : null;
-  var html = '<div style="padding:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;margin-bottom:0.8rem">'
-    + '<div style="font-size:0.82rem;font-weight:600;margin-bottom:0.6rem">' + (existing ? 'Modifier le jour férié' : 'Nouveau jour férié') + '</div>'
-    + '<div class="form-grid" style="gap:0.6rem">'
-    + '<div class="form-field"><label class="form-label">Date</label><input id="hol-date" class="form-input" type="date" value="' + (existing ? existing.date : '') + '" /></div>'
-    + '<div class="form-field"><label class="form-label">Libellé</label><input id="hol-libelle" class="form-input" value="' + _cgEscape(existing ? existing.libelle : '') + '" /></div>'
-    + '</div>'
-    + '<div style="margin-top:0.5rem"><label style="font-size:0.78rem;cursor:pointer"><input type="checkbox" id="hol-paye"' + (existing ? (parseInt(existing.paye,10) ? ' checked' : '') : ' checked') + '> Chômé et payé</label></div>'
-    + '<div style="margin-top:0.3rem"><label style="font-size:0.78rem;cursor:pointer"><input type="checkbox" id="hol-pont"' + (existing && parseInt(existing.pont,10) ? ' checked' : '') + '> Jour de pont (facultatif)</label></div>'
-    + '<div style="display:flex;gap:0.5rem;margin-top:0.8rem;justify-content:flex-end">'
-    + '<button class="btn btn-sm" onclick="renderCongesHolidays()">Annuler</button>'
-    + '<button class="btn btn-sm btn-primary" onclick="saveHoliday(' + (id||'null') + ')">Enregistrer</button>'
-    + '</div></div>';
-  var el = document.getElementById('cg-holidays-list');
-  if (el) el.innerHTML = html;
-}
-
-function saveHoliday(id){
-  var body = {
-    date: document.getElementById('hol-date').value,
-    libelle: document.getElementById('hol-libelle').value.trim(),
-    paye: document.getElementById('hol-paye').checked ? 1 : 0,
-    pont: document.getElementById('hol-pont').checked ? 1 : 0
-  };
-  if (id) body.id = id;
-  if (!body.date || !body.libelle) return alert('Date et libellé requis');
-  apiFetch('api/conges.php?action=holidays_save', { method:'POST', body: body }).then(function(){
-    showToast('Jour férié enregistré');
-    renderCongesHolidays();
-  }).catch(function(e){ alert('Erreur : ' + e.message); });
-}
-
-function deleteHoliday(id){
-  if (!confirm('Supprimer ce jour férié ?')) return;
-  apiFetch('api/conges.php?action=holidays_delete&id=' + id, { method:'POST', body:{} }).then(function(){
-    showToast('Jour férié supprimé');
-    renderCongesHolidays();
-  }).catch(function(e){ alert('Erreur : ' + e.message); });
-}
-
-// ═══════════════════════════════════════════════════════════
-//  CONGÉS — Justificatif (upload dans formulaire demande)
-// ═══════════════════════════════════════════════════════════
-
-function _ensureCongeJustifField(){
-  if (document.getElementById('cg-justif-wrap')) return;
-  var deleg = document.getElementById('cg-delegation');
-  if (!deleg) return;
-  var wrap = document.createElement('div');
-  wrap.id = 'cg-justif-wrap';
-  wrap.className = 'form-field full';
-  wrap.innerHTML = '<label class="form-label">Justificatif <span style="color:var(--text-3);font-weight:400">(optionnel — recommandé pour Maladie)</span></label>'
-    + '<input type="file" id="cg-justif-file" class="form-input" accept=".jpg,.jpeg,.png,.webp,.pdf" style="padding:0.4rem">'
-    + '<div style="font-size:0.66rem;color:var(--text-3);margin-top:0.25rem">Formats : JPG, PNG, WebP, PDF · Max 15 Mo</div>';
-  var delegBlock = deleg.closest('.form-field') || deleg.parentNode;
-  delegBlock.parentNode.insertBefore(wrap, delegBlock.nextSibling);
-}
-
-function _uploadCongeJustif(requestId){
-  var fileInput = document.getElementById('cg-justif-file');
-  if (!fileInput || !fileInput.files || !fileInput.files[0]) return Promise.resolve(null);
-  var fd = new FormData();
-  fd.append('file', fileInput.files[0]);
-  fd.append('request_id', requestId);
-  var token = sessionStorage.getItem('cortoba_token');
-  return fetch('api/conges.php?action=upload_justif', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token },
-    body: fd
-  }).then(function(resp){ return resp.json(); });
-}
-
-// ═══════════════════════════════════════════════════════════
-//  CONGÉS — Calendrier d'équipe (vue admin dédiée)
-// ═══════════════════════════════════════════════════════════
-
-function _ensureTeamCalTab(){
-  if (document.getElementById('cg-tab-teamcal')) return;
-  var adminTab = document.getElementById('cg-tab-admin');
-  if (!adminTab) return;
-  // Onglet
-  var btn = document.createElement('button');
-  btn.className = 'cg-tab';
-  btn.id = 'cg-tab-teamcal';
-  btn.setAttribute('data-cg-tab', 'teamcal');
-  btn.onclick = function(){ switchCongeTab('teamcal', btn); };
-  btn.style.cssText = 'padding:0.7rem 1.2rem;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid transparent';
-  btn.textContent = 'Calendrier équipe';
-  adminTab.parentNode.insertBefore(btn, adminTab.nextSibling);
-  // Panel
-  var panel = document.createElement('div');
-  panel.className = 'cg-panel';
-  panel.id = 'cg-panel-teamcal';
-  panel.style.display = 'none';
-  var adminPanel = document.getElementById('cg-panel-admin');
-  if (adminPanel) adminPanel.parentNode.insertBefore(panel, adminPanel.nextSibling);
-}
-
-function renderTeamCalendar(year, month){
-  if (year == null) year = _congesState.teamCalYear;
-  if (month == null) month = _congesState.teamCalMonth;
-  // Clamp
-  if (month < 0) { month = 11; year--; }
-  if (month > 11) { month = 0; year++; }
-  _congesState.teamCalYear = year;
-  _congesState.teamCalMonth = month;
-
-  var panel = document.getElementById('cg-panel-teamcal');
-  if (!panel) return;
-  panel.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">Chargement du calendrier…</div>';
-
-  var first = new Date(year, month, 1);
-  var last  = new Date(year, month+1, 0);
-  var from = first.toISOString().slice(0,10);
-  var to   = last.toISOString().slice(0,10);
-
-  apiFetch('api/conges.php?action=team_calendar&from=' + from + '&to=' + to).then(function(r){
-    var data = r.data || r;
-    var leaves   = data.leaves   || [];
-    var holidays = data.holidays || [];
-    var members  = data.members  || [];
-
-    // Build holiday map
-    var holMap = {};
-    holidays.forEach(function(h){ holMap[h.date] = h; });
-
-    // Build member absence map: { memberId: { 'YYYY-MM-DD': status } }
-    var absMap = {};
-    leaves.forEach(function(lv){
-      var s = new Date(lv.date_debut);
-      var e = new Date(lv.date_fin);
-      var c = new Date(s.getFullYear(), s.getMonth(), s.getDate());
-      while (c <= e) {
-        var k = c.getFullYear() + '-' + String(c.getMonth()+1).padStart(2,'0') + '-' + String(c.getDate()).padStart(2,'0');
-        if (!absMap[lv.user_id]) absMap[lv.user_id] = {};
-        // Approuvé > En attente (en cas de double entrée)
-        if (!absMap[lv.user_id][k] || lv.statut === 'Approuvé') {
-          absMap[lv.user_id][k] = { statut: lv.statut, type: lv.type, name: lv.user_name };
-        }
-        c.setDate(c.getDate() + 1);
-      }
-    });
-
-    var daysInMonth = last.getDate();
-    var monthLabel = first.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
-    var todayStr = new Date().toISOString().slice(0,10);
-
-    var html = '<div class="card">';
-    // Nav header
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">';
-    html += '<button class="btn btn-sm" onclick="renderTeamCalendar(' + year + ',' + (month-1) + ')" style="font-size:0.75rem">◀ Préc.</button>';
-    html += '<div style="font-size:0.92rem;font-weight:600;text-transform:capitalize">' + monthLabel + '</div>';
-    html += '<button class="btn btn-sm" onclick="renderTeamCalendar(' + year + ',' + (month+1) + ')" style="font-size:0.75rem">Suiv. ▶</button>';
-    html += '</div>';
-
-    // Légende
-    html += '<div style="display:flex;gap:1rem;font-size:0.68rem;color:var(--text-3);margin-bottom:0.8rem;flex-wrap:wrap">';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:#3fa66a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Approuvé</span>';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:#d4a64a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>En attente</span>';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(255,255,255,0.08);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Férié</span>';
-    html += '<span><span style="display:inline-block;width:10px;height:10px;background:rgba(155,107,214,0.25);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Pont</span>';
-    html += '</div>';
-
-    // Table
-    html += '<div style="overflow-x:auto">';
-    html += '<table style="border-collapse:collapse;width:100%;min-width:' + (180 + daysInMonth * 32) + 'px;font-size:0.72rem">';
-    // Header: days
-    html += '<thead><tr style="border-bottom:1px solid var(--border)">';
-    html += '<th style="padding:0.4rem 0.5rem;text-align:left;position:sticky;left:0;background:var(--bg-1);z-index:2;min-width:140px">Collaborateur</th>';
-    for (var d = 1; d <= daysInMonth; d++){
-      var dayDate = new Date(year, month, d);
-      var dow = dayDate.getDay();
-      var isWE = (dow === 0 || dow === 6);
-      var dk = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-      var isHol = !!holMap[dk];
-      var isToday = dk === todayStr;
-      var dayLbl = ['D','L','M','M','J','V','S'][dow];
-      var thBg = isHol ? 'rgba(255,255,255,0.08)' : isWE ? 'rgba(255,255,255,0.03)' : 'transparent';
-      var thBorder = isToday ? '2px solid var(--accent)' : 'none';
-      var holTip = isHol ? ' title="' + _cgEscape(holMap[dk].libelle) + '"' : '';
-      html += '<th style="padding:0.25rem 0;text-align:center;min-width:28px;background:' + thBg + ';border-bottom:' + thBorder + '"' + holTip + '>'
-        + '<div style="font-size:0.6rem;color:var(--text-3)">' + dayLbl + '</div>'
-        + '<div style="' + (isToday ? 'color:var(--accent);font-weight:700' : isWE ? 'color:var(--text-3);opacity:0.5' : '') + '">' + d + '</div></th>';
-    }
-    html += '</tr></thead><tbody>';
-
-    // Rows: each member
-    members.forEach(function(m){
-      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">';
-      html += '<td style="padding:0.4rem 0.5rem;white-space:nowrap;position:sticky;left:0;background:var(--bg-1);z-index:1;font-weight:500">' + _cgEscape(m.name) + '</td>';
-      for (var d2 = 1; d2 <= daysInMonth; d2++){
-        var dk2 = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d2).padStart(2,'0');
-        var dayDate2 = new Date(year, month, d2);
-        var dow2 = dayDate2.getDay();
-        var isWE2 = (dow2 === 0 || dow2 === 6);
-        var isHol2 = !!holMap[dk2];
-        var isPont = isHol2 && parseInt(holMap[dk2].pont||0,10);
-        var cell = absMap[m.id] && absMap[m.id][dk2];
-        var bg = 'transparent';
-        var tip = '';
-        if (cell) {
-          if (cell.statut === 'Approuvé') { bg = 'rgba(63,166,106,0.35)'; tip = cell.type + ' (Approuvé)'; }
-          else { bg = 'rgba(212,166,74,0.35)'; tip = cell.type + ' (En attente)'; }
-        }
-        if (isHol2) {
-          bg = isPont ? 'rgba(155,107,214,0.2)' : 'rgba(255,255,255,0.07)';
-          tip = holMap[dk2].libelle + (cell ? ' + ' + tip : '');
-        }
-        if (isWE2 && !cell) bg = 'rgba(255,255,255,0.02)';
-        html += '<td style="padding:0;text-align:center;background:' + bg + '"' + (tip ? ' title="' + _cgEscape(tip) + '"' : '') + '>'
-          + (cell ? '<div style="width:100%;height:24px;border-radius:2px;background:' + (cell.statut==='Approuvé'?'#3fa66a55':'#d4a64a55') + '"></div>' : '')
-          + '</td>';
-      }
-      html += '</tr>';
-    });
-
-    html += '</tbody></table></div>';
-
-    // Résumé sous-effectif
-    var underStaff = [];
-    for (var d3 = 1; d3 <= daysInMonth; d3++){
-      var dk3 = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d3).padStart(2,'0');
-      var dow3 = new Date(year, month, d3).getDay();
-      if (dow3 === 0 || dow3 === 6) continue;
-      var count = 0;
-      var names = [];
-      members.forEach(function(m2){
-        var c2 = absMap[m2.id] && absMap[m2.id][dk3];
-        if (c2 && c2.statut === 'Approuvé') { count++; names.push(m2.name); }
-      });
-      if (count >= 2) underStaff.push({ date: dk3, count: count, names: names });
-    }
-    if (underStaff.length) {
-      html += '<div style="margin-top:1rem;padding:0.8rem;background:rgba(155,107,214,0.08);border:1px solid rgba(155,107,214,0.25);border-radius:4px;font-size:0.78rem">'
-        + '<strong style="color:#9b6bd6">⚠ Jours sous-effectif (≥2 absents)</strong>';
-      underStaff.forEach(function(u){
-        html += '<div style="margin-top:0.3rem;color:var(--text-2)">' + _cgFmtDate(u.date) + ' — ' + u.count + ' absent(s) : ' + _cgEscape(u.names.join(', ')) + '</div>';
-      });
-      html += '</div>';
-    }
-
-    html += '</div>'; // card close
-    panel.innerHTML = html;
-  }).catch(function(e){
-    panel.innerHTML = '<div style="color:var(--red);padding:1rem">' + _cgEscape(e.message) + '</div>';
-  });
-}
-
-
-// ═══════════════════════════════════════════��════════════════════
+// ════════════════════════════════════════════════════════════════
 //  LIVRABLES — Catalogue (paramètres) + checklist par tâche (suivi)
 // ════════════════════════════════════════════════════════════════
 
@@ -15795,3686 +11769,3 @@ function _refreshSuiviLivrablesCount(tacheId) {
   t.livrables_total = items.length;
   t.livrables_done = items.filter(function(i){ return parseInt(i.done,10) === 1; }).length;
 }
-
-// ═══ PAGE NOTIFICATIONS ═══
-var _nfState={status:'inbox'},_nfCache=[];
-function renderNotificationsPage(){document.querySelectorAll('#page-notifications .nf-tab').forEach(function(t){var a=t.getAttribute('data-nf-status')===_nfState.status;t.classList.toggle('active',a);t.style.color=a?'var(--text-2)':'var(--text-3)';t.style.borderBottom=a?'2px solid var(--accent)':'2px solid transparent';});notifPopulateTypes();notifLoadList();}
-function notifPopulateTypes(){var sel=document.getElementById('nf-type');if(!sel||sel.options.length>1)return;apiFetch('api/notifications.php?action=types').then(function(r){var types=(r&&r.data)?r.data:(r||[]);var labels={info:'Info',success:'Succ\u00e8s',warning:'Avertissement',error:'Erreur',conge_pending:'Cong\u00e9 en attente',conge_approved:'Cong\u00e9 approuv\u00e9',conge_refused:'Cong\u00e9 refus\u00e9'};types.forEach(function(t){var o=document.createElement('option');o.value=t;o.textContent=labels[t]||t;sel.appendChild(o);});}).catch(function(){});}
-function notifSwitchTab(s,b){_nfState.status=s;document.querySelectorAll('#page-notifications .nf-tab').forEach(function(t){t.classList.remove('active');t.style.color='var(--text-3)';t.style.borderBottom='2px solid transparent';});if(b){b.classList.add('active');b.style.color='var(--text-2)';b.style.borderBottom='2px solid var(--accent)';}notifLoadList();}
-function notifApplyFilters(){notifLoadList();}
-function notifLoadList(){var el=document.getElementById('nf-list');if(!el)return;el.innerHTML='<div style="color:var(--text-3);padding:1rem;text-align:center">Chargement\u2026</div>';var q=(document.getElementById('nf-search')||{value:''}).value.trim();var tp=(document.getElementById('nf-type')||{value:''}).value;var so=(document.getElementById('nf-sort')||{value:'recent'}).value;var p='action=list&limit=200&status='+encodeURIComponent(_nfState.status)+'&sort='+encodeURIComponent(so);if(tp)p+='&type='+encodeURIComponent(tp);if(q)p+='&q='+encodeURIComponent(q);apiFetch('api/notifications.php?'+p).then(function(r){_nfCache=(r&&r.data)?r.data:(r||[]);notifRenderList(_nfCache);}).catch(function(){el.innerHTML='<div style="color:#d45656;padding:1rem;text-align:center">Erreur</div>';});}
-function notifRenderList(notifs){var el=document.getElementById('nf-list');if(!el)return;if(!notifs.length){el.innerHTML='<div style="color:var(--text-3);padding:2rem;text-align:center">Aucune notification</div>';return;}var h='';notifs.forEach(function(n){var ur=!parseInt(n.is_read||0,10),ar=!!parseInt(n.is_archived||0,10),w=n.cree_at?_cgRelativeTime(n.cree_at):'',tc=({info:'#6aa6d4',success:'#5aab6e',warning:'#d4a64a',error:'#d45656'})[n.type]||'var(--accent)';h+='<div data-id="'+_cgEscape(n.id)+'" style="display:flex;gap:0.8rem;align-items:flex-start;padding:0.9rem 1rem;border-bottom:1px solid var(--border);'+(ur?'background:rgba(200,169,110,0.06);border-left:3px solid var(--accent);':'border-left:3px solid transparent;')+'">';h+='<div style="flex:1;cursor:pointer;min-width:0" onclick="notifOpen(\''+_cgEscape(n.id)+'\')">';h+='<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem;flex-wrap:wrap"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+tc+'"></span><span style="font-weight:'+(ur?'600':'500')+';color:var(--text-1);font-size:0.88rem">'+_cgEscape(n.title)+'</span>';if(n.type)h+='<span style="font-size:0.62rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;border:1px solid var(--border);padding:0.1rem 0.35rem;border-radius:3px">'+_cgEscape(n.type)+'</span>';h+='</div>';if(n.message)h+='<div style="color:var(--text-2);font-size:0.78rem;white-space:pre-wrap;margin-bottom:0.25rem">'+_cgEscape(n.message)+'</div>';h+='<div style="color:var(--text-3);font-size:0.68rem">'+w+(n.cree_par?' \u00b7 '+_cgEscape(n.cree_par):'')+'</div></div>';h+='<div style="display:flex;gap:0.35rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">';if(ur)h+='<button onclick="notifAction(\'mark_read\',\''+_cgEscape(n.id)+'\')" style="background:none;border:1px solid var(--border);color:var(--text-2);padding:0.3rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.7rem">Lu</button>';else h+='<button onclick="notifAction(\'mark_unread\',\''+_cgEscape(n.id)+'\')" style="background:none;border:1px solid var(--border);color:var(--text-3);padding:0.3rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.7rem">Non lu</button>';if(ar)h+='<button onclick="notifAction(\'unarchive\',\''+_cgEscape(n.id)+'\')" style="background:none;border:1px solid var(--border);color:var(--text-2);padding:0.3rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.7rem">Restaurer</button>';else h+='<button onclick="notifAction(\'archive\',\''+_cgEscape(n.id)+'\')" style="background:none;border:1px solid var(--border);color:var(--text-2);padding:0.3rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.7rem">Archiver</button>';h+='<button onclick="notifAction(\'delete\',\''+_cgEscape(n.id)+'\')" style="background:none;border:1px solid var(--border);color:#d45656;padding:0.3rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.7rem">Suppr.</button>';h+='</div></div>';});el.innerHTML=h;}
-function notifOpen(id){var n=null;for(var i=0;i<_nfCache.length;i++){if(_nfCache[i].id===id){n=_nfCache[i];break;}}apiFetch('api/notifications.php?action=mark_read&id='+encodeURIComponent(id),{method:'POST',body:{}}).catch(function(){});if(n&&n.link_page)setTimeout(function(){showPage(n.link_page);refreshNotifBadge();},100);else setTimeout(function(){notifLoadList();refreshNotifBadge();},150);}
-function notifAction(a,id){if(a==='delete'&&!confirm('Supprimer ?'))return;apiFetch('api/notifications.php?action='+a+'&id='+encodeURIComponent(id),{method:'POST',body:{}}).then(function(){notifLoadList();refreshNotifBadge();}).catch(function(){alert('Erreur');});}
-function notifMarkAllReadInbox(){apiFetch('api/notifications.php?action=mark_all_read',{method:'POST',body:{}}).then(function(){notifLoadList();refreshNotifBadge();}).catch(function(){alert('Erreur');});}
-
-// ═══ NOTIFICATION PREFERENCES & PUSH ═══
-var _nfPrefsData=null,_nfPrefsShown=false;
-function notifShowPrefs(){
-  _nfPrefsShown=!_nfPrefsShown;
-  var panel=document.getElementById('nf-prefs-panel');
-  var listCard=document.getElementById('nf-list-card');
-  var tabs=document.querySelectorAll('#page-notifications > div');
-  if(_nfPrefsShown){
-    if(panel)panel.style.display='block';
-    if(listCard)listCard.style.display='none';
-    // hide tabs and filter bar
-    for(var i=0;i<tabs.length;i++){
-      var t=tabs[i];
-      if(t.id==='nf-prefs-panel'||t.classList.contains('page-header'))continue;
-      if(t.id!=='nf-list-card'&&!t.id)t.style.display='none';
-    }
-    notifLoadPrefs();
-  }else{
-    if(panel)panel.style.display='none';
-    if(listCard)listCard.style.display='';
-    for(var i=0;i<tabs.length;i++){
-      var t=tabs[i];
-      if(t.id==='nf-prefs-panel')continue;
-      t.style.display='';
-    }
-  }
-}
-function notifLoadPrefs(){
-  apiFetch('api/notification_prefs.php?action=get').then(function(r){
-    var d=(r&&r.data)?r.data:r;
-    _nfPrefsData=d;
-    var ea=document.getElementById('nf-email-addr');
-    if(ea)ea.textContent=d.user_email||'Aucun email configuré';
-    notifUpdatePushUI();
-    notifRenderPrefsTable(d);
-  }).catch(function(e){
-    showToast('Erreur chargement préférences: '+e.message,'error');
-  });
-}
-function notifRenderPrefsTable(d){
-  var tbody=document.getElementById('nf-prefs-tbody');
-  if(!tbody)return;
-  var types=d.types||{};
-  var prefs=d.prefs||{};
-  var h='';
-  var keys=Object.keys(types);
-  keys.forEach(function(k){
-    var p=prefs[k]||prefs['_default']||{inapp:1,email:1,push:1,enabled:1};
-    var label=types[k]||k;
-    var isDefault=(k==='_default');
-    h+='<tr style="border-bottom:1px solid var(--border);'+(isDefault?'background:rgba(200,169,110,0.04);':'')+'">';
-    h+='<td style="padding:0.5rem 0.8rem;color:var(--text-1);font-weight:'+(isDefault?'600':'400')+'">'+(isDefault?'<strong>'+label+'</strong>':label)+'</td>';
-    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="inapp" '+(p.inapp?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
-    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="email" '+(p.email?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
-    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="push" '+(p.push?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
-    h+='<td style="text-align:center;padding:0.5rem"><input type="checkbox" data-type="'+k+'" data-ch="enabled" '+(p.enabled?'checked':'')+' style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer"></td>';
-    h+='</tr>';
-  });
-  tbody.innerHTML=h;
-}
-function notifSavePrefs(){
-  var tbody=document.getElementById('nf-prefs-tbody');
-  if(!tbody)return;
-  var checks=tbody.querySelectorAll('input[type="checkbox"]');
-  var prefs={};
-  checks.forEach(function(cb){
-    var t=cb.getAttribute('data-type');
-    var ch=cb.getAttribute('data-ch');
-    if(!prefs[t])prefs[t]={inapp:0,email:0,push:0,enabled:0};
-    prefs[t][ch]=cb.checked?1:0;
-  });
-  apiFetch('api/notification_prefs.php?action=save',{method:'POST',body:{prefs:prefs}}).then(function(){
-    showToast('Préférences enregistrées','success');
-  }).catch(function(e){
-    showToast('Erreur: '+e.message,'error');
-  });
-}
-
-// ═══ PUSH NOTIFICATIONS ═══
-function notifUpdatePushUI(){
-  var stateEl=document.getElementById('nf-push-state');
-  var btn=document.getElementById('nf-push-btn');
-  if(!stateEl||!btn)return;
-  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
-    stateEl.textContent='Non supporté par ce navigateur';
-    stateEl.style.color='#d45656';
-    btn.style.display='none';
-    return;
-  }
-  // Vérifier si les notifications sont bloquées par le navigateur
-  if('Notification' in window && Notification.permission==='denied'){
-    stateEl.textContent='Bloquées par le navigateur';
-    stateEl.style.color='#d45656';
-    btn.textContent='Débloquer (paramètres navigateur)';
-    btn.style.display='inline-block';
-    btn.style.background='#d4a64a';
-    btn.onclick=function(){alert('Pour débloquer les notifications :\n\n1. Cliquez sur l\'icône cadenas (ou info) dans la barre d\'adresse\n2. Cherchez \"Notifications\"\n3. Changez de \"Bloquer\" à \"Autoriser\"\n4. Rafraîchissez la page');};
-    return;
-  }
-  function _pushShowOff(){
-    stateEl.textContent='Désactivées';stateEl.style.color='var(--text-3)';
-    btn.textContent='Activer les push';btn.style.display='inline-block';btn.style.background='var(--accent)';
-  }
-  function _pushShowOn(){
-    stateEl.textContent='Activées';stateEl.style.color='#5aab6e';
-    btn.textContent='Désactiver';btn.style.display='inline-block';btn.style.background='#d45656';
-  }
-  navigator.serviceWorker.getRegistration('/cortoba-plateforme/').then(function(reg){
-    if(!reg){_pushShowOff();return;}
-    reg.pushManager.getSubscription().then(function(sub){
-      if(sub){_pushShowOn();}else{_pushShowOff();}
-    }).catch(function(){_pushShowOff();});
-  }).catch(function(){
-    stateEl.textContent='Erreur';
-    stateEl.style.color='#d45656';
-  });
-}
-function notifTogglePush(){
-  if(!('serviceWorker' in navigator))return;
-  navigator.serviceWorker.getRegistration('/cortoba-plateforme/').then(function(reg){
-    if(!reg){
-      return navigator.serviceWorker.register('/cortoba-plateforme/sw.js',{scope:'/cortoba-plateforme/'}).then(function(newReg){
-        return _notifPushSubscribe(newReg);
-      });
-    }
-    return reg.pushManager.getSubscription().then(function(sub){
-      if(sub)return _notifPushUnsubscribe(sub);
-      return _notifPushSubscribe(reg);
-    });
-  }).catch(function(e){
-    showToast('Erreur push: '+e.message,'error');
-  });
-}
-function _notifPushSubscribe(reg){
-  // 1. Demander la permission du navigateur
-  return Promise.resolve().then(function(){
-    if(!('Notification' in window))throw new Error('Notifications non supportées');
-    if(Notification.permission==='granted')return 'granted';
-    if(Notification.permission==='denied')throw new Error('Notifications bloquées par le navigateur. Cliquez sur l\'icône cadenas dans la barre d\'adresse pour les autoriser.');
-    return Notification.requestPermission();
-  }).then(function(perm){
-    if(perm!=='granted')throw new Error('Permission refusée. Autorisez les notifications dans les paramètres du navigateur.');
-    // 2. Récupérer la clé VAPID
-    return apiFetch('api/notification_prefs.php?action=get_vapid_key');
-  }).then(function(r){
-    var key=(r&&r.data)?r.data.publicKey:null;
-    if(!key)throw new Error('Clé VAPID manquante');
-    var rawKey=_urlBase64ToUint8Array(key);
-    return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:rawKey});
-  }).then(function(sub){
-    var json=sub.toJSON();
-    return apiFetch('api/notification_prefs.php?action=push_subscribe',{method:'POST',body:{
-      endpoint:json.endpoint,
-      keys:{p256dh:json.keys.p256dh,auth:json.keys.auth}
-    }});
-  }).then(function(){
-    showToast('Notifications push activées','success');
-    notifUpdatePushUI();
-  });
-}
-function _notifPushUnsubscribe(sub){
-  var endpoint=sub.endpoint;
-  return sub.unsubscribe().then(function(){
-    return apiFetch('api/notification_prefs.php?action=push_unsubscribe',{method:'POST',body:{endpoint:endpoint}});
-  }).then(function(){
-    showToast('Notifications push désactivées','info');
-    notifUpdatePushUI();
-  });
-}
-function _urlBase64ToUint8Array(base64String){
-  var padding='='.repeat((4-base64String.length%4)%4);
-  var base64=(base64String+padding).replace(/\-/g,'+').replace(/_/g,'/');
-  var rawData=window.atob(base64);
-  var outputArray=new Uint8Array(rawData.length);
-  for(var i=0;i<rawData.length;++i)outputArray[i]=rawData.charCodeAt(i);
-  return outputArray;
-}
-
-// ═══ SERVICE WORKER REGISTRATION ═══
-if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){
-    navigator.serviceWorker.register('/cortoba-plateforme/sw.js',{scope:'/cortoba-plateforme/'}).catch(function(e){
-      console.log('[SW] Registration failed:',e);
-    });
-    navigator.serviceWorker.addEventListener('message',function(event){
-      if(event.data&&event.data.type==='NOTIFICATION_CLICK'){
-        if(event.data.page)showPage(event.data.page);
-        refreshNotifBadge();
-      }
-    });
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  MODULE GESTION DE CHANTIER
-// ═══════════════════════════════════════════════════════════════
-
-var _chCache = { chantiers: [], currentId: '', lots: [], intervenants: [], journal: [], reunions: [], actions: [], reserves: [], rfi: [], visas: [], incidents: [], inspections: [], photos: [], taches: [] };
-
-// ── Helper: populate chantier dropdowns ──
-function _chPopulateSelects() {
-  var selectors = ['ch-select','chj-chantier-filter','chi-chantier-filter','chr-chantier-filter','chp-chantier-filter','chres-chantier-filter','chv-chantier-filter','chs-chantier-filter'];
-  selectors.forEach(function(sid) {
-    var el = document.getElementById(sid);
-    if (!el) return;
-    var val = el.value;
-    var h = '<option value="">— Chantier —</option>';
-    _chCache.chantiers.forEach(function(c) {
-      h += '<option value="' + c.id + '"' + (c.id === val ? ' selected' : '') + '>' + _cgEscape((c.code ? c.code + ' — ' : '') + c.nom) + '</option>';
-    });
-    el.innerHTML = h;
-    if (val) el.value = val;
-  });
-}
-
-function _chGetCurrentId(filterId) {
-  var el = document.getElementById(filterId);
-  return el ? el.value : (_chCache.currentId || '');
-}
-
-function _chLoadChantiers() {
-  return apiFetch('api/chantier.php').then(function(r) {
-    _chCache.chantiers = (r && r.data) ? r.data : (r || []);
-    _chPopulateSelects();
-  });
-}
-
-// ── Badge helpers ──
-function _chBadge(statut) {
-  var m = { 'En préparation': 'badge-gray', 'En cours': 'badge-green', 'Suspendu': 'badge-orange', 'Réceptionné': 'badge-blue', 'Clôturé': 'badge-gray',
-    'Ouverte': 'badge-red', 'En cours de reprise': 'badge-orange', 'Levée': 'badge-green', 'Confirmée': 'badge-blue',
-    'Ouvert': 'badge-red', 'En traitement': 'badge-orange', 'Clôturé': 'badge-gray', 'Clôturée': 'badge-gray',
-    'En attente': 'badge-orange', 'BPE': 'badge-green', 'Bon avec observations': 'badge-blue', 'Refusé': 'badge-red', 'Sans objet': 'badge-gray',
-    'Brouillon': 'badge-gray', 'Finalisé': 'badge-blue', 'Diffusé': 'badge-green',
-    'Résolue': 'badge-green', 'Annulée': 'badge-gray', 'En cours': 'badge-orange',
-    'Planifiée': 'badge-gray', 'Complétée': 'badge-green',
-    'Critique': 'badge-red', 'Majeure': 'badge-orange', 'Haute': 'badge-orange', 'Normale': 'badge-gray', 'Basse': 'badge-gray', 'Mineure': 'badge-gray', 'Observation': 'badge-gray', 'Urgente': 'badge-red' };
-  return '<span class="badge ' + (m[statut] || 'badge-gray') + '">' + _cgEscape(statut || '') + '</span>';
-}
-
-function _chDate(d) { return d ? d.substring(0, 10) : '—'; }
-function _chTrunc(s, n) { if (!s) return '—'; return s.length > (n||60) ? s.substring(0, n||60) + '…' : s; }
-
-// ══════════════════════════════════════
-//  1. TABLEAU DE BORD CHANTIER
-// ══════════════════════════════════════
-
-function _chPopulateProjetSelect() {
-  // With the searchable input, just ensure the search text matches the current value
-  var hidden = document.getElementById('ch-projet-id');
-  var search = document.getElementById('ch-projet-search');
-  if (!hidden || !search) return;
-  if (hidden.value) {
-    var projets = getProjets() || [];
-    for (var i = 0; i < projets.length; i++) {
-      if (projets[i].id === hidden.value) {
-        search.value = (projets[i].code ? projets[i].code + ' — ' : '') + (projets[i].nom || '');
-        break;
-      }
-    }
-  }
-}
-
-function chProjetSearch(query) {
-  var dropdown = document.getElementById('ch-projet-dropdown');
-  var projets = getProjets() || [];
-  var q = (query || '').toLowerCase().trim();
-  var filtered = projets.filter(function(p) {
-    if (!q) return true;
-    var text = ((p.code || '') + ' ' + (p.nom || '') + ' ' + (p.client_nom || '')).toLowerCase();
-    return text.indexOf(q) !== -1;
-  });
-  if (!filtered.length) {
-    dropdown.innerHTML = '<div style="padding:0.6rem 0.8rem;color:var(--text-3);font-size:0.82rem">Aucun projet trouvé</div>';
-    dropdown.style.display = 'block';
-    return;
-  }
-  var h = '';
-  filtered.slice(0, 30).forEach(function(p) {
-    var label = _cgEscape((p.code ? p.code + ' — ' : '') + (p.nom || ''));
-    var sub = p.client_nom ? '<span style="color:var(--text-3);font-size:0.75rem;margin-left:0.5rem">' + _cgEscape(p.client_nom) + '</span>' : '';
-    h += '<div class="ch-projet-option" data-id="' + p.id + '" data-label="' + _cgEscape((p.code ? p.code + ' — ' : '') + (p.nom || '')) + '" style="padding:0.5rem 0.8rem;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--border)" onmousedown="chProjetPick(this)" onmouseenter="this.style.background=\'var(--bg-3)\'" onmouseleave="this.style.background=\'\'">' + label + sub + '</div>';
-  });
-  dropdown.innerHTML = h;
-  dropdown.style.display = 'block';
-}
-
-function chProjetPick(el) {
-  var id = el.getAttribute('data-id');
-  var label = el.getAttribute('data-label');
-  document.getElementById('ch-projet-id').value = id;
-  document.getElementById('ch-projet-search').value = label;
-  document.getElementById('ch-projet-dropdown').style.display = 'none';
-}
-
-// Close dropdown on click outside
-document.addEventListener('click', function(e) {
-  var dd = document.getElementById('ch-projet-dropdown');
-  if (dd && !dd.contains(e.target) && e.target.id !== 'ch-projet-search') {
-    dd.style.display = 'none';
-  }
-});
-
-function renderChantierDashboard() {
-  _chPopulateProjetSelect();
-  _chLoadChantiers().then(function() {
-    _chPopulateProjetSelect();
-    if (_chCache.currentId) chantierSelected();
-  }).catch(function(e) {
-    console.warn('[chantier] load error:', e);
-    _chPopulateProjetSelect();
-  });
-}
-
-function chantierSelected() {
-  var sel = document.getElementById('ch-select');
-  _chCache.currentId = sel ? sel.value : '';
-  if (!_chCache.currentId) {
-    document.getElementById('ch-dashboard-kpis').innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center;padding:2rem">Sélectionnez un chantier pour afficher le tableau de bord</div>';
-    document.getElementById('ch-lots-progress').innerHTML = '';
-    document.getElementById('ch-indicators').innerHTML = '';
-    document.getElementById('ch-gantt-container').innerHTML = '';
-    document.getElementById('ch-recent-journal').innerHTML = '';
-    return;
-  }
-  apiFetch('api/chantier.php?action=dashboard&chantier_id=' + _chCache.currentId).then(function(r) {
-    var d = (r && r.data) ? r.data : {};
-    _renderChDashboardKpis(d);
-    _renderChLotsProgress(d);
-    _renderChIndicators(d);
-    _renderChRecentJournal(d);
-  }).catch(function(e) { showToast('Erreur dashboard: ' + e.message, 'error'); });
-  // Load gantt tasks
-  apiFetch('api/chantier.php?action=taches&chantier_id=' + _chCache.currentId).then(function(r) {
-    _chCache.taches = (r && r.data) ? r.data : [];
-    _renderChGantt();
-  });
-}
-
-function _renderChDashboardKpis(d) {
-  var el = document.getElementById('ch-dashboard-kpis');
-  var avLotsRaw = d.lots_summary ? d.lots_summary.avg_avancement : 0;
-  var avLots = avLotsRaw ? Math.round(parseFloat(avLotsRaw)) : 0;
-  var resOuv = 0; (d.reserves_stats || []).forEach(function(s) { if (s.statut === 'Ouverte') resOuv = parseInt(s.nb); });
-  var rfiOuv = 0; (d.rfi_stats || []).forEach(function(s) { if (s.statut === 'Ouverte') rfiOuv = parseInt(s.nb); });
-  var visaAtt = 0; (d.visa_stats || []).forEach(function(s) { if (s.statut === 'En attente') visaAtt = parseInt(s.nb); });
-  var incTotal = 0; (d.incidents_stats || []).forEach(function(s) { incTotal += parseInt(s.nb); });
-
-  el.innerHTML = '<div class="kpi-card"><div class="kpi-label">Avancement global</div><div class="kpi-value">' + (d.avancement_global || 0) + '%</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Avancement lots (moy.)</div><div class="kpi-value">' + avLots + '%</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Réserves ouvertes</div><div class="kpi-value" style="color:' + (resOuv > 0 ? 'var(--red)' : 'var(--green)') + '">' + resOuv + '</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">RFI ouvertes</div><div class="kpi-value">' + rfiOuv + '</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Visas en attente</div><div class="kpi-value">' + visaAtt + '</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Actions ouvertes</div><div class="kpi-value">' + (d.actions_ouvertes || 0) + '</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Incidents</div><div class="kpi-value">' + incTotal + '</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Statut</div><div class="kpi-value" style="font-size:0.9rem">' + _chBadge(d.statut || '') + '</div></div>';
-}
-
-function _renderChLotsProgress(d) {
-  var el = document.getElementById('ch-lots-progress');
-  // Load lots (now includes phases per lot from backend)
-  apiFetch('api/chantier.php?action=lots&chantier_id=' + _chCache.currentId).then(function(r) {
-    _chCache.lots = (r && r.data) ? r.data : [];
-    if (!_chCache.lots.length) {
-      el.innerHTML = '<div style="color:var(--text-3);text-align:center;padding:1rem">Aucun lot défini. ' +
-        '<button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button> ' +
-        '<button class="btn btn-sm btn-primary" onclick="addAllLotsToChantier()">Tous les lots du projet</button></div>';
-      return;
-    }
-    var h = '<div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;gap:0.5rem">' +
-      '<button class="btn btn-sm btn-primary" onclick="addAllLotsToChantier()">Tous les lots du projet</button>' +
-      '<button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button></div>';
-    _chCache.lots.forEach(function(l, idx) {
-      var phases = l.phases || [];
-      var hasPhases = phases.length > 0;
-      h += '<div style="margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px;padding:0.6rem;background:var(--bg-1)">';
-      // Lot header — clickable to expand phases, with edit/delete buttons
-      h += '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.88rem;margin-bottom:0.25rem">' +
-        '<span style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.3rem" onclick="toggleLotPhases(\'' + l.id + '\')">' +
-        '<span id="chevron-' + l.id + '" style="display:inline-block;transition:transform 0.2s;font-size:0.7rem;color:var(--accent)">&#9654;</span>' +
-        '<span style="color:var(--text);font-weight:500">' + _cgEscape(l.nom) + '</span></span>' +
-        '<span style="color:var(--text-2);font-weight:600;font-size:0.85rem">' + (l.avancement||0) + '%</span>' +
-        '<button class="btn btn-sm" onclick="editLot(\'' + l.id + '\')" title="Modifier" style="font-size:0.72rem;padding:0.2rem 0.4rem">&#9998;</button>' +
-        '<button class="btn btn-sm" style="color:var(--red);font-size:0.72rem;padding:0.2rem 0.4rem" onclick="deleteLot(\'' + l.id + '\')" title="Supprimer">&#10005;</button>' +
-        '</div>';
-      h += '<div style="background:var(--bg-2);border-radius:4px;height:8px;overflow:hidden;margin-bottom:0.25rem"><div style="background:' + (l.couleur||'var(--accent)') + ';height:100%;width:' + (l.avancement||0) + '%;border-radius:4px;transition:width 0.3s"></div></div>';
-      h += '<div style="font-size:0.78rem;color:var(--text-3)">' + _cgEscape(l.entreprise||'') + (l.montant_marche ? ' — ' + Number(l.montant_marche).toLocaleString('fr-TN') + ' DT' : '') + '</div>';
-      // Phases sub-list (hidden by default) with edit/delete + add
-      h += '<div id="lot-phases-' + l.id + '" style="display:none;margin-top:0.5rem;padding-left:1rem;border-left:2px solid ' + (l.couleur||'var(--accent)') + '">';
-      if (hasPhases) {
-        phases.forEach(function(p) {
-          h += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;font-size:0.82rem">' +
-            '<span style="flex:1;color:var(--text-2)">' + _cgEscape(p.nom) + '</span>' +
-            '<input type="range" min="0" max="100" step="5" value="' + (p.avancement||0) + '" style="width:90px;accent-color:' + (l.couleur||'var(--accent)') + '" onchange="updatePhaseAvancement(\'' + p.id + '\',this.value,\'' + l.id + '\')" />' +
-            '<span style="color:var(--text-2);font-size:0.78rem;min-width:36px;text-align:right" id="ph-av-' + p.id + '">' + (p.avancement||0) + '%</span>' +
-            '<button class="btn btn-sm" style="color:var(--red);font-size:0.68rem;padding:0.1rem 0.3rem" onclick="deleteLotPhase(\'' + p.id + '\')" title="Supprimer">&#10005;</button>' +
-            '</div>';
-        });
-      }
-      // Add phase input inline
-      h += '<div style="display:flex;gap:0.3rem;align-items:center;margin-top:0.4rem">' +
-        '<input id="add-phase-' + l.id + '" class="form-input" placeholder="Nouvelle phase" style="flex:1;font-size:0.78rem;padding:0.25rem 0.5rem" />' +
-        '<button class="btn btn-sm" style="font-size:0.72rem" onclick="addLotPhaseInline(\'' + l.id + '\')">+ Phase</button>' +
-        '</div>';
-      h += '</div>';
-      h += '</div>';
-    });
-    el.innerHTML = h;
-    _chPopulateLotSelects();
-  });
-}
-
-function toggleLotPhases(lotId) {
-  var el = document.getElementById('lot-phases-' + lotId);
-  var chevron = document.getElementById('chevron-' + lotId);
-  if (!el) return;
-  if (el.style.display === 'none') {
-    el.style.display = 'block';
-    if (chevron) chevron.style.transform = 'rotate(90deg)';
-  } else {
-    el.style.display = 'none';
-    if (chevron) chevron.style.transform = 'rotate(0deg)';
-  }
-}
-
-function updatePhaseAvancement(phaseId, value, lotId) {
-  var span = document.getElementById('ph-av-' + phaseId);
-  if (span) span.textContent = value + '%';
-  var phData = null;
-  (_chCache.lots || []).forEach(function(l) {
-    (l.phases || []).forEach(function(p) { if (p.id === phaseId) phData = p; });
-  });
-  var body = { nom: phData ? phData.nom : '', ordre: phData ? (parseInt(phData.ordre)||0) : 0, avancement: parseInt(value), lot_id: lotId };
-  apiFetch('api/chantier.php?action=lot_phases&id=' + phaseId, { method: 'PUT', body: body }).then(function() {
-    // Refresh lots to get updated lot avancement
-    apiFetch('api/chantier.php?action=lots&chantier_id=' + _chCache.currentId).then(function(r) {
-      _chCache.lots = (r && r.data) ? r.data : [];
-      _chCache.lots.forEach(function(l) {
-        if (l.id === lotId) {
-          var lotBar = document.querySelector('#ch-lots-progress [onclick="toggleLotPhases(\'' + l.id + '\')"]');
-          if (lotBar) {
-            var avSpan = lotBar.querySelector('span:last-child');
-            if (avSpan) avSpan.textContent = (l.avancement||0) + '%';
-          }
-        }
-      });
-    });
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editLot(id) {
-  var lot = null; (_chCache.lots || []).forEach(function(l) { if (l.id === id) lot = l; });
-  if (!lot) return;
-  document.getElementById('chl-edit-id').value = lot.id;
-  document.getElementById('chl-code').value = lot.code || '';
-  document.getElementById('chl-nom').value = lot.nom || '';
-  document.getElementById('chl-entreprise').value = lot.entreprise || '';
-  document.getElementById('chl-montant').value = lot.montant_marche || '';
-  document.getElementById('chl-date-debut').value = (lot.date_debut || '').substring(0, 10);
-  document.getElementById('chl-date-fin').value = (lot.date_fin_prevue || '').substring(0, 10);
-  document.getElementById('chl-couleur').value = lot.couleur || '#c8a96e';
-  openModal('modal-ch-lot');
-}
-
-function deleteLot(id) {
-  if (!confirm('Supprimer ce lot et toutes ses phases ?')) return;
-  apiFetch('api/chantier.php?action=lots&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Lot supprimé', 'success');
-    chantierSelected();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function deleteLotPhase(id) {
-  if (!confirm('Supprimer cette phase ?')) return;
-  apiFetch('api/chantier.php?action=lot_phases&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Phase supprimée', 'success');
-    chantierSelected();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function addLotPhaseInline(lotId) {
-  var input = document.getElementById('add-phase-' + lotId);
-  if (!input) return;
-  var nom = input.value.trim();
-  if (!nom) { showToast('Nom de phase requis', 'warning'); return; }
-  apiFetch('api/chantier.php?action=lot_phases', { method: 'POST', body: { chantier_id: _chCache.currentId, lot_id: lotId, nom: nom } }).then(function() {
-    input.value = '';
-    showToast('Phase ajoutée', 'success');
-    chantierSelected();
-  }).catch(function(e) {
-    // Show duplicate warning from backend
-    showToast(e.message || 'Erreur', e.message && e.message.indexOf('existante') !== -1 ? 'warning' : 'error');
-  });
-}
-
-function _chPopulateLotSelects() {
-  var selectors = ['cht-lot-id','chres-lot-id','chv-lot-id'];
-  selectors.forEach(function(sid) {
-    var el = document.getElementById(sid);
-    if (!el) return;
-    var h = '<option value="">— Aucun —</option>';
-    _chCache.lots.forEach(function(l) { h += '<option value="' + l.id + '">' + _cgEscape(l.nom) + '</option>'; });
-    el.innerHTML = h;
-  });
-}
-
-function _renderChIndicators(d) {
-  var el = document.getElementById('ch-indicators');
-  el.innerHTML = '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Budget travaux</div><div style="font-size:1.1rem;font-weight:600;color:var(--text)">' + Number(d.budget_travaux||0).toLocaleString('fr-TN') + ' DT</div></div>' +
-    '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Montant engagé</div><div style="font-size:1.1rem;font-weight:600;color:var(--text)">' + Number(d.montant_engage||0).toLocaleString('fr-TN') + ' DT</div></div>' +
-    '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Début</div><div style="color:var(--text)">' + _chDate(d.date_debut) + '</div></div>' +
-    '<div style="font-size:0.82rem"><div style="color:var(--text-2);margin-bottom:0.3rem">Fin prévue</div><div style="color:var(--text)">' + _chDate(d.date_fin_prevue) + '</div></div>';
-}
-
-function _renderChRecentJournal(d) {
-  var el = document.getElementById('ch-recent-journal');
-  var j = d.recent_journal || [];
-  if (!j.length) { el.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">Aucune entrée</div>'; return; }
-  var h = '';
-  j.forEach(function(e) {
-    h += '<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);display:flex;gap:1rem">' +
-      '<div style="min-width:80px;color:var(--accent);font-weight:600">' + _chDate(e.date_jour) + '</div>' +
-      '<div style="flex:1"><div style="color:var(--text)">' + _chTrunc(e.activites, 120) + '</div>' +
-      '<div style="color:var(--text-3);font-size:0.75rem;margin-top:0.2rem">' + _cgEscape(e.meteo||'') + (e.temperature ? ' · ' + _cgEscape(e.temperature) : '') + ' · Effectif: ' + (e.effectif_total||0) + '</div></div></div>';
-  });
-  el.innerHTML = h;
-}
-
-// ── Gantt mini (simple bar chart) ──
-function _renderChGantt() {
-  var el = document.getElementById('ch-gantt-container');
-  var tasks = _chCache.taches;
-  if (!tasks.length) { el.innerHTML = '<div style="color:var(--text-3);padding:2rem;text-align:center">Aucune tâche planifiée</div>'; return; }
-  // Find min/max dates
-  var minD = null, maxD = null;
-  tasks.forEach(function(t) {
-    if (t.date_debut) { var d = new Date(t.date_debut); if (!minD || d < minD) minD = d; }
-    if (t.date_fin) { var d2 = new Date(t.date_fin); if (!maxD || d2 > maxD) maxD = d2; }
-  });
-  if (!minD || !maxD) { el.innerHTML = '<div style="color:var(--text-3);padding:1rem;text-align:center">Dates non définies</div>'; return; }
-  var totalDays = Math.max(1, Math.ceil((maxD - minD) / 86400000));
-  var h = '<div style="position:relative;min-height:' + (tasks.length * 36 + 30) + 'px;padding-top:24px">';
-  // Month header
-  h += '<div style="display:flex;font-size:0.65rem;color:var(--text-3);margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:4px">';
-  var curMonth = new Date(minD);
-  while (curMonth <= maxD) {
-    var mStart = Math.max(0, Math.ceil((curMonth - minD) / 86400000));
-    var nextM = new Date(curMonth.getFullYear(), curMonth.getMonth() + 1, 1);
-    var mEnd = Math.min(totalDays, Math.ceil((nextM - minD) / 86400000));
-    var wPct = ((mEnd - mStart) / totalDays * 100);
-    h += '<div style="width:' + wPct + '%;text-align:center">' + curMonth.toLocaleDateString('fr-FR', {month: 'short', year: '2-digit'}) + '</div>';
-    curMonth = nextM;
-  }
-  h += '</div>';
-  tasks.forEach(function(t, i) {
-    var sd = t.date_debut ? new Date(t.date_debut) : minD;
-    var ed = t.date_fin ? new Date(t.date_fin) : sd;
-    var left = Math.max(0, (sd - minD) / 86400000 / totalDays * 100);
-    var width = Math.max(1, (ed - sd) / 86400000 / totalDays * 100);
-    var color = t.lot_couleur || (t.est_critique ? '#e07b72' : 'var(--accent)');
-    var avW = (t.avancement || 0) / 100 * width;
-    h += '<div style="position:relative;height:28px;margin-bottom:8px;display:flex;align-items:center">' +
-      '<div style="position:absolute;left:0;width:100%;height:1px;background:var(--border);top:50%"></div>' +
-      '<div title="' + _cgEscape(t.titre) + ' (' + (t.avancement||0) + '%)" style="position:absolute;left:' + left + '%;width:' + width + '%;height:' + (t.est_jalon ? '12px' : '20px') + ';background:rgba(200,169,110,0.15);border-radius:3px;border:1px solid ' + color + ';overflow:hidden;cursor:pointer" onclick="editChTache(\'' + t.id + '\')">' +
-      '<div style="height:100%;width:' + (t.avancement||0) + '%;background:' + color + ';opacity:0.6;border-radius:2px"></div></div>' +
-      '<div style="position:absolute;left:' + Math.max(0, left - 0.5) + '%;transform:translateX(-100%);padding-right:6px;font-size:0.7rem;color:var(--text-2);white-space:nowrap;max-width:25%;overflow:hidden;text-overflow:ellipsis">' + _cgEscape(t.titre) + '</div></div>';
-  });
-  h += '</div>';
-  el.innerHTML = h;
-}
-
-// ── Save chantier ──
-function saveChantier() {
-  var id = document.getElementById('ch-edit-id').value;
-  var body = {
-    projet_id: document.getElementById('ch-projet-id').value,
-    nom: document.getElementById('ch-nom').value,
-    code: document.getElementById('ch-code').value,
-    adresse: document.getElementById('ch-adresse').value,
-    date_debut: document.getElementById('ch-date-debut').value || null,
-    date_fin_prevue: document.getElementById('ch-date-fin').value || null,
-    budget_travaux: parseFloat(document.getElementById('ch-budget').value) || 0,
-    statut: document.getElementById('ch-statut').value,
-    description: document.getElementById('ch-description').value,
-    lot_depart: document.getElementById('ch-lot-depart').value || null,
-    lot_fin: document.getElementById('ch-lot-fin').value || null
-  };
-  if (!body.nom) { showToast('Le nom est requis', 'warning'); return; }
-  var url = id ? ('api/chantier.php?id=' + id) : 'api/chantier.php';
-  var method = id ? 'PUT' : 'POST';
-  apiFetch(url, { method: method, body: body }).then(function(r) {
-    showToast(id ? 'Chantier mis à jour' : 'Chantier créé', 'success');
-    closeModal('modal-chantier');
-    _resetChForm();
-    // For new chantier, propose adding all standard lots
-    if (!id && r && r.data && r.data.id) {
-      if (confirm('Voulez-vous ajouter tous les lots standard du projet ?')) {
-        addAllLotsToChantier(r.data.id);
-      }
-    }
-    renderChantierDashboard();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function addAllLotsToChantier(chantierId) {
-  var cid = chantierId || _chCache.currentId;
-  if (!cid) { showToast('Sélectionnez un chantier', 'warning'); return; }
-  apiFetch('api/chantier.php?action=add_all_lots', { method: 'POST', body: { chantier_id: cid } }).then(function(r) {
-    var d = r && r.data ? r.data : {};
-    var msg = (d.created || 0) + ' lots ajoutés avec leurs phases';
-    if (d.skipped) msg += ' (' + d.skipped + ' doublons ignorés)';
-    showToast(msg, 'success');
-    if (_chCache.currentId === cid) chantierSelected();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function _resetChForm() {
-  ['ch-edit-id','ch-projet-id','ch-projet-search','ch-nom','ch-code','ch-adresse','ch-date-debut','ch-date-fin','ch-budget','ch-description'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
-  var st = document.getElementById('ch-statut'); if (st) st.value = 'En préparation';
-  var ld = document.getElementById('ch-lot-depart'); if (ld) ld.value = '';
-  var lf = document.getElementById('ch-lot-fin'); if (lf) lf.value = '';
-  var dd = document.getElementById('ch-projet-dropdown'); if (dd) dd.style.display = 'none';
-}
-
-// Populate lot de départ / lot de fin dropdowns from param lots
-function _populateLotDepartFinSelects() {
-  return apiFetch('api/chantier.php?action=param_lots').then(function(r) {
-    var lots = (r && r.data) ? r.data : [];
-    ['ch-lot-depart', 'ch-lot-fin'].forEach(function(selId) {
-      var sel = document.getElementById(selId);
-      if (!sel) return;
-      var val = sel.value;
-      var h = selId === 'ch-lot-depart' ? '<option value="">-- Premier lot --</option>' : '<option value="">-- Dernier lot --</option>';
-      lots.forEach(function(l) {
-        if (l.actif == 0) return;
-        h += '<option value="' + _cgEscape(l.nom) + '"' + (l.nom === val ? ' selected' : '') + '>' + _cgEscape(l.nom) + '</option>';
-      });
-      sel.innerHTML = h;
-      if (val) sel.value = val;
-    });
-  }).catch(function() {});
-}
-
-function editChantier(id) {
-  var ch = null;
-  _chCache.chantiers.forEach(function(c) { if (c.id === id) ch = c; });
-  if (!ch) return;
-  document.getElementById('ch-edit-id').value = ch.id;
-  document.getElementById('ch-projet-id').value = ch.projet_id || '';
-  // Set search input text for the project
-  var projetSearch = document.getElementById('ch-projet-search');
-  if (projetSearch && ch.projet_id) {
-    var projets = getProjets() || [];
-    projetSearch.value = '';
-    for (var i = 0; i < projets.length; i++) {
-      if (projets[i].id === ch.projet_id) {
-        projetSearch.value = (projets[i].code ? projets[i].code + ' — ' : '') + (projets[i].nom || '');
-        break;
-      }
-    }
-  } else if (projetSearch) { projetSearch.value = ''; }
-  document.getElementById('ch-nom').value = ch.nom || '';
-  document.getElementById('ch-code').value = ch.code || '';
-  document.getElementById('ch-adresse').value = ch.adresse || '';
-  document.getElementById('ch-date-debut').value = (ch.date_debut || '').substring(0, 10);
-  document.getElementById('ch-date-fin').value = (ch.date_fin_prevue || '').substring(0, 10);
-  document.getElementById('ch-budget').value = ch.budget_travaux || '';
-  document.getElementById('ch-statut').value = ch.statut || 'En préparation';
-  document.getElementById('ch-description').value = ch.description || '';
-  // Populate lot depart/fin dropdowns then set values
-  _populateLotDepartFinSelects().then(function() {
-    var ld = document.getElementById('ch-lot-depart'); if (ld) ld.value = ch.lot_depart || '';
-    var lf = document.getElementById('ch-lot-fin'); if (lf) lf.value = ch.lot_fin || '';
-  });
-  document.getElementById('modal-chantier-title').textContent = 'Modifier le chantier';
-  openModal('modal-chantier');
-}
-
-// ── Save lot ──
-function saveLot() {
-  var id = document.getElementById('chl-edit-id').value;
-  var body = {
-    chantier_id: _chCache.currentId,
-    code: document.getElementById('chl-code').value,
-    nom: document.getElementById('chl-nom').value,
-    entreprise: document.getElementById('chl-entreprise').value,
-    montant_marche: parseFloat(document.getElementById('chl-montant').value) || 0,
-    date_debut: document.getElementById('chl-date-debut').value || null,
-    date_fin_prevue: document.getElementById('chl-date-fin').value || null,
-    couleur: document.getElementById('chl-couleur').value || '#c8a96e'
-  };
-  if (!body.nom) { showToast('Le nom du lot est requis', 'warning'); return; }
-  var url = id ? ('api/chantier.php?action=lots&id=' + id) : 'api/chantier.php?action=lots';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Lot enregistré', 'success');
-    closeModal('modal-ch-lot');
-    chantierSelected();
-  }).catch(function(e) {
-    showToast(e.message || 'Erreur', e.message && e.message.indexOf('existant') !== -1 ? 'warning' : 'error');
-  });
-}
-
-// ── Save tâche chantier ──
-function saveChTache() {
-  var id = document.getElementById('cht-edit-id').value;
-  var body = {
-    chantier_id: _chCache.currentId,
-    lot_id: document.getElementById('cht-lot-id').value || null,
-    titre: document.getElementById('cht-titre').value,
-    date_debut: document.getElementById('cht-date-debut').value || null,
-    date_fin: document.getElementById('cht-date-fin').value || null,
-    duree_jours: parseInt(document.getElementById('cht-duree').value) || 0,
-    avancement: parseInt(document.getElementById('cht-avancement').value) || 0,
-    est_jalon: document.getElementById('cht-jalon').checked ? 1 : 0,
-    est_critique: document.getElementById('cht-critique').checked ? 1 : 0
-  };
-  if (!body.titre) { showToast('Le titre est requis', 'warning'); return; }
-  var url = id ? ('api/chantier.php?action=taches&id=' + id) : 'api/chantier.php?action=taches';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Tâche enregistrée', 'success');
-    closeModal('modal-ch-tache');
-    chantierSelected();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChTache(id) {
-  var t = null; _chCache.taches.forEach(function(x) { if (x.id === id) t = x; });
-  if (!t) return;
-  document.getElementById('cht-edit-id').value = t.id;
-  document.getElementById('cht-titre').value = t.titre || '';
-  document.getElementById('cht-lot-id').value = t.lot_id || '';
-  document.getElementById('cht-date-debut').value = (t.date_debut || '').substring(0, 10);
-  document.getElementById('cht-date-fin').value = (t.date_fin || '').substring(0, 10);
-  document.getElementById('cht-duree').value = t.duree_jours || '';
-  document.getElementById('cht-avancement').value = t.avancement || '';
-  document.getElementById('cht-jalon').checked = !!parseInt(t.est_jalon);
-  document.getElementById('cht-critique').checked = !!parseInt(t.est_critique);
-  openModal('modal-ch-tache');
-}
-
-// ══════════════════════════════════════
-//  2. JOURNAL DE CHANTIER
-// ══════════════════════════════════════
-
-// Phases cache
-var _chPhasesCache = [];
-function _chLoadPhases() {
-  return apiFetch('api/chantier.php?action=phases').then(function(r) {
-    _chPhasesCache = (r && r.data) ? r.data : [];
-    return _chPhasesCache;
-  }).catch(function() { return []; });
-}
-
-function _chPopulatePhaseSelects() {
-  var selectors = ['chj-phase', 'chj-filter-phase'];
-  selectors.forEach(function(sid) {
-    var sel = document.getElementById(sid);
-    if (!sel) return;
-    var val = sel.value;
-    var h = '<option value="">-- Phase --</option>';
-    _chPhasesCache.forEach(function(p) {
-      if (p.actif == 0) return;
-      h += '<option value="' + _cgEscape(p.nom) + '"' + (p.nom === val ? ' selected' : '') + '>' + _cgEscape(p.nom) + '</option>';
-    });
-    sel.innerHTML = h;
-    if (val) sel.value = val;
-  });
-}
-
-function renderChantierJournalPage() {
-  _chLoadChantiers().then(function() {
-    _chLoadPhases().then(function() { _chPopulatePhaseSelects(); });
-    var cid = _chGetCurrentId('chj-chantier-filter');
-    if (!cid) { document.getElementById('chj-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:1.5rem">Selectionnez un chantier</td></tr>'; document.getElementById('chj-count').textContent = ''; return; }
-    var params = 'api/chantier.php?action=journal&chantier_id=' + cid;
-    var df = document.getElementById('chj-filter-from'); if (df && df.value) params += '&date_from=' + df.value;
-    var dt = document.getElementById('chj-filter-to'); if (dt && dt.value) params += '&date_to=' + dt.value;
-    var ph = document.getElementById('chj-filter-phase'); if (ph && ph.value) params += '&phase=' + encodeURIComponent(ph.value);
-    apiFetch(params).then(function(r) {
-      _chCache.journal = (r && r.data) ? r.data : [];
-      _renderJournalTable();
-    }).catch(function(e) {
-      console.error('[journal] list error:', e);
-      document.getElementById('chj-tbody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--red);padding:1.5rem">Erreur chargement: ' + _cgEscape(e.message||'') + '</td></tr>';
-    });
-  });
-}
-
-function _renderJournalTable() {
-  var tbody = document.getElementById('chj-tbody');
-  var cnt = document.getElementById('chj-count');
-  if (!_chCache.journal.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune entree</td></tr>'; if(cnt) cnt.textContent = '0 entree'; return; }
-  if(cnt) cnt.textContent = _chCache.journal.length + ' entree' + (_chCache.journal.length > 1 ? 's' : '');
-  var h = '';
-  _chCache.journal.forEach(function(j) {
-    var horaires = (j.heure_debut||'') + (j.heure_debut && j.heure_fin ? ' - ' : '') + (j.heure_fin||'');
-    var validBadge = j.valide_par ? '<span style="display:inline-block;padding:0.15rem 0.4rem;border-radius:4px;font-size:0.7rem;background:#1a3a1a;color:#4ade80">Valide</span>' : '<span style="display:inline-block;padding:0.15rem 0.4rem;border-radius:4px;font-size:0.7rem;background:#3a2a1a;color:var(--accent)">Brouillon</span>';
-    var hasIncident = j.incidents_securite ? ' <span title="Incident signale" style="color:var(--red)">&#9888;</span>' : '';
-    h += '<tr>' +
-      '<td style="font-weight:600;color:var(--accent)">#' + (j.numero||'') + '</td>' +
-      '<td>' + _chDate(j.date_jour) + '</td>' +
-      '<td style="font-size:0.78rem">' + _cgEscape(horaires||'--') + '</td>' +
-      '<td style="font-size:0.78rem">' + _cgEscape(j.phase_lot||'--') + '</td>' +
-      '<td>' + _cgEscape(j.meteo||'--') + '</td>' +
-      '<td>' + (j.effectif_total||0) + '</td>' +
-      '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _cgEscape(j.activites||'') + hasIncident + '</td>' +
-      '<td>' + validBadge + '</td>' +
-      '<td>' + _cgEscape(j.cree_par||'') + '</td>' +
-      '<td style="white-space:nowrap">' +
-        '<button class="btn btn-sm" onclick="viewChJournal(\'' + j.id + '\')" title="Voir le detail">&#128065;</button> ' +
-        '<button class="btn btn-sm" onclick="editChJournal(\'' + j.id + '\')" title="Modifier">&#9998;</button> ' +
-        '<button class="btn btn-sm" onclick="exportChJournalPDF(\'' + j.id + '\')" title="Export PDF">&#128196;</button> ' +
-        (j.valide_par ? '' : '<button class="btn btn-sm" onclick="validerChJournal(\'' + j.id + '\')" title="Valider" style="color:var(--green)">&#10003;</button> ') +
-        '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteChJournal(\'' + j.id + '\')" title="Supprimer">&#128465;</button>' +
-      '</td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chj-table'));
-}
-
-// Journal photos state
-var _chJournalPhotos = [];
-
-function saveChJournal() {
-  var id = document.getElementById('chj-edit-id').value;
-  var cid = _chGetCurrentId('chj-chantier-filter');
-  // Collect effectifs
-  var effRows = document.querySelectorAll('#chj-effectifs-rows .chj-eff-row');
-  var effectifs = [];
-  effRows.forEach(function(row) {
-    var inputs = row.querySelectorAll('input');
-    if (inputs[0] && inputs[0].value) {
-      effectifs.push({ entreprise: inputs[0].value, nb_ouvriers: parseInt(inputs[1].value)||0, nb_cadres: parseInt(inputs[2].value)||0 });
-    }
-  });
-  // Collect intervenants presents
-  var intRows = document.querySelectorAll('#chj-intervenants-rows .chj-int-row');
-  var intervenants = [];
-  intRows.forEach(function(row) {
-    var inputs = row.querySelectorAll('input');
-    if (inputs[0] && inputs[0].value) {
-      intervenants.push({ nom: inputs[0].value, role: inputs[1] ? inputs[1].value : '' });
-    }
-  });
-  // Auto-calc effectif total
-  var effTotal = 0;
-  effectifs.forEach(function(e) { effTotal += (e.nb_ouvriers||0) + (e.nb_cadres||0); });
-
-  var body = {
-    chantier_id: cid,
-    date_jour: document.getElementById('chj-date').value,
-    heure_debut: document.getElementById('chj-heure-debut').value || null,
-    heure_fin: document.getElementById('chj-heure-fin').value || null,
-    phase_lot: document.getElementById('chj-phase').value || null,
-    meteo: document.getElementById('chj-meteo').value,
-    temperature: document.getElementById('chj-temperature').value,
-    effectif_total: effTotal,
-    activites: document.getElementById('chj-activites').value,
-    livraisons: document.getElementById('chj-livraisons').value,
-    intervenants_presents: intervenants,
-    visiteurs: document.getElementById('chj-visiteurs').value,
-    incidents_securite: document.getElementById('chj-incidents').value,
-    retards: document.getElementById('chj-retards').value,
-    decisions: document.getElementById('chj-decisions').value,
-    observations: document.getElementById('chj-observations').value,
-    prochaine_date: document.getElementById('chj-prochaine-date').value || null,
-    prochaine_desc: document.getElementById('chj-prochaine-desc').value,
-    photos: _chJournalPhotos,
-    effectifs: effectifs
-  };
-  if (!cid) { showToast('Selectionnez un chantier dans le filtre', 'warning'); return; }
-  if (!body.date_jour) { showToast('La date est requise', 'warning'); return; }
-  if (!body.activites) { showToast('Les activites sont requises', 'warning'); return; }
-  var url = id ? ('api/chantier.php?action=journal&id=' + id) : 'api/chantier.php?action=journal';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Journal enregistre', 'success');
-    closeModal('modal-ch-journal');
-    _chJournalPhotos = [];
-    renderChantierJournalPage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChJournal(id) {
-  var j = null; _chCache.journal.forEach(function(x) { if (x.id === id) j = x; });
-  if (!j) return;
-  _chLoadPhases().then(function() {
-    _chPopulatePhaseSelects();
-    document.getElementById('chj-edit-id').value = j.id;
-    document.getElementById('chj-numero').value = j.numero || '';
-    document.getElementById('chj-numero-display').value = j.numero ? '#' + j.numero : '';
-    document.getElementById('chj-date').value = (j.date_jour || '').substring(0, 10);
-    document.getElementById('chj-heure-debut').value = j.heure_debut || '';
-    document.getElementById('chj-heure-fin').value = j.heure_fin || '';
-    document.getElementById('chj-phase').value = j.phase_lot || '';
-    document.getElementById('chj-meteo').value = j.meteo || '';
-    document.getElementById('chj-temperature').value = j.temperature || '';
-    document.getElementById('chj-effectif').value = j.effectif_total || '';
-    document.getElementById('chj-activites').value = j.activites || '';
-    document.getElementById('chj-livraisons').value = j.livraisons || '';
-    document.getElementById('chj-visiteurs').value = j.visiteurs || '';
-    document.getElementById('chj-incidents').value = j.incidents_securite || '';
-    document.getElementById('chj-retards').value = j.retards || '';
-    document.getElementById('chj-decisions').value = j.decisions || '';
-    document.getElementById('chj-observations').value = j.observations || '';
-    document.getElementById('chj-prochaine-date').value = (j.prochaine_date || '').substring(0, 10);
-    document.getElementById('chj-prochaine-desc').value = j.prochaine_desc || '';
-    // Effectifs
-    var cont = document.getElementById('chj-effectifs-rows');
-    cont.innerHTML = '';
-    (j.effectifs || []).forEach(function(e) { addChJEffRow(e.entreprise, e.nb_ouvriers, e.nb_cadres); });
-    // Intervenants presents
-    var icont = document.getElementById('chj-intervenants-rows');
-    icont.innerHTML = '';
-    (j.intervenants_presents || []).forEach(function(i) { addChJIntervenantRow(i.nom, i.role); });
-    // Photos
-    _chJournalPhotos = j.photos || [];
-    _renderChJournalPhotos();
-    document.getElementById('modal-chj-title').textContent = 'Modifier Journal #' + (j.numero||'') + ' — ' + _chDate(j.date_jour);
-    openModal('modal-ch-journal');
-  });
-}
-
-function viewChJournal(id) {
-  var j = null; _chCache.journal.forEach(function(x) { if (x.id === id) j = x; });
-  if (!j) return;
-  // Open a detail view in a simple modal-like alert (reuses the journal modal in readonly feel)
-  editChJournal(id);
-}
-
-function deleteChJournal(id) {
-  if (!confirm('Supprimer cette entree du journal ?')) return;
-  apiFetch('api/chantier.php?action=journal&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Supprime', 'success');
-    renderChantierJournalPage();
-  });
-}
-
-function validerChJournal(id) {
-  if (!confirm('Valider cette entree du journal ? Cette action est irreversible.')) return;
-  apiFetch('api/chantier.php?action=journal_valider&id=' + id, { method: 'POST', body: {} }).then(function() {
-    showToast('Journal valide', 'success');
-    renderChantierJournalPage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function addChJEffRow(ent, ouv, cad) {
-  var cont = document.getElementById('chj-effectifs-rows');
-  var row = document.createElement('div');
-  row.className = 'chj-eff-row';
-  row.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center';
-  row.innerHTML = '<input type="text" class="form-input" placeholder="Entreprise" value="' + _cgEscape(ent||'') + '" style="flex:2">' +
-    '<input type="number" class="form-input" placeholder="Ouvriers" value="' + (ouv||'') + '" style="flex:1;min-width:80px" min="0" oninput="_chJRecalcEffectif()">' +
-    '<input type="number" class="form-input" placeholder="Cadres" value="' + (cad||'') + '" style="flex:1;min-width:80px" min="0" oninput="_chJRecalcEffectif()">' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove();_chJRecalcEffectif()">&#10005;</button>';
-  cont.appendChild(row);
-  _chJRecalcEffectif();
-}
-
-function addChJIntervenantRow(nom, role) {
-  var cont = document.getElementById('chj-intervenants-rows');
-  var row = document.createElement('div');
-  row.className = 'chj-int-row';
-  row.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center';
-  row.innerHTML = '<input type="text" class="form-input" placeholder="Nom" value="' + _cgEscape(nom||'') + '" style="flex:1">' +
-    '<input type="text" class="form-input" placeholder="Role (MOE, BET, OPC...)" value="' + _cgEscape(role||'') + '" style="flex:1">' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">&#10005;</button>';
-  cont.appendChild(row);
-}
-
-function _chResetJournalForm() {
-  ['chj-edit-id','chj-numero','chj-date','chj-heure-debut','chj-heure-fin','chj-temperature',
-   'chj-activites','chj-livraisons','chj-visiteurs','chj-incidents','chj-retards','chj-decisions',
-   'chj-observations','chj-prochaine-date','chj-prochaine-desc'].forEach(function(fid) {
-    var el = document.getElementById(fid); if (el) el.value = '';
-  });
-  var ph = document.getElementById('chj-phase'); if (ph) ph.selectedIndex = 0;
-  var mt = document.getElementById('chj-meteo'); if (mt) mt.selectedIndex = 0;
-  var ef = document.getElementById('chj-effectif'); if (ef) ef.value = '';
-  var nd = document.getElementById('chj-numero-display'); if (nd) nd.value = 'Auto';
-  document.getElementById('chj-effectifs-rows').innerHTML = '';
-  document.getElementById('chj-intervenants-rows').innerHTML = '';
-  _chJournalPhotos = [];
-  _renderChJournalPhotos();
-  document.getElementById('modal-chj-title').textContent = 'Saisie journal de chantier';
-  // Set today's date by default
-  document.getElementById('chj-date').value = new Date().toISOString().substring(0, 10);
-}
-
-function _chJRecalcEffectif() {
-  var effRows = document.querySelectorAll('#chj-effectifs-rows .chj-eff-row');
-  var total = 0;
-  effRows.forEach(function(row) {
-    var inputs = row.querySelectorAll('input[type="number"]');
-    total += (parseInt(inputs[0].value)||0) + (parseInt(inputs[1].value)||0);
-  });
-  var el = document.getElementById('chj-effectif');
-  if (el) el.value = total;
-}
-
-// Photos handling
-function chJournalPhotosSelected(input) {
-  var files = input.files;
-  if (!files || !files.length) return;
-  Array.from(files).forEach(function(file) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      _chJournalPhotos.push({ data: e.target.result, nom: file.name, legende: '', timestamp: new Date().toISOString() });
-      _renderChJournalPhotos();
-    };
-    reader.readAsDataURL(file);
-  });
-  input.value = '';
-}
-
-function _renderChJournalPhotos() {
-  var cont = document.getElementById('chj-photos-preview');
-  if (!cont) return;
-  if (!_chJournalPhotos.length) { cont.innerHTML = '<div style="color:var(--text-3);font-size:0.78rem">Aucune photo</div>'; return; }
-  var h = '';
-  _chJournalPhotos.forEach(function(p, i) {
-    h += '<div style="position:relative;width:120px">' +
-      '<img src="' + (p.data || p.url || '') + '" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">' +
-      '<input type="text" class="form-input" placeholder="Legende..." value="' + _cgEscape(p.legende||'') + '" style="font-size:0.7rem;margin-top:0.2rem;padding:0.2rem 0.4rem" onchange="_chJournalPhotos[' + i + '].legende=this.value">' +
-      '<button onclick="_chJournalPhotos.splice(' + i + ',1);_renderChJournalPhotos()" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.7rem;line-height:20px;text-align:center">&#10005;</button>' +
-      '</div>';
-  });
-  cont.innerHTML = h;
-}
-
-// PDF Export (client-side generation)
-function exportChJournalPDF(id) {
-  apiFetch('api/chantier.php?action=journal_pdf&id=' + id).then(function(r) {
-    if (!r || !r.data || !r.data.journal) { showToast('Erreur export', 'error'); return; }
-    var j = r.data.journal;
-    var ag = r.data.agence || {};
-    _generateJournalPDF(j, ag);
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function _generateJournalPDF(j, ag) {
-  // Build printable HTML and open in new window
-  var intervenants = j.intervenants_presents || [];
-  var effectifs = j.effectifs || [];
-  var photos = j.photos || [];
-  var effTotal = 0; effectifs.forEach(function(e) { effTotal += (e.nb_ouvriers||0) + (e.nb_cadres||0); });
-
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Journal de chantier #' + (j.numero||'') + '</title>' +
-    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;color:#222;padding:20px}' +
-    '.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #c8a96e;padding-bottom:10px;margin-bottom:15px}' +
-    '.header h1{font-size:16px;color:#c8a96e}.header .agence{text-align:right;font-size:10px;color:#666}' +
-    '.info-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;border:1px solid #ddd;padding:10px;border-radius:4px}' +
-    '.info-grid .item{}.info-grid .label{font-size:9px;text-transform:uppercase;color:#888;margin-bottom:2px}.info-grid .value{font-weight:600}' +
-    '.section{margin-bottom:12px}.section-title{font-size:12px;font-weight:bold;color:#c8a96e;border-bottom:1px solid #eee;padding-bottom:3px;margin-bottom:6px}' +
-    '.section-body{white-space:pre-wrap;line-height:1.5}' +
-    'table.eff{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px}table.eff th,table.eff td{border:1px solid #ddd;padding:4px 6px;text-align:left}table.eff th{background:#f5f5f5}' +
-    '.photos{display:flex;flex-wrap:wrap;gap:8px}.photos img{width:140px;height:100px;object-fit:cover;border:1px solid #ddd;border-radius:3px}' +
-    '.footer{margin-top:20px;border-top:1px solid #ddd;padding-top:10px;display:flex;justify-content:space-between;font-size:10px;color:#888}' +
-    '.incident{color:#c00;font-weight:bold}' +
-    '@media print{body{padding:10px}}</style></head><body>' +
-    '<div class="header"><div><h1>JOURNAL DE CHANTIER N&#176;' + (j.numero||'') + '</h1>' +
-    '<div style="font-size:11px;margin-top:4px">' + _cgEscape(j.chantier_nom||'') + (j.chantier_code ? ' (' + _cgEscape(j.chantier_code) + ')' : '') + '</div>' +
-    '<div style="font-size:10px;color:#666">' + _cgEscape(j.projet_nom||'') + '</div></div>' +
-    '<div class="agence"><strong>' + _cgEscape(ag['agence_raison']||'Cortoba Architecture') + '</strong><br>' +
-    _cgEscape(ag['agence_adresse']||'') + '<br>' + _cgEscape(ag['agence_tel']||'') + '</div></div>';
-
-  html += '<div class="info-grid">' +
-    '<div class="item"><div class="label">Date</div><div class="value">' + _chDate(j.date_jour) + '</div></div>' +
-    '<div class="item"><div class="label">Horaires</div><div class="value">' + (j.heure_debut||'--') + ' - ' + (j.heure_fin||'--') + '</div></div>' +
-    '<div class="item"><div class="label">Phase</div><div class="value">' + _cgEscape(j.phase_lot||'--') + '</div></div>' +
-    '<div class="item"><div class="label">Meteo</div><div class="value">' + _cgEscape(j.meteo||'--') + ' ' + _cgEscape(j.temperature ? j.temperature + '&#176;C' : '') + '</div></div>' +
-    '<div class="item"><div class="label">Effectif total</div><div class="value">' + effTotal + '</div></div>' +
-    '<div class="item"><div class="label">Adresse</div><div class="value">' + _cgEscape(j.chantier_adresse||'--') + '</div></div>' +
-    '<div class="item"><div class="label">Redige par</div><div class="value">' + _cgEscape(j.cree_par||'') + '</div></div>' +
-    '<div class="item"><div class="label">Statut</div><div class="value">' + (j.valide_par ? 'Valide par ' + _cgEscape(j.valide_par) : 'Brouillon') + '</div></div>' +
-    '</div>';
-
-  // Activites
-  html += '<div class="section"><div class="section-title">Activites realisees</div><div class="section-body">' + _cgEscape(j.activites||'--') + '</div></div>';
-
-  // Effectifs table
-  if (effectifs.length) {
-    html += '<div class="section"><div class="section-title">Effectifs par entreprise</div><table class="eff"><tr><th>Entreprise</th><th>Ouvriers</th><th>Cadres</th><th>Total</th></tr>';
-    effectifs.forEach(function(e) { html += '<tr><td>' + _cgEscape(e.entreprise) + '</td><td>' + (e.nb_ouvriers||0) + '</td><td>' + (e.nb_cadres||0) + '</td><td>' + ((e.nb_ouvriers||0)+(e.nb_cadres||0)) + '</td></tr>'; });
-    html += '<tr style="font-weight:bold"><td>TOTAL</td><td></td><td></td><td>' + effTotal + '</td></tr></table></div>';
-  }
-
-  // Intervenants
-  if (intervenants.length) {
-    html += '<div class="section"><div class="section-title">Intervenants presents</div><div class="section-body">';
-    intervenants.forEach(function(i) { html += '&#8226; ' + _cgEscape(i.nom||'') + (i.role ? ' (' + _cgEscape(i.role) + ')' : '') + '<br>'; });
-    html += '</div></div>';
-  }
-
-  if (j.livraisons) html += '<div class="section"><div class="section-title">Livraisons</div><div class="section-body">' + _cgEscape(j.livraisons) + '</div></div>';
-  if (j.visiteurs) html += '<div class="section"><div class="section-title">Visiteurs</div><div class="section-body">' + _cgEscape(j.visiteurs) + '</div></div>';
-  if (j.incidents_securite) html += '<div class="section"><div class="section-title incident">Incidents / Securite</div><div class="section-body incident">' + _cgEscape(j.incidents_securite) + '</div></div>';
-  if (j.retards) html += '<div class="section"><div class="section-title">Retards / Difficultes</div><div class="section-body">' + _cgEscape(j.retards) + '</div></div>';
-  if (j.decisions) html += '<div class="section"><div class="section-title">Decisions prises sur site</div><div class="section-body">' + _cgEscape(j.decisions) + '</div></div>';
-  if (j.observations) html += '<div class="section"><div class="section-title">Observations</div><div class="section-body">' + _cgEscape(j.observations) + '</div></div>';
-  if (j.prochaine_date || j.prochaine_desc) html += '<div class="section"><div class="section-title">Prochaine intervention</div><div class="section-body">' + (j.prochaine_date ? _chDate(j.prochaine_date) + ' — ' : '') + _cgEscape(j.prochaine_desc||'') + '</div></div>';
-
-  // Photos
-  if (photos.length) {
-    html += '<div class="section"><div class="section-title">Photos du jour</div><div class="photos">';
-    photos.forEach(function(p) { html += '<div><img src="' + (p.data||p.url||'') + '"><div style="font-size:9px;color:#666;margin-top:2px">' + _cgEscape(p.legende||'') + '</div></div>'; });
-    html += '</div></div>';
-  }
-
-  html += '<div class="footer"><span>Imprime le ' + new Date().toLocaleDateString('fr-FR') + '</span><span>' + _cgEscape(ag['agence_raison']||'Cortoba Architecture') + '</span></div>';
-  html += '<script>window.onload=function(){window.print();}<\/script></body></html>';
-
-  var w = window.open('', '_blank');
-  if (w) { w.document.write(html); w.document.close(); }
-  else { showToast('Popup bloquee — autorisez les popups', 'warning'); }
-}
-
-// Parametres — Phases CRUD
-function loadParamPhases() {
-  // Populate chantier dropdown if empty
-  var sel = document.getElementById('param-phases-chantier');
-  if (sel && sel.options.length <= 1 && _chCache.chantiers && _chCache.chantiers.length) {
-    _chCache.chantiers.forEach(function(c) {
-      var opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = (c.code ? c.code + ' — ' : '') + (c.nom || '');
-      sel.appendChild(opt);
-    });
-  } else if (sel && sel.options.length <= 1) {
-    // Load chantiers first
-    apiFetch('api/chantier.php').then(function(r) {
-      _chCache.chantiers = (r && r.data) ? r.data : [];
-      _chCache.chantiers.forEach(function(c) {
-        var opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = (c.code ? c.code + ' — ' : '') + (c.nom || '');
-        sel.appendChild(opt);
-      });
-    });
-  }
-
-  var chantierId = '';
-  if (sel) chantierId = sel.value;
-
-  var url = 'api/chantier.php?action=phases';
-  if (chantierId) url += '&chantier_id=' + chantierId;
-
-  // If chantier selected, also fetch its lots for names
-  var lotsPromise = chantierId
-    ? apiFetch('api/chantier.php?action=lots&chantier_id=' + chantierId).then(function(r) { return (r && r.data) ? r.data : []; }).catch(function() { return []; })
-    : Promise.resolve([]);
-
-  Promise.all([apiFetch(url), lotsPromise]).then(function(results) {
-    var r = results[0];
-    var lotsData = results[1];
-    _chPhasesCache = (r && r.data) ? r.data : [];
-    var wrap = document.getElementById('param-phases-wrap');
-    if (!wrap) return;
-    if (!_chPhasesCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucune phase configurée' + (chantierId ? ' pour ce chantier' : '') + '</div>'; return; }
-
-    // Group phases by lot
-    var byLot = {}; var noLot = [];
-    _chPhasesCache.forEach(function(p) {
-      if (p.lot_id) {
-        if (!byLot[p.lot_id]) byLot[p.lot_id] = { lotName: '', phases: [] };
-        byLot[p.lot_id].phases.push(p);
-      } else {
-        noLot.push(p);
-      }
-    });
-
-    // Get lot names from fetched lots data
-    lotsData.forEach(function(l) {
-      if (byLot[l.id]) byLot[l.id].lotName = l.nom;
-    });
-
-    var h = '<div style="display:flex;flex-direction:column;gap:0.3rem">';
-    // Phases without lot
-    noLot.forEach(function(p, i) {
-      h += _renderParamPhaseRow(p, i + 1);
-    });
-    // Phases grouped by lot
-    var lotKeys = Object.keys(byLot);
-    lotKeys.forEach(function(lotId) {
-      var group = byLot[lotId];
-      h += '<div style="margin-top:0.6rem;padding:0.5rem;background:var(--bg-2);border-radius:6px;border:1px solid var(--border)">';
-      h += '<div style="font-size:0.82rem;font-weight:600;color:var(--accent);margin-bottom:0.4rem">' + _cgEscape(group.lotName || 'Lot') + '</div>';
-      group.phases.forEach(function(p, i) {
-        h += _renderParamPhaseRow(p, i + 1);
-      });
-      h += '</div>';
-    });
-    h += '</div>';
-    wrap.innerHTML = h;
-  }).catch(function() { _chPhasesCache = []; });
-}
-
-function _renderParamPhaseRow(p, idx) {
-  return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-radius:4px;border:1px solid var(--border)">' +
-    '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + idx + '.</span>' +
-    '<span style="flex:1;font-size:0.82rem">' + _cgEscape(p.nom) + '</span>' +
-    (p.lot_id ? '<span style="font-size:0.7rem;color:var(--accent)">lot</span>' : '') +
-    (p.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3)">(inactif)</span>' : '') +
-    '<button class="btn btn-sm" onclick="toggleParamPhase(\'' + p.id + '\',' + (p.actif == 1 ? 0 : 1) + ')" title="' + (p.actif == 1 ? 'Desactiver' : 'Activer') + '">' + (p.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteParamPhase(\'' + p.id + '\')">&#10005;</button>' +
-    '</div>';
-}
-
-function addParamPhase() {
-  var nom = document.getElementById('param-phase-nom').value.trim();
-  if (!nom) { showToast('Nom requis', 'warning'); return; }
-  var body = { nom: nom };
-  var sel = document.getElementById('param-phases-chantier');
-  if (sel && sel.value) body.chantier_id = sel.value;
-  apiFetch('api/chantier.php?action=phases', { method: 'POST', body: body }).then(function() {
-    document.getElementById('param-phase-nom').value = '';
-    showToast('Phase ajoutée', 'success');
-    loadParamPhases();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function toggleParamPhase(id, actif) {
-  var ph = null; _chPhasesCache.forEach(function(p) { if (p.id === id) ph = p; });
-  if (!ph) return;
-  apiFetch('api/chantier.php?action=phases&id=' + id, { method: 'PUT', body: { nom: ph.nom, ordre: ph.ordre, actif: actif } }).then(function() {
-    loadParamPhases();
-  });
-}
-
-function deleteParamPhase(id) {
-  if (!confirm('Supprimer cette phase ?')) return;
-  apiFetch('api/chantier.php?action=phases&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Phase supprimee', 'success');
-    loadParamPhases();
-  });
-}
-
-// ── Parametres — Lots de travaux (avec Phases expandables) ──
-var _paramLotsCache = [];
-
-function loadParamLots() {
-  apiFetch('api/chantier.php?action=param_lots').then(function(r) {
-    _paramLotsCache = (r && r.data) ? r.data : [];
-    var wrap = document.getElementById('param-lots-wrap');
-    if (!wrap) return;
-    if (!_paramLotsCache.length) { wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem">Aucun lot de travaux configuré</div>'; return; }
-    var h = '<div style="display:flex;flex-direction:column;gap:0.6rem">';
-    _paramLotsCache.forEach(function(lot, i) {
-      var phases = lot.phases || [];
-      var hasPhases = phases.length > 0;
-      h += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem">' +
-        '<div style="display:flex;align-items:center;gap:0.5rem;cursor:pointer" onclick="toggleParamLotExpand(\'' + lot.id + '\')">' +
-        '<span id="param-chevron-' + lot.id + '" style="display:inline-block;transition:transform 0.2s;font-size:0.7rem;color:var(--accent)">&#9654;</span>' +
-        '<span style="width:8px;height:8px;border-radius:50%;background:' + (lot.couleur || '#c8a96e') + ';flex-shrink:0"></span>' +
-        '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + (i+1) + '.</span>' +
-        '<span style="flex:1;font-size:0.85rem;font-weight:600">' + _cgEscape(lot.nom) + '</span>' +
-        '<span style="font-size:0.72rem;color:var(--text-3)">' + phases.length + ' phase' + (phases.length > 1 ? 's' : '') + '</span>' +
-        (lot.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3);background:var(--bg-3);padding:0.1rem 0.4rem;border-radius:3px">(inactif)</span>' : '') +
-        '<button class="btn btn-sm" onclick="event.stopPropagation();toggleParamLot(\'' + lot.id + '\',' + (lot.actif == 1 ? 0 : 1) + ')" title="' + (lot.actif == 1 ? 'Désactiver' : 'Activer') + '">' + (lot.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
-        '<button class="btn btn-sm" style="color:var(--red)" onclick="event.stopPropagation();deleteParamLot(\'' + lot.id + '\')">&#10005;</button>' +
-        '</div>';
-      // Expandable phases section — hidden by default
-      h += '<div id="param-lot-expand-' + lot.id + '" style="display:none;margin-top:0.5rem">';
-      if (hasPhases) {
-        h += '<div style="font-size:0.75rem;color:var(--accent);font-weight:600;margin-left:2rem;margin-bottom:0.3rem">Phases</div>';
-        h += '<div style="margin-left:2rem;display:flex;flex-direction:column;gap:0.2rem">';
-        phases.forEach(function(ph) {
-          h += '<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;padding:0.2rem 0.5rem;background:var(--bg-1);border-radius:3px;border:1px solid var(--border)">' +
-            '<span style="color:var(--accent);font-size:0.7rem">&#9654;</span>' +
-            '<span style="flex:1;color:var(--text-2)">' + _cgEscape(ph.nom) + '</span>' +
-            '<button class="btn btn-sm" style="color:var(--red);font-size:0.7rem;padding:0.1rem 0.3rem" onclick="deleteParamLotPhase(\'' + ph.id + '\')">&#10005;</button>' +
-            '</div>';
-        });
-        h += '</div>';
-      }
-      // Add phase input
-      h += '<div style="margin-left:2rem;margin-top:0.3rem;display:flex;gap:0.3rem;align-items:center">' +
-        '<input id="param-lot-phase-' + lot.id + '" class="form-input" placeholder="Ajouter une phase" style="flex:1;font-size:0.78rem;padding:0.3rem 0.5rem" />' +
-        '<button class="btn btn-sm" style="font-size:0.72rem" onclick="addParamLotPhase(\'' + lot.id + '\')">+ Phase</button>' +
-        '</div>';
-      h += '</div>'; // close expand
-      h += '</div>'; // close lot
-    });
-    h += '</div>';
-    wrap.innerHTML = h;
-  });
-}
-
-function toggleParamLotExpand(lotId) {
-  var el = document.getElementById('param-lot-expand-' + lotId);
-  var chevron = document.getElementById('param-chevron-' + lotId);
-  if (!el) return;
-  if (el.style.display === 'none') {
-    el.style.display = 'block';
-    if (chevron) chevron.style.transform = 'rotate(90deg)';
-  } else {
-    el.style.display = 'none';
-    if (chevron) chevron.style.transform = 'rotate(0deg)';
-  }
-}
-
-function addParamLot() {
-  var nom = document.getElementById('param-lot-nom').value.trim();
-  if (!nom) { showToast('Nom requis', 'warning'); return; }
-  apiFetch('api/chantier.php?action=param_lots', { method: 'POST', body: { nom: nom } }).then(function() {
-    document.getElementById('param-lot-nom').value = '';
-    showToast('Lot ajouté', 'success');
-    loadParamLots();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function toggleParamLot(id, actif) {
-  var lot = null; _paramLotsCache.forEach(function(l) { if (l.id === id) lot = l; });
-  if (!lot) return;
-  apiFetch('api/chantier.php?action=param_lots&id=' + id, { method: 'PUT', body: { nom: lot.nom, code: lot.code, ordre: lot.ordre, actif: actif, couleur: lot.couleur } }).then(function() {
-    loadParamLots();
-  });
-}
-
-function deleteParamLot(id) {
-  if (!confirm('Supprimer ce lot et toutes ses phases ?')) return;
-  apiFetch('api/chantier.php?action=param_lots&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Lot supprimé', 'success');
-    loadParamLots();
-  });
-}
-
-function addParamLotPhase(lotId) {
-  var input = document.getElementById('param-lot-phase-' + lotId);
-  if (!input) return;
-  var nom = input.value.trim();
-  if (!nom) { showToast('Nom de phase requis', 'warning'); return; }
-  apiFetch('api/chantier.php?action=param_lot_phases', { method: 'POST', body: { param_lot_id: lotId, nom: nom } }).then(function() {
-    input.value = '';
-    showToast('Phase ajoutée', 'success');
-    loadParamLots();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function deleteParamLotPhase(id) {
-  if (!confirm('Supprimer cette phase ?')) return;
-  apiFetch('api/chantier.php?action=param_lot_phases&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Phase supprimée', 'success');
-    loadParamLots();
-  });
-}
-
-// ══════════════════════════════════════
-//  3. INTERVENANTS
-// ══════════════════════════════════════
-
-function renderChantierIntervenantsPage() {
-  _chLoadChantiers().then(function() {
-    var cid = _chGetCurrentId('chi-chantier-filter');
-    if (!cid) { document.getElementById('chi-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
-    apiFetch('api/chantier.php?action=intervenants&chantier_id=' + cid).then(function(r) {
-      _chCache.intervenants = (r && r.data) ? r.data : [];
-      _renderIntervenantsTable();
-    });
-  });
-}
-
-function _renderIntervenantsTable() {
-  var tbody = document.getElementById('chi-tbody');
-  if (!_chCache.intervenants.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucun intervenant</td></tr>'; return; }
-  var h = '';
-  _chCache.intervenants.forEach(function(i) {
-    h += '<tr><td><strong>' + _cgEscape(i.role||'') + '</strong></td><td>' + _cgEscape(i.nom||'') + '</td><td>' + _cgEscape(i.societe||'—') + '</td>' +
-      '<td>' + _cgEscape(i.tel||'—') + '</td><td>' + _cgEscape(i.email||'—') + '</td>' +
-      '<td>' + (parseInt(i.acces_portail) ? '<span class="badge badge-green">Oui</span>' : '<span class="badge badge-gray">Non</span>') + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChIntervenant(\'' + i.id + '\')">Modifier</button> <button class="btn btn-sm" style="color:var(--red)" onclick="deleteChIntervenant(\'' + i.id + '\')">Suppr.</button></td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chi-table'));
-}
-
-function saveChIntervenant() {
-  var id = document.getElementById('chi-edit-id').value;
-  var cid = _chGetCurrentId('chi-chantier-filter');
-  var body = {
-    chantier_id: cid,
-    role: document.getElementById('chi-role').value,
-    nom: document.getElementById('chi-nom').value,
-    societe: document.getElementById('chi-societe').value,
-    tel: document.getElementById('chi-tel').value,
-    email: document.getElementById('chi-email').value,
-    acces_portail: document.getElementById('chi-acces').checked ? 1 : 0,
-    responsabilites: document.getElementById('chi-responsabilites').value
-  };
-  if (!body.nom) { showToast('Le nom est requis', 'warning'); return; }
-  var url = id ? ('api/chantier.php?action=intervenants&id=' + id) : 'api/chantier.php?action=intervenants';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Intervenant enregistré', 'success');
-    closeModal('modal-ch-intervenant');
-    renderChantierIntervenantsPage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChIntervenant(id) {
-  var it = null; _chCache.intervenants.forEach(function(x) { if (x.id === id) it = x; });
-  if (!it) return;
-  document.getElementById('chi-edit-id').value = it.id;
-  document.getElementById('chi-role').value = it.role || 'Entreprise';
-  document.getElementById('chi-nom').value = it.nom || '';
-  document.getElementById('chi-societe').value = it.societe || '';
-  document.getElementById('chi-tel').value = it.tel || '';
-  document.getElementById('chi-email').value = it.email || '';
-  document.getElementById('chi-acces').checked = !!parseInt(it.acces_portail);
-  document.getElementById('chi-responsabilites').value = it.responsabilites || '';
-  openModal('modal-ch-intervenant');
-}
-
-function deleteChIntervenant(id) {
-  if (!confirm('Supprimer cet intervenant ?')) return;
-  apiFetch('api/chantier.php?action=intervenants&id=' + id, { method: 'DELETE' }).then(function() {
-    showToast('Supprimé', 'success');
-    renderChantierIntervenantsPage();
-  });
-}
-
-// ══════════════════════════════════════
-//  4. RÉUNIONS & PV
-// ══════════════════════════════════════
-
-var _chrTab = 'reunions', _chrActFilter = '';
-
-function renderChantierReunionsPage() {
-  _chLoadChantiers().then(function() {
-    var cid = _chGetCurrentId('chr-chantier-filter');
-    if (!cid) { document.getElementById('chr-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
-    apiFetch('api/chantier_reunions.php?action=reunions&chantier_id=' + cid).then(function(r) {
-      _chCache.reunions = (r && r.data) ? r.data : [];
-      _renderReunionsTable();
-    });
-    apiFetch('api/chantier_reunions.php?action=actions&chantier_id=' + cid).then(function(r) {
-      _chCache.actions = (r && r.data) ? r.data : [];
-      _renderActionsTable();
-    });
-  });
-}
-
-function chrSwitchTab(tab, btn) {
-  _chrTab = tab;
-  document.querySelectorAll('.chr-tab').forEach(function(t) { t.classList.remove('active'); t.style.color = 'var(--text-3)'; t.style.borderBottom = '2px solid transparent'; });
-  if (btn) { btn.classList.add('active'); btn.style.color = 'var(--text-2)'; btn.style.borderBottom = '2px solid var(--accent)'; }
-  document.getElementById('chr-panel-reunions').style.display = tab === 'reunions' ? '' : 'none';
-  document.getElementById('chr-panel-actions').style.display = tab === 'actions' ? '' : 'none';
-}
-
-function _renderReunionsTable() {
-  var tbody = document.getElementById('chr-tbody');
-  if (!_chCache.reunions.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune réunion</td></tr>'; return; }
-  var h = '';
-  _chCache.reunions.forEach(function(r) {
-    var nbPart = (r.participants || []).length;
-    var nbAct = (r.actions || []).length;
-    h += '<tr><td><strong>' + r.numero + '</strong></td><td>' + _chDate(r.date_reunion) + '</td>' +
-      '<td>' + _cgEscape(r.objet||'') + '</td><td>' + nbPart + ' participant' + (nbPart>1?'s':'') + '</td>' +
-      '<td>' + _chBadge(r.statut) + '</td><td>' + nbAct + ' action' + (nbAct>1?'s':'') + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChReunion(\'' + r.id + '\')">Ouvrir</button></td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chr-table'));
-}
-
-function chrFilterActions(f, btn) {
-  _chrActFilter = f;
-  document.querySelectorAll('.chr-action-filter').forEach(function(b) { b.classList.remove('active'); });
-  if (btn) btn.classList.add('active');
-  _renderActionsTable();
-}
-
-function _renderActionsTable() {
-  var tbody = document.getElementById('chr-actions-tbody');
-  var filtered = _chrActFilter ? _chCache.actions.filter(function(a) { return a.statut === _chrActFilter; }) : _chCache.actions;
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune action</td></tr>'; return; }
-  var h = '';
-  filtered.forEach(function(a) {
-    h += '<tr><td>R' + (a.reunion_numero||'?') + '</td><td>' + _cgEscape(a.description||'') + '</td>' +
-      '<td>' + _cgEscape(a.responsable||'—') + '</td><td>' + _chDate(a.delai) + '</td>' +
-      '<td>' + _chBadge(a.statut) + '</td>' +
-      '<td><select class="form-input" style="width:120px;font-size:0.78rem" onchange="updateChAction(\'' + a.id + '\',this.value)"><option' + (a.statut==='Ouverte'?' selected':'') + '>Ouverte</option><option' + (a.statut==='En cours'?' selected':'') + '>En cours</option><option' + (a.statut==='Clôturée'?' selected':'') + '>Clôturée</option></select></td></tr>';
-  });
-  tbody.innerHTML = h;
-}
-
-function updateChAction(id, newStatut) {
-  apiFetch('api/chantier_reunions.php?action=actions&id=' + id, { method: 'PUT', body: { statut: newStatut } }).then(function() {
-    showToast('Action mise à jour', 'success');
-    renderChantierReunionsPage();
-  });
-}
-
-function saveChReunion() {
-  var id = document.getElementById('chr-edit-id').value;
-  var cid = _chGetCurrentId('chr-chantier-filter');
-  // Collect actions
-  var actRows = document.querySelectorAll('#chr-actions-rows .chr-act-row');
-  var actions = [];
-  actRows.forEach(function(row) {
-    var inputs = row.querySelectorAll('input,select');
-    if (inputs[0] && inputs[0].value) {
-      actions.push({ description: inputs[0].value, responsable: inputs[1].value, delai: inputs[2].value || null, statut: inputs[3] ? inputs[3].value : 'Ouverte' });
-    }
-  });
-  var body = {
-    chantier_id: cid,
-    date_reunion: document.getElementById('chr-date').value,
-    lieu: document.getElementById('chr-lieu').value,
-    objet: document.getElementById('chr-objet').value,
-    points_discutes: document.getElementById('chr-points').value,
-    decisions: document.getElementById('chr-decisions').value,
-    actions: actions
-  };
-  var url = id ? ('api/chantier_reunions.php?action=reunions&id=' + id) : 'api/chantier_reunions.php?action=reunions';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Réunion enregistrée', 'success');
-    closeModal('modal-ch-reunion');
-    renderChantierReunionsPage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChReunion(id) {
-  var r = null; _chCache.reunions.forEach(function(x) { if (x.id === id) r = x; });
-  if (!r) return;
-  document.getElementById('chr-edit-id').value = r.id;
-  document.getElementById('chr-date').value = (r.date_reunion || '').replace(' ', 'T').substring(0, 16);
-  document.getElementById('chr-lieu').value = r.lieu || '';
-  document.getElementById('chr-objet').value = r.objet || '';
-  document.getElementById('chr-points').value = r.points_discutes || '';
-  document.getElementById('chr-decisions').value = r.decisions || '';
-  var cont = document.getElementById('chr-actions-rows');
-  cont.innerHTML = '';
-  (r.actions || []).forEach(function(a) { addChrActionRow(a.description, a.responsable, a.delai, a.statut); });
-  document.getElementById('modal-chr-title').textContent = 'Réunion n°' + r.numero;
-  openModal('modal-ch-reunion');
-}
-
-function addChrActionRow(desc, resp, delai, statut) {
-  var cont = document.getElementById('chr-actions-rows');
-  var row = document.createElement('div');
-  row.className = 'chr-act-row';
-  row.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;flex-wrap:wrap';
-  row.innerHTML = '<input type="text" class="form-input" placeholder="Description" value="' + _cgEscape(desc||'') + '" style="flex:3;min-width:200px">' +
-    '<input type="text" class="form-input" placeholder="Responsable" value="' + _cgEscape(resp||'') + '" style="flex:1;min-width:120px">' +
-    '<input type="date" class="form-input" value="' + (delai||'').substring(0,10) + '" style="flex:1;min-width:130px">' +
-    '<select class="form-input" style="flex:1;min-width:100px"><option' + ((statut||'Ouverte')==='Ouverte'?' selected':'') + '>Ouverte</option><option' + (statut==='En cours'?' selected':'') + '>En cours</option><option' + (statut==='Clôturée'?' selected':'') + '>Clôturée</option></select>' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
-  cont.appendChild(row);
-}
-
-// ══════════════════════════════════════
-//  5. PHOTOS & MÉDIAS
-// ══════════════════════════════════════
-
-function renderChantierPhotosPage() {
-  _chLoadChantiers().then(function() {
-    var cid = _chGetCurrentId('chp-chantier-filter');
-    if (!cid) { document.getElementById('chp-gallery').innerHTML = '<div style="color:var(--text-3);text-align:center;padding:3rem;grid-column:1/-1">Sélectionnez un chantier</div>'; return; }
-    apiFetch('api/chantier.php?action=lots&chantier_id=' + cid).then(function(r) { _chCache.lots = (r && r.data) ? r.data : []; });
-    // For now, photos are stored via URL — fetch from a generic endpoint
-    // We'll query reserves photos + journal photos
-    document.getElementById('chp-gallery').innerHTML = '<div style="color:var(--text-3);text-align:center;padding:3rem;grid-column:1/-1">Galerie photos — fonctionnalité en cours d\'intégration.<br>Les photos ajoutées aux réserves et au journal sont visibles dans leurs sections respectives.</div>';
-  });
-}
-
-function saveChPhoto() {
-  var cid = _chGetCurrentId('chp-chantier-filter');
-  // This would normally save to CA_chantier_photos — for now just show toast
-  showToast('Photo enregistrée', 'success');
-  closeModal('modal-ch-photo');
-}
-
-// ══════════════════════════════════════
-//  6. RÉSERVES & RFI
-// ══════════════════════════════════════
-
-var _chresTab = 'reserves', _chresFilter = '', _chresRfiFilter = '';
-
-function renderChantierReservesPage() {
-  _chLoadChantiers().then(function() {
-    var cid = _chGetCurrentId('chres-chantier-filter');
-    if (!cid) { document.getElementById('chres-reserves-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
-    // Load lots for dropdowns
-    apiFetch('api/chantier.php?action=lots&chantier_id=' + cid).then(function(r) { _chCache.lots = (r && r.data) ? r.data : []; _chPopulateLotSelects(); });
-    apiFetch('api/chantier_reserves.php?action=reserves&chantier_id=' + cid).then(function(r) {
-      _chCache.reserves = (r && r.data) ? r.data : [];
-      _renderReservesTable();
-    });
-    apiFetch('api/chantier_reserves.php?action=rfi&chantier_id=' + cid).then(function(r) {
-      _chCache.rfi = (r && r.data) ? r.data : [];
-      _renderRfiTable();
-    });
-  });
-}
-
-function chresSwitchTab(tab, btn) {
-  _chresTab = tab;
-  document.querySelectorAll('.chres-tab').forEach(function(t) { t.classList.remove('active'); t.style.color = 'var(--text-3)'; t.style.borderBottom = '2px solid transparent'; });
-  if (btn) { btn.classList.add('active'); btn.style.color = 'var(--text-2)'; btn.style.borderBottom = '2px solid var(--accent)'; }
-  document.getElementById('chres-panel-reserves').style.display = tab === 'reserves' ? '' : 'none';
-  document.getElementById('chres-panel-rfi').style.display = tab === 'rfi' ? '' : 'none';
-}
-
-function chresFilterReserves(f, btn) {
-  _chresFilter = f;
-  document.querySelectorAll('.chres-filter').forEach(function(b) { b.classList.remove('active'); });
-  if (btn) btn.classList.add('active');
-  _renderReservesTable();
-}
-
-function _renderReservesTable() {
-  var tbody = document.getElementById('chres-reserves-tbody');
-  var filtered = _chresFilter ? _chCache.reserves.filter(function(r) { return r.statut === _chresFilter; }) : _chCache.reserves;
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune réserve</td></tr>'; return; }
-  var h = '';
-  filtered.forEach(function(r) {
-    h += '<tr><td><strong>R' + r.numero + '</strong></td><td>' + _cgEscape(r.titre||'') + '</td>' +
-      '<td>' + _cgEscape(r.zone||'—') + '</td><td>' + _cgEscape(r.lot_nom||'—') + '</td>' +
-      '<td>' + _cgEscape(r.entreprise||'—') + '</td><td>' + _chBadge(r.priorite) + '</td>' +
-      '<td>' + _chBadge(r.statut) + '</td><td>' + _chDate(r.date_delai) + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChReserve(\'' + r.id + '\')">Modifier</button></td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chres-reserves-table'));
-}
-
-function saveChReserve() {
-  var id = document.getElementById('chres-edit-id').value;
-  var cid = _chGetCurrentId('chres-chantier-filter');
-  var body = {
-    chantier_id: cid,
-    titre: document.getElementById('chres-titre').value,
-    zone: document.getElementById('chres-zone').value,
-    lot_id: document.getElementById('chres-lot-id').value || null,
-    entreprise: document.getElementById('chres-entreprise').value,
-    priorite: document.getElementById('chres-priorite').value,
-    statut: document.getElementById('chres-statut').value,
-    date_constat: document.getElementById('chres-date-constat').value || null,
-    date_delai: document.getElementById('chres-date-delai').value || null,
-    plan_ref: document.getElementById('chres-plan-ref').value,
-    description: document.getElementById('chres-description').value
-  };
-  if (!body.titre) { showToast('Le titre est requis', 'warning'); return; }
-  var url = id ? ('api/chantier_reserves.php?action=reserves&id=' + id) : 'api/chantier_reserves.php?action=reserves';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Réserve enregistrée', 'success');
-    closeModal('modal-ch-reserve');
-    renderChantierReservesPage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChReserve(id) {
-  var r = null; _chCache.reserves.forEach(function(x) { if (x.id === id) r = x; });
-  if (!r) return;
-  document.getElementById('chres-edit-id').value = r.id;
-  document.getElementById('chres-titre').value = r.titre || '';
-  document.getElementById('chres-zone').value = r.zone || '';
-  document.getElementById('chres-lot-id').value = r.lot_id || '';
-  document.getElementById('chres-entreprise').value = r.entreprise || '';
-  document.getElementById('chres-priorite').value = r.priorite || 'Normale';
-  document.getElementById('chres-statut').value = r.statut || 'Ouverte';
-  document.getElementById('chres-date-constat').value = (r.date_constat || '').substring(0, 10);
-  document.getElementById('chres-date-delai').value = (r.date_delai || '').substring(0, 10);
-  document.getElementById('chres-plan-ref').value = r.plan_ref || '';
-  document.getElementById('chres-description').value = r.description || '';
-  document.getElementById('modal-chres-title').textContent = 'Réserve R' + r.numero;
-  openModal('modal-ch-reserve');
-}
-
-// ── RFI ──
-function _renderRfiTable() {
-  var tbody = document.getElementById('chres-rfi-tbody');
-  if (!_chCache.rfi.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune RFI</td></tr>'; return; }
-  var h = '';
-  _chCache.rfi.forEach(function(r) {
-    h += '<tr><td><strong>RFI-' + r.numero + '</strong></td><td>' + _cgEscape(r.objet||'') + '</td>' +
-      '<td>' + _cgEscape(r.emetteur||'—') + '</td><td>' + _cgEscape(r.destinataire||'—') + '</td>' +
-      '<td>' + _chBadge(r.priorite) + '</td><td>' + _chBadge(r.statut) + '</td>' +
-      '<td>' + _chDate(r.date_reponse_attendue) + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChRfi(\'' + r.id + '\')">Ouvrir</button></td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chres-rfi-table'));
-}
-
-function saveChRfi() {
-  var id = document.getElementById('chrfi-edit-id').value;
-  var cid = _chGetCurrentId('chres-chantier-filter');
-  var body = {
-    chantier_id: cid,
-    objet: document.getElementById('chrfi-objet').value,
-    emetteur: document.getElementById('chrfi-emetteur').value,
-    destinataire: document.getElementById('chrfi-destinataire').value,
-    priorite: document.getElementById('chrfi-priorite').value,
-    statut: document.getElementById('chrfi-statut').value,
-    date_emission: document.getElementById('chrfi-date-emission').value || null,
-    date_reponse_attendue: document.getElementById('chrfi-date-reponse').value || null,
-    description: document.getElementById('chrfi-description').value,
-    documents_ref: document.getElementById('chrfi-docs').value,
-    reponse: document.getElementById('chrfi-reponse').value
-  };
-  if (!body.objet) { showToast('L\'objet est requis', 'warning'); return; }
-  var url = id ? ('api/chantier_reserves.php?action=rfi&id=' + id) : 'api/chantier_reserves.php?action=rfi';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('RFI enregistrée', 'success');
-    closeModal('modal-ch-rfi');
-    renderChantierReservesPage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChRfi(id) {
-  var r = null; _chCache.rfi.forEach(function(x) { if (x.id === id) r = x; });
-  if (!r) return;
-  document.getElementById('chrfi-edit-id').value = r.id;
-  document.getElementById('chrfi-objet').value = r.objet || '';
-  document.getElementById('chrfi-emetteur').value = r.emetteur || '';
-  document.getElementById('chrfi-destinataire').value = r.destinataire || '';
-  document.getElementById('chrfi-priorite').value = r.priorite || 'Normale';
-  document.getElementById('chrfi-statut').value = r.statut || 'Ouverte';
-  document.getElementById('chrfi-date-emission').value = (r.date_emission || '').substring(0, 10);
-  document.getElementById('chrfi-date-reponse').value = (r.date_reponse_attendue || '').substring(0, 10);
-  document.getElementById('chrfi-description').value = r.description || '';
-  document.getElementById('chrfi-docs').value = r.documents_ref || '';
-  document.getElementById('chrfi-reponse').value = r.reponse || '';
-  document.getElementById('modal-chrfi-title').textContent = 'RFI-' + r.numero;
-  openModal('modal-ch-rfi');
-}
-
-// ══════════════════════════════════════
-//  7. VISAS
-// ══════════════════════════════════════
-
-var _chvFilter = '';
-
-function renderChantierVisasPage() {
-  _chLoadChantiers().then(function() {
-    var cid = _chGetCurrentId('chv-chantier-filter');
-    if (!cid) { document.getElementById('chv-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
-    apiFetch('api/chantier.php?action=lots&chantier_id=' + cid).then(function(r) { _chCache.lots = (r && r.data) ? r.data : []; _chPopulateLotSelects(); });
-    apiFetch('api/chantier_reserves.php?action=visas&chantier_id=' + cid).then(function(r) {
-      _chCache.visas = (r && r.data) ? r.data : [];
-      _renderVisasTable();
-    });
-  });
-}
-
-function chvFilterVisas(f, btn) {
-  _chvFilter = f;
-  document.querySelectorAll('.chv-filter').forEach(function(b) { b.classList.remove('active'); });
-  if (btn) btn.classList.add('active');
-  _renderVisasTable();
-}
-
-function _renderVisasTable() {
-  var tbody = document.getElementById('chv-tbody');
-  var filtered = _chvFilter ? _chCache.visas.filter(function(v) { return v.statut === _chvFilter; }) : _chCache.visas;
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucun visa</td></tr>'; return; }
-  var h = '';
-  filtered.forEach(function(v) {
-    h += '<tr><td><strong>V' + v.numero + '</strong></td><td>' + _cgEscape(v.document_titre||'') + '</td>' +
-      '<td>' + _cgEscape(v.document_ref||'—') + '</td><td>' + _cgEscape(v.lot_nom||'—') + '</td>' +
-      '<td>' + _cgEscape(v.emetteur||'—') + '</td><td>' + _chBadge(v.statut) + '</td>' +
-      '<td>' + _chDate(v.date_reception) + '</td><td>' + _chDate(v.date_visa) + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChVisa(\'' + v.id + '\')">Modifier</button></td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chv-table'));
-}
-
-function saveChVisa() {
-  var id = document.getElementById('chv-edit-id').value;
-  var cid = _chGetCurrentId('chv-chantier-filter');
-  // Collect circuit
-  var circRows = document.querySelectorAll('#chv-circuit-rows .chv-circ-row');
-  var circuit = [];
-  circRows.forEach(function(row) {
-    var inputs = row.querySelectorAll('input,select');
-    if (inputs[0] && inputs[0].value) {
-      circuit.push({ role: inputs[0].value, nom: inputs[1].value, statut: inputs[2] ? inputs[2].value : 'En attente', commentaire: inputs[3] ? inputs[3].value : '' });
-    }
-  });
-  var body = {
-    chantier_id: cid,
-    document_titre: document.getElementById('chv-doc-titre').value,
-    document_ref: document.getElementById('chv-doc-ref').value,
-    lot_id: document.getElementById('chv-lot-id').value || null,
-    emetteur: document.getElementById('chv-emetteur').value,
-    statut: document.getElementById('chv-statut').value,
-    date_reception: document.getElementById('chv-date-reception').value || null,
-    date_visa: document.getElementById('chv-date-visa').value || null,
-    document_url: document.getElementById('chv-doc-url').value,
-    commentaire: document.getElementById('chv-commentaire').value,
-    circuit_visa: circuit
-  };
-  if (!body.document_titre) { showToast('Le titre est requis', 'warning'); return; }
-  var url = id ? ('api/chantier_reserves.php?action=visas&id=' + id) : 'api/chantier_reserves.php?action=visas';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Visa enregistré', 'success');
-    closeModal('modal-ch-visa');
-    renderChantierVisasPage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChVisa(id) {
-  var v = null; _chCache.visas.forEach(function(x) { if (x.id === id) v = x; });
-  if (!v) return;
-  document.getElementById('chv-edit-id').value = v.id;
-  document.getElementById('chv-doc-titre').value = v.document_titre || '';
-  document.getElementById('chv-doc-ref').value = v.document_ref || '';
-  document.getElementById('chv-lot-id').value = v.lot_id || '';
-  document.getElementById('chv-emetteur').value = v.emetteur || '';
-  document.getElementById('chv-statut').value = v.statut || 'En attente';
-  document.getElementById('chv-date-reception').value = (v.date_reception || '').substring(0, 10);
-  document.getElementById('chv-date-visa').value = (v.date_visa || '').substring(0, 10);
-  document.getElementById('chv-doc-url').value = v.document_url || '';
-  document.getElementById('chv-commentaire').value = v.commentaire || '';
-  // Circuit
-  var cont = document.getElementById('chv-circuit-rows');
-  cont.innerHTML = '';
-  (v.circuit_visa || []).forEach(function(c) { addChvCircuitRow(c.role, c.nom, c.statut, c.commentaire); });
-  document.getElementById('modal-chv-title').textContent = 'Visa V' + v.numero;
-  openModal('modal-ch-visa');
-}
-
-function addChvCircuitRow(role, nom, statut, comm) {
-  var cont = document.getElementById('chv-circuit-rows');
-  var row = document.createElement('div');
-  row.className = 'chv-circ-row';
-  row.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;flex-wrap:wrap';
-  row.innerHTML = '<input type="text" class="form-input" placeholder="Rôle (Architecte, BET...)" value="' + _cgEscape(role||'') + '" style="flex:1;min-width:120px">' +
-    '<input type="text" class="form-input" placeholder="Nom" value="' + _cgEscape(nom||'') + '" style="flex:1;min-width:120px">' +
-    '<select class="form-input" style="flex:1;min-width:100px"><option' + ((statut||'En attente')==='En attente'?' selected':'') + '>En attente</option><option' + (statut==='Approuvé'?' selected':'') + '>Approuvé</option><option' + (statut==='Avec observations'?' selected':'') + '>Avec observations</option><option' + (statut==='Refusé'?' selected':'') + '>Refusé</option></select>' +
-    '<input type="text" class="form-input" placeholder="Commentaire" value="' + _cgEscape(comm||'') + '" style="flex:2;min-width:150px">' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
-  cont.appendChild(row);
-}
-
-// ══════════════════════════════════════
-//  8. SÉCURITÉ
-// ══════════════════════════════════════
-
-var _chsTab = 'incidents', _chsIncFilter = '';
-
-function renderChantierSecuritePage() {
-  _chLoadChantiers().then(function() {
-    var cid = _chGetCurrentId('chs-chantier-filter');
-    if (!cid) { document.getElementById('chs-incidents-tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Sélectionnez un chantier</td></tr>'; return; }
-    apiFetch('api/chantier_securite.php?action=incidents&chantier_id=' + cid).then(function(r) {
-      _chCache.incidents = (r && r.data) ? r.data : [];
-      _renderIncidentsTable();
-    });
-    apiFetch('api/chantier_securite.php?action=inspections&chantier_id=' + cid).then(function(r) {
-      _chCache.inspections = (r && r.data) ? r.data : [];
-      _renderInspectionsTable();
-    });
-    apiFetch('api/chantier_securite.php?action=stats&chantier_id=' + cid).then(function(r) {
-      _renderSecuriteStats((r && r.data) ? r.data : {});
-    });
-  });
-}
-
-function chsSwitchTab(tab, btn) {
-  _chsTab = tab;
-  document.querySelectorAll('.chs-tab').forEach(function(t) { t.classList.remove('active'); t.style.color = 'var(--text-3)'; t.style.borderBottom = '2px solid transparent'; });
-  if (btn) { btn.classList.add('active'); btn.style.color = 'var(--text-2)'; btn.style.borderBottom = '2px solid var(--accent)'; }
-  document.getElementById('chs-panel-incidents').style.display = tab === 'incidents' ? '' : 'none';
-  document.getElementById('chs-panel-inspections').style.display = tab === 'inspections' ? '' : 'none';
-  document.getElementById('chs-panel-stats').style.display = tab === 'stats' ? '' : 'none';
-}
-
-function chsFilterIncidents(f, btn) {
-  _chsIncFilter = f;
-  document.querySelectorAll('.chs-inc-filter').forEach(function(b) { b.classList.remove('active'); });
-  if (btn) btn.classList.add('active');
-  _renderIncidentsTable();
-}
-
-function _renderIncidentsTable() {
-  var tbody = document.getElementById('chs-incidents-tbody');
-  var filtered = _chsIncFilter ? _chCache.incidents.filter(function(i) { return i.statut === _chsIncFilter; }) : _chCache.incidents;
-  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucun incident</td></tr>'; return; }
-  var h = '';
-  filtered.forEach(function(i) {
-    h += '<tr><td>' + _chDate(i.date_incident) + '</td><td>' + _cgEscape(i.type||'') + '</td>' +
-      '<td>' + _chBadge(i.gravite) + '</td><td>' + _cgEscape(i.titre||'') + '</td>' +
-      '<td>' + _cgEscape(i.zone||'—') + '</td><td>' + _cgEscape(i.entreprise||'—') + '</td>' +
-      '<td>' + _chBadge(i.statut) + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChIncident(\'' + i.id + '\')">Ouvrir</button></td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chs-incidents-table'));
-}
-
-function saveChIncident() {
-  var id = document.getElementById('chinc-edit-id').value;
-  var cid = _chGetCurrentId('chs-chantier-filter');
-  var body = {
-    chantier_id: cid,
-    titre: document.getElementById('chinc-titre').value,
-    type: document.getElementById('chinc-type').value,
-    gravite: document.getElementById('chinc-gravite').value,
-    zone: document.getElementById('chinc-zone').value,
-    entreprise: document.getElementById('chinc-entreprise').value,
-    date_incident: document.getElementById('chinc-date').value,
-    statut: document.getElementById('chinc-statut').value,
-    description: document.getElementById('chinc-description').value,
-    personnes_impliquees: document.getElementById('chinc-personnes').value,
-    mesures_immediates: document.getElementById('chinc-mesures-imm').value,
-    mesures_correctives: document.getElementById('chinc-mesures-corr').value
-  };
-  if (!body.titre) { showToast('Le titre est requis', 'warning'); return; }
-  var url = id ? ('api/chantier_securite.php?action=incidents&id=' + id) : 'api/chantier_securite.php?action=incidents';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Incident enregistré', 'success');
-    closeModal('modal-ch-incident');
-    renderChantierSecuritePage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChIncident(id) {
-  var i = null; _chCache.incidents.forEach(function(x) { if (x.id === id) i = x; });
-  if (!i) return;
-  document.getElementById('chinc-edit-id').value = i.id;
-  document.getElementById('chinc-titre').value = i.titre || '';
-  document.getElementById('chinc-type').value = i.type || 'Incident';
-  document.getElementById('chinc-gravite').value = i.gravite || 'Mineure';
-  document.getElementById('chinc-zone').value = i.zone || '';
-  document.getElementById('chinc-entreprise').value = i.entreprise || '';
-  document.getElementById('chinc-date').value = (i.date_incident || '').replace(' ', 'T').substring(0, 16);
-  document.getElementById('chinc-statut').value = i.statut || 'Ouvert';
-  document.getElementById('chinc-description').value = i.description || '';
-  document.getElementById('chinc-personnes').value = i.personnes_impliquees || '';
-  document.getElementById('chinc-mesures-imm').value = i.mesures_immediates || '';
-  document.getElementById('chinc-mesures-corr').value = i.mesures_correctives || '';
-  document.getElementById('modal-chinc-title').textContent = 'Incident — ' + _cgEscape(i.titre);
-  openModal('modal-ch-incident');
-}
-
-// ── Inspections ──
-function _renderInspectionsTable() {
-  var tbody = document.getElementById('chs-inspections-tbody');
-  if (!_chCache.inspections.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Aucune inspection</td></tr>'; return; }
-  var h = '';
-  _chCache.inspections.forEach(function(i) {
-    var scoreColor = (i.score >= 80) ? 'var(--green)' : (i.score >= 50 ? 'var(--orange)' : 'var(--red)');
-    h += '<tr><td>' + _chDate(i.date_inspection) + '</td><td>' + _cgEscape(i.titre||'') + '</td>' +
-      '<td>' + _cgEscape(i.inspecteur||'—') + '</td><td>' + _cgEscape(i.zone||'—') + '</td>' +
-      '<td style="font-weight:600;color:' + scoreColor + '">' + (i.score !== null ? i.score + '%' : '—') + '</td>' +
-      '<td>' + _chBadge(i.statut) + '</td>' +
-      '<td><button class="btn btn-sm" onclick="editChInspection(\'' + i.id + '\')">Ouvrir</button></td></tr>';
-  });
-  tbody.innerHTML = h;
-  makeTableSortable(document.getElementById('chs-inspections-table'));
-}
-
-function saveChInspection() {
-  var id = document.getElementById('chinsp-edit-id').value;
-  var cid = _chGetCurrentId('chs-chantier-filter');
-  // Collect checklist
-  var checkRows = document.querySelectorAll('#chinsp-checklist-rows .chinsp-check-row');
-  var checklist = [];
-  checkRows.forEach(function(row) {
-    var inputs = row.querySelectorAll('input');
-    if (inputs[0] && inputs[0].value) {
-      checklist.push({ item: inputs[0].value, conforme: inputs[1].checked ? 1 : 0, commentaire: inputs[2] ? inputs[2].value : '' });
-    }
-  });
-  var body = {
-    chantier_id: cid,
-    titre: document.getElementById('chinsp-titre').value,
-    date_inspection: document.getElementById('chinsp-date').value,
-    inspecteur: document.getElementById('chinsp-inspecteur').value,
-    zone: document.getElementById('chinsp-zone').value,
-    observations: document.getElementById('chinsp-observations').value,
-    checklist: checklist
-  };
-  if (!body.date_inspection) { showToast('La date est requise', 'warning'); return; }
-  var url = id ? ('api/chantier_securite.php?action=inspections&id=' + id) : 'api/chantier_securite.php?action=inspections';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function(r) {
-    var score = (r && r.data && r.data.score !== undefined) ? r.data.score : null;
-    showToast('Inspection enregistrée' + (score !== null ? ' — Score: ' + score + '%' : ''), 'success');
-    closeModal('modal-ch-inspection');
-    renderChantierSecuritePage();
-  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
-}
-
-function editChInspection(id) {
-  var i = null; _chCache.inspections.forEach(function(x) { if (x.id === id) i = x; });
-  if (!i) return;
-  document.getElementById('chinsp-edit-id').value = i.id;
-  document.getElementById('chinsp-titre').value = i.titre || '';
-  document.getElementById('chinsp-date').value = (i.date_inspection || '').substring(0, 10);
-  document.getElementById('chinsp-inspecteur').value = i.inspecteur || '';
-  document.getElementById('chinsp-zone').value = i.zone || '';
-  document.getElementById('chinsp-observations').value = i.observations || '';
-  var cont = document.getElementById('chinsp-checklist-rows');
-  cont.innerHTML = '';
-  (i.checklist || []).forEach(function(c) { addChinspCheckRow(c.item, c.conforme, c.commentaire); });
-  document.getElementById('modal-chinsp-title').textContent = 'Inspection — ' + _chDate(i.date_inspection);
-  openModal('modal-ch-inspection');
-}
-
-function addChinspCheckRow(item, conforme, comm) {
-  var cont = document.getElementById('chinsp-checklist-rows');
-  var row = document.createElement('div');
-  row.className = 'chinsp-check-row';
-  row.style.cssText = 'display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center';
-  row.innerHTML = '<input type="text" class="form-input" placeholder="Point à vérifier" value="' + _cgEscape(item||'') + '" style="flex:2">' +
-    '<label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;color:var(--text-2);white-space:nowrap"><input type="checkbox"' + (conforme ? ' checked' : '') + '> Conforme</label>' +
-    '<input type="text" class="form-input" placeholder="Commentaire" value="' + _cgEscape(comm||'') + '" style="flex:1">' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="this.parentElement.remove()">✕</button>';
-  cont.appendChild(row);
-}
-
-// ── Stats sécurité ──
-function _renderSecuriteStats(data) {
-  var el = document.getElementById('chs-stats-content');
-  var h = '';
-  // Incidents par type
-  h += '<div class="card"><div class="card-title">Incidents par type & gravité</div><div style="padding:0.5rem">';
-  if ((data.incidents_par_type || []).length) {
-    h += '<table style="width:100%;font-size:0.82rem"><thead><tr><th>Type</th><th>Gravité</th><th>Nombre</th></tr></thead><tbody>';
-    data.incidents_par_type.forEach(function(r) { h += '<tr><td>' + _cgEscape(r.type) + '</td><td>' + _chBadge(r.gravite) + '</td><td>' + r.nb + '</td></tr>'; });
-    h += '</tbody></table>';
-  } else { h += '<div style="color:var(--text-3);text-align:center;padding:1rem">Aucun incident</div>'; }
-  h += '</div></div>';
-  // Tendance mensuelle
-  h += '<div class="card"><div class="card-title">Tendance mensuelle</div><div style="padding:0.5rem">';
-  if ((data.tendance_mensuelle || []).length) {
-    var maxN = 1; data.tendance_mensuelle.forEach(function(r) { if (parseInt(r.nb) > maxN) maxN = parseInt(r.nb); });
-    data.tendance_mensuelle.forEach(function(r) {
-      var pct = (parseInt(r.nb) / maxN * 100);
-      h += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem"><span style="min-width:60px;font-size:0.75rem;color:var(--text-2)">' + r.mois + '</span>' +
-        '<div style="flex:1;background:var(--bg-2);border-radius:3px;height:16px"><div style="width:' + pct + '%;background:var(--red);height:100%;border-radius:3px;opacity:0.7"></div></div>' +
-        '<span style="min-width:30px;font-size:0.8rem;color:var(--text);text-align:right">' + r.nb + '</span></div>';
-    });
-  } else { h += '<div style="color:var(--text-3);text-align:center;padding:1rem">Pas de données</div>'; }
-  h += '</div></div>';
-  // Scores inspections
-  h += '<div class="card"><div class="card-title">Scores inspections récentes</div><div style="padding:0.5rem">';
-  if ((data.scores_inspections || []).length) {
-    data.scores_inspections.forEach(function(r) {
-      var color = (r.score >= 80) ? 'var(--green)' : (r.score >= 50 ? 'var(--orange)' : 'var(--red)');
-      h += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem"><span style="min-width:80px;font-size:0.75rem;color:var(--text-2)">' + _chDate(r.date_inspection) + '</span>' +
-        '<div style="flex:1;background:var(--bg-2);border-radius:3px;height:16px"><div style="width:' + r.score + '%;background:' + color + ';height:100%;border-radius:3px;opacity:0.7"></div></div>' +
-        '<span style="min-width:40px;font-size:0.8rem;font-weight:600;color:' + color + ';text-align:right">' + r.score + '%</span></div>';
-    });
-  } else { h += '<div style="color:var(--text-3);text-align:center;padding:1rem">Pas d\'inspection</div>'; }
-  h += '</div></div>';
-  // Summary card
-  h += '<div class="card"><div class="card-title">Résumé</div><div style="padding:1rem;text-align:center">' +
-    '<div style="font-size:2rem;font-weight:700;color:' + ((data.incidents_ouverts||0) > 0 ? 'var(--red)' : 'var(--green)') + '">' + (data.incidents_ouverts||0) + '</div>' +
-    '<div style="color:var(--text-2);font-size:0.85rem">incidents ouverts</div></div></div>';
-  el.innerHTML = h;
-}
-
-// ══════════════════════════════════════════════════════════
-//  PORTAIL CLIENT — Gestion interne
-// ══════════════════════════════════════════════════════════
-
-var _portalAccounts = [];
-var _portalDocs = [];
-var _portalMsgRooms = [];
-var _portalMsgCurrent = null;
-var _portalMsgPoll = null;
-
-// ── Comptes clients ──
-
-function renderPortailAccounts() {
-  apiFetch('api/client_portal_admin.php?action=list_accounts').then(function(r) {
-    _portalAccounts = r.data || r || [];
-    var tbody = document.getElementById('portail-accounts-tbody');
-    if (!tbody) return;
-    var actifs = _portalAccounts.filter(function(a){ return a.statut === 'actif'; }).length;
-    var kpis = document.getElementById('portail-kpis');
-    if (kpis) {
-      kpis.innerHTML = '<div class="kpi-card"><div class="kpi-value">' + _portalAccounts.length + '</div><div class="kpi-label">Total comptes</div></div>' +
-        '<div class="kpi-card"><div class="kpi-value" style="color:var(--green)">' + actifs + '</div><div class="kpi-label">Actifs</div></div>' +
-        '<div class="kpi-card"><div class="kpi-value" style="color:var(--text-3)">' + (_portalAccounts.length - actifs) + '</div><div class="kpi-label">Inactifs</div></div>';
-    }
-    if (_portalAccounts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucun compte client</td></tr>';
-      return;
-    }
-    tbody.innerHTML = _portalAccounts.map(function(a) {
-      var badge = a.statut === 'actif' ? 'badge-green' : 'badge-gray';
-      var codePlat = a.code_plateforme || '—';
-      var codeNas = a.code_nas || '—';
-      var projetsCodes = a.projets_codes || '—';
-      var codeMatch = (codePlat !== '—' && codeNas !== '—' && codePlat === codeNas);
-      var codeStyle = codeMatch ? 'color:var(--green)' : (codePlat === '—' || codeNas === '—' ? 'color:var(--text-3)' : 'color:var(--red)');
-      return '<tr>' +
-        '<td><strong>' + esc(a.nom) + '</strong><div style="font-size:0.72rem;color:var(--text-3)">' + esc(a.client_display || '') + '</div></td>' +
-        '<td><span style="font-family:var(--mono);font-size:0.8rem">' + esc(a.email) + '</span></td>' +
-        '<td><span style="font-family:var(--mono);font-size:0.78rem;' + codeStyle + '">' + esc(codePlat) + '</span></td>' +
-        '<td><span style="font-family:var(--mono);font-size:0.78rem;' + codeStyle + '">' + esc(codeNas) + '</span></td>' +
-        '<td><span style="font-family:var(--mono);font-size:0.72rem;color:var(--text-2);max-width:160px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(projetsCodes) + '</span></td>' +
-        '<td><span class="badge ' + badge + '">' + esc(a.statut) + '</span></td>' +
-        '<td>' + (a.last_login ? fmtDate(a.last_login) : '<span style="color:var(--text-3)">Jamais</span>') + '</td>' +
-        '<td><button class="btn-icon" onclick="editPortailAccount(\'' + a.id + '\')" title="Modifier">✏️</button>' +
-        '<button class="btn-icon" onclick="deletePortailAccount(\'' + a.id + '\',\'' + esc(a.nom).replace(/'/g, "\\'") + '\')" title="Supprimer" style="color:var(--red)">🗑️</button></td></tr>';
-    }).join('');
-  }).catch(function(e) { showToast('Erreur chargement comptes: ' + e.message, 'error'); });
-}
-
-function paGenPass() {
-  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  var pass = '';
-  for (var i = 0; i < 10; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
-  document.getElementById('pa-password').value = pass;
-}
-
-function openPortailAccountModal(accountId) {
-  var isEdit = !!accountId;
-  document.getElementById('pa-modal-title').textContent = isEdit ? 'Modifier le compte' : 'Nouveau compte';
-  document.getElementById('pa-save-btn').textContent = isEdit ? 'Enregistrer' : 'Créer le compte';
-  document.getElementById('pa-id').value = accountId || '';
-  document.getElementById('pa-success').style.display = 'none';
-  // Populate client dropdown
-  var sel = document.getElementById('pa-client');
-  var clients = getClients();
-  sel.innerHTML = '<option value="">— Sélectionner —</option>' + clients.map(function(c) {
-    return '<option value="' + c.id + '">' + esc(c.displayNom || c.display_nom || c.nom || '') + '</option>';
-  }).join('');
-  if (isEdit) {
-    var a = _portalAccounts.find(function(x){ return x.id === accountId; });
-    if (a) {
-      sel.value = a.client_id || '';
-      document.getElementById('pa-nom').value = a.nom || '';
-      document.getElementById('pa-email').value = a.email || '';
-      document.getElementById('pa-password').value = '';
-      document.getElementById('pa-statut').value = a.statut || 'actif';
-    }
-  } else {
-    document.getElementById('pa-nom').value = '';
-    document.getElementById('pa-email').value = '';
-    document.getElementById('pa-password').value = '';
-    document.getElementById('pa-statut').value = 'actif';
-  }
-  openModal('modal-portail-account');
-}
-
-function savePortailAccount() {
-  var id = document.getElementById('pa-id').value;
-  var isEdit = !!id;
-  var clientId = document.getElementById('pa-client').value;
-  var nom = document.getElementById('pa-nom').value.trim();
-  var email = document.getElementById('pa-email').value.trim();
-  var password = document.getElementById('pa-password').value.trim();
-  var statut = document.getElementById('pa-statut').value;
-  if (!clientId || !nom || !email) { showToast('Client, nom et email requis', 'error'); return; }
-  if (!isEdit && password.length < 6) { showToast('Mot de passe min. 6 caractères', 'error'); return; }
-  var btn = document.getElementById('pa-save-btn');
-  btn.disabled = true; btn.textContent = isEdit ? 'Enregistrement...' : 'Création...';
-  if (isEdit) {
-    var body = { nom: nom, email: email, statut: statut };
-    if (password.length >= 6) body.password = password;
-    apiFetch('api/client_portal_admin.php?action=update_account&id=' + encodeURIComponent(id), { method: 'PUT', body: body })
-      .then(function() { showToast('Compte mis à jour', 'success'); closeModal('modal-portail-account'); renderPortailAccounts(); })
-      .catch(function(e) { showToast(e.message, 'error'); })
-      .finally(function() { btn.disabled = false; btn.textContent = 'Enregistrer'; });
-  } else {
-    apiFetch('api/client_portal_admin.php?action=create_account', { method: 'POST', body: { client_id: clientId, nom: nom, email: email, password: password } })
-      .then(function() {
-        var portalUrl = window.location.origin + window.location.pathname.replace(/[^/]+$/, '') + 'portail-client.html';
-        var succEl = document.getElementById('pa-success');
-        succEl.innerHTML = '<div style="font-weight:600;color:var(--green);margin-bottom:0.5rem">✓ Compte créé</div>' +
-          '<div style="background:var(--bg-2);border-radius:5px;padding:0.6rem 0.8rem;font-size:0.82rem;font-family:var(--mono)">' +
-          '<div><strong>URL :</strong> ' + esc(portalUrl) + '</div>' +
-          '<div><strong>Email :</strong> ' + esc(email) + '</div>' +
-          '<div><strong>Mot de passe :</strong> ' + esc(password) + '</div></div>' +
-          '<button onclick="navigator.clipboard.writeText(\'URL: ' + esc(portalUrl) + '\\nEmail: ' + esc(email) + '\\nMot de passe: ' + esc(password) + '\').then(function(){showToast(\'Copié !\',\'success\')})" ' +
-          'style="margin-top:0.5rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:0.35rem 0.8rem;font-size:0.75rem;cursor:pointer;font-family:var(--font)">📋 Copier les identifiants</button>';
-        succEl.style.display = 'block';
-        btn.style.display = 'none';
-        renderPortailAccounts();
-      })
-      .catch(function(e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Créer le compte'; });
-  }
-}
-
-function editPortailAccount(id) { openPortailAccountModal(id); }
-
-function deletePortailAccount(id, nom) {
-  if (!confirm('Supprimer le compte de ' + nom + ' ? Cette action est irréversible.')) return;
-  apiFetch('api/client_portal_admin.php?action=delete_account&id=' + encodeURIComponent(id), { method: 'DELETE' })
-    .then(function() { showToast('Compte supprimé', 'success'); renderPortailAccounts(); })
-    .catch(function(e) { showToast(e.message, 'error'); });
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-  var newBtn = document.getElementById('portail-new-btn');
-  if (newBtn) newBtn.addEventListener('click', function() { openPortailAccountModal(null); });
-  var saveBtn = document.getElementById('pa-save-btn');
-  if (saveBtn) saveBtn.addEventListener('click', savePortailAccount);
-  var pubBtn = document.getElementById('portail-pub-btn');
-  if (pubBtn) pubBtn.addEventListener('click', function() { openPortailDocModal(); });
-  var pdocSubmit = document.getElementById('pdoc-submit');
-  if (pdocSubmit) pdocSubmit.addEventListener('click', submitPortailDoc);
-  var msgSend = document.getElementById('portail-msg-send');
-  if (msgSend) msgSend.addEventListener('click', sendPortailMsg);
-  var msgInput = document.getElementById('portail-msg-input');
-  if (msgInput) msgInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPortailMsg(); }
-  });
-});
-
-// ── Documents partagés ──
-
-var _pdocSource = 'upload';
-
-function pdocSetSource(src) {
-  _pdocSource = src;
-  ['upload', 'nas', 'url'].forEach(function(s) {
-    var el = document.getElementById('pdoc-source-' + s);
-    if (el) el.style.display = s === src ? '' : 'none';
-    var btn = document.getElementById('pdoc-src-' + s);
-    if (btn) btn.style.borderColor = s === src ? 'var(--accent)' : 'var(--border)';
-    if (btn) btn.style.color = s === src ? 'var(--accent)' : 'var(--text-2)';
-  });
-}
-
-function openPortailDocModal() {
-  // Populate client dropdown
-  var clientSel = document.getElementById('pdoc-client');
-  var clients = getClients().slice().sort(function(a,b){
-    var an = (a.displayNom || a.display_nom || a.nom || '').toLowerCase();
-    var bn = (b.displayNom || b.display_nom || b.nom || '').toLowerCase();
-    return an < bn ? -1 : an > bn ? 1 : 0;
-  });
-  clientSel.innerHTML = '<option value="">— Sélectionner —</option>' + clients.map(function(c) {
-    return '<option value="' + c.id + '">' + esc(c.displayNom || c.display_nom || c.nom || '') + '</option>';
-  }).join('');
-  clientSel.onchange = function() { pdocUpdateProjets(); };
-  var projetSel = document.getElementById('pdoc-projet');
-  projetSel.innerHTML = '<option value="">— Sélectionner le client d\'abord —</option>';
-  projetSel.onchange = function() { pdocUpdateProjetNasLink(); };
-  var linkBox = document.getElementById('pdoc-projet-nas-link');
-  if (linkBox) linkBox.innerHTML = '';
-  document.getElementById('pdoc-titre').value = '';
-  document.getElementById('pdoc-description').value = '';
-  document.getElementById('pdoc-phase').value = '';
-  document.getElementById('pdoc-categorie').value = 'livrable';
-  document.getElementById('pdoc-file').value = '';
-  document.getElementById('pdoc-nas-path').value = '';
-  document.getElementById('pdoc-url').value = '';
-  document.getElementById('pdoc-request-validation').checked = false;
-  pdocSetSource('upload');
-  openModal('modal-portail-doc');
-}
-
-// Recherche des projets d'un client — stratégie multi-critères pour éviter
-// les listes vides lorsque client_code / clientId ne sont pas renseignés
-// (fallback sur le dernier segment du code projet et sur le nom client).
-function pdocFindProjetsForClient(clientId) {
-  var client = getClients().find(function(c){ return c.id === clientId; });
-  if (!client) return [];
-  var code = (client.code || '').toString().trim();
-  var codeU = code.toUpperCase();
-  var displayNom = (client.displayNom || client.display_nom || client.nom || '').toString().trim().toLowerCase();
-  var found = {};
-  var result = [];
-  function push(p){ if (p && p.id && !found[p.id]) { found[p.id]=1; result.push(p); } }
-  getProjets().forEach(function(p) {
-    // 1. Lien direct par ID client
-    if (p.clientId === clientId || p.client_id === clientId) return push(p);
-    // 2. client_code exact
-    if (code && p.client_code && p.client_code.toString().trim().toUpperCase() === codeU) return push(p);
-    // 3. Dernier segment du code projet (ex: 01_26_SKI → SKI)
-    if (code && typeof p.code === 'string') {
-      var parts = p.code.split('_');
-      var last = (parts[parts.length - 1] || '').trim().toUpperCase();
-      if (last && last === codeU) return push(p);
-    }
-    // 4. Nom client (exact puis inclusif)
-    if (displayNom && typeof p.client === 'string') {
-      var pc = p.client.trim().toLowerCase();
-      if (pc === displayNom || (pc.length > 2 && pc.indexOf(displayNom) !== -1)) return push(p);
-    }
-  });
-  return result;
-}
-
-function pdocUpdateProjets() {
-  var clientId = document.getElementById('pdoc-client').value;
-  var projetSel = document.getElementById('pdoc-projet');
-  var linkBox = document.getElementById('pdoc-projet-nas-link');
-  if (linkBox) linkBox.innerHTML = '';
-  if (!clientId) { projetSel.innerHTML = '<option value="">— Sélectionner le client d\'abord —</option>'; return; }
-  var projets = pdocFindProjetsForClient(clientId);
-  if (projets.length === 0) {
-    projetSel.innerHTML = '<option value="">— Aucun projet trouvé pour ce client —</option>';
-    return;
-  }
-  projets.sort(function(a,b){ return (a.code||'') < (b.code||'') ? -1 : 1; });
-  projetSel.innerHTML = '<option value="">— Sélectionner —</option>' + projets.map(function(p) {
-    return '<option value="' + p.id + '">' + esc(p.code || '') + ' — ' + esc(p.nom || '') + '</option>';
-  }).join('');
-}
-
-// Affiche sous le champ Projet un lien direct vers le dossier NAS du projet.
-function pdocUpdateProjetNasLink() {
-  var linkBox = document.getElementById('pdoc-projet-nas-link');
-  if (!linkBox) return;
-  var projetId = document.getElementById('pdoc-projet').value;
-  var nasPathInput = document.getElementById('pdoc-nas-path');
-  if (!projetId) { linkBox.innerHTML = ''; if (nasPathInput) nasPathInput.value = ''; return; }
-  var p = getProjets().find(function(x){ return x.id === projetId; });
-  if (!p) { linkBox.innerHTML = ''; return; }
-  var paths = _buildNasPaths(p);
-  var customPath = p.nas_path || p.nasPath || '';
-  var webdav = paths.webdav;
-  var unc = customPath || paths.unc;
-  // Utiliser createElement pour éviter les problèmes d'échappement avec les backslashes UNC
-  linkBox.innerHTML = '';
-  var a = document.createElement('a');
-  a.href = webdav;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  a.title = 'Ouvrir le dossier NAS dans un nouvel onglet';
-  a.style.cssText = 'color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem';
-  a.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Ouvrir le dossier NAS du projet';
-  linkBox.appendChild(a);
-  linkBox.appendChild(document.createTextNode(' '));
-  var sep = document.createElement('span');
-  sep.style.cssText = 'color:var(--text-3);margin-left:0.4rem;margin-right:0.4rem';
-  sep.textContent = '·';
-  linkBox.appendChild(sep);
-  var copyA = document.createElement('a');
-  copyA.href = '#';
-  copyA.title = 'Copier le chemin réseau Windows (UNC)';
-  copyA.style.cssText = 'color:var(--text-3);text-decoration:none';
-  copyA.textContent = '📋 UNC';
-  copyA.addEventListener('click', function(e) {
-    e.preventDefault();
-    navigator.clipboard.writeText(unc).then(function(){ showToast('Chemin UNC copié : ' + unc, 'success'); });
-  });
-  linkBox.appendChild(copyA);
-  // Pré-remplir le chemin NAS si source nas
-  if (nasPathInput && !nasPathInput.value) nasPathInput.value = webdav;
-}
-
-// Ouvrir le dossier NAS du projet sélectionné (ouvre WebDAV dans un nouvel onglet)
-function pdocOpenProjetNasFolder() {
-  var projetId = document.getElementById('pdoc-projet').value;
-  if (!projetId) { showToast('Sélectionnez d\'abord un projet', 'error'); return; }
-  var p = getProjets().find(function(x){ return x.id === projetId; });
-  if (!p) { showToast('Projet introuvable', 'error'); return; }
-  var paths = _buildNasPaths(p);
-  window.open(paths.webdav, '_blank', 'noopener');
-}
-
-// Invitation explicite à piquer un fichier dans le dossier NAS
-function pdocPickNasFile() {
-  var projetId = document.getElementById('pdoc-projet').value;
-  if (!projetId) { showToast('Sélectionnez d\'abord un projet', 'error'); return; }
-  var p = getProjets().find(function(x){ return x.id === projetId; });
-  if (!p) { showToast('Projet introuvable', 'error'); return; }
-  var paths = _buildNasPaths(p);
-  // Ouvrir le dossier NAS et demander à l'utilisateur de coller l'URL du fichier
-  window.open(paths.webdav, '_blank', 'noopener');
-  showToast('Copiez l\'URL du fichier depuis l\'onglet NAS, puis collez-la dans le champ', 'info');
-  var nasPathInput = document.getElementById('pdoc-nas-path');
-  if (nasPathInput) { nasPathInput.focus(); nasPathInput.select(); }
-}
-window.pdocOpenProjetNasFolder = pdocOpenProjetNasFolder;
-window.pdocPickNasFile = pdocPickNasFile;
-
-function submitPortailDoc() {
-  var clientId = document.getElementById('pdoc-client').value;
-  var projetId = document.getElementById('pdoc-projet').value;
-  var titre = document.getElementById('pdoc-titre').value.trim();
-  if (!clientId || !projetId || !titre) { showToast('Client, projet et titre requis', 'error'); return; }
-
-  var btn = document.getElementById('pdoc-submit');
-  btn.disabled = true; btn.textContent = 'Publication...';
-
-  if (_pdocSource === 'upload') {
-    var file = document.getElementById('pdoc-file').files[0];
-    if (!file) { showToast('Sélectionnez un fichier', 'error'); btn.disabled = false; btn.textContent = 'Publier'; return; }
-    var fd = new FormData();
-    fd.append('file', file);
-    fd.append('projet_id', projetId);
-    fd.append('client_id', clientId);
-    fd.append('titre', titre);
-    fd.append('categorie', document.getElementById('pdoc-categorie').value);
-    fd.append('phase', document.getElementById('pdoc-phase').value);
-    fd.append('description', document.getElementById('pdoc-description').value);
-    var token = sessionStorage.getItem('cortoba_token');
-    fetch('api/client_portal_admin.php?action=publish_document', {
-      method: 'POST',
-      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-      body: fd
-    }).then(function(r) { return r.json(); }).then(function(r) {
-      if (r.error) throw new Error(r.error);
-      afterDocPublish(r, clientId, projetId);
-    }).catch(function(e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Publier'; });
-  } else if (_pdocSource === 'nas' || _pdocSource === 'url') {
-    var sourceUrl = _pdocSource === 'nas' ? document.getElementById('pdoc-nas-path').value.trim() : document.getElementById('pdoc-url').value.trim();
-    if (!sourceUrl) { showToast('Entrez un chemin ou URL', 'error'); btn.disabled = false; btn.textContent = 'Publier'; return; }
-    apiFetch('api/client_portal_admin.php?action=publish_document_url', {
-      method: 'POST',
-      body: {
-        projet_id: projetId, client_id: clientId, titre: titre,
-        categorie: document.getElementById('pdoc-categorie').value,
-        phase: document.getElementById('pdoc-phase').value,
-        description: document.getElementById('pdoc-description').value,
-        source_url: sourceUrl, source_type: _pdocSource
-      }
-    }).then(function(r) {
-      afterDocPublish(r, clientId, projetId);
-    }).catch(function(e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Publier'; });
-  }
-}
-
-function afterDocPublish(r, clientId, projetId) {
-  var requestVal = document.getElementById('pdoc-request-validation').checked;
-  if (requestVal && r.data && r.data.id) {
-    apiFetch('api/client_portal_admin.php?action=request_validation', {
-      method: 'POST',
-      body: { document_id: r.data.id, projet_id: projetId, client_id: clientId, type: 'document' }
-    }).catch(function() {});
-  }
-  showToast('Document publié au portail client', 'success');
-  closeModal('modal-portail-doc');
-  renderPortailDocs();
-  var btn = document.getElementById('pdoc-submit');
-  btn.disabled = false; btn.textContent = 'Publier';
-}
-
-function renderPortailDocs() {
-  var clientFilter = (document.getElementById('portail-doc-client-filter') || {}).value || '';
-  var catFilter = (document.getElementById('portail-doc-cat-filter') || {}).value || '';
-  var url = 'api/client_portal_admin.php?action=client_documents';
-  if (clientFilter) url += '&client_id=' + encodeURIComponent(clientFilter);
-  apiFetch(url).then(function(r) {
-    _portalDocs = r.data || r || [];
-    // Populate client filter
-    var clientSel = document.getElementById('portail-doc-client-filter');
-    if (clientSel && clientSel.options.length <= 1) {
-      var seen = {};
-      _portalDocs.forEach(function(d) {
-        if (d.client_id && !seen[d.client_id]) {
-          seen[d.client_id] = true;
-          var opt = document.createElement('option');
-          opt.value = d.client_id;
-          opt.textContent = d.client_display || d.client_id;
-          clientSel.appendChild(opt);
-        }
-      });
-    }
-    var filtered = _portalDocs;
-    if (catFilter) filtered = filtered.filter(function(d){ return d.categorie === catFilter; });
-    var tbody = document.getElementById('portail-docs-tbody');
-    if (!tbody) return;
-    if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:2rem">Aucun document</td></tr>';
-      return;
-    }
-    tbody.innerHTML = filtered.map(function(d) {
-      var statBadge = d.statut === 'Valide' ? 'badge-green' : d.statut === 'Refuse' ? 'badge-red' : d.statut === 'En attente validation' ? 'badge-orange' : 'badge-blue';
-      return '<tr>' +
-        '<td><strong>' + esc(d.titre) + '</strong><div style="font-size:0.7rem;color:var(--text-3)">' + esc(d.fichier_nom || '') + '</div></td>' +
-        '<td>' + esc(d.client_display || '') + '</td>' +
-        '<td><span style="font-family:var(--mono);font-size:0.78rem">' + esc(d.projet_code || '') + '</span></td>' +
-        '<td><span class="badge">' + esc(d.categorie || '') + '</span></td>' +
-        '<td>v' + (d.version || 1) + '</td>' +
-        '<td><span class="badge ' + statBadge + '">' + esc(d.statut || '') + '</span></td>' +
-        '<td>' + fmtDate(d.cree_at) + '</td>' +
-        '<td><a href="' + esc(d.fichier_url || '#') + '" target="_blank" class="btn-icon" title="Télécharger">📥</a></td></tr>';
-    }).join('');
-  }).catch(function(e) { showToast('Erreur docs: ' + e.message, 'error'); });
-}
-
-// Filter listeners
-document.addEventListener('DOMContentLoaded', function() {
-  var cf = document.getElementById('portail-doc-client-filter');
-  if (cf) cf.addEventListener('change', renderPortailDocs);
-  var catf = document.getElementById('portail-doc-cat-filter');
-  if (catf) catf.addEventListener('change', renderPortailDocs);
-});
-
-// ── Messages clients (chat) ──
-
-function renderPortailMessages() {
-  // Load all client-type chat rooms
-  apiFetch('api/client_portal_admin.php?action=client_chat_rooms').then(function(r) {
-    _portalMsgRooms = r.data || r || [];
-    var container = document.getElementById('portail-msg-rooms');
-    if (!container) return;
-    if (_portalMsgRooms.length === 0) {
-      container.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text-3);font-size:0.82rem">Aucune discussion client</div>';
-      return;
-    }
-    container.innerHTML = _portalMsgRooms.map(function(room) {
-      var unread = room.unread_count || 0;
-      var active = _portalMsgCurrent === room.id ? 'background:var(--bg-2);' : '';
-      return '<div class="portail-msg-room" data-room="' + room.id + '" style="padding:0.7rem 1rem;cursor:pointer;border-bottom:1px solid var(--border);' + active + '" ' +
-        'onclick="openPortailRoom(\'' + room.id + '\')">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center">' +
-        '<strong style="font-size:0.82rem">' + esc(room.name || 'Discussion') + '</strong>' +
-        (unread > 0 ? '<span class="badge badge-accent" style="font-size:0.65rem;min-width:18px;text-align:center">' + unread + '</span>' : '') + '</div>' +
-        '<div style="font-size:0.72rem;color:var(--text-3)">' + esc(room.projet_code || '') + ' — ' + esc(room.projet_nom || '') + '</div>' +
-        (room.last_msg_at ? '<div style="font-size:0.68rem;color:var(--text-3);margin-top:0.2rem">' + fmtDate(room.last_msg_at) + '</div>' : '') +
-        '</div>';
-    }).join('');
-    // Update badge
-    var totalUnread = _portalMsgRooms.reduce(function(s, r){ return s + (r.unread_count || 0); }, 0);
-    var badge = document.getElementById('portail-msg-badge');
-    if (badge) { badge.textContent = totalUnread; badge.style.display = totalUnread > 0 ? '' : 'none'; }
-  }).catch(function(e) { console.error('portail messages', e); });
-}
-
-function openPortailRoom(roomId) {
-  _portalMsgCurrent = roomId;
-  var room = _portalMsgRooms.find(function(r){ return r.id === roomId; });
-  document.getElementById('portail-msg-header').textContent = room ? (room.name || 'Discussion') : 'Discussion';
-  document.getElementById('portail-msg-composer').style.display = '';
-  // Highlight active room
-  document.querySelectorAll('.portail-msg-room').forEach(function(el) {
-    el.style.background = el.dataset.room === roomId ? 'var(--bg-2)' : '';
-  });
-  loadPortailRoomMessages(roomId);
-  // Start polling
-  if (_portalMsgPoll) clearInterval(_portalMsgPoll);
-  _portalMsgPoll = setInterval(function() { loadPortailRoomMessages(roomId); }, 5000);
-}
-
-function loadPortailRoomMessages(roomId) {
-  apiFetch('api/client_portal_admin.php?action=client_chat_messages&room_id=' + encodeURIComponent(roomId)).then(function(r) {
-    var msgs = r.data || r || [];
-    var container = document.getElementById('portail-msg-messages');
-    if (!container) return;
-    if (msgs.length === 0) {
-      container.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:2rem">Aucun message</div>';
-      return;
-    }
-    var prevLen = container.children.length;
-    container.innerHTML = msgs.map(function(m) {
-      var isClient = (m.sender_id || '').indexOf('client_') === 0;
-      var align = isClient ? 'flex-end' : 'flex-start';
-      var bg = isClient ? 'var(--accent)' : 'var(--bg-2)';
-      var color = isClient ? '#1a1a1a' : 'var(--text)';
-      return '<div style="display:flex;justify-content:' + align + ';margin-bottom:0.5rem">' +
-        '<div style="max-width:75%;background:' + bg + ';color:' + color + ';border-radius:8px;padding:0.5rem 0.75rem">' +
-        '<div style="font-size:0.7rem;font-weight:600;margin-bottom:0.2rem">' + esc(m.sender_name || '') + '</div>' +
-        '<div style="font-size:0.83rem;white-space:pre-wrap">' + esc(m.content || '') + '</div>' +
-        '<div style="font-size:0.65rem;opacity:0.7;text-align:right;margin-top:0.2rem">' + fmtDate(m.cree_at) + '</div>' +
-        '</div></div>';
-    }).join('');
-    if (msgs.length !== prevLen) container.scrollTop = container.scrollHeight;
-  }).catch(function() {});
-}
-
-function sendPortailMsg() {
-  if (!_portalMsgCurrent) return;
-  var input = document.getElementById('portail-msg-input');
-  var content = (input.value || '').trim();
-  if (!content) return;
-  input.value = '';
-  apiFetch('api/client_portal_admin.php?action=client_chat_send', {
-    method: 'POST',
-    body: { room_id: _portalMsgCurrent, content: content }
-  }).then(function() {
-    loadPortailRoomMessages(_portalMsgCurrent);
-  }).catch(function(e) { showToast(e.message, 'error'); });
-}
-
-// ══════════════════════════════════════════════════════════
-//  CONFORMITÉ NAS — Comparaison projets / dossiers NAS
-// ══════════════════════════════════════════════════════════
-
-var _ncData = []; // résultats de la comparaison
-var _ncRawProjets = [];
-var _ncRawNasFolders = {};
-
-function openNasConformite() {
-  openModal('modal-nas-conformite');
-  var statusEl = document.getElementById('nas-conformite-status');
-  var summaryEl = document.getElementById('nas-conformite-summary');
-  var filtersEl = document.getElementById('nas-conformite-filters');
-  var tableEl = document.getElementById('nas-conformite-table');
-  var applyBtn = document.getElementById('nc-apply-all-btn');
-  statusEl.style.display = 'block';
-  statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>Analyse en cours — interrogation du NAS via WebDAV…';
-  summaryEl.style.display = 'none';
-  filtersEl.style.display = 'none';
-  tableEl.style.display = 'none';
-  if (applyBtn) applyBtn.style.display = 'none';
-
-  // Essayer d'abord via le serveur API, sinon fallback WebDAV direct depuis le navigateur
-  apiFetch('api/nas-check.php')
-    .then(function(r) {
-      var nasFolders = r.data.nas_folders || {};
-      var projets = r.data.projets || [];
-      _ncRawProjets = projets; _ncRawNasFolders = nasFolders;
-      _ncData = buildConformiteData(projets, nasFolders);
-      renderConformiteResults();
-    })
-    .catch(function(e) {
-      // Fallback : WebDAV PROPFIND direct depuis le navigateur (réseau local)
-      statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>Serveur distant indisponible — tentative WebDAV direct (réseau local)…';
-      ncFallbackWebDAV(statusEl);
-    });
-}
-
-// Fallback : ouvrir un popup HTTP sur le NAS pour contourner le mixed-content HTTPS->HTTP
-function ncFallbackWebDAV(statusEl) {
-  var cfg = getNasConfig();
-  var ip = cfg.local || '192.168.1.165';
-  var port = cfg.webdavPort || '5005';
-  var user = cfg.user || 'CASNAS';
-  var pass = cfg.pass || 'Cortoba2026';
-  var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
-  if (rootPath.charAt(0) !== '/') rootPath = '/' + rootPath;
-
-  // Ecouter le message de retour du popup bridge
-  var messageHandler = function(evt) {
-    if (!evt.data || evt.data.type !== 'nas-conformite-result') return;
-    window.removeEventListener('message', messageHandler);
-
-    if (evt.data.data && evt.data.data.success) {
-      var nasFolders = evt.data.data.nas_folders || {};
-      var projets = getProjets().map(function(p) {
-        return { id: p.id, code: p.code || '', nom: p.nom || '', annee: p.annee || '', statut: p.statut || '' };
-      });
-      _ncRawProjets = projets; _ncRawNasFolders = nasFolders;
-      _ncData = buildConformiteData(projets, nasFolders);
-      renderConformiteResults();
-    } else {
-      statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>Impossible de contacter le NAS :<br><span style="color:#e07b72">' +
-        (evt.data.data && evt.data.data.error || 'Erreur inconnue') +
-        '</span><br><br><span style="font-size:0.78rem;color:var(--text-3)">Assurez-vous d\'être connecté au même réseau que le NAS QNAP.</span>';
-    }
-  };
-  window.addEventListener('message', messageHandler);
-
-  // Construire l'URL du bridge sur le NAS
-  var hash = 'ip=' + encodeURIComponent(ip) +
-    '&port=' + encodeURIComponent(port) +
-    '&user=' + encodeURIComponent(user) +
-    '&pass=' + encodeURIComponent(pass) +
-    '&root=' + encodeURIComponent(rootPath);
-
-  var bridgeUrl = 'http://' + ip + ':' + port + '/Public/nas-tools/nas-conformite-bridge.html#' + hash;
-
-  statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>' +
-    'Ouverture du scanner NAS (popup)…<br>' +
-    '<span style="font-size:0.78rem;color:var(--text-3)">Si le popup est bloqué, autorisez-le dans votre navigateur.</span>';
-
-  var popup = window.open(bridgeUrl, 'nas_conformite', 'width=500,height=400,left=200,top=200');
-  if (!popup) {
-    window.removeEventListener('message', messageHandler);
-    statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⚠️</div>' +
-      'Popup bloqué par le navigateur.<br>' +
-      '<span style="color:var(--text-3);font-size:0.82rem">Autorisez les popups pour ce site puis réessayez.</span>';
-  }
-
-  // Timeout de sécurité (30s)
-  setTimeout(function() {
-    window.removeEventListener('message', messageHandler);
-    if (statusEl.innerHTML.indexOf('Ouverture') !== -1 || statusEl.innerHTML.indexOf('popup') !== -1) {
-      statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>' +
-        'Délai dépassé — le NAS n\'a pas répondu dans les 30 secondes.<br>' +
-        '<span style="font-size:0.78rem;color:var(--text-3)">Le fichier bridge n\'est peut-être pas encore déployé sur le NAS.</span><br><br>' +
-        '<button class="btn btn-primary" onclick="ncDeployBridge()" style="font-size:0.82rem">Déployer le bridge sur le NAS</button>';
-    }
-  }, 30000);
-}
-
-// Déployer le fichier bridge sur le NAS via l'API serveur
-function ncDeployBridge() {
-  var statusEl = document.getElementById('nas-conformite-status');
-  statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">⏳</div>Déploiement du bridge sur le NAS…';
-
-  apiFetch('api/nas-upload-bridge.php', { method: 'POST', body: {} })
-    .then(function(r) {
-      if (r.data && r.data.uploaded) {
-        statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">✅</div>' +
-          'Bridge déployé avec succès sur le NAS !<br><br>' +
-          '<button class="btn btn-primary" onclick="openNasConformite()" style="font-size:0.82rem">Relancer la vérification</button>';
-      } else {
-        statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>' +
-          'Échec du déploiement (HTTP ' + (r.data && r.data.http || '?') + ').<br>' +
-          '<span style="font-size:0.78rem;color:var(--text-3)">' + (r.data && r.data.error || 'Vérifiez la config NAS') + '</span>';
-      }
-    })
-    .catch(function(e) {
-      statusEl.innerHTML = '<div style="font-size:1.5rem;margin-bottom:0.8rem">❌</div>' +
-        'Erreur : ' + (e.message || 'impossible de déployer') + '<br>' +
-        '<span style="font-size:0.78rem;color:var(--text-3)">Le serveur distant doit pouvoir accéder au NAS (port forwarding requis).</span>';
-    });
-}
-
-// Nettoyer un nom pour comparaison (minuscule, sans accents, sans caractères spéciaux)
-function ncNormalize(str) {
-  return (str || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
-}
-
-// Extraire le code projet d'un nom de dossier NAS (format: CODE_NomProjet ou CODE - NomProjet)
-function ncExtractCode(folderName) {
-  // Extraire les 3 premiers blocs séparés par "_" : "01_26_GLM" de "01_26_GLM_GUELLALI MOEZ"
-  // Le 3e bloc peut contenir des chiffres de suffixe (ex: BRH001) → on garde tel quel
-  var parts = (folderName || '').split('_');
-  if (parts.length >= 3) return (parts[0] + '_' + parts[1] + '_' + parts[2]).toUpperCase();
-  return '';
-}
-function ncExtractCodeBase(str) {
-  // Extraire la base du code sans suffixe numérique : "15_26_BRH001" → "15_26_BRH"
-  // et "15_26_BRH" → "15_26_BRH"
-  return (str || '').replace(/(\d{2}_\d{2}_[A-Z]+)\d*$/i, '$1').toUpperCase();
-}
-
-// Construire le nom de dossier attendu pour un projet (comme buildNasBridgeUrl)
-function ncExpectedFolder(p) {
-  var code = p.code || '';
-  var client = p.client || p.nom || '';
-  return (code + '_' + client).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
-}
-
-function _ncGetCompareMode() {
-  return (document.getElementById('nc-compare-mode') || {}).value || 'nom';
-}
-
-function ncChangeCompareMode() {
-  if (!_ncRawProjets.length && !Object.keys(_ncRawNasFolders).length) return;
-  _ncData = buildConformiteData(_ncRawProjets, _ncRawNasFolders);
-  renderConformiteResults();
-}
-
-function buildConformiteData(projets, nasFolders) {
-  var mode = _ncGetCompareMode();
-  var results = [];
-  var matchedNasFolders = {};
-
-  projets.forEach(function(p) {
-    var annee = p.annee || '';
-    var code = (p.code || '').toUpperCase();
-    var expected = ncExpectedFolder(p);
-    var yearFolders = nasFolders[annee] || [];
-
-    if (mode === 'code') {
-      // ── Mode CODE : correspondance par code (3 premiers blocs) ──
-      var codeBase = ncExtractCodeBase(code);
-      var codeMatch = null;
-      yearFolders.forEach(function(f) {
-        if (matchedNasFolders[annee + '/' + f]) return;
-        var fCode = ncExtractCode(f);
-        var fCodeBase = ncExtractCodeBase(fCode);
-        if (fCodeBase && codeBase && fCodeBase === codeBase) codeMatch = f;
-      });
-      if (codeMatch) {
-        var isExact = (codeMatch === expected);
-        results.push({ type: isExact ? 'ok' : 'mismatch', annee: annee, projet: p, nasFolder: codeMatch, expected: expected });
-        matchedNasFolders[annee + '/' + codeMatch] = true;
-      } else {
-        results.push({ type: 'missing_nas', annee: annee, projet: p, nasFolder: null, expected: expected });
-      }
-    } else {
-      // ── Mode NOM : correspondance exacte, puis code, puis similarité ──
-      var exactMatch = yearFolders.find(function(f) { return f === expected; });
-      if (exactMatch) {
-        results.push({ type: 'ok', annee: annee, projet: p, nasFolder: exactMatch, expected: expected });
-        matchedNasFolders[annee + '/' + exactMatch] = true;
-        return;
-      }
-
-      var codeBase2 = ncExtractCodeBase(code);
-      var codeMatch2 = null;
-      yearFolders.forEach(function(f) {
-        if (matchedNasFolders[annee + '/' + f]) return;
-        var fCodeBase = ncExtractCodeBase(ncExtractCode(f));
-        if (fCodeBase && codeBase2 && fCodeBase === codeBase2) codeMatch2 = f;
-      });
-      if (codeMatch2) {
-        results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: codeMatch2, expected: expected });
-        matchedNasFolders[annee + '/' + codeMatch2] = true;
-        return;
-      }
-
-      var normExpected = ncNormalize(expected);
-      var fuzzyMatch = null;
-      yearFolders.forEach(function(f) {
-        if (matchedNasFolders[annee + '/' + f]) return;
-        var normF = ncNormalize(f);
-        if (normF === normExpected || (normExpected.length > 8 && normF.indexOf(normExpected) !== -1) || (normF.length > 8 && normExpected.indexOf(normF) !== -1)) {
-          fuzzyMatch = f;
-        }
-      });
-      if (fuzzyMatch) {
-        results.push({ type: 'mismatch', annee: annee, projet: p, nasFolder: fuzzyMatch, expected: expected });
-        matchedNasFolders[annee + '/' + fuzzyMatch] = true;
-        return;
-      }
-
-      results.push({ type: 'missing_nas', annee: annee, projet: p, nasFolder: null, expected: expected });
-    }
-  });
-
-  // Dossiers NAS sans projet correspondant sur la plateforme
-  Object.keys(nasFolders).forEach(function(annee) {
-    nasFolders[annee].forEach(function(folder) {
-      if (matchedNasFolders[annee + '/' + folder]) return;
-      // Ignorer les dossiers spéciaux (template, etc.)
-      if (folder.indexOf('00-') === 0 || folder.indexOf('_template') !== -1 || folder.indexOf('Dossier Type') !== -1) return;
-      results.push({ type: 'missing_plat', annee: annee, projet: null, nasFolder: folder, expected: '' });
-    });
-  });
-
-  // Trier : anomalies d'abord, puis par année desc
-  var typeOrder = { mismatch: 0, missing_nas: 1, missing_plat: 2, ok: 3 };
-  results.sort(function(a, b) {
-    var ta = typeOrder[a.type] !== undefined ? typeOrder[a.type] : 9;
-    var tb = typeOrder[b.type] !== undefined ? typeOrder[b.type] : 9;
-    if (ta !== tb) return ta - tb;
-    if (a.annee !== b.annee) return b.annee.localeCompare(a.annee);
-    return 0;
-  });
-
-  return results;
-}
-
-function _ncPopulateAnneeFilter() {
-  var sel = document.getElementById('nc-filter-annee'); if (!sel) return;
-  var years = {};
-  _ncData.forEach(function(r) { if (r.annee) years[r.annee] = 1; });
-  var sorted = Object.keys(years).sort().reverse();
-  var current = sel.value;
-  var html = '<option value="">Toutes les années</option>';
-  sorted.forEach(function(y) { html += '<option value="'+y+'"'+(y===current?' selected':'')+'>'+y+'</option>'; });
-  sel.innerHTML = html;
-}
-
-function _ncGetFiltered() {
-  var annee = (document.getElementById('nc-filter-annee') || {}).value || '';
-  var items = _ncData;
-  if (annee) items = items.filter(function(r) { return String(r.annee) === annee; });
-  return items;
-}
-
-function renderConformiteResults() {
-  var statusEl = document.getElementById('nas-conformite-status');
-  var summaryEl = document.getElementById('nas-conformite-summary');
-  var filtersEl = document.getElementById('nas-conformite-filters');
-  var tableEl = document.getElementById('nas-conformite-table');
-  var tbody = document.getElementById('nas-conformite-tbody');
-  var applyBtn = document.getElementById('nc-apply-all-btn');
-
-  statusEl.style.display = 'none';
-  summaryEl.style.display = 'block';
-  filtersEl.style.display = 'flex';
-  tableEl.style.display = 'table';
-
-  _ncPopulateAnneeFilter();
-
-  // Compteurs sur les éléments filtrés par année
-  var filtered = _ncGetFiltered();
-  var ok = 0, missingNas = 0, missingPlat = 0, mismatch = 0;
-  filtered.forEach(function(r) {
-    if (r.type === 'ok') ok++;
-    else if (r.type === 'missing_nas') missingNas++;
-    else if (r.type === 'missing_plat') missingPlat++;
-    else if (r.type === 'mismatch') mismatch++;
-  });
-  document.getElementById('nc-total-ok').textContent = ok;
-  document.getElementById('nc-total-missing-nas').textContent = missingNas;
-  document.getElementById('nc-total-missing-plat').textContent = missingPlat;
-  document.getElementById('nc-total-mismatch').textContent = mismatch;
-
-  var hasActions = missingNas > 0 || missingPlat > 0 || mismatch > 0;
-  if (applyBtn) applyBtn.style.display = hasActions ? 'inline-flex' : 'none';
-
-  var footerInfo = document.getElementById('nc-footer-info');
-  if (footerInfo) footerInfo.textContent = filtered.length + ' entrées analysées — ' + ok + ' conformes';
-
-  renderNcTable('all');
-}
-
-function applyNcFilters() {
-  // Re-render compteurs et tableau avec le filtre année actif
-  var filtered = _ncGetFiltered();
-  var ok = 0, missingNas = 0, missingPlat = 0, mismatch = 0;
-  filtered.forEach(function(r) {
-    if (r.type === 'ok') ok++;
-    else if (r.type === 'missing_nas') missingNas++;
-    else if (r.type === 'missing_plat') missingPlat++;
-    else if (r.type === 'mismatch') mismatch++;
-  });
-  document.getElementById('nc-total-ok').textContent = ok;
-  document.getElementById('nc-total-missing-nas').textContent = missingNas;
-  document.getElementById('nc-total-missing-plat').textContent = missingPlat;
-  document.getElementById('nc-total-mismatch').textContent = mismatch;
-  var footerInfo = document.getElementById('nc-footer-info');
-  if (footerInfo) footerInfo.textContent = filtered.length + ' entrées analysées — ' + ok + ' conformes';
-  // Reset type filter to "all"
-  var btns = document.querySelectorAll('#nas-conformite-filters .nc-filter');
-  btns.forEach(function(b) { b.classList.remove('active'); b.style.background = ''; });
-  var allBtn = document.querySelector('#nas-conformite-filters .nc-filter[data-filter="all"]');
-  if (allBtn) { allBtn.classList.add('active'); allBtn.style.background = 'var(--bg-2)'; }
-  renderNcTable('all');
-}
-
-function renderNcTable(filter) {
-  var tbody = document.getElementById('nas-conformite-tbody');
-  var items = _ncGetFiltered();
-  if (filter && filter !== 'all') {
-    items = items.filter(function(r) { return r.type === filter; });
-  }
-
-  if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-3);padding:2rem">Aucun élément dans cette catégorie</td></tr>';
-    _ncUpdateApplyButton();
-    return;
-  }
-
-  var monoStyle = 'font-family:var(--font-mono,monospace);font-size:0.78rem;white-space:nowrap';
-  tbody.innerHTML = items.map(function(r, i) {
-    var idx = _ncData.indexOf(r);
-    var annee = r.annee || '—';
-    var codePlat = r.projet ? (r.projet.code || '—') : '—';
-    var codeNas = r.nasFolder ? ncExtractCode(r.nasFolder) : '—';
-    if (!codeNas) codeNas = '—';
-    var nomPlat = r.projet ? (r.projet.nom || '—') : '<span style="color:var(--text-3);font-style:italic">— non référencé —</span>';
-    var nasFolder = r.nasFolder || '<span style="color:var(--text-3);font-style:italic">— absent —</span>';
-    var statusBadge = '';
-    var actionHtml = '';
-
-    // Colorer les codes si différents
-    var codeMatch = (codePlat !== '—' && codeNas !== '—' && codePlat.toUpperCase() === codeNas.toUpperCase());
-    var codePlatStyle = monoStyle + (!codeMatch && codePlat !== '—' && codeNas !== '—' ? ';color:#e07b72' : '');
-    var codeNasStyle = monoStyle + (!codeMatch && codePlat !== '—' && codeNas !== '—' ? ';color:#e07b72' : '');
-
-    switch (r.type) {
-      case 'ok':
-        statusBadge = '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--green);font-size:0.78rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Conforme</span>';
-        actionHtml = '<span style="color:var(--text-3);font-size:0.78rem">—</span>';
-        break;
-      case 'missing_nas':
-        statusBadge = '<span style="color:#e07b72;font-size:0.78rem;font-weight:500">Dossier absent</span>';
-        actionHtml = '<button class="btn btn-sm" style="font-size:0.72rem;margin-right:4px" onclick="ncCreateFolder(' + idx + ')" title="Créer le dossier sur le NAS">Créer dossier</button>' +
-          '<button class="btn btn-sm" style="font-size:0.72rem;color:#e07b72" onclick="ncArchiveProject(' + idx + ')" title="Archiver le projet">Archiver</button>';
-        break;
-      case 'missing_plat':
-        statusBadge = '<span style="color:#d4a54a;font-size:0.78rem;font-weight:500">Absent plateforme</span>';
-        actionHtml = '<span style="color:var(--text-3);font-size:0.72rem">Dossier orphelin NAS</span>';
-        break;
-      case 'mismatch':
-        statusBadge = '<span style="color:#7ba1d4;font-size:0.78rem;font-weight:500">Nom divergent</span>';
-        actionHtml = '<button class="btn btn-sm" style="font-size:0.72rem;margin-right:4px" onclick="ncRenameNas(' + idx + ')" title="Renommer le dossier NAS pour correspondre à la plateforme">NAS ← Plat.</button>' +
-          '<button class="btn btn-sm" style="font-size:0.72rem" onclick="ncRenamePlat(' + idx + ')" title="Modifier le nom sur la plateforme pour correspondre au NAS">Plat. ← NAS</button>';
-        break;
-    }
-
-    // Boutons sync code (seulement si les codes diffèrent et les deux existent)
-    var syncHtml = '';
-    if (!codeMatch && codePlat !== '—' && codeNas !== '—') {
-      syncHtml = '<div style="display:flex;gap:2px;justify-content:center">' +
-        '<button class="btn btn-sm" style="font-size:0.65rem;padding:0.2rem 0.4rem" onclick="ncSyncCodeToNas(' + idx + ')" title="Renommer le dossier NAS avec le code plateforme">→</button>' +
-        '<button class="btn btn-sm" style="font-size:0.65rem;padding:0.2rem 0.4rem" onclick="ncSyncCodeToPlat(' + idx + ')" title="Mettre le code NAS dans la plateforme">←</button>' +
-        '</div>';
-    }
-
-    var rowStyle = r.type === 'ok' ? 'opacity:0.6;' : '';
-    // Case à cocher uniquement sur les lignes actionnables
-    var selectable = (r.type === 'missing_nas' || r.type === 'mismatch');
-    var cbHtml = selectable
-      ? '<input type="checkbox" class="nc-row-cb" data-idx="' + idx + '" onchange="_ncUpdateApplyButton()">'
-      : '';
-    return '<tr data-nc-type="' + r.type + '" style="' + rowStyle + '">' +
-      '<td style="text-align:center">' + cbHtml + '</td>' +
-      '<td style="white-space:nowrap">' + annee + '</td>' +
-      '<td style="' + codePlatStyle + '">' + codePlat + '</td>' +
-      '<td style="text-align:center">' + syncHtml + '</td>' +
-      '<td style="' + codeNasStyle + '">' + codeNas + '</td>' +
-      '<td style="font-size:0.82rem;word-break:break-word">' + nomPlat + '</td>' +
-      '<td style="font-size:0.78rem;word-break:break-all;font-family:var(--font-mono,monospace)">' + nasFolder + '</td>' +
-      '<td>' + statusBadge + '</td>' +
-      '<td style="white-space:nowrap">' + actionHtml + '</td>' +
-      '</tr>';
-  }).join('');
-  _ncUpdateApplyButton();
-}
-
-// Cocher / décocher toutes les lignes visibles actionnables
-function ncToggleSelectAll(master) {
-  var cbs = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb');
-  cbs.forEach(function(cb) { cb.checked = master.checked; });
-  _ncUpdateApplyButton();
-}
-
-// Mettre à jour le label du bouton "Appliquer" et sa visibilité
-function _ncUpdateApplyButton() {
-  var btn = document.getElementById('nc-apply-all-btn');
-  if (!btn) return;
-  var checked = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb:checked');
-  var n = checked.length;
-  if (n === 0) {
-    btn.style.display = 'none';
-    btn.textContent = 'Appliquer les actions sélectionnées';
-  } else {
-    btn.style.display = '';
-    btn.textContent = 'Appliquer ' + n + ' action' + (n > 1 ? 's' : '') + ' sélectionnée' + (n > 1 ? 's' : '');
-  }
-  // Synchroniser la case "tout sélectionner"
-  var master = document.getElementById('nc-select-all');
-  if (master) {
-    var all = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb');
-    master.checked = (all.length > 0 && n === all.length);
-    master.indeterminate = (n > 0 && n < all.length);
-  }
-}
-
-function filterNcTable(filter, btn) {
-  var btns = document.querySelectorAll('#nas-conformite-filters .nc-filter');
-  btns.forEach(function(b) { b.classList.remove('active'); b.style.background = ''; });
-  if (btn) { btn.classList.add('active'); btn.style.background = 'var(--bg-2)'; }
-  // Recalculer le footer info avec le filtre combiné (année + type)
-  var filtered = _ncGetFiltered();
-  if (filter && filter !== 'all') filtered = filtered.filter(function(r){ return r.type === filter; });
-  var footerInfo = document.getElementById('nc-footer-info');
-  if (footerInfo) footerInfo.textContent = filtered.length + ' entrées affichées';
-  renderNcTable(filter);
-}
-
-// ── Actions individuelles ──
-
-// Créer un dossier sur le NAS
-function ncCreateFolder(idx) {
-  var r = _ncData[idx]; if (!r || !r.projet) return;
-  var btn = event.target;
-  btn.disabled = true;
-  btn.textContent = '⏳…';
-
-  apiFetch('api/nas-mkdir.php', {
-    method: 'POST',
-    body: { folder: r.expected, annee: r.annee }
-  }).then(function(res) {
-    if (res.data && res.data.created) {
-      r.type = 'ok';
-      r.nasFolder = r.expected;
-      showToast('Dossier créé : ' + r.expected, '#4caf50');
-      renderConformiteResults();
-    } else {
-      btn.disabled = false;
-      btn.textContent = '📁 Créer dossier';
-      showToast('Échec de la création du dossier', '#e07b72');
-    }
-  }).catch(function(e) {
-    btn.disabled = false;
-    btn.textContent = '📁 Créer dossier';
-    showToast('Erreur : ' + (e.message || 'vérifiez le NAS'), '#e07b72');
-  });
-}
-
-// Archiver un projet sur la plateforme
-function ncArchiveProject(idx) {
-  var r = _ncData[idx]; if (!r || !r.projet) return;
-  if (!confirm('Archiver le projet « ' + (r.projet.nom || r.projet.code) + ' » ?\nLe statut passera à "Archivé".')) return;
-
-  apiFetch('api/projets.php?id=' + r.projet.id)
-    .then(function(res) {
-      var p = res.data;
-      p.statut = 'Archivé';
-      return apiFetch('api/projets.php?id=' + r.projet.id, {
-        method: 'PUT',
-        body: p
-      });
-    })
-    .then(function() {
-      r.projet.statut = 'Archivé';
-      showToast('Projet archivé : ' + (r.projet.nom || r.projet.code), '#4caf50');
-      loadData().then(function() { renderProjets(); });
-    })
-    .catch(function(e) {
-      showToast('Erreur : ' + (e.message || ''), '#e07b72');
-    });
-}
-
-// Renommer le dossier NAS pour correspondre à la plateforme
-function ncRenameNas(idx) {
-  var r = _ncData[idx]; if (!r) return;
-  var oldName = r.nasFolder;
-  var newName = r.expected;
-  if (!confirm('Renommer sur le NAS :\n\n« ' + oldName + ' »\n→ « ' + newName + ' »\n\n(Opération WebDAV MOVE)')) return;
-
-  var cfg = getNasConfig();
-  var ip = cfg.local || '192.168.1.165';
-  var port = cfg.webdavPort || '5005';
-  var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
-
-  apiFetch('api/nas-rename.php', {
-    method: 'POST',
-    body: { annee: r.annee, oldName: oldName, newName: newName }
-  }).then(function(res) {
-    if (res.data && res.data.renamed) {
-      r.type = 'ok';
-      r.nasFolder = newName;
-      showToast('Dossier NAS renommé', '#4caf50');
-      renderConformiteResults();
-    } else {
-      showToast('Échec du renommage NAS', '#e07b72');
-    }
-  }).catch(function(e) {
-    showToast('Erreur : ' + (e.message || ''), '#e07b72');
-  });
-}
-
-// Renommer le projet sur la plateforme pour correspondre au NAS
-function ncRenamePlat(idx) {
-  var r = _ncData[idx]; if (!r || !r.projet || !r.nasFolder) return;
-  // Extraire le nom du dossier NAS (après le code_)
-  var folder = r.nasFolder;
-  var code = r.projet.code || '';
-  var newNom = folder;
-  // Enlever le préfixe code du nom de dossier
-  if (code && folder.indexOf(code + '_') === 0) {
-    newNom = folder.substring(code.length + 1);
-  } else if (code && folder.indexOf(code + ' - ') === 0) {
-    newNom = folder.substring(code.length + 3);
-  }
-  newNom = newNom.replace(/_/g, ' ').trim();
-
-  if (!confirm('Modifier le nom du projet sur la plateforme :\n\n« ' + r.projet.nom + ' »\n→ « ' + newNom + ' »')) return;
-
-  apiFetch('api/projets.php?id=' + r.projet.id)
-    .then(function(res) {
-      var p = res.data;
-      p.nom = newNom;
-      return apiFetch('api/projets.php?id=' + r.projet.id, {
-        method: 'PUT',
-        body: p
-      });
-    })
-    .then(function() {
-      r.projet.nom = newNom;
-      r.expected = ncExpectedFolder(r.projet);
-      r.type = 'ok';
-      showToast('Nom du projet mis à jour', '#4caf50');
-      renderConformiteResults();
-      loadData().then(function() { renderProjets(); });
-    })
-    .catch(function(e) {
-      showToast('Erreur : ' + (e.message || ''), '#e07b72');
-    });
-}
-
-// Sync code : Plateforme → NAS (renommer le dossier NAS avec le code plateforme)
-function ncSyncCodeToNas(idx) {
-  var r = _ncData[idx]; if (!r || !r.projet || !r.nasFolder) return;
-  var codePlat = r.projet.code || '';
-  var codeNas = ncExtractCode(r.nasFolder);
-  if (!codePlat || !codeNas) return;
-
-  // Remplacer le code NAS par le code plateforme dans le nom du dossier
-  var parts = r.nasFolder.split('_');
-  if (parts.length >= 3) {
-    var platParts = codePlat.split('_');
-    if (platParts.length >= 3) {
-      parts[0] = platParts[0];
-      parts[1] = platParts[1];
-      parts[2] = platParts[2];
-    }
-  }
-  var newName = parts.join('_');
-  if (newName === r.nasFolder) { showToast('Les noms sont déjà identiques', 'success'); return; }
-
-  if (!confirm('Renommer le dossier NAS :\n\nCode « ' + codeNas + ' » → « ' + codePlat + ' »\n\n« ' + r.nasFolder + ' »\n→ « ' + newName + ' »')) return;
-
-  apiFetch('api/nas-rename.php', {
-    method: 'POST',
-    body: { annee: r.annee, oldName: r.nasFolder, newName: newName }
-  }).then(function(res) {
-    if (res.data && res.data.renamed) {
-      r.nasFolder = newName;
-      r.expected = ncExpectedFolder(r.projet);
-      if (newName === r.expected) r.type = 'ok';
-      showToast('Code NAS mis à jour → ' + codePlat, 'success');
-      renderConformiteResults();
-    } else {
-      var http = res && res.data ? res.data.http : '?';
-      var err  = res && res.data ? res.data.error : '';
-      console.warn('[nc] API rename failed (HTTP ' + http + ', ' + err + ') — fallback popup bridge');
-      ncRenameViaBridge(r, newName, codePlat);
-    }
-  }).catch(function(e) {
-    console.warn('[nc] API rename error — fallback popup bridge', e);
-    ncRenameViaBridge(r, newName, codePlat);
-  });
-}
-
-// Fallback : ouvrir nas-conformite-bridge.html en popup pour faire le MOVE
-// directement depuis le navigateur. Utile quand le serveur PHP ne peut pas
-// joindre le NAS (port forwarding non configuré, IP locale).
-function ncRenameViaBridge(r, newName, codePlat) {
-  var cfg = (typeof getNasConfig === 'function') ? getNasConfig() : {};
-  var ip = cfg.local || '192.168.1.165';
-  var port = cfg.webdavPort || '5005';
-  var user = cfg.user || 'CASNAS';
-  var pass = cfg.pass || 'Cortoba2026';
-  var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
-  if (rootPath.charAt(0) !== '/') rootPath = '/' + rootPath;
-
-  var oldPath = rootPath + '/' + r.annee + '/' + r.nasFolder;
-  var newPath = rootPath + '/' + r.annee + '/' + newName;
-
-  var messageHandler = function(evt) {
-    if (!evt.data || evt.data.type !== 'nas-rename-result') return;
-    window.removeEventListener('message', messageHandler);
-    if (evt.data.data && evt.data.data.success) {
-      r.nasFolder = newName;
-      r.expected = ncExpectedFolder(r.projet);
-      if (newName === r.expected) r.type = 'ok';
-      showToast('Code NAS mis à jour → ' + (codePlat || newName), 'success');
-      renderConformiteResults();
-    } else {
-      var st = evt.data.data && evt.data.data.status ? ' (HTTP ' + evt.data.data.status + ')' : '';
-      var er = evt.data.data && evt.data.data.error ? ' — ' + evt.data.data.error : '';
-      showToast('Échec renommage NAS' + st + er, 'error');
-    }
-  };
-  window.addEventListener('message', messageHandler);
-
-  var hash = 'mode=rename' +
-    '&ip=' + encodeURIComponent(ip) +
-    '&port=' + encodeURIComponent(port) +
-    '&user=' + encodeURIComponent(user) +
-    '&pass=' + encodeURIComponent(pass) +
-    '&root=' + encodeURIComponent(rootPath) +
-    '&oldPath=' + encodeURIComponent(oldPath) +
-    '&newPath=' + encodeURIComponent(newPath);
-
-  var bridgeUrl = 'http://' + ip + ':' + port + '/Public/nas-tools/nas-conformite-bridge.html#' + hash;
-  var popup = window.open(bridgeUrl, 'nas_rename', 'width=500,height=300,left=200,top=200');
-  if (!popup) {
-    window.removeEventListener('message', messageHandler);
-    showToast('Popup bloqué — autorisez les popups pour ce site', 'error');
-    return;
-  }
-  setTimeout(function() { window.removeEventListener('message', messageHandler); }, 30000);
-}
-
-// Sync code : NAS → Plateforme (mettre le code NAS dans la fiche projet)
-function ncSyncCodeToPlat(idx) {
-  var r = _ncData[idx]; if (!r || !r.projet || !r.nasFolder) return;
-  var codeNas = ncExtractCode(r.nasFolder);
-  var codePlat = r.projet.code || '';
-  if (!codeNas || codeNas === codePlat.toUpperCase()) { showToast('Les codes sont déjà identiques', 'success'); return; }
-
-  if (!confirm('Modifier le code du projet sur la plateforme :\n\n« ' + codePlat + ' » → « ' + codeNas + ' »')) return;
-
-  apiFetch('api/projets.php?id=' + r.projet.id)
-    .then(function(res) {
-      var p = res.data;
-      p.code = codeNas;
-      return apiFetch('api/projets.php?id=' + r.projet.id, { method: 'PUT', body: p });
-    })
-    .then(function() {
-      r.projet.code = codeNas;
-      r.expected = ncExpectedFolder(r.projet);
-      if (r.nasFolder === r.expected) r.type = 'ok';
-      showToast('Code plateforme mis à jour → ' + codeNas, 'success');
-      renderConformiteResults();
-      loadData().then(function() { renderProjets(); });
-    })
-    .catch(function(e) { showToast('Erreur : ' + (e.message || ''), 'error'); });
-}
-
-// Appliquer les actions cochées :
-//   • missing_nas → créer le dossier sur le NAS
-//   • mismatch    → renommer le dossier NAS pour correspondre à la plateforme
-function ncApplyAll() {
-  var checked = document.querySelectorAll('#nas-conformite-tbody .nc-row-cb:checked');
-  if (checked.length === 0) { showToast('Aucune ligne sélectionnée', '#d4a54a'); return; }
-
-  var rows = [];
-  checked.forEach(function(cb) {
-    var idx = parseInt(cb.getAttribute('data-idx'), 10);
-    var r = _ncData[idx];
-    if (r) rows.push(r);
-  });
-
-  var nbCreate = rows.filter(function(r){ return r.type === 'missing_nas'; }).length;
-  var nbRename = rows.filter(function(r){ return r.type === 'mismatch';    }).length;
-  var msg = 'Appliquer les actions suivantes ?\n\n';
-  if (nbCreate) msg += '• ' + nbCreate + ' dossier(s) à créer sur le NAS\n';
-  if (nbRename) msg += '• ' + nbRename + ' dossier(s) NAS à renommer (NAS ← Plat.)\n';
-  if (!confirm(msg)) return;
-
-  var done = 0, errors = 0;
-  var total = rows.length;
-  var finish = function() {
-    if (done === total) {
-      showToast((done - errors) + '/' + total + ' actions appliquées' + (errors ? ' (' + errors + ' erreurs)' : ''), errors ? '#d4a54a' : '#4caf50');
-      renderConformiteResults();
-    }
-  };
-
-  // Traiter les actions une par une (séquentiellement)
-  // car les renames passent par le popup bridge (une seule popup à la fois)
-  function processNext(i) {
-    if (i >= rows.length) { finish(); return; }
-    var r = rows[i];
-    if (r.type === 'missing_nas') {
-      apiFetch('api/nas-mkdir.php', {
-        method: 'POST',
-        body: { folder: r.expected, annee: r.annee }
-      }).then(function(res) {
-        done++;
-        if (res.data && res.data.created) {
-          r.type = 'ok';
-          r.nasFolder = r.expected;
-        } else { errors++; }
-        finish(); processNext(i + 1);
-      }).catch(function() { done++; errors++; finish(); processNext(i + 1); });
-    } else if (r.type === 'mismatch') {
-      var newName = r.expected;
-      if (!newName || newName === r.nasFolder) { done++; finish(); processNext(i + 1); return; }
-      _ncApplyRename(r, newName, function(ok) {
-        done++;
-        if (ok) { r.nasFolder = newName; r.type = 'ok'; } else { errors++; }
-        finish(); processNext(i + 1);
-      });
-    } else {
-      done++; finish(); processNext(i + 1);
-    }
-  }
-  processNext(0);
-}
-
-// Tenter le rename via API puis fallback bridge, callback(ok)
-function _ncApplyRename(r, newName, callback) {
-  apiFetch('api/nas-rename.php', {
-    method: 'POST',
-    body: { annee: r.annee, oldName: r.nasFolder, newName: newName }
-  }).then(function(res) {
-    if (res.data && res.data.renamed) {
-      callback(true);
-    } else {
-      _ncApplyRenameViaBridge(r, newName, callback);
-    }
-  }).catch(function() {
-    _ncApplyRenameViaBridge(r, newName, callback);
-  });
-}
-
-// Rename via popup bridge (pour les actions groupées)
-function _ncApplyRenameViaBridge(r, newName, callback) {
-  var cfg = (typeof getNasConfig === 'function') ? getNasConfig() : {};
-  var ip = cfg.local || '192.168.1.165';
-  var port = cfg.webdavPort || '5005';
-  var user = cfg.user || 'CASNAS';
-  var pass = cfg.pass || 'Cortoba2026';
-  var rootPath = cfg.webdavPath || '/Public/CAS_PROJETS';
-  if (rootPath.charAt(0) !== '/') rootPath = '/' + rootPath;
-
-  var oldPath = rootPath + '/' + r.annee + '/' + r.nasFolder;
-  var newPath = rootPath + '/' + r.annee + '/' + newName;
-
-  var called = false;
-  var messageHandler = function(evt) {
-    if (!evt.data || evt.data.type !== 'nas-rename-result' || called) return;
-    called = true;
-    window.removeEventListener('message', messageHandler);
-    callback(evt.data.data && evt.data.data.success);
-  };
-  window.addEventListener('message', messageHandler);
-
-  var hash = 'mode=rename' +
-    '&ip=' + encodeURIComponent(ip) +
-    '&port=' + encodeURIComponent(port) +
-    '&user=' + encodeURIComponent(user) +
-    '&pass=' + encodeURIComponent(pass) +
-    '&root=' + encodeURIComponent(rootPath) +
-    '&oldPath=' + encodeURIComponent(oldPath) +
-    '&newPath=' + encodeURIComponent(newPath);
-
-  var bridgeUrl = 'http://' + ip + ':' + port + '/Public/nas-tools/nas-conformite-bridge.html#' + hash;
-  var popup = window.open(bridgeUrl, 'nas_rename', 'width=500,height=300,left=200,top=200');
-  if (!popup) {
-    window.removeEventListener('message', messageHandler);
-    callback(false);
-    return;
-  }
-  setTimeout(function() {
-    if (!called) { called = true; window.removeEventListener('message', messageHandler); callback(false); }
-  }, 30000);
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  PORTAIL CLIENT — JOURNAL D'ACCES
-// ═══════════════════════════════════════════════════════════════
-
-var _journalAccesLabels = {
-  login:             'Connexion',
-  logout:            'Déconnexion',
-  view_document:     'Consultation document',
-  download_document: 'Téléchargement document',
-  upload_document:   'Envoi document',
-  chat_send:         'Message envoyé',
-  validate:          'Validation',
-  change_password:   'Changement mot de passe',
-  reset_password:    'Réinitialisation mot de passe'
-};
-
-function journalActionLabel(action) {
-  return _journalAccesLabels[action] || action;
-}
-
-var _journalPage = 1;
-
-function renderPortailJournal(page) {
-  page = page || 1;
-  _journalPage = page;
-  var clientId = document.getElementById('journal-filter-client').value || '';
-  var url = 'api/client_portal_admin.php?action=access_log&page=' + page;
-  if (clientId) url += '&client_id=' + encodeURIComponent(clientId);
-
-  apiFetch(url).then(function(res) {
-    var r = res.data || res;
-    var entries = r.entries || [];
-    var tbody = document.getElementById('journal-acces-tbody');
-    var emptyEl = document.getElementById('journal-acces-empty');
-
-    // Populate client filter (first load)
-    var sel = document.getElementById('journal-filter-client');
-    if (sel.options.length <= 1 && r.clients && r.clients.length) {
-      r.clients.forEach(function(c) {
-        var opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.display_nom || c.id;
-        sel.appendChild(opt);
-      });
-    }
-
-    if (!entries.length) {
-      tbody.innerHTML = '';
-      emptyEl.style.display = '';
-      document.getElementById('journal-acces-pagination').innerHTML = '';
-      return;
-    }
-    emptyEl.style.display = 'none';
-
-    tbody.innerHTML = entries.map(function(e) {
-      var detailStr = '—';
-      if (e.details) {
-        if (typeof e.details === 'object') {
-          var parts = [];
-          Object.keys(e.details).forEach(function(k) { parts.push(escHtml(k) + ': ' + escHtml(e.details[k])); });
-          detailStr = parts.join(', ');
-        } else {
-          detailStr = escHtml(String(e.details));
-        }
-      }
-      var dateStr = e.cree_at ? new Date(e.cree_at.replace(' ', 'T')).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-      return '<tr>' +
-        '<td style="white-space:nowrap">' + dateStr + '</td>' +
-        '<td>' + escHtml(e.client_nom || '—') + '</td>' +
-        '<td>' + escHtml(e.account_nom || e.account_email || '—') + '</td>' +
-        '<td>' + escHtml(journalActionLabel(e.action)) + '</td>' +
-        '<td style="font-family:var(--mono,monospace);font-size:0.8rem">' + escHtml(e.ip_address || '—') + '</td>' +
-        '<td style="font-size:0.78rem;color:var(--text-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detailStr + '</td>' +
-        '</tr>';
-    }).join('');
-
-    // Pagination
-    var pag = document.getElementById('journal-acces-pagination');
-    if (r.total_pages > 1) {
-      var html = '';
-      if (page > 1) html += '<button class="btn btn-sm" onclick="renderPortailJournal(' + (page - 1) + ')">&laquo; Précédent</button>';
-      html += '<span style="font-size:0.82rem;color:var(--text-2)">Page ' + page + ' / ' + r.total_pages + '</span>';
-      if (page < r.total_pages) html += '<button class="btn btn-sm" onclick="renderPortailJournal(' + (page + 1) + ')">Suivant &raquo;</button>';
-      pag.innerHTML = html;
-    } else {
-      pag.innerHTML = '';
-    }
-  }).catch(function(e) {
-    document.getElementById('journal-acces-tbody').innerHTML = '';
-    document.getElementById('journal-acces-empty').style.display = '';
-    document.getElementById('journal-acces-empty').textContent = 'Erreur : ' + (e.message || e);
-  });
-}
-
-// Filter change handler
-document.addEventListener('DOMContentLoaded', function() {
-  var sel = document.getElementById('journal-filter-client');
-  if (sel) sel.addEventListener('change', function() { renderPortailJournal(1); });
-  var sel2 = document.getElementById('journal-membres-filter');
-  if (sel2) sel2.addEventListener('change', function() { renderJournalMembres(1); });
-});
-
-// ═══════════════════════════════════════════════════════════════
-//  JOURNAL D'ACCES MEMBRES
-// ═══════════════════════════════════════════════════════════════
-
-var _journalMembresLabels = {
-  login:             'Connexion',
-  logout:            'Déconnexion',
-  view_page:         'Consultation page',
-  create:            'Création',
-  update:            'Modification',
-  delete:            'Suppression',
-  export:            'Export',
-  import:            'Import'
-};
-
-function journalMembreLabel(action) {
-  return _journalMembresLabels[action] || action;
-}
-
-function renderJournalMembres(page) {
-  page = page || 1;
-  var userId = document.getElementById('journal-membres-filter').value || '';
-  var url = 'api/dashboard.php?action=member_access_log&page=' + page;
-  if (userId) url += '&user_id=' + encodeURIComponent(userId);
-
-  apiFetch(url).then(function(res) {
-    var r = res.data || res;
-    var entries = r.entries || [];
-    var tbody = document.getElementById('journal-membres-tbody');
-    var emptyEl = document.getElementById('journal-membres-empty');
-
-    // Populate member filter (first load)
-    var sel = document.getElementById('journal-membres-filter');
-    if (sel.options.length <= 1 && r.members && r.members.length) {
-      r.members.forEach(function(m) {
-        var opt = document.createElement('option');
-        opt.value = m.user_id;
-        opt.textContent = m.user_name || m.user_id;
-        sel.appendChild(opt);
-      });
-    }
-
-    if (!entries.length) {
-      tbody.innerHTML = '';
-      emptyEl.style.display = '';
-      document.getElementById('journal-membres-pagination').innerHTML = '';
-      return;
-    }
-    emptyEl.style.display = 'none';
-
-    tbody.innerHTML = entries.map(function(e) {
-      var detailStr = '—';
-      if (e.details) {
-        if (typeof e.details === 'object') {
-          var parts = [];
-          Object.keys(e.details).forEach(function(k) { parts.push(escHtml(k) + ': ' + escHtml(e.details[k])); });
-          detailStr = parts.join(', ');
-        } else {
-          detailStr = escHtml(String(e.details));
-        }
-      }
-      var dateStr = e.cree_at ? new Date(e.cree_at.replace(' ', 'T')).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-      return '<tr>' +
-        '<td style="white-space:nowrap">' + dateStr + '</td>' +
-        '<td>' + escHtml(e.user_name || '—') + '</td>' +
-        '<td>' + escHtml(journalMembreLabel(e.action)) + '</td>' +
-        '<td style="font-family:var(--mono,monospace);font-size:0.8rem">' + escHtml(e.ip_address || '—') + '</td>' +
-        '<td style="font-size:0.78rem;color:var(--text-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detailStr + '</td>' +
-        '</tr>';
-    }).join('');
-
-    // Pagination
-    var pag = document.getElementById('journal-membres-pagination');
-    if (r.total_pages > 1) {
-      var html = '';
-      if (page > 1) html += '<button class="btn btn-sm" onclick="renderJournalMembres(' + (page - 1) + ')">&laquo; Précédent</button>';
-      html += '<span style="font-size:0.82rem;color:var(--text-2)">Page ' + page + ' / ' + r.total_pages + '</span>';
-      if (page < r.total_pages) html += '<button class="btn btn-sm" onclick="renderJournalMembres(' + (page + 1) + ')">Suivant &raquo;</button>';
-      pag.innerHTML = html;
-    } else {
-      pag.innerHTML = '';
-    }
-  }).catch(function(e) {
-    document.getElementById('journal-membres-tbody').innerHTML = '';
-    document.getElementById('journal-membres-empty').style.display = '';
-    document.getElementById('journal-membres-empty').textContent = 'Erreur : ' + (e.message || e);
-  });
-}
-
-// ═══════════════════════════════════════════════════════════
-//  CORBEILLE — Éléments supprimés
-// ═══════════════════════════════════════════════════════════
-
-var _tableLabels = {
-  'CA_clients': 'Client', 'CA_projets': 'Projet', 'CA_devis': 'Devis',
-  'CA_factures': 'Facture', 'CA_depenses': 'Dépense', 'CA_taches': 'Mission/Tâche',
-  'CA_leave_requests': 'Congé', 'CA_tache_livrables': 'Livrable',
-  'CA_flotte_vehicules': 'Véhicule', 'CA_flotte_reservations': 'Réservation',
-  'CA_flotte_attributions': 'Attribution', 'CA_flotte_kilometres': 'Kilométrage',
-  'CA_flotte_carburant': 'Carburant', 'CA_flotte_entretien': 'Entretien',
-  'CA_flotte_sinistres': 'Sinistre', 'CA_flotte_assurances': 'Assurance',
-  'CA_flotte_controles': 'Contrôle technique', 'CA_flotte_permis': 'Permis',
-  'CA_flotte_couts': 'Coût'
-};
-
-function renderCorbeillePage() {
-  var wrap = document.getElementById('corbeille-wrap');
-  if (!wrap) return;
-  apiFetch('api/corbeille.php').then(function(r) {
-    var list = r.data || [];
-    if (!list.length) {
-      wrap.innerHTML = '<div style="color:var(--text-3);font-size:0.82rem;text-align:center;padding:2rem">La corbeille est vide.</div>';
-      return;
-    }
-    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.78rem">';
-    html += '<thead><tr style="color:var(--text-3);text-align:left;border-bottom:1px solid var(--border)">';
-    html += '<th style="padding:0.5rem 0.4rem">Type</th><th>Libellé</th><th>Supprimé par</th><th>Date</th><th>Expiration</th><th></th>';
-    html += '</tr></thead><tbody>';
-    var now = new Date();
-    list.forEach(function(item) {
-      var typeLabel = _tableLabels[item.table_source] || item.table_source;
-      var deletedAt = new Date(item.deleted_at);
-      var expiresAt = new Date(deletedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-      var daysLeft = Math.max(0, Math.ceil((expiresAt - now) / 86400000));
-      var daysColor = daysLeft <= 7 ? '#c0392b' : daysLeft <= 14 ? '#d18e1e' : 'var(--text-3)';
-      html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">';
-      html += '<td style="padding:0.5rem 0.4rem"><span class="badge badge-blue" style="font-size:0.68rem">' + escHtml(typeLabel) + '</span></td>';
-      html += '<td style="font-weight:500">' + escHtml(item.label || item.item_id) + '</td>';
-      html += '<td style="color:var(--text-3)">' + escHtml(item.deleted_by || '—') + '</td>';
-      html += '<td style="color:var(--text-3)">' + fmtDate(item.deleted_at) + '</td>';
-      html += '<td><span style="color:' + daysColor + ';font-weight:600">' + daysLeft + 'j</span></td>';
-      html += '<td style="text-align:right;white-space:nowrap">';
-      html += '<button class="btn btn-sm" onclick="restoreCorbeille(\'' + item.id + '\')" style="color:var(--green);font-size:0.72rem" title="Restaurer">&#8617; Restaurer</button> ';
-      html += '<button class="btn btn-sm" onclick="permanentDeleteCorbeille(\'' + item.id + '\')" style="color:#e07070;font-size:0.72rem" title="Supprimer définitivement">&#10005;</button>';
-      html += '</td></tr>';
-    });
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
-  }).catch(function(e) {
-    wrap.innerHTML = '<div style="color:var(--red);padding:1rem">Erreur : ' + escHtml(e.message) + '</div>';
-  });
-}
-
-function restoreCorbeille(id) {
-  if (!confirm('Restaurer cet élément ?')) return;
-  apiFetch('api/corbeille.php?action=restore&id=' + id, { method: 'POST', body: {} })
-    .then(function() {
-      showToast('Élément restauré');
-      renderCorbeillePage();
-    })
-    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
-}
-
-function permanentDeleteCorbeille(id) {
-  if (!confirm('Supprimer DÉFINITIVEMENT cet élément ?\n\nCette action est irréversible.')) return;
-  apiFetch('api/corbeille.php?id=' + id, { method: 'DELETE' })
-    .then(function() {
-      showToast('Supprimé définitivement');
-      renderCorbeillePage();
-    })
-    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
-}
-
-function purgeCorbeille() {
-  if (!confirm('Purger tous les éléments de plus de 30 jours ?')) return;
-  apiFetch('api/corbeille.php?action=purge', { method: 'POST', body: {} })
-    .then(function(r) {
-      var n = (r.data && r.data.purged) || 0;
-      showToast(n + ' élément(s) purgé(s)');
-      renderCorbeillePage();
-    })
-    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
-}
-window.renderCorbeillePage = renderCorbeillePage;
-window.restoreCorbeille = restoreCorbeille;
-window.permanentDeleteCorbeille = permanentDeleteCorbeille;
-window.purgeCorbeille = purgeCorbeille;
