@@ -1844,8 +1844,8 @@
       const wrap = document.getElementById('heroPreviewWrap');
       img.style.objectFit = 'cover';
       img.style.height = '100%';
-      img.style.objectPosition = `50% ${Math.round(heroPositionY)}%`;
-      document.getElementById('heroPosValue').textContent = Math.round(heroPositionY) + '%';
+      img.style.objectPosition = `${Math.round(heroPositionX)}% ${Math.round(heroPositionY)}%`;
+      document.getElementById('heroPosValue').textContent = `X:${Math.round(heroPositionX)}% Y:${Math.round(heroPositionY)}%`;
 
       // Apply ratio from current grid selection
       const gc = document.querySelector('#projGridOptions .grid-opt.selected')?.dataset.val || '';
