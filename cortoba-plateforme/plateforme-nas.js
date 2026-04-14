@@ -2071,7 +2071,9 @@ function toggleCodeEdit() {
     if (val) preview.textContent = val;
     input.style.display = 'none';
     preview.style.display = '';
-    input.dataset.manual = '0';
+    // Garder manual='1' si l'utilisateur a saisi une valeur,
+    // pour empêcher previewPjCode() d'écraser le code modifié
+    if (!val) input.dataset.manual = '0';
     btn.textContent = '✏️';
     btn.title = 'Modifier le code';
   }
