@@ -1057,15 +1057,22 @@ function saveClient() {
     codeGenere = genClientCode(type, prenom, type==='morale' ? raison : nom);
   }
 
-  // Priorité : code manuel > code affiché dans le preview > code généré
+  // Priorité : code manuel > code existant (édition) > code affiché dans le preview > code généré
   var clCodeInput = document.getElementById('cl-code-input');
   var clCodePreview = document.getElementById('cl-code-preview');
   var manualCode  = (clCodeInput && clCodeInput.dataset.manual === '1') ? clCodeInput.value.trim().toUpperCase() : '';
+  var existingCode = '';
+  if (_editingClientId) {
+    var editingClient = clients.find(function(c){ return c.id === _editingClientId; });
+    if (editingClient) existingCode = editingClient.code || '';
+  }
   var finalCode;
   if (manualCode) {
     finalCode = manualCode;
+  } else if (existingCode) {
+    // En édition, conserver le code original du client
+    finalCode = existingCode;
   } else if (clCodePreview && clCodePreview.textContent && clCodePreview.textContent !== '—') {
-    // Utiliser le code affiché dans le preview (cohérent avec ce que l'utilisateur voit)
     finalCode = clCodePreview.textContent.trim();
   } else {
     finalCode = codeGenere;
