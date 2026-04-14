@@ -694,6 +694,8 @@ function genClientCode(type, prenom, nomOuRaison) {
 }
 
 function previewCode() {
+  // Ne pas écraser si on est en mode édition (code existant à conserver)
+  if (_editingClientId) return;
   // Ne pas écraser si l'utilisateur a modifié manuellement
   var codeInput = document.getElementById('cl-code-input');
   if (codeInput && codeInput.style.display !== 'none' && codeInput.dataset.manual === '1') return;
