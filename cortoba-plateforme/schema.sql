@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `CA_clients` (
   `id` varchar(32) NOT NULL,
   `code` varchar(20) DEFAULT NULL,
   `num_client` int DEFAULT NULL,
-  `type` enum('physique','morale') NOT NULL DEFAULT 'physique',
+  `type` enum('physique','morale','groupe') NOT NULL DEFAULT 'physique',
   `prenom` varchar(80) DEFAULT NULL,
   `nom` varchar(80) DEFAULT NULL,
   `raison` varchar(200) DEFAULT NULL,
