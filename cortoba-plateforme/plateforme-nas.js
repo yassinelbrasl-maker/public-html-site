@@ -780,8 +780,11 @@ function togglePersonneType() {
     if (codePreviewEl) codePreviewEl.style.display = '';
     if (codeNumEl)     codeNumEl.style.display     = '';
     if (codeGroupeWrap) codeGroupeWrap.style.display = 'none';
-    document.getElementById('cl-code-preview').textContent = '—';
-    document.getElementById('cl-num-preview').textContent   = '';
+    // Ne pas écraser le code en mode édition
+    if (!_editingClientId) {
+      document.getElementById('cl-code-preview').textContent = '—';
+      document.getElementById('cl-num-preview').textContent   = '';
+    }
   }
 }
 
