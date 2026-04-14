@@ -63,9 +63,15 @@ function loadData(){
       _cache.clients = (r.data||[]).map(function(c){
         var o={};
         for(var k in c) o[k]=c[k];
-        o.displayNom = o.display_nom || o.displayNom;
-        o.creePar = o.cree_par;
-        o.creeAt  = o.cree_at;
+        o.displayNom    = o.display_nom    || o.displayNom;
+        o.creePar       = o.cree_par       || o.creePar;
+        o.creeAt        = o.cree_at        || o.creeAt;
+        o.sourceDetail  = o.source_detail  || o.sourceDetail  || '';
+        o.dateContact   = o.date_contact   || o.dateContact   || '';
+        o.numClient     = o.num_client     || o.numClient;
+        o.dateCin       = o.date_cin       || o.dateCin       || '';
+        o.modifiePar    = o.modifie_par    || o.modifiePar;
+        o.groupeJson    = o.groupe_json    || o.groupeJson;
         // Normaliser snake_case → camelCase pour typeBat
         if(o.type_bat !== undefined && o.typeBat === undefined) o.typeBat = o.type_bat;
         return o;
