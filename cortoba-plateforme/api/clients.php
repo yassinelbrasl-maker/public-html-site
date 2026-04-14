@@ -28,6 +28,11 @@ try {
     if (!in_array('date_cin', $cols)) {
         $db->exec("ALTER TABLE CA_clients ADD COLUMN date_cin DATE DEFAULT NULL");
     }
+    // Migration : ajouter 'groupe' à l'ENUM type si absent
+    $typeCol = $db->query("SHOW COLUMNS FROM CA_clients WHERE Field = 'type'")->fetch();
+    if ($typeCol && strpos($typeCol['Type'], 'groupe') === false) {
+        $db->exec("ALTER TABLE CA_clients MODIFY COLUMN `type` ENUM('physique','morale','groupe') NOT NULL DEFAULT 'physique'");
+    }
 } catch (\Exception $e) { /* ignore */ }
 
 $method = $_SERVER['REQUEST_METHOD'];
