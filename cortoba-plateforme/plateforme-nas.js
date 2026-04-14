@@ -1603,12 +1603,9 @@ function previewPjCode(){
   var clientNom = client ? (client.displayNom||client.display_nom||client.nom||'') : '';
   var clientCode= client ? client.code : '';
   if (!clientVal) { codeEl.textContent='—'; return; }
-<<<<<<< HEAD
   // Ne pas écraser si l'utilisateur a modifié manuellement
   var codeInput = document.getElementById('pj-code-input');
   if (codeInput && codeInput.dataset.manual === '1') return;
-=======
->>>>>>> 5aae82714a780e5768a755497f6d0bbadd1835ee
   var code    = genProjetCode(annee, clientNom, clientCode);
   codeEl.textContent = code;
 }
