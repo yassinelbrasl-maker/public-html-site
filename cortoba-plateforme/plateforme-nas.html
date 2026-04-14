@@ -2023,6 +2023,42 @@
         </div>
       </div>
 
+      <!-- Modal: Envoyer facture par email -->
+      <div class="modal-backdrop" id="modal-envoi-facture" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
+        <div class="modal" style="max-width:600px">
+          <div class="modal-header">
+            <h3>Envoyer la facture</h3>
+            <button class="modal-close" onclick="document.getElementById('modal-envoi-facture').style.display='none'">&times;</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="ef-facture-id">
+            <div class="form-row">
+              <label class="form-label">Email destinataire</label>
+              <input type="email" id="ef-email" class="form-input" placeholder="client@exemple.com">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Objet</label>
+              <input type="text" id="ef-subject" class="form-input">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Message</label>
+              <textarea id="ef-message" class="form-input" rows="8" style="resize:vertical"></textarea>
+            </div>
+            <div class="form-row" style="margin-top:0.5rem">
+              <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.85rem;color:var(--text-2)">
+                <input type="checkbox" id="ef-publish-portail">
+                Publier &eacute;galement au portail client (Documents partag&eacute;s)
+              </label>
+            </div>
+            <div id="ef-err" style="color:var(--red);font-size:0.82rem;margin-top:0.5rem;display:none"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="document.getElementById('modal-envoi-facture').style.display='none'">Annuler</button>
+            <button class="btn btn-primary" id="ef-send-btn" onclick="submitEnvoiFacture()">Envoyer</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Modal: Init honoraires projet -->
       <div class="modal-backdrop" id="modal-hon-init" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this&&_confirmCloseModal())this.style.display='none'">
         <div class="modal" style="max-width:500px">
