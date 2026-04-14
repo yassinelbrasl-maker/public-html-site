@@ -28,6 +28,9 @@ try {
     if (!in_array('date_cin', $cols)) {
         $db->exec("ALTER TABLE CA_clients ADD COLUMN date_cin DATE DEFAULT NULL");
     }
+    if (!in_array('mf', $cols)) {
+        $db->exec("ALTER TABLE CA_clients ADD COLUMN mf VARCHAR(80) DEFAULT NULL AFTER matricule");
+    }
     // Migration : ajouter 'groupe' à l'ENUM type si absent
     $typeCol = $db->query("SHOW COLUMNS FROM CA_clients WHERE Field = 'type'")->fetch();
     if ($typeCol && strpos($typeCol['Type'], 'groupe') === false) {
@@ -156,10 +159,10 @@ function create(array $user) {
         // Essayer d'abord avec toutes les colonnes optionnelles
         try {
             $db->prepare('
-                INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule,
+                INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule, mf,
                     cin, date_cin, display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
                     date_contact, remarques, groupe_json, cree_par)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ')->execute([
                 $id,
                 $body['code']         ?? '',
@@ -169,6 +172,7 @@ function create(array $user) {
                 $body['nom']          ?? null,
                 $body['raison']       ?? null,
                 $body['matricule']    ?? null,
+                $body['mf']           ?? null,
                 $body['cin']          ?? null,
                 $body['dateCin']      ?? null,
                 $body['displayNom']   ?? '',
@@ -242,7 +246,7 @@ function update($id, array $user) {
     try {
         $db->prepare('
             UPDATE CA_clients SET
-                code=?, num_client=?, type=?, prenom=?, nom=?, raison=?, matricule=?,
+                code=?, num_client=?, type=?, prenom=?, nom=?, raison=?, matricule=?, mf=?,
                 cin=?, date_cin=?, display_nom=?, email=?, tel=?, whatsapp=?, adresse=?, statut=?,
                 source=?, source_detail=?, date_contact=?, remarques=?, groupe_json=?, modifie_par=?
             WHERE id=?
@@ -254,6 +258,7 @@ function update($id, array $user) {
             $body['nom']          ?? null,
             $body['raison']       ?? null,
             $body['matricule']    ?? null,
+            $body['mf']           ?? null,
             $body['cin']          ?? null,
             $body['dateCin']      ?? null,
             $body['displayNom']   ?? '',

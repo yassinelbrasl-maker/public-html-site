@@ -727,10 +727,18 @@ function _paiGetProjetMissions() {
   var raw;
   try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
   catch (e) { raw = []; }
+  var result = [];
   if (typeof window._normalizeProjetMissions === 'function') {
-    return window._normalizeProjetMissions(raw);
+    result = window._normalizeProjetMissions(raw);
+  } else {
+    result = Array.isArray(raw) ? raw.map(String) : [];
   }
-  return Array.isArray(raw) ? raw.map(String) : [];
+  // Fallback : si le projet n'a aucune mission affectée, proposer toutes les missions du catalogue
+  if (result.length === 0) {
+    var allMissions = typeof getMissions === 'function' ? getMissions() : [];
+    return allMissions.map(function(m) { return m.nom; });
+  }
+  return result;
 }
 
 function filterPaiMissionDropdown() {
@@ -863,7 +871,9 @@ function loadPaiementHistoryForProjet(projetId) {
             '<div style="font-size:0.72rem;color:var(--text-3)">' + (p.date_paiement || '') + ' · ' + (p.mode_paiement || '') + (p.devis_numero ? ' · ' + p.devis_numero : '') + (p.mission_phase ? ' · ' + p.mission_phase : '') + '</div>' +
             (p.reference ? '<div style="font-size:0.7rem;color:var(--text-3)">Réf : ' + p.reference + '</div>' : '') +
           '</div>' +
-          '<button class="btn btn-sm" title="Imprimer le reçu" onclick="genRecuPaiementClientPDF(\'' + p.id + '\')" style="padding:0.3rem 0.55rem;font-size:0.72rem">🧾 Reçu</button>' +
+          '<button class="btn btn-sm" title="Imprimer le reçu" onclick="genRecuPaiementClientPDF(\'' + p.id + '\')" style="padding:0.3rem 0.55rem;font-size:0.72rem">🧾</button>' +
+          '<button class="btn btn-sm" title="Modifier" onclick="openEditPaiementClient(\'' + p.id + '\')" style="padding:0.3rem 0.45rem;font-size:0.72rem">✏️</button>' +
+          '<button class="btn btn-sm" title="Supprimer" onclick="deletePaiementClientUI(\'' + p.id + '\')" style="padding:0.3rem 0.45rem;font-size:0.72rem;color:var(--red)">🗑️</button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -1577,7 +1587,7 @@ function renderPcHistoryTable() {
       '<td style="padding:0.5rem 0.6rem;text-align:right;color:var(--green);font-weight:600">'+fmtTND(p.montant)+'</td>' +
       '<td style="padding:0.5rem 0.6rem;text-align:center"><span style="background:'+typeC+';color:#fff;padding:0.15rem 0.5rem;border-radius:10px;font-size:0.7rem;text-transform:uppercase">'+(p.type_paiement||'—')+'</span></td>' +
       '<td style="padding:0.5rem 0.6rem">'+(p.mode_paiement||'—')+'</td>' +
-      '<td style="padding:0.5rem 0.6rem;text-align:right"><button class="btn btn-sm" onclick="genRecuPaiementClientPDF(\''+p.id+'\')" style="padding:0.25rem 0.5rem;font-size:0.7rem" title="Reçu">🧾</button></td>' +
+      '<td style="padding:0.5rem 0.6rem;text-align:right;white-space:nowrap"><button class="btn btn-sm" onclick="genRecuPaiementClientPDF(\''+p.id+'\')" style="padding:0.25rem 0.5rem;font-size:0.7rem" title="Reçu">🧾</button> <button class="btn btn-sm" onclick="openEditPaiementClient(\''+p.id+'\')" style="padding:0.25rem 0.5rem;font-size:0.7rem" title="Modifier">✏️</button> <button class="btn btn-sm" onclick="deletePaiementClientUI(\''+p.id+'\')" style="padding:0.25rem 0.5rem;font-size:0.7rem;color:var(--red)" title="Supprimer">🗑️</button></td>' +
     '</tr>';
   });
   tbody.innerHTML = html;
@@ -1627,6 +1637,74 @@ function genererFactureUI(devisId) {
         alert('Erreur : ' + (e.message || e));
       }
     });
+}
+
+// ── Modifier un paiement client ──
+function openEditPaiementClient(paiementId) {
+  apiFetch('api/paiements_clients.php?action=receipt&id=' + encodeURIComponent(paiementId))
+    .then(function(r) {
+      var p = r.data || {};
+      var html = '<div style="padding:1.5rem;max-width:420px">'
+        + '<h3 style="margin:0 0 1rem;color:var(--text-1)">Modifier le paiement</h3>'
+        + '<label style="font-size:0.78rem;color:var(--text-2)">Montant (TND)</label>'
+        + '<input type="number" id="edit-pc-montant" value="'+(p.montant||0)+'" step="0.01" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
+        + '<label style="font-size:0.78rem;color:var(--text-2)">Date</label>'
+        + '<input type="date" id="edit-pc-date" value="'+(p.date_paiement||'')+'" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
+        + '<label style="font-size:0.78rem;color:var(--text-2)">Mode de paiement</label>'
+        + '<select id="edit-pc-mode" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px">'
+        + '<option value="Virement"'+(p.mode_paiement==='Virement'?' selected':'')+'>Virement</option>'
+        + '<option value="Espèces"'+(p.mode_paiement==='Espèces'?' selected':'')+'>Espèces</option>'
+        + '<option value="Chèque"'+(p.mode_paiement==='Chèque'?' selected':'')+'>Chèque</option>'
+        + '<option value="Carte"'+(p.mode_paiement==='Carte'?' selected':'')+'>Carte</option>'
+        + '<option value="Autre"'+(p.mode_paiement==='Autre'?' selected':'')+'>Autre</option>'
+        + '</select>'
+        + '<label style="font-size:0.78rem;color:var(--text-2)">Référence</label>'
+        + '<input type="text" id="edit-pc-reference" value="'+(p.reference||'').replace(/"/g,'&quot;')+'" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
+        + '<label style="font-size:0.78rem;color:var(--text-2)">Notes</label>'
+        + '<textarea id="edit-pc-notes" rows="2" style="width:100%;padding:0.5rem;margin-bottom:1rem;border:1px solid var(--border);border-radius:6px">'+(p.notes||'')+'</textarea>'
+        + '<div style="display:flex;gap:0.5rem;justify-content:flex-end">'
+        + '<button class="btn" onclick="this.closest(\'.modal-overlay\').remove()">Annuler</button>'
+        + '<button class="btn btn-primary" onclick="saveEditPaiementClient(\''+paiementId+'\')">Enregistrer</button>'
+        + '</div></div>';
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center';
+      overlay.innerHTML = '<div style="background:var(--bg-1,#fff);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-height:90vh;overflow:auto">' + html + '</div>';
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+      document.body.appendChild(overlay);
+    })
+    .catch(function(e) { showToast('Erreur: ' + (e.message||e), 'var(--red)'); });
+}
+
+function saveEditPaiementClient(paiementId) {
+  var montant = parseFloat(document.getElementById('edit-pc-montant').value);
+  if (!montant || montant <= 0) { showToast('Montant invalide', 'var(--red)'); return; }
+  var body = {
+    montant: montant,
+    date_paiement: document.getElementById('edit-pc-date').value,
+    mode_paiement: document.getElementById('edit-pc-mode').value,
+    reference: document.getElementById('edit-pc-reference').value,
+    notes: document.getElementById('edit-pc-notes').value
+  };
+  apiFetch('api/paiements_clients.php?action=update&id=' + encodeURIComponent(paiementId), { method:'PUT', body: body })
+    .then(function() {
+      showToast('Paiement modifié', 'var(--green)');
+      var overlay = document.querySelector('.modal-overlay');
+      if (overlay) overlay.remove();
+      renderPaiementsClientsPage();
+    })
+    .catch(function(e) { showToast('Erreur: ' + (e.message||e), 'var(--red)'); });
+}
+
+// ── Supprimer un paiement client ──
+function deletePaiementClientUI(paiementId) {
+  if (!confirm('Supprimer ce paiement ? Cette action est irréversible.')) return;
+  apiFetch('api/paiements_clients.php?action=delete&id=' + encodeURIComponent(paiementId), { method:'DELETE' })
+    .then(function() {
+      showToast('Paiement supprimé', 'var(--green)');
+      renderPaiementsClientsPage();
+    })
+    .catch(function(e) { showToast('Erreur: ' + (e.message||e), 'var(--red)'); });
 }
 
 function genRecuPaiementClientPDF(paiementId) {
@@ -1682,6 +1760,9 @@ window.onPaiDevisChange = onPaiDevisChange;
 window.filterPaiementsClients = filterPaiementsClients;
 window.genererFactureUI = genererFactureUI;
 window.genRecuPaiementClientPDF = genRecuPaiementClientPDF;
+window.openEditPaiementClient = openEditPaiementClient;
+window.saveEditPaiementClient = saveEditPaiementClient;
+window.deletePaiementClientUI = deletePaiementClientUI;
 
 // ── Devis Acceptance Hook ──
 // When a devis status changes to 'Accepté', refresh projet honoraires

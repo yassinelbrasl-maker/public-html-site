@@ -306,6 +306,14 @@ function generatePDF() {
 
     $db = getDB();
 
+    // Ensure CA_clients has mf column
+    try {
+        $cols = array_column($db->query("SHOW COLUMNS FROM CA_clients")->fetchAll(), 'Field');
+        if (!in_array('mf', $cols)) {
+            $db->exec("ALTER TABLE CA_clients ADD COLUMN mf VARCHAR(80) DEFAULT NULL AFTER matricule");
+        }
+    } catch (\Throwable $e) {}
+
     // Load company info
     $companyInfo = [
         'nom' => 'CORTOBA Atelier d\'Architecture',
