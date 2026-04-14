@@ -9075,10 +9075,11 @@ function _openPDFPreview(doc) {
 }
 
 function sendDocumentByEmail(type, id) {
+  if (type === 'facture') { openEnvoiFacture(id); return; }
+  // Fallback pour devis / recu
   var email = prompt('Envoyer par email à :');
   if (!email) return;
   var message = prompt('Message personnalisé (optionnel) :') || '';
-
   apiFetch('api/workflow.php?action=send_document', {
     method: 'POST',
     body: { type: type, id: id, email: email, message: message }
@@ -9086,6 +9087,106 @@ function sendDocumentByEmail(type, id) {
     showToast('Document envoyé à ' + (r.data ? r.data.email : email));
   }).catch(function(e) {
     showToast('Erreur envoi : ' + e.message, 'error');
+  });
+}
+
+// ── Modal envoi facture ──────────────────────────────────
+function openEnvoiFacture(factureId) {
+  var f = getFactures().find(function(x){ return x.id === factureId; });
+  if (!f) { showToast('Facture introuvable', 'error'); return; }
+
+  // Chercher l'email du client
+  var clientEmail = '';
+  if (f.clientId) {
+    var cl = getClients().find(function(c){ return c.id === f.clientId; });
+    if (cl) clientEmail = cl.email || '';
+  }
+  if (!clientEmail) {
+    // Fallback : chercher par nom
+    var clients = getClients();
+    for (var i = 0; i < clients.length; i++) {
+      var c = clients[i];
+      var nom = c.displayNom || c.display_nom || ((c.prenom||'')+' '+(c.nom||'')).trim() || c.raison || '';
+      if (nom && f.client && (f.client === nom || f.client.indexOf(nom) !== -1 || nom.indexOf(f.client) !== -1)) {
+        clientEmail = c.email || '';
+        break;
+      }
+    }
+  }
+
+  var numero = f.num || f.numero || '';
+  var montant = fmtMontant(f.netPayer || f.montantTtc || f.montant || 0);
+  var echeance = fmtDate(f.echeance || '');
+
+  document.getElementById('ef-facture-id').value = factureId;
+  document.getElementById('ef-email').value = clientEmail;
+  document.getElementById('ef-subject').value = 'Facture ' + numero + ' — CORTOBA Architecture';
+  document.getElementById('ef-message').value =
+    'Cher(e) client(e),\n\n' +
+    'Veuillez trouver ci-dessous votre facture n\u00B0 ' + numero + ' d\'un montant de ' + montant + ' TND.\n\n' +
+    (echeance ? 'Date d\'\u00E9ch\u00E9ance : ' + echeance + '\n\n' : '') +
+    'N\'h\u00E9sitez pas \u00E0 nous contacter pour toute question.\n\n' +
+    'Cordialement,\nCORTOBA Atelier d\'Architecture';
+  document.getElementById('ef-publish-portail').checked = false;
+  var errEl = document.getElementById('ef-err');
+  errEl.style.display = 'none'; errEl.textContent = '';
+  document.getElementById('ef-send-btn').disabled = false;
+
+  document.getElementById('modal-envoi-facture').style.display = 'flex';
+}
+
+function submitEnvoiFacture() {
+  var factureId = document.getElementById('ef-facture-id').value;
+  var email     = document.getElementById('ef-email').value.trim();
+  var subject   = document.getElementById('ef-subject').value.trim();
+  var message   = document.getElementById('ef-message').value.trim();
+  var publish   = document.getElementById('ef-publish-portail').checked;
+  var errEl     = document.getElementById('ef-err');
+  var btn       = document.getElementById('ef-send-btn');
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent = 'Veuillez saisir un email valide.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours\u2026';
+
+  apiFetch('api/workflow.php?action=send_document', {
+    method: 'POST',
+    body: { type: 'facture', id: factureId, email: email, subject: subject, message: message }
+  }).then(function(r) {
+    showToast('Facture envoy\u00E9e \u00E0 ' + email);
+    // Publier au portail si coch\u00E9
+    if (publish) {
+      return apiFetch('api/workflow.php?action=publish_invoice_to_portal', {
+        method: 'POST',
+        body: { facture_id: factureId }
+      }).then(function() {
+        showToast('Facture publi\u00E9e au portail client');
+      });
+    }
+  }).then(function() {
+    document.getElementById('modal-envoi-facture').style.display = 'none';
+  }).catch(function(e) {
+    errEl.textContent = 'Erreur : ' + e.message;
+    errEl.style.display = 'block';
+  }).finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Envoyer';
+  });
+}
+
+function publishFactureToPortal(factureId) {
+  if (!confirm('Publier cette facture au portail client ?')) return;
+  apiFetch('api/workflow.php?action=publish_invoice_to_portal', {
+    method: 'POST',
+    body: { facture_id: factureId }
+  }).then(function() {
+    showToast('Facture publi\u00E9e au portail client');
+  }).catch(function(e) {
+    showToast('Erreur : ' + e.message, 'error');
   });
 }
 
