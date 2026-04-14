@@ -1944,8 +1944,7 @@ function refreshGlobalMap(){
   var projets = getProjets().filter(function(p){ return p.lat&&p.lng; });
   if(!_globalMap){
     _globalMap = L.map('projets-global-map',{zoomControl:true}).setView([33.84,10.88],10);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Esri',maxZoom:19}).addTo(_globalMap);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:19,subdomains:'abcd',opacity:1}).addTo(_globalMap);
+    L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:21}).addTo(_globalMap);
   }
   _globalMarkers.forEach(function(m){ try{_globalMap.removeLayer(m);}catch(e){} });
   _globalMarkers = [];
