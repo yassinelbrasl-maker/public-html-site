@@ -727,10 +727,18 @@ function _paiGetProjetMissions() {
   var raw;
   try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
   catch (e) { raw = []; }
+  var result = [];
   if (typeof window._normalizeProjetMissions === 'function') {
-    return window._normalizeProjetMissions(raw);
+    result = window._normalizeProjetMissions(raw);
+  } else {
+    result = Array.isArray(raw) ? raw.map(String) : [];
   }
-  return Array.isArray(raw) ? raw.map(String) : [];
+  // Fallback : si le projet n'a aucune mission affectée, proposer toutes les missions du catalogue
+  if (result.length === 0) {
+    var allMissions = typeof getMissions === 'function' ? getMissions() : [];
+    return allMissions.map(function(m) { return m.nom; });
+  }
+  return result;
 }
 
 function filterPaiMissionDropdown() {
