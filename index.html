@@ -34,7 +34,7 @@
       /* ── PROJECTS GRID ── */
       #projects {
         padding: 5rem 2rem;
-        background: #141414;
+        background: var(--bg-alt);
       }
 
       .projects-header {
@@ -964,8 +964,25 @@
         --accent-dim: rgba(184,148,42,0.12);
       }
       body.light-mode .navbar,
-      body.light-mode .cfg-header { background: #ede9e2; }
-      body.light-mode #cfg-recap-float { background: #ede9e2; }
+      body.light-mode .cfg-header { background: #ede9e2; border-bottom-color: rgba(0,0,0,0.08); }
+      body.light-mode #cfg-recap-float { background: #ede9e2; border-color: rgba(184,148,42,0.3); box-shadow: -8px 0 40px rgba(0,0,0,0.08); }
+      body.light-mode .config-intro-banner { background: #eae7e1; border-top-color: rgba(0,0,0,0.06); border-bottom-color: rgba(0,0,0,0.06); }
+      body.light-mode .cfg-result-hero { background: #eae7e1; border-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-cta-block { background: #eae7e1; border-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-modal-box { background: #fff; border-color: rgba(0,0,0,0.12); }
+      body.light-mode .cfg-tooltip { background: #fff; border-color: rgba(184,148,42,0.3); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+      body.light-mode .cfg-room-opt { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-room-item { border-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-result-summary { border-color: rgba(0,0,0,0.08); border-left-color: var(--accent); }
+      body.light-mode .cfg-metric-card { border-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-icard { border-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-label { color: rgba(60,55,45,0.65); }
+      body.light-mode .cfg-step-line { background: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-step-big { color: rgba(0,0,0,0.04); }
+      body.light-mode .cfg-page-heading { border-bottom-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-nav { border-top-color: rgba(0,0,0,0.08); }
+      body.light-mode .cfg-btn-back { border-color: rgba(0,0,0,0.12); }
+      body.light-mode #configurateur { background: var(--bg) !important; }
       .theme-toggle {
         background: none; border: 1px solid rgba(255,255,255,0.15);
         color: var(--text-muted); cursor: pointer; width: 32px; height: 32px;
