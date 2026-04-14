@@ -95,6 +95,7 @@ function loadData(){
           client:         f.client,
           clientAdresse:  f.client_adresse  || f.clientAdresse  || '',
           clientMF:       f.client_mf       || f.clientMF       || '',
+          clientId:       f.client_id       || f.clientId       || '',
           projetId:       f.projet_id       || f.projetId,
           objet:          f.objet           || '',
           dateEmission:   f.date_emission   || f.dateEmission   || '',
