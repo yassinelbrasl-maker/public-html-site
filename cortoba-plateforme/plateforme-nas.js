@@ -2077,24 +2077,17 @@ function saveProjet(){
   var lat         = parseFloat(document.getElementById('pj-lat').value)||null;
   var lng         = parseFloat(document.getElementById('pj-lng').value)||null;
   var displayNom  = client.displayNom||client.display_nom||client.nom||client.raison||'';
-<<<<<<< HEAD
   // Lire le code : priorité au champ manuel (input visible OU preview après validation)
   var codeInputEl = document.getElementById('pj-code-input');
   var codePreview = document.getElementById('pj-code-preview');
   var codeManual  = '';
   if (codeInputEl && codeInputEl.dataset.manual === '1') {
-    // Si l'input est encore visible, lire l'input ; sinon lire le preview (déjà mis à jour par toggleCodeEdit)
     codeManual = (codeInputEl.style.display !== 'none') ? codeInputEl.value.trim() : (codePreview ? codePreview.textContent.trim() : '');
   }
   var code        = codeManual
     || (_editingProjetId
       ? ((codePreview ? codePreview.textContent : '') || genProjetCode(annee, displayNom, client.code))
       : genProjetCode(annee, displayNom, client.code));
-=======
-  var code        = _editingProjetId
-    ? (document.getElementById('pj-code-preview').textContent || genProjetCode(annee, displayNom, client.code))
-    : genProjetCode(annee, displayNom, client.code);
->>>>>>> 5aae82714a780e5768a755497f6d0bbadd1835ee
 
   var body = {
     nom:nom, client:displayNom, clientId:clientId,
