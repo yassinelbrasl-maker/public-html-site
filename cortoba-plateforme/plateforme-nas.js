@@ -2686,8 +2686,8 @@ function renderFactures(){
         var ttc = f.montantTtc||f.montant_ttc||f.montant||0;
         var ht  = f.montantHt||f.montant_ht||0;
         var modBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();openEditFacture(\''+f.id+'\')" style="color:var(--accent);margin-right:3px" title="Modifier">✎</button>';
-<<<<<<< HEAD
-        var pdfBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();generateDocumentPDF(\'facture\',\''+f.id+'\')" style="color:#6fa8d6;margin-right:3px" title="PDF">⬇ PDF</button>';
+        var pdfBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();exportUneFacturePDF(\''+f.id+'\')" style="color:#6fa8d6;margin-right:3px" title="Exporter PDF">⬇ PDF</button>';
+        var printBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();imprimerFacture(\''+f.id+'\')" style="color:var(--text-2);margin-right:3px" title="Imprimer">🖨</button>';
         var emailBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();sendDocumentByEmail(\'facture\',\''+f.id+'\')" style="color:var(--text-2);margin-right:3px" title="Envoyer par email">✉</button>';
         var portalBtn  = '<button class="btn btn-sm" onclick="event.stopPropagation();publishFactureToPortal(\''+f.id+'\')" style="color:#8b5cf6;margin-right:3px" title="Publier au portail client">&#128279;</button>';
         var delBtn     = '<button class="btn btn-sm" onclick="deleteRow(\'facture\',\''+f.id+'\')" style="color:#e07070" title="Supprimer">✕</button>';
@@ -2702,11 +2702,6 @@ function renderFactures(){
         if(parseFloat(f.montant_paye||f.montantPaye||0) > 0 && typeof openRecuListForFacture==='function'){
           recuBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();openRecuListForFacture(\''+f.id+'\')" style="color:#2d7a50;margin-right:3px" title="Reçu de paiement">&#9998;</button>';
         }
-=======
-        var pdfBtn   = '<button class="btn btn-sm" onclick="event.stopPropagation();exportUneFacturePDF(\''+f.id+'\')" style="color:#6fa8d6;margin-right:3px" title="Exporter PDF">⬇ PDF</button>';
-        var printBtn = '<button class="btn btn-sm" onclick="event.stopPropagation();imprimerFacture(\''+f.id+'\')" style="color:var(--text-2);margin-right:3px" title="Imprimer">🖨</button>';
-        var delBtn   = '<button class="btn btn-sm" onclick="deleteRow(\'facture\',\''+f.id+'\')" style="color:#e07070" title="Supprimer">✕</button>';
->>>>>>> 5aae82714a780e5768a755497f6d0bbadd1835ee
         return '<tr>'+
           '<td class="inline-val" style="font-family:var(--mono);font-size:0.78rem">'+(f.num||f.numero||'—')+'</td>'+
           '<td style="font-weight:500">'+(f.client||'—')+'</td>'+
