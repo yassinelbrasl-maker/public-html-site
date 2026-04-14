@@ -2710,11 +2710,7 @@ function renderFactures(){
           '<td class="inline-val" style="color:var(--accent)">'+fmtMontant(ttc)+'</td>'+
           '<td>'+fmtDate(f.echeance||f.dateEcheance||f.date_echeance)+'</td>'+
           '<td><span class="'+badgeClass(f.statut)+'">'+f.statut+'</span></td>'+
-<<<<<<< HEAD
-          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+payBtn+recuBtn+modBtn+pdfBtn+emailBtn+portalBtn+delBtn+'</td></tr>';
-=======
-          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+modBtn+pdfBtn+printBtn+delBtn+'</td></tr>';
->>>>>>> 5aae82714a780e5768a755497f6d0bbadd1835ee
+          '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+payBtn+recuBtn+modBtn+pdfBtn+printBtn+emailBtn+portalBtn+delBtn+'</td></tr>';
       }).join('');
   var b=document.querySelector('[onclick="showPage(\'facturation\')"] .nav-badge');
   if(b)b.textContent=list.filter(function(f){return f.statut==='Impayée';}).length||'';
