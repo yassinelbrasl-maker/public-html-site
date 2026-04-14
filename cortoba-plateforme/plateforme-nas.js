@@ -1610,7 +1610,6 @@ function previewPjCode(){
   codeEl.textContent = code;
 }
 
-<<<<<<< HEAD
 var _codeEditMode = false;
 function toggleCodeEdit() {
   var preview = document.getElementById('pj-code-preview');
@@ -1631,16 +1630,12 @@ function toggleCodeEdit() {
     if (val) preview.textContent = val;
     input.style.display = 'none';
     preview.style.display = '';
-    // Garder manual='1' si l'utilisateur a saisi une valeur,
-    // pour empêcher previewPjCode() d'écraser le code modifié
     if (!val) input.dataset.manual = '0';
     btn.textContent = '✏️';
     btn.title = 'Modifier le code';
   }
 }
 
-=======
->>>>>>> 5aae82714a780e5768a755497f6d0bbadd1835ee
 function populateClientSelect(){
   var sel = document.getElementById('pj-client'); if(!sel) return;
   var clients = getClients();
