@@ -19,6 +19,15 @@ try {
     if (!in_array('cree_at', $cols)) {
         $db->exec("ALTER TABLE CA_clients ADD COLUMN cree_at DATETIME DEFAULT CURRENT_TIMESTAMP");
     }
+    if (!in_array('groupe_json', $cols)) {
+        $db->exec("ALTER TABLE CA_clients ADD COLUMN groupe_json LONGTEXT DEFAULT NULL");
+    }
+    if (!in_array('cin', $cols)) {
+        $db->exec("ALTER TABLE CA_clients ADD COLUMN cin VARCHAR(50) DEFAULT NULL");
+    }
+    if (!in_array('date_cin', $cols)) {
+        $db->exec("ALTER TABLE CA_clients ADD COLUMN date_cin DATE DEFAULT NULL");
+    }
 } catch (\Exception $e) { /* ignore */ }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -125,82 +134,86 @@ function create(array $user) {
         jsonError('Vous n\'êtes pas autorisé à créer des clients', 403);
     }
 
-    $body = getBody();
-    $db   = getDB();
-    $id   = bin2hex(random_bytes(16));
-
-    // Normaliser les noms : supprimer virgules + forcer majuscules
-    normalizeClientNames($body);
-
-    // Sérialiser le groupe en JSON string pour stockage
-    $groupeJson = null;
-    if (!empty($body['groupe'])) {
-        $groupeJson = json_encode($body['groupe'], JSON_UNESCAPED_UNICODE);
-    }
-
-    // Essayer d'abord avec toutes les colonnes optionnelles
     try {
-        $db->prepare('
-            INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule,
-                cin, date_cin, display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
-                date_contact, remarques, groupe_json, cree_par)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ')->execute([
-            $id,
-            $body['code']         ?? '',
-            $body['numClient']    ?? null,
-            $body['type']         ?? 'physique',
-            $body['prenom']       ?? null,
-            $body['nom']          ?? null,
-            $body['raison']       ?? null,
-            $body['matricule']    ?? null,
-            $body['cin']          ?? null,
-            $body['dateCin']      ?: null,
-            $body['displayNom']   ?? '',
-            $body['email']        ?? null,
-            $body['tel']          ?? null,
-            $body['whatsapp']     ?? null,
-            $body['adresse']      ?? null,
-            $body['statut']       ?? 'Prospect',
-            $body['source']       ?? null,
-            $body['sourceDetail'] ?? null,
-            $body['dateContact']  ?: null,
-            $body['remarques']    ?? null,
-            $groupeJson,
-            $user['name'],
-        ]);
-    } catch (\Exception $e) {
-        // Fallback sans cin/date_cin/groupe_json si colonnes absentes
-        $db->prepare('
-            INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule,
-                display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
-                date_contact, remarques, cree_par)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ')->execute([
-            $id,
-            $body['code']         ?? '',
-            $body['numClient']    ?? null,
-            $body['type']         ?? 'physique',
-            $body['prenom']       ?? null,
-            $body['nom']          ?? null,
-            $body['raison']       ?? null,
-            $body['matricule']    ?? null,
-            $body['displayNom']   ?? '',
-            $body['email']        ?? null,
-            $body['tel']          ?? null,
-            $body['whatsapp']     ?? null,
-            $body['adresse']      ?? null,
-            $body['statut']       ?? 'Prospect',
-            $body['source']       ?? null,
-            $body['sourceDetail'] ?? null,
-            $body['dateContact']  ?: null,
-            $body['remarques']    ?? null,
-            $user['name'],
-        ]);
-    }
+        $body = getBody();
+        $db   = getDB();
+        $id   = bin2hex(random_bytes(16));
 
-    saveContactsAux($id, $body['contactsAux'] ?? []);
-    getOne($id);
+        // Normaliser les noms : supprimer virgules + forcer majuscules
+        normalizeClientNames($body);
+
+        // Sérialiser le groupe en JSON string pour stockage
+        $groupeJson = null;
+        if (!empty($body['groupe'])) {
+            $groupeJson = json_encode($body['groupe'], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Essayer d'abord avec toutes les colonnes optionnelles
+        try {
+            $db->prepare('
+                INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule,
+                    cin, date_cin, display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
+                    date_contact, remarques, groupe_json, cree_par)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ')->execute([
+                $id,
+                $body['code']         ?? '',
+                $body['numClient']    ?? null,
+                $body['type']         ?? 'physique',
+                $body['prenom']       ?? null,
+                $body['nom']          ?? null,
+                $body['raison']       ?? null,
+                $body['matricule']    ?? null,
+                $body['cin']          ?? null,
+                $body['dateCin']      ?? null,
+                $body['displayNom']   ?? '',
+                $body['email']        ?? null,
+                $body['tel']          ?? null,
+                $body['whatsapp']     ?? null,
+                $body['adresse']      ?? null,
+                $body['statut']       ?? 'Prospect',
+                $body['source']       ?? null,
+                $body['sourceDetail'] ?? null,
+                $body['dateContact']  ?? null,
+                $body['remarques']    ?? null,
+                $groupeJson,
+                $user['name'],
+            ]);
+        } catch (\Exception $e) {
+            // Fallback sans cin/date_cin/groupe_json si colonnes absentes
+            $db->prepare('
+                INSERT INTO CA_clients (id, code, num_client, type, prenom, nom, raison, matricule,
+                    display_nom, email, tel, whatsapp, adresse, statut, source, source_detail,
+                    date_contact, remarques, cree_par)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ')->execute([
+                $id,
+                $body['code']         ?? '',
+                $body['numClient']    ?? null,
+                $body['type']         ?? 'physique',
+                $body['prenom']       ?? null,
+                $body['nom']          ?? null,
+                $body['raison']       ?? null,
+                $body['matricule']    ?? null,
+                $body['displayNom']   ?? '',
+                $body['email']        ?? null,
+                $body['tel']          ?? null,
+                $body['whatsapp']     ?? null,
+                $body['adresse']      ?? null,
+                $body['statut']       ?? 'Prospect',
+                $body['source']       ?? null,
+                $body['sourceDetail'] ?? null,
+                $body['dateContact']  ?? null,
+                $body['remarques']    ?? null,
+                $user['name'],
+            ]);
+        }
+
+        saveContactsAux($id, $body['contactsAux'] ?? []);
+        getOne($id);
+    } catch (\Throwable $e) {
+        jsonError('Erreur création client : ' . $e->getMessage(), 500);
+    }
 }
 
 function update($id, array $user) {
@@ -237,7 +250,7 @@ function update($id, array $user) {
             $body['raison']       ?? null,
             $body['matricule']    ?? null,
             $body['cin']          ?? null,
-            $body['dateCin']      ?: null,
+            $body['dateCin']      ?? null,
             $body['displayNom']   ?? '',
             $body['email']        ?? null,
             $body['tel']          ?? null,
@@ -246,7 +259,7 @@ function update($id, array $user) {
             $body['statut']       ?? 'Prospect',
             $body['source']       ?? null,
             $body['sourceDetail'] ?? null,
-            $body['dateContact']  ?: null,
+            $body['dateContact']  ?? null,
             $body['remarques']    ?? null,
             $groupeJson,
             $user['name'],
@@ -276,7 +289,7 @@ function update($id, array $user) {
             $body['statut']       ?? 'Prospect',
             $body['source']       ?? null,
             $body['sourceDetail'] ?? null,
-            $body['dateContact']  ?: null,
+            $body['dateContact']  ?? null,
             $body['remarques']    ?? null,
             $user['name'],
             $id,
