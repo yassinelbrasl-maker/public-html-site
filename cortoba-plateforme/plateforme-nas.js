@@ -2046,7 +2046,7 @@ function previewPjCode(){
   if (!clientVal) { codeEl.textContent='—'; return; }
   // Ne pas écraser si l'utilisateur a modifié manuellement
   var codeInput = document.getElementById('pj-code-input');
-  if (codeInput && codeInput.style.display !== 'none' && codeInput.dataset.manual === '1') return;
+  if (codeInput && codeInput.dataset.manual === '1') return;
   var code    = genProjetCode(annee, clientNom, clientCode);
   codeEl.textContent = code;
 }
