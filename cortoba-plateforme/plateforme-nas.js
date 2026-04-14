@@ -1330,12 +1330,27 @@ var _editingClientId = null;
 function openClientDetail(id) {
   var c = getClients().find(function(x){ return x.id===id; });
   if (!c) return;
-  var projets = getProjets().filter(function(p){ return p.client_code===c.code||p.client===c.displayNom||p.client===(c.nom+(c.prenom?' '+c.prenom:'')); });
-  var devis   = getDevis().filter(function(d){   return d.client===c.displayNom||d.client===(c.nom+(c.prenom?' '+c.prenom:'')); });
-  var groupe  = c.groupe ? '<b>Groupe :</b> '+(c.groupe.titre||'—')+' ('+c.groupe.membres.length+' membres)' : '';
+  // Construire le nom complet (non vide) pour matcher les projets
+  var nomComplet = c.nom ? (c.nom+(c.prenom?' '+c.prenom:'')).trim() : '';
+  var displayNom = c.displayNom || c.display_nom || '';
+  var projets = getProjets().filter(function(p){
+    if (c.code && p.client_code && p.client_code === c.code) return true;
+    if (p.clientId && p.clientId === c.id) return true;
+    if (p.client_id && p.client_id === c.id) return true;
+    if (displayNom && p.client === displayNom) return true;
+    if (nomComplet && p.client === nomComplet) return true;
+    return false;
+  });
+  var devis = getDevis().filter(function(d){
+    if (displayNom && d.client === displayNom) return true;
+    if (nomComplet && d.client === nomComplet) return true;
+    return false;
+  });
+  var groupe  = c.groupe ? '<b>Groupe :</b> '+(c.groupe.titre||'—')+' ('+(c.groupe.membres?c.groupe.membres.length:0)+' membres)' : '';
+  var typeLabel = c.type==='morale' ? 'Personne morale' : (c.type==='groupe' ? 'Groupe de clients' : 'Personne physique');
   var info = [
     '<b>Code :</b> '+c.code+' · N° '+String(c.numClient||'—').padStart(4,'0'),
-    '<b>Type :</b> '+(c.type==='morale'?'Personne morale':'Personne physique'),
+    '<b>Type :</b> '+typeLabel,
     c.matricule ? '<b>Matricule :</b> '+c.matricule : '',
     '<b>Email :</b> '+(c.email?'<a href="mailto:'+c.email+'">'+c.email+'</a>':'—'),
     '<b>Tél :</b> '+(c.tel||'—'),
