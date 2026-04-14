@@ -34,6 +34,10 @@ try {
             if ($method !== 'POST') jsonError('POST requis', 405);
             sendDocument($user);
             break;
+        case 'publish_invoice_to_portal':
+            if ($method !== 'POST') jsonError('POST requis', 405);
+            publishInvoiceToPortal($user);
+            break;
         default:
             jsonError('Action inconnue: ' . $action, 400);
     }
