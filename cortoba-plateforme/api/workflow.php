@@ -412,6 +412,7 @@ function sendDocument($user) {
     $id   = $body['id'] ?? '';
     $email = $body['email'] ?? '';
     $message = $body['message'] ?? '';
+    $customSubject = $body['subject'] ?? '';
 
     if (!$type || !$id) jsonError('type et id requis');
     if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) jsonError('Email valide requis');
@@ -419,7 +420,7 @@ function sendDocument($user) {
     $db = getDB();
 
     // Get document info
-    $docTitle = ''; $docNum = ''; $montant = 0;
+    $docTitle = ''; $docNum = ''; $montant = 0; $lignesHtml = ''; $extraInfo = '';
     switch ($type) {
         case 'devis':
             $s = $db->prepare("SELECT numero, objet, montant_ttc FROM CA_devis WHERE id = ?");
@@ -429,11 +430,41 @@ function sendDocument($user) {
             $docTitle = 'Devis'; $docNum = $d['numero']; $montant = (float)$d['montant_ttc'];
             break;
         case 'facture':
-            $s = $db->prepare("SELECT numero, objet, net_payer, montant_ttc FROM CA_factures WHERE id = ?");
+            $s = $db->prepare("SELECT numero, objet, net_payer, montant_ttc, montant_ht, tva, fodec, timbre,
+                               ras_taux, ras_amt, date_echeance, client_adresse, rib, mode_paiement,
+                               lignes_json, montant_lettres FROM CA_factures WHERE id = ?");
             $s->execute([$id]);
             $d = $s->fetch(\PDO::FETCH_ASSOC);
             if (!$d) jsonError('Facture introuvable', 404);
             $docTitle = 'Facture'; $docNum = $d['numero']; $montant = (float)($d['net_payer'] ?: $d['montant_ttc']);
+
+            // Lignes de facture en tableau HTML
+            $lignes = json_decode($d['lignes_json'] ?: '[]', true);
+            if (!empty($lignes)) {
+                $lignesHtml = '<table width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin:12px 0;font-size:13px">';
+                $lignesHtml .= '<tr style="background:#f8f6f1"><th style="text-align:left;border-bottom:1px solid #ddd;padding:8px">Description</th><th style="text-align:right;border-bottom:1px solid #ddd;padding:8px">Montant HT</th></tr>';
+                foreach ($lignes as $l) {
+                    $desc = htmlspecialchars($l['desc'] ?? $l['description'] ?? $l['libelle'] ?? '');
+                    $ht = number_format((float)($l['ht'] ?? $l['montant_ht'] ?? $l['montant'] ?? 0), 2, ',', ' ');
+                    $lignesHtml .= '<tr><td style="border-bottom:1px solid #eee;padding:8px">' . $desc . '</td><td style="text-align:right;border-bottom:1px solid #eee;padding:8px">' . $ht . ' TND</td></tr>';
+                }
+                $lignesHtml .= '</table>';
+            }
+
+            // Infos supplementaires
+            $parts = [];
+            if ($d['date_echeance']) $parts[] = '<strong>Date d\'echéance :</strong> ' . date('d/m/Y', strtotime($d['date_echeance']));
+            if ($d['montant_ht'])    $parts[] = '<strong>Montant HT :</strong> ' . number_format((float)$d['montant_ht'], 2, ',', ' ') . ' TND';
+            if ($d['tva'])           $parts[] = '<strong>TVA :</strong> ' . $d['tva'] . '%';
+            if ((float)($d['fodec'] ?? 0) > 0) $parts[] = '<strong>FODEC :</strong> ' . number_format((float)$d['fodec'], 2, ',', ' ') . ' TND';
+            if ((float)($d['timbre'] ?? 0) > 0) $parts[] = '<strong>Timbre :</strong> ' . number_format((float)$d['timbre'], 2, ',', ' ') . ' TND';
+            if ((float)($d['ras_amt'] ?? 0) > 0) $parts[] = '<strong>RAS (' . $d['ras_taux'] . '%) :</strong> -' . number_format((float)$d['ras_amt'], 2, ',', ' ') . ' TND';
+            if ($d['montant_lettres']) $parts[] = '<strong>Montant en lettres :</strong> ' . htmlspecialchars($d['montant_lettres']);
+            if ($d['mode_paiement']) $parts[] = '<strong>Mode de paiement :</strong> ' . htmlspecialchars($d['mode_paiement']);
+            if ($d['rib']) $parts[] = '<strong>RIB :</strong> ' . htmlspecialchars($d['rib']);
+            if (!empty($parts)) {
+                $extraInfo = '<div style="background:#faf9f7;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:13px;color:#555;line-height:1.8">' . implode('<br>', $parts) . '</div>';
+            }
             break;
         case 'recu':
             $s = $db->prepare("SELECT p.montant, f.numero FROM CA_paiements p LEFT JOIN CA_factures f ON f.id = p.facture_id WHERE p.id = ?");
@@ -446,7 +477,7 @@ function sendDocument($user) {
             jsonError('Type inconnu');
     }
 
-    $subject = $docTitle . ' ' . $docNum . ' — CORTOBA Architecture';
+    $subject = $customSubject ?: ($docTitle . ' ' . $docNum . ' — CORTOBA Architecture');
     $customMsg = $message ? '<p style="color:#555;line-height:1.6;font-size:14px;white-space:pre-wrap">' . htmlspecialchars($message) . '</p>' : '';
 
     $html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
@@ -457,16 +488,17 @@ function sendDocument($user) {
   <tr><td style="padding:30px">
     <h2 style="color:#222;margin:0 0 12px;font-size:16px">' . htmlspecialchars($docTitle) . ' — ' . htmlspecialchars($docNum) . '</h2>
     ' . $customMsg . '
-    <p style="color:#555;line-height:1.6;font-size:14px">Montant : <strong>' . number_format($montant, 2, ',', ' ') . ' TND</strong></p>
-    <p style="color:#555;line-height:1.6;font-size:14px">Ce document vous a été envoyé depuis la plateforme CORTOBA Architecture.</p>
-    <p style="color:#555;line-height:1.6;font-size:14px">Cordialement,<br><strong>CORTOBA Atelier d\'Architecture</strong></p>
+    ' . $lignesHtml . '
+    ' . $extraInfo . '
+    <p style="color:#555;line-height:1.6;font-size:14px"><strong>Net à payer : ' . number_format($montant, 2, ',', ' ') . ' TND</strong></p>
+    <p style="color:#555;line-height:1.6;font-size:14px;margin-top:20px;padding-top:16px;border-top:1px solid #eee">Cordialement,<br><strong>CORTOBA Atelier d\'Architecture</strong></p>
   </td></tr>
 </table></body></html>';
 
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     $headers .= "From: CORTOBA Architecture <cortobaarchitecture@gmail.com>\r\n";
-    $sent = @mail($email, $subject, $html, $headers);
+    $sent = @mail($email, '=?UTF-8?B?' . base64_encode($subject) . '?=', $html, $headers);
 
     jsonOk(['sent' => $sent, 'email' => $email, 'type' => $type, 'numero' => $docNum]);
 }
