@@ -2408,12 +2408,9 @@ function initPjMap(){
   var lng = parseFloat(document.getElementById('pj-lng').value) || 10.99;
 
   _pjMap = L.map(container, {zoomControl:true}).setView([lat, lng], 13);
-  // Couche satellite Esri
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    {attribution:'Esri World Imagery', maxZoom:19}).addTo(_pjMap);
-  // Couche étiquettes par-dessus
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-    {attribution:'', maxZoom:19, subdomains:'abcd', opacity:1}).addTo(_pjMap);
+  // Google Maps satellite + labels (comme le site public)
+  L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    {attribution:'© Google', maxZoom:21}).addTo(_pjMap);
 
   var markerIcon = L.divIcon({
     className:'',
