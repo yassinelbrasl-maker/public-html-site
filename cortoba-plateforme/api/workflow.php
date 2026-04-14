@@ -506,3 +506,54 @@ function sendDocument($user) {
 
     jsonOk(['sent' => $sent, 'email' => $email, 'type' => $type, 'numero' => $docNum]);
 }
+
+// ============================================================
+//  Publier une facture au portail client (Documents partagés)
+// ============================================================
+function publishInvoiceToPortal($user) {
+    $body = getBody();
+    $factureId = $body['facture_id'] ?? '';
+    if (!$factureId) jsonError('facture_id requis');
+
+    $db = getDB();
+
+    // Charger la facture
+    $s = $db->prepare("SELECT id, numero, objet, client_id, projet_id, net_payer, montant_ttc,
+                        montant_ht, tva, date_echeance, mission_phase FROM CA_factures WHERE id = ?");
+    $s->execute([$factureId]);
+    $f = $s->fetch(\PDO::FETCH_ASSOC);
+    if (!$f) jsonError('Facture introuvable', 404);
+
+    $clientId = $f['client_id'] ?? '';
+    $projetId = $f['projet_id'] ?? '';
+    if (!$clientId) jsonError('Cette facture n\'a pas de client_id associé');
+    if (!$projetId) jsonError('Cette facture n\'a pas de projet_id associé');
+
+    $numero = $f['numero'] ?? '';
+    $montant = (float)($f['net_payer'] ?: $f['montant_ttc']);
+    $titre = 'Facture ' . $numero;
+
+    // Vérifier si déjà publiée
+    $check = $db->prepare("SELECT id FROM CA_client_documents WHERE client_id = ? AND projet_id = ? AND titre = ? AND statut != 'Remplace'");
+    $check->execute([$clientId, $projetId, $titre]);
+    if ($check->fetch()) {
+        jsonError('Cette facture est déjà publiée au portail client');
+    }
+
+    // Créer l'entrée dans CA_client_documents
+    $docId = bin2hex(random_bytes(16));
+    $description = $titre . ' — ' . htmlspecialchars($f['objet'] ?? '') . ' — Montant : ' . number_format($montant, 2, ',', ' ') . ' TND';
+
+    $db->prepare("INSERT INTO CA_client_documents
+                  (id, projet_id, client_id, categorie, titre, description, fichier_url, fichier_nom,
+                   fichier_taille, version, parent_doc_id, phase, statut, uploaded_by, uploaded_by_type, cree_at)
+                  VALUES (?, ?, ?, 'facture', ?, ?, NULL, ?, 0, 1, NULL, ?, 'Nouveau', ?, 'team', NOW())")
+       ->execute([
+           $docId, $projetId, $clientId, $titre, $description,
+           'Facture_' . $numero . '.pdf',
+           $f['mission_phase'] ?? null,
+           $user['name'] ?? 'Equipe'
+       ]);
+
+    jsonOk(['id' => $docId, 'facture_id' => $factureId, 'titre' => $titre], 201);
+}
