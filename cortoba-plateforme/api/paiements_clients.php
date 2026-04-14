@@ -51,6 +51,14 @@ function ensurePaiementsClientsSchema() {
     try { $db->exec("ALTER TABLE CA_paiements_clients MODIFY `mission_phase` varchar(500) DEFAULT NULL"); } catch (\Throwable $e) {}
     try { $db->exec("ALTER TABLE CA_paiements_clients MODIFY `devis_id` varchar(32) DEFAULT NULL"); } catch (\Throwable $e) {}
 
+    // Ensure CA_clients has mf column (needed by receipt queries)
+    try {
+        $cols = array_column($db->query("SHOW COLUMNS FROM CA_clients")->fetchAll(), 'Field');
+        if (!in_array('mf', $cols)) {
+            $db->exec("ALTER TABLE CA_clients ADD COLUMN mf VARCHAR(80) DEFAULT NULL AFTER matricule");
+        }
+    } catch (\Throwable $e) {}
+
     $done = true;
 }
 
@@ -79,6 +87,11 @@ try {
             $user = requireAuth();
             if ($method !== 'POST') jsonError('POST requis', 405);
             createPaiementClient($user);
+            break;
+        case 'update':
+            $user = requireAuth();
+            if ($method !== 'PUT' && $method !== 'POST') jsonError('PUT/POST requis', 405);
+            updatePaiementClient($user);
             break;
         case 'delete':
             $user = requireAuth();
@@ -396,6 +409,59 @@ function createPaiementClient($user) {
         'devis_statut' => $statut,
         'est_solde' => $statut === 'solde',
     ]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════════════════════════════
+
+function updatePaiementClient($user) {
+    $id = $_GET['id'] ?? '';
+    if (!$id) jsonError('id requis');
+    $role = $user['role'] ?? '';
+    if ($role !== 'admin' && $role !== 'Architecte gérant') jsonError('Accès refusé', 403);
+
+    $db = getDB();
+    $s = $db->prepare("SELECT * FROM CA_paiements_clients WHERE id = ?");
+    $s->execute([$id]);
+    $old = $s->fetch(\PDO::FETCH_ASSOC);
+    if (!$old) jsonError('Paiement introuvable', 404);
+
+    $body = getBody();
+    $montant       = isset($body['montant']) ? (float)$body['montant'] : (float)$old['montant'];
+    $datePaiement  = $body['date_paiement'] ?? $old['date_paiement'];
+    $modePaiement  = $body['mode_paiement'] ?? $old['mode_paiement'];
+    $reference     = $body['reference'] ?? $old['reference'];
+    $typePaiement  = $body['type_paiement'] ?? $old['type_paiement'];
+    $notes         = $body['notes'] ?? $old['notes'];
+
+    if ($montant <= 0) jsonError('Montant invalide');
+
+    $db->prepare("UPDATE CA_paiements_clients SET montant=?, date_paiement=?, mode_paiement=?, reference=?, type_paiement=?, notes=? WHERE id=?")
+       ->execute([$montant, $datePaiement, $modePaiement, $reference, $typePaiement, $notes, $id]);
+
+    // Recalculate devis totals
+    $devisId = $old['devis_id'];
+    if ($devisId) {
+        $s = $db->prepare("SELECT COALESCE(SUM(montant),0) FROM CA_paiements_clients WHERE devis_id = ?");
+        $s->execute([$devisId]);
+        $totalPaye = (float)$s->fetchColumn();
+
+        $s = $db->prepare("SELECT montant_ttc FROM CA_devis WHERE id = ?");
+        $s->execute([$devisId]);
+        $montantDevis = (float)$s->fetchColumn();
+
+        $statut = 'non_paye';
+        if ($totalPaye >= $montantDevis - 0.01) $statut = 'solde';
+        elseif ($totalPaye > 0) $statut = 'partiel';
+
+        $db->prepare("UPDATE CA_devis SET montant_paye = ?, paiement_statut = ? WHERE id = ?")
+           ->execute([$totalPaye, $statut, $devisId]);
+    }
+
+    $s = $db->prepare("SELECT * FROM CA_paiements_clients WHERE id = ?");
+    $s->execute([$id]);
+    jsonOk($s->fetch(\PDO::FETCH_ASSOC));
 }
 
 // ═══════════════════════════════════════════════════════════════

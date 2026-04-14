@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `CA_clients` (
   `nom` varchar(80) DEFAULT NULL,
   `raison` varchar(200) DEFAULT NULL,
   `matricule` varchar(80) DEFAULT NULL,
+  `mf` varchar(80) DEFAULT NULL,
   `display_nom` varchar(200) NOT NULL,
   `email` varchar(180) DEFAULT NULL,
   `tel` varchar(40) DEFAULT NULL,

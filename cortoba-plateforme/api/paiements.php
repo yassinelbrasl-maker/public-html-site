@@ -67,6 +67,14 @@ function ensurePaiementsSchema() {
         try { $db->exec("ALTER TABLE CA_factures $a"); } catch (\Throwable $e) {}
     }
 
+    // Ensure CA_clients has mf column (needed by receipt queries)
+    try {
+        $cols = array_column($db->query("SHOW COLUMNS FROM CA_clients")->fetchAll(), 'Field');
+        if (!in_array('mf', $cols)) {
+            $db->exec("ALTER TABLE CA_clients ADD COLUMN mf VARCHAR(80) DEFAULT NULL AFTER matricule");
+        }
+    } catch (\Throwable $e) {}
+
     $done = true;
 }
 
@@ -565,7 +573,7 @@ function getReceiptData() {
                f.montant_ht, f.montant_ttc, f.net_payer, f.montant_paye,
                f.statut AS facture_statut,
                c.display_nom AS client_nom, c.adresse AS client_adresse,
-               c.mf AS client_mf, c.email AS client_email, c.telephone AS client_tel,
+               c.mf AS client_mf, c.email AS client_email, c.tel AS client_tel,
                pr.nom AS projet_nom, pr.code AS projet_code
         FROM CA_paiements p
         LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = p.facture_id COLLATE utf8mb4_unicode_ci
