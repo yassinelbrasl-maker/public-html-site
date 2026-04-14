@@ -18,7 +18,13 @@ function setCorsHeaders() {
 
 function jsonOk($data, int $code = 200) {
     http_response_code($code);
-    echo json_encode(['success' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
+    $json = json_encode(['success' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
+    if ($json === false) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Erreur encodage JSON : ' . json_last_error_msg()]);
+    } else {
+        echo $json;
+    }
     exit;
 }
 
