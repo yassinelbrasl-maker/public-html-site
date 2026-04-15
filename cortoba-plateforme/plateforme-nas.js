@@ -7020,6 +7020,9 @@ function renderMembreCard(m) {
   return '<div class="card" style="position:relative">'
     // Actions
     + '<div style="position:absolute;top:0.8rem;right:0.8rem;display:flex;gap:0.3rem">'
+    + '<button class="btn btn-sm" onclick="openMembrePreview(\''+m.id+'\')" title="Aperçu de la plateforme selon ce membre" style="color:var(--accent)">'
+    + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+    + '</button>'
     + '<button class="btn btn-sm" onclick="editMembre(\''+m.id+'\')" title="Modifier">'
     + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
     + '</button>'
@@ -7060,6 +7063,168 @@ function renderMembreCard(m) {
 function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── Aperçu de la plateforme selon un membre (simulation) ──
+function openMembrePreview(membreId) {
+  var m = getMembres().find(function(x){ return x.id === membreId; });
+  if (!m) { showToast && showToast('Membre introuvable', 'error'); return; }
+
+  var role = m.role || '—';
+  var roleLower = role.toLowerCase();
+  var isGerant = role === 'Architecte gérant';
+  var isStagiaire = roleLower === 'stagiaire';
+  var roleGroup = isGerant ? null : (isStagiaire ? 'stagiaire' : 'membre');
+
+  var allowedModules = Array.isArray(m.modules) ? m.modules.slice() : [];
+  // Un gérant a accès à tout par défaut
+  if (isGerant && allowedModules.length === 0) {
+    allowedModules = MODULES_PLATEFORME_SECTIONS.reduce(function(acc, sec){
+      sec.modules.forEach(function(mod){ acc.push(mod.id); });
+      return acc;
+    }, []);
+  }
+
+  var totalModules = MODULES_PLATEFORME_SECTIONS.reduce(function(n,s){ return n+s.modules.length; }, 0);
+  var nbAccessibles = allowedModules.length;
+
+  // Restrictions appliquées
+  var restrictions = getRestrictions();
+  var ruleSet = roleGroup ? (restrictions[roleGroup] || {}) : {};
+
+  // Couleurs/métadonnées du rôle
+  var meta = roleGroup ? (_ROLE_META[roleGroup] || {}) : {
+    label: 'Accès complet', color: 'var(--accent)',
+    bg: 'rgba(200,169,110,0.12)', border: 'rgba(200,169,110,0.25)',
+    icon: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    desc: 'Architecte gérant — aucune restriction'
+  };
+
+  // ── En-tête membre ──
+  var header = ''
+    + '<div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;margin-bottom:1.2rem;flex-wrap:wrap">'
+    + renderAvatarHtml(m, 'member-avatar')
+    + '<div style="flex:1;min-width:180px">'
+    +   '<div style="font-size:0.95rem;font-weight:500;color:var(--text)">'+escHtml(m.prenom+' '+(m.nom||''))+'</div>'
+    +   '<div style="font-size:0.72rem;color:var(--text-3);margin-top:2px">'+escHtml(role)+(m.spec?' · '+escHtml(m.spec):'')+'</div>'
+    + '</div>'
+    + '<span style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.28rem 0.8rem;border-radius:20px;font-size:0.72rem;background:'+meta.bg+';color:'+meta.color+';border:1px solid '+meta.border+';font-weight:600;letter-spacing:0.04em">'
+    +   (meta.icon||'') + (isGerant ? 'Accès complet' : meta.label)
+    + '</span>'
+    + '<div style="font-size:0.72rem;color:var(--text-3);display:flex;flex-direction:column;align-items:flex-end;gap:2px">'
+    +   '<div><span style="color:var(--accent);font-weight:600;font-size:0.88rem">'+nbAccessibles+'</span> / '+totalModules+' modules</div>'
+    +   '<div>'+escHtml(m.statut || 'Actif')+'</div>'
+    + '</div>'
+    + '</div>';
+
+  // ── Bandeau d'info ──
+  var infoBanner = ''
+    + '<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.7rem 0.9rem;background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.2);border-radius:6px;margin-bottom:1.2rem;font-size:0.76rem;color:var(--text-2);line-height:1.5">'
+    +   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+    +   '<div>Simulation en lecture seule. L\'interface ci-dessous reflète les modules et actions accessibles à ce membre lorsqu\'il se connecte à la plateforme.</div>'
+    + '</div>';
+
+  // ── Sidebar simulée (modules par section) ──
+  var sidebarHtml = '<div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem;font-weight:600">Navigation visible</div>';
+  sidebarHtml += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
+  MODULES_PLATEFORME_SECTIONS.forEach(function(sec){
+    var visibles = sec.modules.filter(function(mod){ return allowedModules.indexOf(mod.id) !== -1; });
+    if (visibles.length === 0) return; // on masque les sections sans aucun module visible, comme dans la vraie plateforme
+    sidebarHtml += '<div style="padding:0.6rem 0.9rem;border-bottom:1px solid var(--border);background:var(--bg-1)">'
+      + '<div style="font-size:0.66rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.4rem">'+escHtml(sec.section)+'</div>'
+      + '<div style="display:flex;flex-direction:column;gap:0.2rem">';
+    visibles.forEach(function(mod){
+      sidebarHtml += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.38rem 0.55rem;border-radius:4px;background:var(--bg-2);font-size:0.78rem;color:var(--text-2)">'
+        + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
+        + escHtml(mod.label)
+        + '</div>';
+    });
+    sidebarHtml += '</div></div>';
+  });
+  if (nbAccessibles === 0) {
+    sidebarHtml += '<div style="padding:1.5rem 1rem;text-align:center;font-size:0.78rem;color:var(--text-3)">Aucun module accordé à ce membre.</div>';
+  }
+  sidebarHtml += '</div>';
+
+  // ── Modules refusés ──
+  var refusedHtml = '';
+  var refusedCount = totalModules - nbAccessibles;
+  if (refusedCount > 0 && !isGerant) {
+    refusedHtml = '<div style="margin-top:1.2rem"><div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.6rem;font-weight:600">Modules non accessibles ('+refusedCount+')</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
+    MODULES_PLATEFORME_SECTIONS.forEach(function(sec){
+      sec.modules.forEach(function(mod){
+        if (allowedModules.indexOf(mod.id) === -1) {
+          refusedHtml += '<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.18rem 0.55rem;border-radius:20px;font-size:0.68rem;background:var(--bg-3);border:1px solid var(--border);color:var(--text-3);text-decoration:line-through;opacity:0.7">'
+            + escHtml(mod.label) + '</span>';
+        }
+      });
+    });
+    refusedHtml += '</div></div>';
+  }
+
+  // ── Restrictions d'actions (création, suppression, etc.) ──
+  var restrictionsHtml = '<div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem;font-weight:600">Actions autorisées</div>';
+  restrictionsHtml += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:0.8rem">';
+  if (isGerant) {
+    restrictionsHtml += '<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.7rem;background:rgba(88,166,135,0.08);border:1px solid rgba(88,166,135,0.25);border-radius:6px;font-size:0.78rem;color:var(--green)">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>'
+      + 'Aucune restriction — accès administrateur complet.</div>';
+  } else {
+    var keys = Object.keys(ruleSet);
+    if (keys.length === 0) {
+      restrictionsHtml += '<div style="font-size:0.78rem;color:var(--text-3)">Aucune règle configurée.</div>';
+    } else {
+      restrictionsHtml += '<div style="display:grid;grid-template-columns:1fr;gap:0.35rem">';
+      keys.forEach(function(key){
+        var blocked = ruleSet[key] === true;
+        var label = _RESTRICTION_LABELS[key] || key;
+        restrictionsHtml += '<div style="display:flex;align-items:center;gap:0.55rem;padding:0.45rem 0.65rem;background:'+(blocked?'rgba(224,112,112,0.06)':'rgba(88,166,135,0.06)')+';border:1px solid '+(blocked?'rgba(224,112,112,0.22)':'rgba(88,166,135,0.22)')+';border-radius:5px;font-size:0.77rem">'
+          + (blocked
+              ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>'
+              : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>')
+          + '<span style="flex:1;color:'+(blocked?'#e07b72':'var(--text-2)')+'">'+escHtml(label)+'</span>'
+          + '<span style="font-size:0.68rem;color:var(--text-3);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">'+(blocked?'Bloqué':'Autorisé')+'</span>'
+          + '</div>';
+      });
+      restrictionsHtml += '</div>';
+    }
+  }
+  restrictionsHtml += '</div>';
+
+  // Accès aux zones UI sensibles (reflète canViewSensitiveMember / applyModuleAccess)
+  var sensitiveHtml = '<div style="margin-top:1.2rem"><div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.6rem;font-weight:600">Zones UI sensibles</div>';
+  var voitRemuTabs = isGerant; // Rémunération / Augmentation : admin / gérant uniquement
+  var voitRestrictionsCard = isGerant; // Carte "Restrictions par rôle"
+  var voitParamRoles = isGerant; // Gestion des rôles dans Paramètres
+  var sensitiveRows = [
+    { label: 'Onglets Rémunération / Augmentation',          ok: voitRemuTabs },
+    { label: 'Carte "Restrictions par rôle" (page Équipe)',  ok: voitRestrictionsCard },
+    { label: 'Gestion des rôles (Paramètres)',               ok: voitParamRoles }
+  ];
+  sensitiveHtml += '<div style="display:flex;flex-direction:column;gap:0.3rem">';
+  sensitiveRows.forEach(function(row){
+    sensitiveHtml += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border:1px solid var(--border);border-radius:5px;font-size:0.76rem">'
+      + (row.ok
+          ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+          : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>')
+      + '<span style="flex:1;color:'+(row.ok?'var(--text-2)':'var(--text-3)')+'">'+escHtml(row.label)+'</span>'
+      + '<span style="font-size:0.68rem;color:var(--text-3);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">'+(row.ok?'Visible':'Masqué')+'</span>'
+      + '</div>';
+  });
+  sensitiveHtml += '</div></div>';
+
+  // ── Assemblage ──
+  var body = header + infoBanner
+    + '<div style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(260px,1fr);gap:1.2rem">'
+    +   '<div>' + sidebarHtml + refusedHtml + '</div>'
+    +   '<div>' + restrictionsHtml + sensitiveHtml + '</div>'
+    + '</div>';
+
+  var container = document.getElementById('mb-preview-body');
+  if (container) container.innerHTML = body;
+  openModal('modal-membre-preview');
+}
+window.openMembrePreview = openMembrePreview;
 
 // ── Tableau récap accès ──
 function toggleMembreModuleAccess(membreId, moduleId) {
