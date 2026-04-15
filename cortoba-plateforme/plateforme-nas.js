@@ -1484,23 +1484,40 @@ function openEditClient(id) {
   }
 
   // Groupe
-  if (c.groupe && c.type === 'groupe') {
-    // Sélectionner le radio groupe
+  if (c.type === 'groupe') {
+    // Sélectionner le radio groupe (la partie code/fields groupe s'affiche via togglePersonneType)
     var grRadio = document.getElementById('cl-type-groupe');
     if (grRadio) { grRadio.checked = true; togglePersonneType(); }
     var gbTitre = document.getElementById('cl-groupe-titre');
-    if (gbTitre) gbTitre.value = c.groupe.titre||'';
-    if (c.groupe.membres && c.groupe.membres.length) {
+    if (gbTitre && c.groupe) gbTitre.value = c.groupe.titre||'';
+    // Extraire et afficher le code groupe existant (ex: 'GNL001' → lettres='GNL', num='001')
+    if (c.code) {
+      var mCode = c.code.match(/^([A-Z]+)(\d+)$/);
+      if (mCode) {
+        var letEl = document.getElementById('cl-code-groupe-lettres');
+        if (letEl) letEl.value = mCode[1];
+        var numEl2 = document.getElementById('cl-code-groupe-num');
+        if (numEl2) numEl2.textContent = '→ Code : '+c.code+' · N° '+String(c.numClient||0).padStart(4,'0');
+      }
+    }
+    // Repeupler les membres (sans écraser prenom/nom par prefillMembreFromClient)
+    if (c.groupe && c.groupe.membres && c.groupe.membres.length) {
       c.groupe.membres.forEach(function(m){
         addGroupeMembre();
         var list = document.getElementById('cl-groupe-list');
         if (!list) return;
         var last = list.lastElementChild;
         if (!last) return;
-        var nomEl2 = last.querySelector('.cl-gm-nom');  if (nomEl2) nomEl2.value = m.nom||'';
-        var roleEl = last.querySelector('.cl-gm-role'); if (roleEl) roleEl.value = m.role||'';
-        var telEl  = last.querySelector('.cl-gm-tel');  if (telEl)  telEl.value  = m.tel||'';
-        var selEl  = last.querySelector('.cl-gm-id');   if (selEl)  selEl.value  = m.clientId||'';
+        var prenomEl2 = last.querySelector('.cl-gm-prenom'); if (prenomEl2) prenomEl2.value = m.prenom||'';
+        var nomEl2    = last.querySelector('.cl-gm-nom');    if (nomEl2)    nomEl2.value    = m.nom||'';
+        var roleEl    = last.querySelector('.cl-gm-role');   if (roleEl)    roleEl.value    = m.role||'';
+        var telEl     = last.querySelector('.cl-gm-tel');    if (telEl)     telEl.value     = m.tel||'';
+        // Définir le client lié SANS déclencher prefill (qui écraserait les valeurs ci-dessus)
+        var selEl = last.querySelector('.cl-gm-id');
+        if (selEl && m.clientId) {
+          var opt = selEl.querySelector('option[value="'+m.clientId+'"]');
+          if (opt) opt.selected = true;
+        }
         // Cocher le mandataire
         if (m.mandataire) {
           var radio = last.querySelector('input[type=radio]');
@@ -1510,8 +1527,17 @@ function openEditClient(id) {
     }
   }
 
+  // Initialiser les selects extensibles AVANT de restaurer source/statut
+  // pour que les options personnalisées soient disponibles
+  initExtensibleSelects();
+  // Re-appliquer source et statut au cas où l'option était une valeur personnalisée
+  if (srcEl && c.source) srcEl.value = c.source;
+  if (statutEl && c.statut) statutEl.value = c.statut;
+  // Re-toggler la visibilité du détail source maintenant que la valeur est correcte
+  toggleSourceDetail();
+  if (srcDetEl) srcDetEl.value = c.sourceDetail||'';
+
   document.getElementById('modal-client').classList.add('open');
-  setTimeout(initExtensibleSelects, 80);
 }
 
 // ══════════════════════════════════════════════════════════
