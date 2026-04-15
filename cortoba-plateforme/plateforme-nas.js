@@ -5365,7 +5365,7 @@ function getNavModuleIds() {
   if (!NAV_MODULE_IDS && typeof MODULES_PLATEFORME !== 'undefined' && Array.isArray(MODULES_PLATEFORME) && MODULES_PLATEFORME.length > 0) {
     NAV_MODULE_IDS = MODULES_PLATEFORME.map(function(m){ return m.id; });
   }
-  return NAV_MODULE_IDS || ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','facturation','bilans','depenses','fiscalite','equipe','clients','demandes-admin','conges','parametres','chantier','chantier-journal','chantier-intervenants','chantier-reunions','chantier-photos','chantier-reserves','chantier-visas','chantier-securite','flotte','flotte-reservations','flotte-km','flotte-entretien','flotte-couts','flotte-conformite','portail','portail-docs','portail-messages'];
+  return NAV_MODULE_IDS || ['dashboard','demandes','devis','projets','suivi','journal','rendement','timesheet','gantt','charge','paiements-clients','facturation','bilans','depenses','fiscalite','honoraires','equipe','clients','conges','demandes-admin','journal-membres','chantier','chantier-journal','chantier-intervenants','chantier-reunions','chantier-photos','chantier-reserves','chantier-visas','chantier-securite','flotte','flotte-reservations','flotte-km','flotte-entretien','flotte-couts','flotte-conformite','portail','portail-docs','portail-messages','portail-journal','corbeille','parametres'];
 }
 
 // Lire la session courante
@@ -6897,7 +6897,7 @@ var MODULES_PLATEFORME_SECTIONS = [
     { id: 'dashboard',   label: 'Tableau de bord' },
   ]},
   { section: 'Activité', modules: [
-    { id: 'demandes',    label: 'Demandes' },
+    { id: 'demandes',    label: 'Demandes configurateur' },
     { id: 'devis',       label: 'Offres & Devis' },
     { id: 'projets',     label: 'Projets' },
     { id: 'suivi',       label: 'Suivi' },
@@ -6906,12 +6906,14 @@ var MODULES_PLATEFORME_SECTIONS = [
     { id: 'timesheet',   label: 'Timesheet' },
     { id: 'gantt',       label: 'Gantt' },
     { id: 'charge',      label: 'Charge de travail' },
-    { id: 'facturation', label: 'Facturation' },
   ]},
   { section: 'Finance', modules: [
-    { id: 'bilans',      label: 'Bilans' },
-    { id: 'depenses',    label: 'Dépenses' },
-    { id: 'fiscalite',   label: 'Fiscalité' },
+    { id: 'paiements-clients', label: 'Paiements clients' },
+    { id: 'facturation',       label: 'Facturation' },
+    { id: 'bilans',            label: 'Bilans' },
+    { id: 'depenses',          label: 'Dépenses' },
+    { id: 'fiscalite',         label: 'Fiscalité' },
+    { id: 'honoraires',        label: 'Suivi honoraires' },
   ]},
   { section: 'Ressources', modules: [
     { id: 'equipe',          label: 'Équipe' },
@@ -6942,7 +6944,7 @@ var MODULES_PLATEFORME_SECTIONS = [
     { id: 'portail',          label: 'Comptes clients' },
     { id: 'portail-docs',     label: 'Documents partagés' },
     { id: 'portail-messages', label: 'Messages clients' },
-    { id: 'portail-journal', label: "Journal acces clients" },
+    { id: 'portail-journal',  label: "Journal acces clients" },
   ]},
   { section: 'Paramètres', modules: [
     { id: 'corbeille',   label: 'Corbeille' },
