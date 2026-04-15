@@ -762,6 +762,9 @@ function _paiBuildMissionDropdownItems() {
 }
 
 // Auto-affecte une mission au projet courant puis rafraîchit les dropdowns
+// IMPORTANT : la mutation du cache local se fait UNIQUEMENT en cas de succès de l'API.
+// Ainsi, si l'utilisateur annule (selectPaiMission a déjà filtré avant l'appel),
+// ou si l'API échoue, l'état local reste cohérent avec le serveur.
 function _paiAffecterMissionAuProjet(missionNom, onDone) {
   if (!_paiProjetId || !missionNom) { if (typeof onDone === 'function') onDone(false); return; }
   var projets = typeof getProjets === 'function' ? getProjets() : [];
@@ -773,10 +776,17 @@ function _paiAffecterMissionAuProjet(missionNom, onDone) {
   // Trouver l'ID de la mission dans le catalogue et stocker au format "id_nom"
   var missionObj = (typeof getMissions === 'function' ? getMissions() : []).find(function(m) { return m.nom === missionNom; });
   var toPush = missionObj ? (missionObj.id + '_' + missionObj.nom) : missionNom;
-  rawList.push(toPush);
-  projet.missions = rawList;
-  apiFetch('api/projets.php?id=' + projet.id, { method: 'PUT', body: { missions: rawList } })
+  var newList = rawList.slice();
+  newList.push(toPush);
+  // ⚠️ NE PAS muter projet.missions ici — uniquement après succès API.
+  // Endpoint partiel dédié : action=affect_mission (n'écrase pas les autres champs du projet)
+  apiFetch('api/projets.php?action=affect_mission&id=' + encodeURIComponent(projet.id), {
+    method: 'PUT',
+    body: { missions: newList }
+  })
     .then(function() {
+      // ✓ API OK → mise à jour du cache local maintenant seulement
+      projet.missions = newList;
       if (typeof showToast === 'function') showToast('✓ Mission ajoutée au projet');
       if (typeof onDone === 'function') onDone(true);
     })
@@ -1350,10 +1360,33 @@ function savePaiement() {
     return;
   }
 
+  // Résoudre le client_id côté client pour que le paiement soit correctement lié :
+  // CA_projets n'a pas de client_id, on passe donc par le client_code du projet.
+  var clientIdResolved = null;
+  try {
+    var projets = (typeof getProjets === 'function') ? getProjets() : [];
+    var projet = projets.filter(function(p){ return p.id == _paiProjetId; })[0];
+    if (projet) {
+      var clients = (typeof getClients === 'function') ? getClients() : [];
+      if (projet.client_code) {
+        var match = clients.filter(function(c){ return c.code === projet.client_code; })[0];
+        if (match) clientIdResolved = match.id;
+      }
+      // Fallback : match par nom si pas de code
+      if (!clientIdResolved && projet.client) {
+        var matchN = clients.filter(function(c){
+          return (c.display_nom || c.nom || '').toLowerCase() === (projet.client || '').toLowerCase();
+        })[0];
+        if (matchN) clientIdResolved = matchN.id;
+      }
+    }
+  } catch (e) { /* non-bloquant */ }
+
   apiFetch('api/paiements_clients.php?action=create', {
     method: 'POST',
     body: {
       projet_id: _paiProjetId,
+      client_id: clientIdResolved,
       devis_id: devisId,
       mission_phase: missionPhaseValue,
       missions: allMissions.length > 0 ? allMissions : null,
@@ -1799,18 +1832,54 @@ function renderPcHistoryTable() {
   if (!tbody) return;
   var hist = (_pcCache.history || []).slice(0, 25);
   if (!hist.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text-3)">Aucun paiement enregistré</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--text-3)">Aucun paiement enregistré</td></tr>';
     return;
   }
   var typeColors = { avance:'var(--blue)', tranche:'var(--accent)', solde:'var(--green)', total:'var(--green)' };
+  // Fallback : si le backend ne renvoie pas client_nom / projet_nom (anciens paiements
+  // sans client_id, ou cache pas encore rafraîchi), on va les chercher dans les caches JS.
+  var projets = (typeof getProjets === 'function') ? getProjets() : [];
+  var clients = (typeof getClients === 'function') ? getClients() : [];
+  var projById = {}; projets.forEach(function(pr){ projById[pr.id] = pr; });
+  var cliByCode = {}; clients.forEach(function(cl){ if (cl.code) cliByCode[cl.code] = cl; });
+  var cliById = {}; clients.forEach(function(cl){ if (cl.id) cliById[cl.id] = cl; });
+
   var html = '';
   hist.forEach(function(p) {
     var d = new Date(p.date_paiement);
     var dStr = isNaN(d) ? (p.date_paiement||'') : d.toLocaleDateString('fr-FR');
     var typeC = typeColors[p.type_paiement] || 'var(--text-3)';
+
+    // ── Résolution Projet (code + nom) ──
+    var projetLabel = '—';
+    var pr = p.projet_id ? projById[p.projet_id] : null;
+    var projetNom = p.projet_nom || (pr && pr.nom) || '';
+    var projetCode = p.projet_code || (pr && pr.code) || '';
+    if (projetCode || projetNom) {
+      projetLabel = (projetCode ? '<strong>' + projetCode + '</strong>' : '') +
+                    (projetCode && projetNom ? ' — ' : '') +
+                    (projetNom || '');
+    }
+
+    // ── Résolution Client (fallback JS si backend ne le retourne pas) ──
+    var clientNom = p.client_nom || '';
+    if (!clientNom && p.client_id && cliById[p.client_id]) {
+      clientNom = cliById[p.client_id].display_nom || cliById[p.client_id].nom || '';
+    }
+    if (!clientNom && pr) {
+      // Essayer via client_code du projet
+      if (pr.client_code && cliByCode[pr.client_code]) {
+        clientNom = cliByCode[pr.client_code].display_nom || cliByCode[pr.client_code].nom || '';
+      }
+      // Ultime fallback : le champ libre "client" du projet
+      if (!clientNom && pr.client) clientNom = pr.client;
+    }
+    if (!clientNom) clientNom = '—';
+
     html += '<tr style="border-bottom:1px solid var(--border)">' +
       '<td style="padding:0.5rem 0.6rem">'+dStr+'</td>' +
-      '<td style="padding:0.5rem 0.6rem">'+(p.client_nom||'—')+'</td>' +
+      '<td style="padding:0.5rem 0.6rem">'+clientNom+'</td>' +
+      '<td style="padding:0.5rem 0.6rem;font-size:0.78rem;color:var(--text-2)">'+projetLabel+'</td>' +
       '<td style="padding:0.5rem 0.6rem"><strong>'+(p.devis_numero||'—')+'</strong></td>' +
       '<td style="padding:0.5rem 0.6rem;text-align:right;color:var(--green);font-weight:600">'+fmtTND(p.montant)+'</td>' +
       '<td style="padding:0.5rem 0.6rem;text-align:center"><span style="background:'+typeC+';color:#fff;padding:0.15rem 0.5rem;border-radius:10px;font-size:0.7rem;text-transform:uppercase">'+(p.type_paiement||'—')+'</span></td>' +

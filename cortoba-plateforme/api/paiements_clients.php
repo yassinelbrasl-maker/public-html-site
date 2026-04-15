@@ -59,6 +59,36 @@ function ensurePaiementsClientsSchema() {
         }
     } catch (\Throwable $e) {}
 
+    // Backfill idempotent : renseigner pc.client_id pour les anciens paiements
+    // qui n'en ont pas, en résolvant via le client_code du projet.
+    // (CA_projets n'a pas de client_id → on passe par client_code → CA_clients.code)
+    try {
+        $db->exec("
+            UPDATE CA_paiements_clients pc
+            JOIN CA_projets p
+                ON p.id COLLATE utf8mb4_unicode_ci = pc.projet_id COLLATE utf8mb4_unicode_ci
+            JOIN CA_clients c
+                ON c.code COLLATE utf8mb4_unicode_ci = p.client_code COLLATE utf8mb4_unicode_ci
+            SET pc.client_id = c.id
+            WHERE (pc.client_id IS NULL OR pc.client_id = '')
+              AND p.client_code IS NOT NULL
+              AND p.client_code <> ''
+        ");
+    } catch (\Throwable $e) {}
+
+    // Backfill supplémentaire via le devis lié (quand le devis a déjà un client_id)
+    try {
+        $db->exec("
+            UPDATE CA_paiements_clients pc
+            JOIN CA_devis d
+                ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
+            SET pc.client_id = d.client_id
+            WHERE (pc.client_id IS NULL OR pc.client_id = '')
+              AND d.client_id IS NOT NULL
+              AND d.client_id <> ''
+        ");
+    } catch (\Throwable $e) {}
+
     $done = true;
 }
 
@@ -135,17 +165,24 @@ function listPaiementsClients() {
         // Filter devis by paiement_statut
     }
 
+    // NB : CA_projets n'a pas de colonne client_id, uniquement client (nom) et client_code.
+    // On fait donc un double fallback pour résoudre le client :
+    //   1) pc.client_id → CA_clients.id (cas standard)
+    //   2) p.client_code → CA_clients.code (fallback)
+    //   3) p.client (nom brut du projet)
     $stmt = $db->prepare("
         SELECT pc.*,
             d.numero AS devis_numero, d.objet AS devis_objet, d.montant_ttc AS devis_montant,
             d.montant_paye AS devis_total_paye, d.paiement_statut,
-            c.display_nom AS client_nom, c.email AS client_email,
+            COALESCE(NULLIF(c.display_nom, ''), NULLIF(c2.display_nom, ''), p.client) AS client_nom,
+            COALESCE(c.email, c2.email) AS client_email,
             p.nom AS projet_nom, p.code AS projet_code,
             f.numero AS facture_numero
         FROM CA_paiements_clients pc
         LEFT JOIN CA_devis d ON d.id COLLATE utf8mb4_unicode_ci = pc.devis_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_clients c ON c.id COLLATE utf8mb4_unicode_ci = pc.client_id COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_projets p ON p.id COLLATE utf8mb4_unicode_ci = pc.projet_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN CA_clients c2 ON c2.code COLLATE utf8mb4_unicode_ci = p.client_code COLLATE utf8mb4_unicode_ci
         LEFT JOIN CA_factures f ON f.id COLLATE utf8mb4_unicode_ci = pc.facture_id COLLATE utf8mb4_unicode_ci
         WHERE $where
         ORDER BY pc.date_paiement DESC, pc.cree_at DESC
@@ -308,10 +345,19 @@ function createPaiementClient($user) {
     $projetId = $devis['projet_id'] ?? $projetIdBody ?? null;
     $clientId = $devis['client_id'] ?? ($body['client_id'] ?? null);
 
-    // Si pas de client_id mais on a un projet → résoudre via projet
+    // Si pas de client_id mais on a un projet → résoudre via projet.
+    // NB : CA_projets n'a PAS de colonne client_id, seulement client_code.
+    // On cherche donc CA_clients.id via le client_code du projet.
     if (!$clientId && $projetId) {
         try {
-            $s = $db->prepare("SELECT client_id FROM CA_projets WHERE id = ?");
+            $s = $db->prepare("
+                SELECT c.id
+                FROM CA_projets p
+                LEFT JOIN CA_clients c
+                    ON c.code COLLATE utf8mb4_unicode_ci = p.client_code COLLATE utf8mb4_unicode_ci
+                WHERE p.id = ?
+                LIMIT 1
+            ");
             $s->execute([$projetId]);
             $cid = $s->fetchColumn();
             if ($cid) $clientId = $cid;
