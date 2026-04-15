@@ -609,11 +609,11 @@ function selectPaiProjet(projetId) {
   }
   var mClear = document.getElementById('pai-mission-clear'); if (mClear) mClear.style.display = 'none';
 
-  // Show/hide "add mission" button
+  // Show/hide "add mission" button — toujours affiché dès qu'un projet est sélectionné
+  // (on peut piocher dans le catalogue si le projet n'a pas encore de missions affectées)
   var addBtn = document.getElementById('pai-add-mission-btn');
   if (addBtn) {
-    var missions = _paiGetProjetMissions();
-    addBtn.style.display = (_paiProjetId && missions.length > 1) ? '' : 'none';
+    addBtn.style.display = _paiProjetId ? '' : 'none';
   }
 
   // Reset montant restant
@@ -727,18 +727,54 @@ function _paiGetProjetMissions() {
   var raw;
   try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
   catch (e) { raw = []; }
-  var result = [];
   if (typeof window._normalizeProjetMissions === 'function') {
-    result = window._normalizeProjetMissions(raw);
-  } else {
-    result = Array.isArray(raw) ? raw.map(String) : [];
+    return window._normalizeProjetMissions(raw);
   }
-  // Fallback : si le projet n'a aucune mission affectée, proposer toutes les missions du catalogue
-  if (result.length === 0) {
-    var allMissions = typeof getMissions === 'function' ? getMissions() : [];
-    return allMissions.map(function(m) { return m.nom; });
-  }
-  return result;
+  return Array.isArray(raw) ? raw.map(String) : [];
+}
+
+// Construit la liste d'items pour le dropdown des missions :
+// missions affectées au projet d'abord, puis les autres en demi-teinte
+function _paiBuildMissionDropdownItems() {
+  var affectees = _paiGetProjetMissions();
+  var allMissions = typeof getMissions === 'function' ? getMissions() : [];
+  var items = [];
+  // 1) Missions affectées au projet (style normal)
+  affectees.forEach(function(nom) {
+    items.push({ nom: nom, unaffected: false });
+  });
+  // 2) Missions du catalogue non affectées au projet (demi-teinte)
+  allMissions.forEach(function(m) {
+    if (affectees.indexOf(m.nom) === -1) {
+      items.push({ nom: m.nom, unaffected: true });
+    }
+  });
+  return items;
+}
+
+// Auto-affecte une mission au projet courant puis rafraîchit les dropdowns
+function _paiAffecterMissionAuProjet(missionNom, onDone) {
+  if (!_paiProjetId || !missionNom) { if (typeof onDone === 'function') onDone(false); return; }
+  var projets = typeof getProjets === 'function' ? getProjets() : [];
+  var projet = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+  if (!projet) { if (typeof onDone === 'function') onDone(false); return; }
+  var rawList;
+  try { rawList = Array.isArray(projet.missions) ? projet.missions.slice() : (projet.missions ? JSON.parse(projet.missions) : []); }
+  catch (e) { rawList = []; }
+  // Trouver l'ID de la mission dans le catalogue et stocker au format "id_nom"
+  var missionObj = (typeof getMissions === 'function' ? getMissions() : []).find(function(m) { return m.nom === missionNom; });
+  var toPush = missionObj ? (missionObj.id + '_' + missionObj.nom) : missionNom;
+  rawList.push(toPush);
+  projet.missions = rawList;
+  apiFetch('api/projets.php?id=' + projet.id, { method: 'PUT', body: { missions: rawList } })
+    .then(function() {
+      if (typeof showToast === 'function') showToast('✓ Mission ajoutée au projet');
+      if (typeof onDone === 'function') onDone(true);
+    })
+    .catch(function(e) {
+      if (typeof showToast === 'function') showToast('Erreur : ' + (e && e.message ? e.message : 'impossible d\'affecter la mission'), 'error');
+      if (typeof onDone === 'function') onDone(false);
+    });
 }
 
 function filterPaiMissionDropdown() {
@@ -773,29 +809,89 @@ function hidePaiMissionDropdown() {
 function renderPaiMissionDropdown(q) {
   var dd = document.getElementById('pai-mission-dropdown');
   if (!dd) return;
-  var missions = _paiGetProjetMissions();
-  var items = [{ nom: '', label: '— Toutes les missions —' }].concat(missions.map(function(nom) { return { nom: nom, label: nom }; }));
   var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
-  var filtered = items.filter(function(item) {
-    if (!q) return true;
-    if (!item.nom) return true;
-    return norm(item.nom).indexOf(q) !== -1;
+  var query = norm(q || '');
+  var missionItems = _paiBuildMissionDropdownItems();
+
+  // Filtrer selon la recherche
+  var filteredAff = [];
+  var filteredUnaff = [];
+  missionItems.forEach(function(it) {
+    if (query && norm(it.nom).indexOf(query) === -1) return;
+    if (it.unaffected) filteredUnaff.push(it); else filteredAff.push(it);
   });
-  if (filtered.length === 0) {
-    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucune mission affectée à ce projet</div>';
+
+  var html = '';
+
+  // "— Toutes les missions —" (uniquement si pas de recherche active)
+  if (!query) {
+    var isAll = (_paiMissionNom === '');
+    html += '<div onmousedown="selectPaiMission(\'\', false)" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' +
+      (isAll ? 'background:var(--bg-2);font-weight:600;' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' +
+      (isAll ? 'var(--bg-2)' : 'transparent') + '\'">' +
+      '<span style="color:var(--text-1)">— Toutes les missions —</span></div>';
+  }
+
+  // Missions affectées au projet (style normal, en tête)
+  if (filteredAff.length > 0) {
+    html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">Affectées au projet</div>';
+    filteredAff.forEach(function(it) {
+      var isCurrent = (it.nom === _paiMissionNom);
+      var safe = it.nom.replace(/'/g, "\\'");
+      html += '<div onmousedown="selectPaiMission(\'' + safe + '\', false)" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' +
+        (isCurrent ? 'background:var(--bg-2);font-weight:600;' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' +
+        (isCurrent ? 'var(--bg-2)' : 'transparent') + '\'">' +
+        '<span style="color:var(--text-1)">' + it.nom + '</span></div>';
+    });
+  }
+
+  // Séparateur + missions non affectées (demi-teinte)
+  if (filteredUnaff.length > 0) {
+    html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;background:var(--bg-1);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">Autres missions du catalogue</div>';
+    filteredUnaff.forEach(function(it) {
+      var safe = it.nom.replace(/'/g, "\\'");
+      html += '<div onmousedown="selectPaiMission(\'' + safe + '\', true)" title="Non affectée — la sélectionner l\'ajoutera à la fiche projet" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);color:var(--text-3);font-style:italic" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'transparent\'">' +
+        '◌ ' + it.nom + '</div>';
+    });
+  }
+
+  if (!html) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucune mission trouvée</div>';
     return;
   }
-  dd.innerHTML = filtered.map(function(item) {
-    var isCurrent = (item.nom === _paiMissionNom);
-    var safe = item.nom.replace(/'/g, "\\'");
-    return '<div onmousedown="selectPaiMission(\'' + safe + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : 'transparent') + '\'">' +
-      '<span style="color:var(--text-1)">' + item.label + '</span>' +
-      '</div>';
-  }).join('');
+  dd.innerHTML = html;
 }
 
-function selectPaiMission(missionNom) {
-  _paiMissionNom = missionNom || '';
+function selectPaiMission(missionNom, unaffected) {
+  missionNom = missionNom || '';
+  // Si mission non affectée au projet → demander confirmation puis l'ajouter
+  if (unaffected && missionNom && _paiProjetId) {
+    var projets = typeof getProjets === 'function' ? getProjets() : [];
+    var projet = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+    var label = projet ? (projet.code || projet.nom || '') : '';
+    if (!confirm('La mission « ' + missionNom + ' » n\'est pas affectée au projet ' + label + '.\n\nL\'ajouter à la fiche projet ?')) {
+      // Annulé : on garde la sélection précédente, on ferme le dropdown
+      var input0 = document.getElementById('pai-mission-search');
+      if (input0) input0.value = _paiMissionNom;
+      hidePaiMissionDropdown();
+      return;
+    }
+    // Confirmé : appel API pour affecter la mission puis appliquer la sélection
+    _paiAffecterMissionAuProjet(missionNom, function(ok) {
+      if (!ok) return;
+      // Mettre à jour le bouton "+ Ajouter une autre mission" et la box reste
+      var addBtn = document.getElementById('pai-add-mission-btn');
+      if (addBtn) {
+        var aff = _paiGetProjetMissions();
+        addBtn.style.display = (_paiProjetId && aff.length > 1) ? '' : 'none';
+      }
+      // Sélectionner la mission (maintenant affectée)
+      selectPaiMission(missionNom, false);
+    });
+    return;
+  }
+
+  _paiMissionNom = missionNom;
   var sel = document.getElementById('pai-mission-sel');
   var input = document.getElementById('pai-mission-search');
   var clearBtn = document.getElementById('pai-mission-clear');
@@ -817,7 +913,7 @@ function clearPaiMissionSearch() {
 
 function onPaiMissionSelChange() {
   var sel = document.getElementById('pai-mission-sel');
-  if (sel) selectPaiMission(sel.value);
+  if (sel) selectPaiMission(sel.value, false);
 }
 
 // ── Historique paiements pour projet ──
@@ -956,31 +1052,99 @@ function updatePaiResteHint(data) {
 
 function addPaiMissionRow() {
   if (!_paiProjetId) return;
-  var missions = _paiGetProjetMissions();
-  if (missions.length <= 1) return;
 
   _paiExtraMissionCounter++;
   var idx = _paiExtraMissionCounter;
   var container = document.getElementById('pai-extra-missions');
   if (!container) return;
 
-  // Construire la liste des missions déjà sélectionnées pour les exclure visuellement
   var div = document.createElement('div');
   div.className = 'pai-mission-row';
   div.setAttribute('data-index', idx);
-  div.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem';
+  div.style.cssText = 'position:relative;margin-bottom:0.4rem';
 
-  var selectEl = document.createElement('select');
-  selectEl.className = 'form-input';
-  selectEl.id = 'pai-extra-mission-' + idx;
-  selectEl.style.flex = '1';
-  selectEl.innerHTML = '<option value="">— Sélectionner —</option>' +
-    missions.map(function(m) { return '<option value="' + m.replace(/"/g,'&quot;') + '">' + m + '</option>'; }).join('');
-  selectEl.onchange = function() {
-    _paiExtraMissions[idx] = { nom: selectEl.value };
-    updatePaiResteBox();
-  };
+  var inner = document.createElement('div');
+  inner.style.cssText = 'display:flex;gap:0.4rem;align-items:center';
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'flex:1;position:relative';
+
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'form-input';
+  input.id = 'pai-extra-mission-search-' + idx;
+  input.placeholder = '🔍 Rechercher une mission…';
+  input.autocomplete = 'off';
+  input.style.cssText = 'width:100%;padding-right:2.2rem';
+
+  var clearBtn = document.createElement('span');
+  clearBtn.id = 'pai-extra-mission-clear-' + idx;
+  clearBtn.style.cssText = 'display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1';
+  clearBtn.innerHTML = '&times;';
+
+  var dd = document.createElement('div');
+  dd.id = 'pai-extra-mission-dropdown-' + idx;
+  dd.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300';
+
   _paiExtraMissions[idx] = { nom: '' };
+
+  var renderDD = function() {
+    var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var missionItems = _paiBuildMissionDropdownItems();
+    var filteredAff = [], filteredUnaff = [];
+    var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+    missionItems.forEach(function(it) {
+      if (q && norm(it.nom).indexOf(q) === -1) return;
+      if (it.unaffected) filteredUnaff.push(it); else filteredAff.push(it);
+    });
+    var html = '';
+    if (filteredAff.length > 0) {
+      html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">Affectées au projet</div>';
+      filteredAff.forEach(function(it) {
+        var safe = it.nom.replace(/"/g, '&quot;');
+        html += '<div data-nom="' + safe + '" data-unaffected="0" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'transparent\'"><span style="color:var(--text-1)">' + it.nom + '</span></div>';
+      });
+    }
+    if (filteredUnaff.length > 0) {
+      html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;background:var(--bg-1);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">Autres missions du catalogue</div>';
+      filteredUnaff.forEach(function(it) {
+        var safe = it.nom.replace(/"/g, '&quot;');
+        html += '<div data-nom="' + safe + '" data-unaffected="1" title="Non affectée — la sélectionner l\'ajoutera à la fiche projet" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);color:var(--text-3);font-style:italic" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'transparent\'">◌ ' + it.nom + '</div>';
+      });
+    }
+    if (!html) html = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucune mission trouvée</div>';
+    dd.innerHTML = html;
+    dd.style.display = 'block';
+    // Attach click handlers
+    Array.prototype.forEach.call(dd.querySelectorAll('[data-nom]'), function(el) {
+      el.addEventListener('mousedown', function(ev) {
+        ev.preventDefault();
+        var nom = el.getAttribute('data-nom');
+        var unaff = el.getAttribute('data-unaffected') === '1';
+        _selectPaiExtraMission(idx, nom, unaff);
+      });
+    });
+  };
+
+  var hideDD = function() {
+    setTimeout(function() { dd.style.display = 'none'; }, 200);
+  };
+
+  input.addEventListener('focus', renderDD);
+  input.addEventListener('input', function() {
+    clearBtn.style.display = input.value ? 'block' : 'none';
+    renderDD();
+  });
+  input.addEventListener('blur', hideDD);
+
+  clearBtn.addEventListener('click', function() {
+    input.value = '';
+    clearBtn.style.display = 'none';
+    _paiExtraMissions[idx] = { nom: '' };
+    updatePaiResteBox();
+    input.focus();
+    renderDD();
+  });
 
   var removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -994,9 +1158,40 @@ function addPaiMissionRow() {
     updatePaiResteBox();
   };
 
-  div.appendChild(selectEl);
-  div.appendChild(removeBtn);
+  wrap.appendChild(input);
+  wrap.appendChild(clearBtn);
+  wrap.appendChild(dd);
+  inner.appendChild(wrap);
+  inner.appendChild(removeBtn);
+  div.appendChild(inner);
   container.appendChild(div);
+}
+
+// Sélection d'une mission dans une ligne extra (avec gestion unaffected → confirmation + API)
+function _selectPaiExtraMission(idx, missionNom, unaffected) {
+  missionNom = missionNom || '';
+  var input = document.getElementById('pai-extra-mission-search-' + idx);
+  var clearBtn = document.getElementById('pai-extra-mission-clear-' + idx);
+  var dd = document.getElementById('pai-extra-mission-dropdown-' + idx);
+  if (unaffected && missionNom && _paiProjetId) {
+    var projets = typeof getProjets === 'function' ? getProjets() : [];
+    var projet = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+    var label = projet ? (projet.code || projet.nom || '') : '';
+    if (!confirm('La mission « ' + missionNom + ' » n\'est pas affectée au projet ' + label + '.\n\nL\'ajouter à la fiche projet ?')) {
+      if (dd) dd.style.display = 'none';
+      return;
+    }
+    _paiAffecterMissionAuProjet(missionNom, function(ok) {
+      if (!ok) return;
+      _selectPaiExtraMission(idx, missionNom, false);
+    });
+    return;
+  }
+  _paiExtraMissions[idx] = { nom: missionNom };
+  if (input) input.value = missionNom;
+  if (clearBtn) clearBtn.style.display = missionNom ? 'block' : 'none';
+  if (dd) dd.style.display = 'none';
+  updatePaiResteBox();
 }
 
 // ── Récupérer la liste de toutes les missions sélectionnées ──
