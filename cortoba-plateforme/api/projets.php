@@ -200,6 +200,19 @@ function update($id, array $user) {
     $stmt->execute([$id]);
     if (!$stmt->fetch()) jsonError('Projet introuvable', 404);
 
+    // ── Mise à jour partielle : affectation de missions uniquement ──
+    // Déclenchée par ?action=affect_mission ou par un body ne contenant que "missions"
+    $action = $_GET['action'] ?? '';
+    $isMissionsOnly = (isset($body['missions']) && !isset($body['nom']) && !isset($body['code']));
+    if ($action === 'affect_mission' || $isMissionsOnly) {
+        $missions = is_array($body['missions'] ?? null) ? $body['missions'] : [];
+        saveMissions($id, $missions);
+        $db->prepare('UPDATE CA_projets SET modifie_par=? WHERE id=?')
+           ->execute([$user['name'] ?? null, $id]);
+        jsonOk(['updated' => $id, 'missions' => getMissions($id)]);
+        return;
+    }
+
     // Mise à jour partielle : NAS path uniquement
     if (isset($body['nasPath']) && !isset($body['nom'])) {
         $db->prepare('UPDATE CA_projets SET nas_path=?, modifie_par=? WHERE id=?')
