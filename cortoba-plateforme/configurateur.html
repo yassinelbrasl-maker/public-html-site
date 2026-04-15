@@ -927,7 +927,7 @@ function initMap() {
   if (!c || !window.L) return;
   if (_map) { _map.invalidateSize(); return; }
   _map = L.map('cfg-map').setView([33.8869, 9.5375], 7);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(_map);
+  L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: '© Google', maxZoom: 21 }).addTo(_map);
   _map.on('click', function(e) {
     var lat = e.latlng.lat, lng = e.latlng.lng;
     if (_marker) _marker.setLatLng([lat, lng]); else _marker = L.marker([lat, lng]).addTo(_map);
