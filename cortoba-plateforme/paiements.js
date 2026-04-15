@@ -453,8 +453,17 @@ var _paiExtraMissions = []; // missions supplémentaires [{nom:'...'}]
 var _paiExtraMissionCounter = 0;
 var _paiDevisId = '';
 var _paiPrefillDevisId = '';
+var _paiEditingId = ''; // Non-vide = mode édition d'un paiement existant
 
 function openEnregistrerPaiement(prefillProjetId, prefillDevisId) {
+  // Reset edit mode (création)
+  _paiEditingId = '';
+  var titleEl = document.getElementById('paiement-modal-title');
+  if (titleEl) titleEl.textContent = 'Enregistrer un paiement client';
+  var recuWrap = document.getElementById('pai-recu'); if (recuWrap) {
+    recuWrap.checked = true;
+    var lbl = recuWrap.closest('label'); if (lbl) lbl.style.display = '';
+  }
   // Reset projet/mission
   _paiProjetId = '';
   _paiMissionNom = '';
@@ -609,11 +618,11 @@ function selectPaiProjet(projetId) {
   }
   var mClear = document.getElementById('pai-mission-clear'); if (mClear) mClear.style.display = 'none';
 
-  // Show/hide "add mission" button
+  // Show/hide "add mission" button — toujours affiché dès qu'un projet est sélectionné
+  // (on peut piocher dans le catalogue si le projet n'a pas encore de missions affectées)
   var addBtn = document.getElementById('pai-add-mission-btn');
   if (addBtn) {
-    var missions = _paiGetProjetMissions();
-    addBtn.style.display = (_paiProjetId && missions.length > 1) ? '' : 'none';
+    addBtn.style.display = _paiProjetId ? '' : 'none';
   }
 
   // Reset montant restant
@@ -727,18 +736,54 @@ function _paiGetProjetMissions() {
   var raw;
   try { raw = Array.isArray(projet.missions) ? projet.missions : (projet.missions ? JSON.parse(projet.missions) : []); }
   catch (e) { raw = []; }
-  var result = [];
   if (typeof window._normalizeProjetMissions === 'function') {
-    result = window._normalizeProjetMissions(raw);
-  } else {
-    result = Array.isArray(raw) ? raw.map(String) : [];
+    return window._normalizeProjetMissions(raw);
   }
-  // Fallback : si le projet n'a aucune mission affectée, proposer toutes les missions du catalogue
-  if (result.length === 0) {
-    var allMissions = typeof getMissions === 'function' ? getMissions() : [];
-    return allMissions.map(function(m) { return m.nom; });
-  }
-  return result;
+  return Array.isArray(raw) ? raw.map(String) : [];
+}
+
+// Construit la liste d'items pour le dropdown des missions :
+// missions affectées au projet d'abord, puis les autres en demi-teinte
+function _paiBuildMissionDropdownItems() {
+  var affectees = _paiGetProjetMissions();
+  var allMissions = typeof getMissions === 'function' ? getMissions() : [];
+  var items = [];
+  // 1) Missions affectées au projet (style normal)
+  affectees.forEach(function(nom) {
+    items.push({ nom: nom, unaffected: false });
+  });
+  // 2) Missions du catalogue non affectées au projet (demi-teinte)
+  allMissions.forEach(function(m) {
+    if (affectees.indexOf(m.nom) === -1) {
+      items.push({ nom: m.nom, unaffected: true });
+    }
+  });
+  return items;
+}
+
+// Auto-affecte une mission au projet courant puis rafraîchit les dropdowns
+function _paiAffecterMissionAuProjet(missionNom, onDone) {
+  if (!_paiProjetId || !missionNom) { if (typeof onDone === 'function') onDone(false); return; }
+  var projets = typeof getProjets === 'function' ? getProjets() : [];
+  var projet = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+  if (!projet) { if (typeof onDone === 'function') onDone(false); return; }
+  var rawList;
+  try { rawList = Array.isArray(projet.missions) ? projet.missions.slice() : (projet.missions ? JSON.parse(projet.missions) : []); }
+  catch (e) { rawList = []; }
+  // Trouver l'ID de la mission dans le catalogue et stocker au format "id_nom"
+  var missionObj = (typeof getMissions === 'function' ? getMissions() : []).find(function(m) { return m.nom === missionNom; });
+  var toPush = missionObj ? (missionObj.id + '_' + missionObj.nom) : missionNom;
+  rawList.push(toPush);
+  projet.missions = rawList;
+  apiFetch('api/projets.php?id=' + projet.id, { method: 'PUT', body: { missions: rawList } })
+    .then(function() {
+      if (typeof showToast === 'function') showToast('✓ Mission ajoutée au projet');
+      if (typeof onDone === 'function') onDone(true);
+    })
+    .catch(function(e) {
+      if (typeof showToast === 'function') showToast('Erreur : ' + (e && e.message ? e.message : 'impossible d\'affecter la mission'), 'error');
+      if (typeof onDone === 'function') onDone(false);
+    });
 }
 
 function filterPaiMissionDropdown() {
@@ -773,29 +818,89 @@ function hidePaiMissionDropdown() {
 function renderPaiMissionDropdown(q) {
   var dd = document.getElementById('pai-mission-dropdown');
   if (!dd) return;
-  var missions = _paiGetProjetMissions();
-  var items = [{ nom: '', label: '— Toutes les missions —' }].concat(missions.map(function(nom) { return { nom: nom, label: nom }; }));
   var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
-  var filtered = items.filter(function(item) {
-    if (!q) return true;
-    if (!item.nom) return true;
-    return norm(item.nom).indexOf(q) !== -1;
+  var query = norm(q || '');
+  var missionItems = _paiBuildMissionDropdownItems();
+
+  // Filtrer selon la recherche
+  var filteredAff = [];
+  var filteredUnaff = [];
+  missionItems.forEach(function(it) {
+    if (query && norm(it.nom).indexOf(query) === -1) return;
+    if (it.unaffected) filteredUnaff.push(it); else filteredAff.push(it);
   });
-  if (filtered.length === 0) {
-    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucune mission affectée à ce projet</div>';
+
+  var html = '';
+
+  // "— Toutes les missions —" (uniquement si pas de recherche active)
+  if (!query) {
+    var isAll = (_paiMissionNom === '');
+    html += '<div onmousedown="selectPaiMission(\'\', false)" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' +
+      (isAll ? 'background:var(--bg-2);font-weight:600;' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' +
+      (isAll ? 'var(--bg-2)' : 'transparent') + '\'">' +
+      '<span style="color:var(--text-1)">— Toutes les missions —</span></div>';
+  }
+
+  // Missions affectées au projet (style normal, en tête)
+  if (filteredAff.length > 0) {
+    html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">Affectées au projet</div>';
+    filteredAff.forEach(function(it) {
+      var isCurrent = (it.nom === _paiMissionNom);
+      var safe = it.nom.replace(/'/g, "\\'");
+      html += '<div onmousedown="selectPaiMission(\'' + safe + '\', false)" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' +
+        (isCurrent ? 'background:var(--bg-2);font-weight:600;' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' +
+        (isCurrent ? 'var(--bg-2)' : 'transparent') + '\'">' +
+        '<span style="color:var(--text-1)">' + it.nom + '</span></div>';
+    });
+  }
+
+  // Séparateur + missions non affectées (demi-teinte)
+  if (filteredUnaff.length > 0) {
+    html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;background:var(--bg-1);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">Autres missions du catalogue</div>';
+    filteredUnaff.forEach(function(it) {
+      var safe = it.nom.replace(/'/g, "\\'");
+      html += '<div onmousedown="selectPaiMission(\'' + safe + '\', true)" title="Non affectée — la sélectionner l\'ajoutera à la fiche projet" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);color:var(--text-3);font-style:italic" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'transparent\'">' +
+        '◌ ' + it.nom + '</div>';
+    });
+  }
+
+  if (!html) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucune mission trouvée</div>';
     return;
   }
-  dd.innerHTML = filtered.map(function(item) {
-    var isCurrent = (item.nom === _paiMissionNom);
-    var safe = item.nom.replace(/'/g, "\\'");
-    return '<div onmousedown="selectPaiMission(\'' + safe + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);' + (isCurrent ? 'background:var(--bg-2);font-weight:600' : '') + '" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'' + (isCurrent ? 'var(--bg-2)' : 'transparent') + '\'">' +
-      '<span style="color:var(--text-1)">' + item.label + '</span>' +
-      '</div>';
-  }).join('');
+  dd.innerHTML = html;
 }
 
-function selectPaiMission(missionNom) {
-  _paiMissionNom = missionNom || '';
+function selectPaiMission(missionNom, unaffected) {
+  missionNom = missionNom || '';
+  // Si mission non affectée au projet → demander confirmation puis l'ajouter
+  if (unaffected && missionNom && _paiProjetId) {
+    var projets = typeof getProjets === 'function' ? getProjets() : [];
+    var projet = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+    var label = projet ? (projet.code || projet.nom || '') : '';
+    if (!confirm('La mission « ' + missionNom + ' » n\'est pas affectée au projet ' + label + '.\n\nL\'ajouter à la fiche projet ?')) {
+      // Annulé : on garde la sélection précédente, on ferme le dropdown
+      var input0 = document.getElementById('pai-mission-search');
+      if (input0) input0.value = _paiMissionNom;
+      hidePaiMissionDropdown();
+      return;
+    }
+    // Confirmé : appel API pour affecter la mission puis appliquer la sélection
+    _paiAffecterMissionAuProjet(missionNom, function(ok) {
+      if (!ok) return;
+      // Mettre à jour le bouton "+ Ajouter une autre mission" et la box reste
+      var addBtn = document.getElementById('pai-add-mission-btn');
+      if (addBtn) {
+        var aff = _paiGetProjetMissions();
+        addBtn.style.display = (_paiProjetId && aff.length > 1) ? '' : 'none';
+      }
+      // Sélectionner la mission (maintenant affectée)
+      selectPaiMission(missionNom, false);
+    });
+    return;
+  }
+
+  _paiMissionNom = missionNom;
   var sel = document.getElementById('pai-mission-sel');
   var input = document.getElementById('pai-mission-search');
   var clearBtn = document.getElementById('pai-mission-clear');
@@ -817,7 +922,7 @@ function clearPaiMissionSearch() {
 
 function onPaiMissionSelChange() {
   var sel = document.getElementById('pai-mission-sel');
-  if (sel) selectPaiMission(sel.value);
+  if (sel) selectPaiMission(sel.value, false);
 }
 
 // ── Historique paiements pour projet ──
@@ -956,31 +1061,99 @@ function updatePaiResteHint(data) {
 
 function addPaiMissionRow() {
   if (!_paiProjetId) return;
-  var missions = _paiGetProjetMissions();
-  if (missions.length <= 1) return;
 
   _paiExtraMissionCounter++;
   var idx = _paiExtraMissionCounter;
   var container = document.getElementById('pai-extra-missions');
   if (!container) return;
 
-  // Construire la liste des missions déjà sélectionnées pour les exclure visuellement
   var div = document.createElement('div');
   div.className = 'pai-mission-row';
   div.setAttribute('data-index', idx);
-  div.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem';
+  div.style.cssText = 'position:relative;margin-bottom:0.4rem';
 
-  var selectEl = document.createElement('select');
-  selectEl.className = 'form-input';
-  selectEl.id = 'pai-extra-mission-' + idx;
-  selectEl.style.flex = '1';
-  selectEl.innerHTML = '<option value="">— Sélectionner —</option>' +
-    missions.map(function(m) { return '<option value="' + m.replace(/"/g,'&quot;') + '">' + m + '</option>'; }).join('');
-  selectEl.onchange = function() {
-    _paiExtraMissions[idx] = { nom: selectEl.value };
-    updatePaiResteBox();
-  };
+  var inner = document.createElement('div');
+  inner.style.cssText = 'display:flex;gap:0.4rem;align-items:center';
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'flex:1;position:relative';
+
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'form-input';
+  input.id = 'pai-extra-mission-search-' + idx;
+  input.placeholder = '🔍 Rechercher une mission…';
+  input.autocomplete = 'off';
+  input.style.cssText = 'width:100%;padding-right:2.2rem';
+
+  var clearBtn = document.createElement('span');
+  clearBtn.id = 'pai-extra-mission-clear-' + idx;
+  clearBtn.style.cssText = 'display:none;position:absolute;right:0.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-3);font-size:1.1rem;line-height:1';
+  clearBtn.innerHTML = '&times;';
+
+  var dd = document.createElement('div');
+  dd.id = 'pai-extra-mission-dropdown-' + idx;
+  dd.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300';
+
   _paiExtraMissions[idx] = { nom: '' };
+
+  var renderDD = function() {
+    var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var missionItems = _paiBuildMissionDropdownItems();
+    var filteredAff = [], filteredUnaff = [];
+    var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+    missionItems.forEach(function(it) {
+      if (q && norm(it.nom).indexOf(q) === -1) return;
+      if (it.unaffected) filteredUnaff.push(it); else filteredAff.push(it);
+    });
+    var html = '';
+    if (filteredAff.length > 0) {
+      html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);font-weight:600;background:var(--bg-2);border-bottom:1px solid var(--border)">Affectées au projet</div>';
+      filteredAff.forEach(function(it) {
+        var safe = it.nom.replace(/"/g, '&quot;');
+        html += '<div data-nom="' + safe + '" data-unaffected="0" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border)" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'transparent\'"><span style="color:var(--text-1)">' + it.nom + '</span></div>';
+      });
+    }
+    if (filteredUnaff.length > 0) {
+      html += '<div style="padding:0.35rem 1rem;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;background:var(--bg-1);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">Autres missions du catalogue</div>';
+      filteredUnaff.forEach(function(it) {
+        var safe = it.nom.replace(/"/g, '&quot;');
+        html += '<div data-nom="' + safe + '" data-unaffected="1" title="Non affectée — la sélectionner l\'ajoutera à la fiche projet" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.82rem;border-bottom:1px solid var(--border);color:var(--text-3);font-style:italic" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'transparent\'">◌ ' + it.nom + '</div>';
+      });
+    }
+    if (!html) html = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucune mission trouvée</div>';
+    dd.innerHTML = html;
+    dd.style.display = 'block';
+    // Attach click handlers
+    Array.prototype.forEach.call(dd.querySelectorAll('[data-nom]'), function(el) {
+      el.addEventListener('mousedown', function(ev) {
+        ev.preventDefault();
+        var nom = el.getAttribute('data-nom');
+        var unaff = el.getAttribute('data-unaffected') === '1';
+        _selectPaiExtraMission(idx, nom, unaff);
+      });
+    });
+  };
+
+  var hideDD = function() {
+    setTimeout(function() { dd.style.display = 'none'; }, 200);
+  };
+
+  input.addEventListener('focus', renderDD);
+  input.addEventListener('input', function() {
+    clearBtn.style.display = input.value ? 'block' : 'none';
+    renderDD();
+  });
+  input.addEventListener('blur', hideDD);
+
+  clearBtn.addEventListener('click', function() {
+    input.value = '';
+    clearBtn.style.display = 'none';
+    _paiExtraMissions[idx] = { nom: '' };
+    updatePaiResteBox();
+    input.focus();
+    renderDD();
+  });
 
   var removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -994,9 +1167,40 @@ function addPaiMissionRow() {
     updatePaiResteBox();
   };
 
-  div.appendChild(selectEl);
-  div.appendChild(removeBtn);
+  wrap.appendChild(input);
+  wrap.appendChild(clearBtn);
+  wrap.appendChild(dd);
+  inner.appendChild(wrap);
+  inner.appendChild(removeBtn);
+  div.appendChild(inner);
   container.appendChild(div);
+}
+
+// Sélection d'une mission dans une ligne extra (avec gestion unaffected → confirmation + API)
+function _selectPaiExtraMission(idx, missionNom, unaffected) {
+  missionNom = missionNom || '';
+  var input = document.getElementById('pai-extra-mission-search-' + idx);
+  var clearBtn = document.getElementById('pai-extra-mission-clear-' + idx);
+  var dd = document.getElementById('pai-extra-mission-dropdown-' + idx);
+  if (unaffected && missionNom && _paiProjetId) {
+    var projets = typeof getProjets === 'function' ? getProjets() : [];
+    var projet = projets.filter(function(p) { return p.id == _paiProjetId; })[0];
+    var label = projet ? (projet.code || projet.nom || '') : '';
+    if (!confirm('La mission « ' + missionNom + ' » n\'est pas affectée au projet ' + label + '.\n\nL\'ajouter à la fiche projet ?')) {
+      if (dd) dd.style.display = 'none';
+      return;
+    }
+    _paiAffecterMissionAuProjet(missionNom, function(ok) {
+      if (!ok) return;
+      _selectPaiExtraMission(idx, missionNom, false);
+    });
+    return;
+  }
+  _paiExtraMissions[idx] = { nom: missionNom };
+  if (input) input.value = missionNom;
+  if (clearBtn) clearBtn.style.display = missionNom ? 'block' : 'none';
+  if (dd) dd.style.display = 'none';
+  updatePaiResteBox();
 }
 
 // ── Récupérer la liste de toutes les missions sélectionnées ──
@@ -1113,7 +1317,7 @@ function openPaiementForFacture(factureId, reste) {
 
 function savePaiement() {
   var mt = parseFloat(document.getElementById('pai-montant').value), errEl = document.getElementById('pai-err');
-  if (!_paiProjetId) { errEl.textContent = 'Sélectionnez un projet'; errEl.style.display = ''; return; }
+  if (!_paiEditingId && !_paiProjetId) { errEl.textContent = 'Sélectionnez un projet'; errEl.style.display = ''; return; }
   if (!mt || mt <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display = ''; return; }
   // Collecter toutes les missions sélectionnées (principale + extras)
   var allMissions = _paiGetAllSelectedMissions();
@@ -1121,6 +1325,30 @@ function savePaiement() {
   var devisId = _paiDevisId || null;
   var typePaiement = document.getElementById('pai-type').value || null;
   var autoRecu = document.getElementById('pai-recu').checked;
+
+  // ── Mode édition : PUT vers action=update ──
+  if (_paiEditingId) {
+    var editId = _paiEditingId;
+    apiFetch('api/paiements_clients.php?action=update&id=' + encodeURIComponent(editId), {
+      method: 'PUT',
+      body: {
+        montant: mt,
+        date_paiement: document.getElementById('pai-date').value,
+        mode_paiement: document.getElementById('pai-mode').value,
+        type_paiement: typePaiement,
+        reference: document.getElementById('pai-reference').value,
+        notes: document.getElementById('pai-notes').value
+      }
+    }).then(function() {
+      showToast('Paiement modifié', 'success');
+      _paiEditingId = '';
+      document.getElementById('modal-paiement').style.display = 'none';
+      if (typeof renderPaiementsClientsPage === 'function') renderPaiementsClientsPage();
+      if (typeof loadReceivables === 'function') loadReceivables();
+      if (typeof loadData === 'function') loadData();
+    }).catch(function(e) { errEl.textContent = e.message; errEl.style.display = ''; });
+    return;
+  }
 
   apiFetch('api/paiements_clients.php?action=create', {
     method: 'POST',
@@ -1639,59 +1867,55 @@ function genererFactureUI(devisId) {
     });
 }
 
-// ── Modifier un paiement client ──
+// ── Modifier un paiement client (réutilise le modal de création) ──
 function openEditPaiementClient(paiementId) {
   apiFetch('api/paiements_clients.php?action=receipt&id=' + encodeURIComponent(paiementId))
     .then(function(r) {
       var p = r.data || {};
-      var html = '<div style="padding:1.5rem;max-width:420px">'
-        + '<h3 style="margin:0 0 1rem;color:var(--text-1)">Modifier le paiement</h3>'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Montant (TND)</label>'
-        + '<input type="number" id="edit-pc-montant" value="'+(p.montant||0)+'" step="0.01" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Date</label>'
-        + '<input type="date" id="edit-pc-date" value="'+(p.date_paiement||'')+'" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Mode de paiement</label>'
-        + '<select id="edit-pc-mode" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px">'
-        + '<option value="Virement"'+(p.mode_paiement==='Virement'?' selected':'')+'>Virement</option>'
-        + '<option value="Espèces"'+(p.mode_paiement==='Espèces'?' selected':'')+'>Espèces</option>'
-        + '<option value="Chèque"'+(p.mode_paiement==='Chèque'?' selected':'')+'>Chèque</option>'
-        + '<option value="Carte"'+(p.mode_paiement==='Carte'?' selected':'')+'>Carte</option>'
-        + '<option value="Autre"'+(p.mode_paiement==='Autre'?' selected':'')+'>Autre</option>'
-        + '</select>'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Référence</label>'
-        + '<input type="text" id="edit-pc-reference" value="'+(p.reference||'').replace(/"/g,'&quot;')+'" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Notes</label>'
-        + '<textarea id="edit-pc-notes" rows="2" style="width:100%;padding:0.5rem;margin-bottom:1rem;border:1px solid var(--border);border-radius:6px">'+(p.notes||'')+'</textarea>'
-        + '<div style="display:flex;gap:0.5rem;justify-content:flex-end">'
-        + '<button class="btn" onclick="this.closest(\'.modal-overlay\').remove()">Annuler</button>'
-        + '<button class="btn btn-primary" onclick="saveEditPaiementClient(\''+paiementId+'\')">Enregistrer</button>'
-        + '</div></div>';
-      var overlay = document.createElement('div');
-      overlay.className = 'modal-overlay';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center';
-      overlay.innerHTML = '<div style="background:var(--bg-1,#fff);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-height:90vh;overflow:auto">' + html + '</div>';
-      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-      document.body.appendChild(overlay);
-    })
-    .catch(function(e) { showToast('Erreur: ' + (e.message||e), 'var(--red)'); });
-}
 
-function saveEditPaiementClient(paiementId) {
-  var montant = parseFloat(document.getElementById('edit-pc-montant').value);
-  if (!montant || montant <= 0) { showToast('Montant invalide', 'var(--red)'); return; }
-  var body = {
-    montant: montant,
-    date_paiement: document.getElementById('edit-pc-date').value,
-    mode_paiement: document.getElementById('edit-pc-mode').value,
-    reference: document.getElementById('edit-pc-reference').value,
-    notes: document.getElementById('edit-pc-notes').value
-  };
-  apiFetch('api/paiements_clients.php?action=update&id=' + encodeURIComponent(paiementId), { method:'PUT', body: body })
-    .then(function() {
-      showToast('Paiement modifié', 'var(--green)');
-      var overlay = document.querySelector('.modal-overlay');
-      if (overlay) overlay.remove();
-      renderPaiementsClientsPage();
+      // Ouvrir le modal via le flux normal (configure projet + missions + historique)
+      var projetId = p.projet_id || '';
+      var devisId  = p.devis_id  || '';
+      if (devisId) {
+        openEnregistrerPaiement(null, devisId);
+      } else if (projetId) {
+        openEnregistrerPaiement(projetId, null);
+      } else {
+        openEnregistrerPaiement(null, null);
+      }
+
+      // Passer en mode édition (override des resets faits par openEnregistrerPaiement)
+      _paiEditingId = paiementId;
+      var titleEl = document.getElementById('paiement-modal-title');
+      if (titleEl) titleEl.textContent = 'Modifier le paiement';
+
+      // Masquer l'option "Générer un reçu" en mode édition
+      var recuCb = document.getElementById('pai-recu');
+      if (recuCb) {
+        recuCb.checked = false;
+        var lbl = recuCb.closest('label');
+        if (lbl) lbl.style.display = 'none';
+      }
+
+      // Pré-remplir les champs après un court délai (le temps que le projet/devis soit résolu)
+      var fillFields = function() {
+        var mtEl = document.getElementById('pai-montant'); if (mtEl) mtEl.value = p.montant || '';
+        var dtEl = document.getElementById('pai-date');    if (dtEl) dtEl.value = p.date_paiement || '';
+        var mdEl = document.getElementById('pai-mode');    if (mdEl && p.mode_paiement) mdEl.value = p.mode_paiement;
+        var tpEl = document.getElementById('pai-type');    if (tpEl) tpEl.value = p.type_paiement || '';
+        var rfEl = document.getElementById('pai-reference'); if (rfEl) rfEl.value = p.reference || '';
+        var ntEl = document.getElementById('pai-notes');   if (ntEl) ntEl.value = p.notes || '';
+        var errEl = document.getElementById('pai-err');    if (errEl) errEl.style.display = 'none';
+
+        // Pré-sélectionner la mission si présente
+        if (p.mission_phase) {
+          var missions = String(p.mission_phase).split(' + ');
+          var mSearch = document.getElementById('pai-mission-search');
+          if (mSearch && missions[0]) { mSearch.value = missions[0]; _paiMissionNom = missions[0]; }
+        }
+      };
+      setTimeout(fillFields, 200);
+      setTimeout(fillFields, 600); // Re-fill au cas où le projet se charge plus tard
     })
     .catch(function(e) { showToast('Erreur: ' + (e.message||e), 'var(--red)'); });
 }
@@ -1761,7 +1985,6 @@ window.filterPaiementsClients = filterPaiementsClients;
 window.genererFactureUI = genererFactureUI;
 window.genRecuPaiementClientPDF = genRecuPaiementClientPDF;
 window.openEditPaiementClient = openEditPaiementClient;
-window.saveEditPaiementClient = saveEditPaiementClient;
 window.deletePaiementClientUI = deletePaiementClientUI;
 
 // ── Devis Acceptance Hook ──
