@@ -5473,20 +5473,40 @@ function _renderPreviewBanner() {
   if (document.getElementById('preview-banner')) return;
   var m = window._previewMember;
   var name = (m.prenom || '') + ' ' + (m.nom || '');
+  var BANNER_H = 34; // hauteur de la bannière en px
+
+  // Injecter les styles qui décalent tout le layout fixe sous la bannière
+  if (!document.getElementById('preview-banner-style')) {
+    var style = document.createElement('style');
+    style.id = 'preview-banner-style';
+    style.textContent = [
+      '#preview-banner{position:fixed;top:0;left:0;right:0;height:' + BANNER_H + 'px;z-index:1000;box-sizing:border-box}',
+      'body.preview-mode .app-header{top:' + BANNER_H + 'px !important}',
+      'body.preview-mode .sidebar,',
+      'body.preview-mode .sidebar-backdrop,',
+      'body.preview-mode .sidebar-hover-trigger{top:calc(62px + ' + BANNER_H + 'px) !important}',
+      'body.preview-mode .sidebar-show-btn{top:calc(62px + ' + BANNER_H + 'px + 10px) !important}',
+      'body.preview-mode .app-body{padding-top:' + BANNER_H + 'px}',
+      // Masquer le bouton "déconnexion" / changer-utilisateur en mode aperçu : on ne peut pas sortir autrement qu\'en fermant le modal
+      'body.preview-mode #user-display [onclick*="logout"],',
+      'body.preview-mode #user-display [onclick*="Logout"]{display:none !important}'
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
   var banner = document.createElement('div');
   banner.id = 'preview-banner';
-  banner.style.cssText = 'position:sticky;top:0;z-index:900;background:linear-gradient(90deg,rgba(200,169,110,0.18),rgba(200,169,110,0.08));border-bottom:1px solid rgba(200,169,110,0.35);padding:0.45rem 1.1rem;display:flex;align-items:center;gap:0.7rem;font-size:0.78rem;color:var(--text);backdrop-filter:blur(4px)';
+  banner.style.cssText = 'background:linear-gradient(90deg,rgba(200,169,110,0.28),rgba(200,169,110,0.12));border-bottom:1px solid rgba(200,169,110,0.45);padding:0 1.1rem;display:flex;align-items:center;gap:0.7rem;font-size:0.78rem;color:var(--text);backdrop-filter:blur(6px)';
   banner.innerHTML = ''
     + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
     + '<div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);font-weight:600">Mode aperçu</div>'
-    + '<div style="color:var(--text-2)">Simulation de <strong style="color:var(--text)">' + (name.trim() || '—') + '</strong>'
+    + '<div style="color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Simulation de <strong style="color:var(--text)">' + (name.trim() || '—') + '</strong>'
     + ' <span style="color:var(--text-3)">· ' + (m.role || '—') + '</span></div>'
     + '<div style="flex:1"></div>'
-    + '<div style="font-size:0.68rem;color:var(--text-3);font-style:italic">Lecture seule — aucune action d\'écriture</div>';
+    + '<div style="font-size:0.68rem;color:var(--text-3);font-style:italic;white-space:nowrap">Lecture seule — aucune action d\'écriture</div>';
 
-  var app = document.getElementById('app');
-  if (app && app.firstChild) app.insertBefore(banner, app.firstChild);
-  else if (app) app.appendChild(banner);
+  // Ajouter AU BODY (pas dans #app) pour rester position:fixed au-dessus de tout
+  document.body.appendChild(banner);
   document.body.classList.add('preview-mode');
 }
 
