@@ -1055,13 +1055,18 @@ function saveClient() {
   if (type === 'groupe') {
     var lettresEl = document.getElementById('cl-code-groupe-lettres');
     var lettres   = lettresEl ? lettresEl.value.trim().toUpperCase() : '';
-    if (!lettres || lettres.length < 2) {
+    // En création : exiger 2-3 lettres. En édition : on conservera le code existant donc pas besoin de valider
+    if (!_editingClientId && (!lettres || lettres.length < 2)) {
       err.textContent = 'Le code client doit comporter 2 ou 3 lettres.';
       err.style.display = 'block';
       switchClientTab('identite', document.querySelectorAll('.cl-tab')[0]); return;
     }
-    var existing = clients.filter(function(c){ return c.code && c.code.startsWith(lettres); });
-    codeGenere = lettres + String(existing.length + 1).padStart(3,'0');
+    if (lettres) {
+      var existing = clients.filter(function(c){ return c.code && c.code.startsWith(lettres) && c.id !== _editingClientId; });
+      codeGenere = lettres + String(existing.length + 1).padStart(3,'0');
+    } else {
+      codeGenere = '';
+    }
   } else {
     codeGenere = genClientCode(type, prenom, type==='morale' ? raison : nom);
   }
