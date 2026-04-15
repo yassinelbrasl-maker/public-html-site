@@ -453,8 +453,17 @@ var _paiExtraMissions = []; // missions supplémentaires [{nom:'...'}]
 var _paiExtraMissionCounter = 0;
 var _paiDevisId = '';
 var _paiPrefillDevisId = '';
+var _paiEditingId = ''; // Non-vide = mode édition d'un paiement existant
 
 function openEnregistrerPaiement(prefillProjetId, prefillDevisId) {
+  // Reset edit mode (création)
+  _paiEditingId = '';
+  var titleEl = document.getElementById('paiement-modal-title');
+  if (titleEl) titleEl.textContent = 'Enregistrer un paiement client';
+  var recuWrap = document.getElementById('pai-recu'); if (recuWrap) {
+    recuWrap.checked = true;
+    var lbl = recuWrap.closest('label'); if (lbl) lbl.style.display = '';
+  }
   // Reset projet/mission
   _paiProjetId = '';
   _paiMissionNom = '';
@@ -1308,7 +1317,7 @@ function openPaiementForFacture(factureId, reste) {
 
 function savePaiement() {
   var mt = parseFloat(document.getElementById('pai-montant').value), errEl = document.getElementById('pai-err');
-  if (!_paiProjetId) { errEl.textContent = 'Sélectionnez un projet'; errEl.style.display = ''; return; }
+  if (!_paiEditingId && !_paiProjetId) { errEl.textContent = 'Sélectionnez un projet'; errEl.style.display = ''; return; }
   if (!mt || mt <= 0) { errEl.textContent = 'Montant invalide'; errEl.style.display = ''; return; }
   // Collecter toutes les missions sélectionnées (principale + extras)
   var allMissions = _paiGetAllSelectedMissions();
@@ -1316,6 +1325,30 @@ function savePaiement() {
   var devisId = _paiDevisId || null;
   var typePaiement = document.getElementById('pai-type').value || null;
   var autoRecu = document.getElementById('pai-recu').checked;
+
+  // ── Mode édition : PUT vers action=update ──
+  if (_paiEditingId) {
+    var editId = _paiEditingId;
+    apiFetch('api/paiements_clients.php?action=update&id=' + encodeURIComponent(editId), {
+      method: 'PUT',
+      body: {
+        montant: mt,
+        date_paiement: document.getElementById('pai-date').value,
+        mode_paiement: document.getElementById('pai-mode').value,
+        type_paiement: typePaiement,
+        reference: document.getElementById('pai-reference').value,
+        notes: document.getElementById('pai-notes').value
+      }
+    }).then(function() {
+      showToast('Paiement modifié', 'success');
+      _paiEditingId = '';
+      document.getElementById('modal-paiement').style.display = 'none';
+      if (typeof renderPaiementsClientsPage === 'function') renderPaiementsClientsPage();
+      if (typeof loadReceivables === 'function') loadReceivables();
+      if (typeof loadData === 'function') loadData();
+    }).catch(function(e) { errEl.textContent = e.message; errEl.style.display = ''; });
+    return;
+  }
 
   apiFetch('api/paiements_clients.php?action=create', {
     method: 'POST',
@@ -1834,59 +1867,55 @@ function genererFactureUI(devisId) {
     });
 }
 
-// ── Modifier un paiement client ──
+// ── Modifier un paiement client (réutilise le modal de création) ──
 function openEditPaiementClient(paiementId) {
   apiFetch('api/paiements_clients.php?action=receipt&id=' + encodeURIComponent(paiementId))
     .then(function(r) {
       var p = r.data || {};
-      var html = '<div style="padding:1.5rem;max-width:420px">'
-        + '<h3 style="margin:0 0 1rem;color:var(--text-1)">Modifier le paiement</h3>'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Montant (TND)</label>'
-        + '<input type="number" id="edit-pc-montant" value="'+(p.montant||0)+'" step="0.01" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Date</label>'
-        + '<input type="date" id="edit-pc-date" value="'+(p.date_paiement||'')+'" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Mode de paiement</label>'
-        + '<select id="edit-pc-mode" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px">'
-        + '<option value="Virement"'+(p.mode_paiement==='Virement'?' selected':'')+'>Virement</option>'
-        + '<option value="Espèces"'+(p.mode_paiement==='Espèces'?' selected':'')+'>Espèces</option>'
-        + '<option value="Chèque"'+(p.mode_paiement==='Chèque'?' selected':'')+'>Chèque</option>'
-        + '<option value="Carte"'+(p.mode_paiement==='Carte'?' selected':'')+'>Carte</option>'
-        + '<option value="Autre"'+(p.mode_paiement==='Autre'?' selected':'')+'>Autre</option>'
-        + '</select>'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Référence</label>'
-        + '<input type="text" id="edit-pc-reference" value="'+(p.reference||'').replace(/"/g,'&quot;')+'" style="width:100%;padding:0.5rem;margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px" />'
-        + '<label style="font-size:0.78rem;color:var(--text-2)">Notes</label>'
-        + '<textarea id="edit-pc-notes" rows="2" style="width:100%;padding:0.5rem;margin-bottom:1rem;border:1px solid var(--border);border-radius:6px">'+(p.notes||'')+'</textarea>'
-        + '<div style="display:flex;gap:0.5rem;justify-content:flex-end">'
-        + '<button class="btn" onclick="this.closest(\'.modal-overlay\').remove()">Annuler</button>'
-        + '<button class="btn btn-primary" onclick="saveEditPaiementClient(\''+paiementId+'\')">Enregistrer</button>'
-        + '</div></div>';
-      var overlay = document.createElement('div');
-      overlay.className = 'modal-overlay';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center';
-      overlay.innerHTML = '<div style="background:var(--bg-1,#fff);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-height:90vh;overflow:auto">' + html + '</div>';
-      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-      document.body.appendChild(overlay);
-    })
-    .catch(function(e) { showToast('Erreur: ' + (e.message||e), 'var(--red)'); });
-}
 
-function saveEditPaiementClient(paiementId) {
-  var montant = parseFloat(document.getElementById('edit-pc-montant').value);
-  if (!montant || montant <= 0) { showToast('Montant invalide', 'var(--red)'); return; }
-  var body = {
-    montant: montant,
-    date_paiement: document.getElementById('edit-pc-date').value,
-    mode_paiement: document.getElementById('edit-pc-mode').value,
-    reference: document.getElementById('edit-pc-reference').value,
-    notes: document.getElementById('edit-pc-notes').value
-  };
-  apiFetch('api/paiements_clients.php?action=update&id=' + encodeURIComponent(paiementId), { method:'PUT', body: body })
-    .then(function() {
-      showToast('Paiement modifié', 'var(--green)');
-      var overlay = document.querySelector('.modal-overlay');
-      if (overlay) overlay.remove();
-      renderPaiementsClientsPage();
+      // Ouvrir le modal via le flux normal (configure projet + missions + historique)
+      var projetId = p.projet_id || '';
+      var devisId  = p.devis_id  || '';
+      if (devisId) {
+        openEnregistrerPaiement(null, devisId);
+      } else if (projetId) {
+        openEnregistrerPaiement(projetId, null);
+      } else {
+        openEnregistrerPaiement(null, null);
+      }
+
+      // Passer en mode édition (override des resets faits par openEnregistrerPaiement)
+      _paiEditingId = paiementId;
+      var titleEl = document.getElementById('paiement-modal-title');
+      if (titleEl) titleEl.textContent = 'Modifier le paiement';
+
+      // Masquer l'option "Générer un reçu" en mode édition
+      var recuCb = document.getElementById('pai-recu');
+      if (recuCb) {
+        recuCb.checked = false;
+        var lbl = recuCb.closest('label');
+        if (lbl) lbl.style.display = 'none';
+      }
+
+      // Pré-remplir les champs après un court délai (le temps que le projet/devis soit résolu)
+      var fillFields = function() {
+        var mtEl = document.getElementById('pai-montant'); if (mtEl) mtEl.value = p.montant || '';
+        var dtEl = document.getElementById('pai-date');    if (dtEl) dtEl.value = p.date_paiement || '';
+        var mdEl = document.getElementById('pai-mode');    if (mdEl && p.mode_paiement) mdEl.value = p.mode_paiement;
+        var tpEl = document.getElementById('pai-type');    if (tpEl) tpEl.value = p.type_paiement || '';
+        var rfEl = document.getElementById('pai-reference'); if (rfEl) rfEl.value = p.reference || '';
+        var ntEl = document.getElementById('pai-notes');   if (ntEl) ntEl.value = p.notes || '';
+        var errEl = document.getElementById('pai-err');    if (errEl) errEl.style.display = 'none';
+
+        // Pré-sélectionner la mission si présente
+        if (p.mission_phase) {
+          var missions = String(p.mission_phase).split(' + ');
+          var mSearch = document.getElementById('pai-mission-search');
+          if (mSearch && missions[0]) { mSearch.value = missions[0]; _paiMissionNom = missions[0]; }
+        }
+      };
+      setTimeout(fillFields, 200);
+      setTimeout(fillFields, 600); // Re-fill au cas où le projet se charge plus tard
     })
     .catch(function(e) { showToast('Erreur: ' + (e.message||e), 'var(--red)'); });
 }
@@ -1956,7 +1985,6 @@ window.filterPaiementsClients = filterPaiementsClients;
 window.genererFactureUI = genererFactureUI;
 window.genRecuPaiementClientPDF = genRecuPaiementClientPDF;
 window.openEditPaiementClient = openEditPaiementClient;
-window.saveEditPaiementClient = saveEditPaiementClient;
 window.deletePaiementClientUI = deletePaiementClientUI;
 
 // ── Devis Acceptance Hook ──
