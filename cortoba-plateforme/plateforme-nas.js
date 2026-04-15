@@ -1367,23 +1367,45 @@ function openClientDetail(id) {
     '<hr style="border-color:var(--border);margin:0.5rem 0">',
     '<span style="font-size:0.75rem;color:var(--text-3)">Créé par '+(c.creePar||'—')+' le '+fmtDate(c.creeAt)+'</span>'
   ].filter(Boolean).join('<br>');
+  // Supprimer un éventuel overlay existant pour éviter les doublons
+  var existing = document.getElementById('cl-detail-overlay');
+  if (existing) existing.remove();
+
   var ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.id = 'cl-detail-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';
+  // Déterminer la couleur de fond selon le thème (clair/sombre)
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+               document.body.classList.contains('dark') ||
+               getComputedStyle(document.documentElement).getPropertyValue('color-scheme').trim() === 'dark' ||
+               window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var cardBg     = isDark ? '#1a1a1a'          : '#ffffff';
+  var cardBorder = isDark ? '#2a2a2a'          : '#e5e5e5';
+  var textColor  = isDark ? '#e8e8e8'          : '#1a1a1a';
+
   ov.innerHTML =
-    '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:2rem;max-width:560px;width:90%;max-height:80vh;overflow-y:auto">'+
+    '<div id="cl-detail-card" style="background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:8px;padding:2rem;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;color:'+textColor+';box-shadow:0 20px 60px rgba(0,0,0,0.5)">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">'+
     '<div><div style="font-size:0.7rem;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.2rem">FICHE CLIENT</div>'+
     '<div style="font-size:1.1rem;font-weight:600">'+(c.displayNom||c.raison)+'</div></div>'+
     '<div style="display:flex;gap:0.5rem;align-items:center">'+
-      '<button onclick="this.closest(\'div[style*=\\\"position:fixed\\\"]\').remove();openEditClient(\''+c.id+'\')" '+
-        'style="background:var(--accent-bg);border:1px solid rgba(200,169,110,0.3);color:var(--accent);border-radius:4px;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.78rem">✎ Modifier</button>'+
-      '<button onclick="this.closest(\'div[style*=position]\').remove()" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button>'+
+      '<button id="cl-detail-edit-btn" type="button" style="background:var(--accent-bg);border:1px solid rgba(200,169,110,0.3);color:var(--accent);border-radius:4px;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.78rem">✎ Modifier</button>'+
+      '<button id="cl-detail-close-btn" type="button" style="background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer">✕</button>'+
     '</div>'+
     '</div>'+
     '<div style="line-height:1.9;font-size:0.85rem">'+info+'</div>'+
     '</div>';
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
+
+  // Attacher les handlers après insertion dans le DOM (plus fiable que inline onclick)
+  var editBtn = document.getElementById('cl-detail-edit-btn');
+  if (editBtn) editBtn.addEventListener('click', function(){
+    ov.remove();
+    openEditClient(c.id);
+  });
+  var closeBtn = document.getElementById('cl-detail-close-btn');
+  if (closeBtn) closeBtn.addEventListener('click', function(){ ov.remove(); });
 }
 
 // ── Ouvrir la modal en mode édition ──
