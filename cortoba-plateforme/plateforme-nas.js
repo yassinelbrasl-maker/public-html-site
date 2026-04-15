@@ -12,11 +12,17 @@ var API_BASE = (function(){
 // ── API helper ──
 function apiFetch(path, opts) {
   opts = opts || {};
+  // Mode aperçu : bloquer toutes les écritures pour éviter de modifier les données réelles
+  var _method = opts.method || 'GET';
+  if (window._previewMode && _method !== 'GET') {
+    // Silencieux : la bannière d'aperçu indique déjà la lecture seule
+    return Promise.reject(new Error('preview-mode-readonly'));
+  }
   var url = (path.indexOf('http') === 0) ? path : API_BASE + path;
   var headers = { 'Content-Type': 'application/json' };
   var token = sessionStorage.getItem('cortoba_token');
   if (token) headers['Authorization'] = 'Bearer ' + token;
-  var init = { method: opts.method || 'GET', headers: headers };
+  var init = { method: _method, headers: headers };
   if (opts.body && (opts.method === 'POST' || opts.method === 'PUT'))
     init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
   return fetch(url, init).then(function(r) {
@@ -5417,7 +5423,71 @@ function getNavModuleIds() {
 
 // Lire la session courante
 function getSession() {
+  // Mode aperçu : on simule la session du membre à prévisualiser
+  if (window._previewSession) return window._previewSession;
   try { return JSON.parse(sessionStorage.getItem('cortoba_session') || 'null'); } catch(e) { return null; }
+}
+
+// ── Mode aperçu : détecter ?preview=<membreId> et activer la simulation ──
+function _initPreviewMode() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var previewId = params.get('preview');
+    if (!previewId) return false;
+
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem('cortoba_membres') || '[]'); } catch(e) {}
+    var m = (arr || []).find(function(x){ return x.id === previewId; });
+    if (!m) return false;
+
+    var role = m.role || '';
+    var isGerant = role === 'Architecte gérant';
+    var allowed = Array.isArray(m.modules) ? m.modules.slice() : [];
+    // Un gérant sans modules stockés reçoit tous les modules par défaut
+    if (isGerant && allowed.length === 0 && typeof MODULES_PLATEFORME_SECTIONS !== 'undefined') {
+      MODULES_PLATEFORME_SECTIONS.forEach(function(sec){
+        sec.modules.forEach(function(mod){ allowed.push(mod.id); });
+      });
+    }
+
+    window._previewMode    = true;
+    window._previewMember  = m;
+    window._previewSession = {
+      id: m.id,
+      name: (m.prenom || '') + ' ' + (m.nom || ''),
+      role: role,
+      isAdmin: false, // jamais admin en aperçu
+      modules: allowed,
+      profile_picture_url: m.profile_picture_url || null
+    };
+    return true;
+  } catch(e) {
+    console.warn('[preview] init failed', e);
+    return false;
+  }
+}
+
+// Affiche une bannière d'aperçu au sommet de l'app
+function _renderPreviewBanner() {
+  if (!window._previewMode || !window._previewMember) return;
+  if (document.getElementById('preview-banner')) return;
+  var m = window._previewMember;
+  var name = (m.prenom || '') + ' ' + (m.nom || '');
+  var banner = document.createElement('div');
+  banner.id = 'preview-banner';
+  banner.style.cssText = 'position:sticky;top:0;z-index:900;background:linear-gradient(90deg,rgba(200,169,110,0.18),rgba(200,169,110,0.08));border-bottom:1px solid rgba(200,169,110,0.35);padding:0.45rem 1.1rem;display:flex;align-items:center;gap:0.7rem;font-size:0.78rem;color:var(--text);backdrop-filter:blur(4px)';
+  banner.innerHTML = ''
+    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+    + '<div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);font-weight:600">Mode aperçu</div>'
+    + '<div style="color:var(--text-2)">Simulation de <strong style="color:var(--text)">' + (name.trim() || '—') + '</strong>'
+    + ' <span style="color:var(--text-3)">· ' + (m.role || '—') + '</span></div>'
+    + '<div style="flex:1"></div>'
+    + '<div style="font-size:0.68rem;color:var(--text-3);font-style:italic">Lecture seule — aucune action d\'écriture</div>';
+
+  var app = document.getElementById('app');
+  if (app && app.firstChild) app.insertBefore(banner, app.firstChild);
+  else if (app) app.appendChild(banner);
+  document.body.classList.add('preview-mode');
 }
 
 // Modules autorisés pour l'utilisateur connecté (null = tous)
@@ -6184,6 +6254,9 @@ window._confirmCloseModal = _confirmCloseModal;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded',function(){
+  // Mode aperçu : activer la simulation avant toute autre init
+  var _isPreview = _initPreviewMode();
+
   // Fermer les modals en cliquant le fond (avec confirmation)
   document.querySelectorAll('.modal-overlay').forEach(function(m){
     m.addEventListener('click',function(e){
@@ -6199,25 +6272,45 @@ document.addEventListener('DOMContentLoaded',function(){
 
   // Vérifier token de session existant
   var token = sessionStorage.getItem('cortoba_token');
+
+  // Fonction commune pour activer l'app après auth (réussie ou bypass en mode aperçu)
+  function _showAppAfterAuth(u) {
+    // En mode aperçu, afficher le membre simulé dans le header au lieu de l'admin
+    if (_isPreview && window._previewMember) {
+      var pm = window._previewMember;
+      updateHeaderUserDisplay({
+        id: pm.id,
+        name: ((pm.prenom||'') + ' ' + (pm.nom||'')).trim(),
+        role: pm.role,
+        profile_picture_url: pm.profile_picture_url || null
+      });
+    } else if (u) {
+      updateHeaderUserDisplay(u);
+    }
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (appEl)       appEl.style.display       = 'block';
+    if (_isPreview) _renderPreviewBanner();
+    applyModuleAccess();
+    loadModulesFromAPI();
+    Promise.all([loadMembresFromAPI(), loadData()]).then(function(){ renderAll(); showPage(_getStartPage()); _openLinkedProjet(); refreshNotifBadge(); if (_isPreview) applyModuleAccess(); });
+  }
+
   if (token) {
     apiFetch('api/auth.php?action=me')
-      .then(function(r){
-        var u = r.data || r;
-        updateHeaderUserDisplay(u);
-        if (loginScreen) loginScreen.style.display = 'none';
-        if (appEl)       appEl.style.display       = 'block';
-        applyModuleAccess();
-        loadModulesFromAPI();
-        Promise.all([loadMembresFromAPI(), loadData()]).then(function(){ renderAll(); showPage(_getStartPage()); _openLinkedProjet(); refreshNotifBadge(); });
-      })
+      .then(function(r){ _showAppAfterAuth(r.data || r); })
       .catch(function(){
+        // En mode aperçu : la session admin du parent est présumée valide, on force l'affichage
+        if (_isPreview) { _showAppAfterAuth(null); return; }
         // Token invalide ou API inaccessible → retour au login sans bloquer
         doLogout();
         if (loginScreen) loginScreen.style.display = 'flex';
         if (appEl)       appEl.style.display       = 'none';
       });
+  } else if (_isPreview) {
+    // En mode aperçu sans token : afficher l'app malgré tout (le parent est admin)
+    _showAppAfterAuth(null);
   }
-  // Si pas de token : le login-screen reste affiché (déjà fait ci-dessus)
+  // Si pas de token et pas preview : le login-screen reste affiché (déjà fait ci-dessus)
 });
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -7095,167 +7188,49 @@ function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Aperçu de la plateforme selon un membre (simulation) ──
+// ── Aperçu de la plateforme selon un membre (simulation navigable en iframe) ──
 function openMembrePreview(membreId) {
   var m = getMembres().find(function(x){ return x.id === membreId; });
-  if (!m) { showToast && showToast('Membre introuvable', 'error'); return; }
+  if (!m) { if (typeof showToast === 'function') showToast('Membre introuvable', 'error'); return; }
 
-  var role = m.role || '—';
-  var roleLower = role.toLowerCase();
-  var isGerant = role === 'Architecte gérant';
-  var isStagiaire = roleLower === 'stagiaire';
-  var roleGroup = isGerant ? null : (isStagiaire ? 'stagiaire' : 'membre');
-
-  var allowedModules = Array.isArray(m.modules) ? m.modules.slice() : [];
-  // Un gérant a accès à tout par défaut
-  if (isGerant && allowedModules.length === 0) {
-    allowedModules = MODULES_PLATEFORME_SECTIONS.reduce(function(acc, sec){
-      sec.modules.forEach(function(mod){ acc.push(mod.id); });
-      return acc;
-    }, []);
-  }
-
-  var totalModules = MODULES_PLATEFORME_SECTIONS.reduce(function(n,s){ return n+s.modules.length; }, 0);
-  var nbAccessibles = allowedModules.length;
-
-  // Restrictions appliquées
-  var restrictions = getRestrictions();
-  var ruleSet = roleGroup ? (restrictions[roleGroup] || {}) : {};
-
-  // Couleurs/métadonnées du rôle
-  var meta = roleGroup ? (_ROLE_META[roleGroup] || {}) : {
-    label: 'Accès complet', color: 'var(--accent)',
-    bg: 'rgba(200,169,110,0.12)', border: 'rgba(200,169,110,0.25)',
-    icon: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-    desc: 'Architecte gérant — aucune restriction'
-  };
-
-  // ── En-tête membre ──
-  var header = ''
-    + '<div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;margin-bottom:1.2rem;flex-wrap:wrap">'
-    + renderAvatarHtml(m, 'member-avatar')
-    + '<div style="flex:1;min-width:180px">'
-    +   '<div style="font-size:0.95rem;font-weight:500;color:var(--text)">'+escHtml(m.prenom+' '+(m.nom||''))+'</div>'
-    +   '<div style="font-size:0.72rem;color:var(--text-3);margin-top:2px">'+escHtml(role)+(m.spec?' · '+escHtml(m.spec):'')+'</div>'
-    + '</div>'
-    + '<span style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.28rem 0.8rem;border-radius:20px;font-size:0.72rem;background:'+meta.bg+';color:'+meta.color+';border:1px solid '+meta.border+';font-weight:600;letter-spacing:0.04em">'
-    +   (meta.icon||'') + (isGerant ? 'Accès complet' : meta.label)
-    + '</span>'
-    + '<div style="font-size:0.72rem;color:var(--text-3);display:flex;flex-direction:column;align-items:flex-end;gap:2px">'
-    +   '<div><span style="color:var(--accent);font-weight:600;font-size:0.88rem">'+nbAccessibles+'</span> / '+totalModules+' modules</div>'
-    +   '<div>'+escHtml(m.statut || 'Actif')+'</div>'
-    + '</div>'
-    + '</div>';
-
-  // ── Bandeau d'info ──
-  var infoBanner = ''
-    + '<div style="display:flex;align-items:flex-start;gap:0.6rem;padding:0.7rem 0.9rem;background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.2);border-radius:6px;margin-bottom:1.2rem;font-size:0.76rem;color:var(--text-2);line-height:1.5">'
-    +   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
-    +   '<div>Simulation en lecture seule. L\'interface ci-dessous reflète les modules et actions accessibles à ce membre lorsqu\'il se connecte à la plateforme.</div>'
-    + '</div>';
-
-  // ── Sidebar simulée (modules par section) ──
-  var sidebarHtml = '<div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem;font-weight:600">Navigation visible</div>';
-  sidebarHtml += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
-  MODULES_PLATEFORME_SECTIONS.forEach(function(sec){
-    var visibles = sec.modules.filter(function(mod){ return allowedModules.indexOf(mod.id) !== -1; });
-    if (visibles.length === 0) return; // on masque les sections sans aucun module visible, comme dans la vraie plateforme
-    sidebarHtml += '<div style="padding:0.6rem 0.9rem;border-bottom:1px solid var(--border);background:var(--bg-1)">'
-      + '<div style="font-size:0.66rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.4rem">'+escHtml(sec.section)+'</div>'
-      + '<div style="display:flex;flex-direction:column;gap:0.2rem">';
-    visibles.forEach(function(mod){
-      sidebarHtml += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.38rem 0.55rem;border-radius:4px;background:var(--bg-2);font-size:0.78rem;color:var(--text-2)">'
-        + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
-        + escHtml(mod.label)
-        + '</div>';
-    });
-    sidebarHtml += '</div></div>';
-  });
-  if (nbAccessibles === 0) {
-    sidebarHtml += '<div style="padding:1.5rem 1rem;text-align:center;font-size:0.78rem;color:var(--text-3)">Aucun module accordé à ce membre.</div>';
-  }
-  sidebarHtml += '</div>';
-
-  // ── Modules refusés ──
-  var refusedHtml = '';
-  var refusedCount = totalModules - nbAccessibles;
-  if (refusedCount > 0 && !isGerant) {
-    refusedHtml = '<div style="margin-top:1.2rem"><div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.6rem;font-weight:600">Modules non accessibles ('+refusedCount+')</div>'
-      + '<div style="display:flex;flex-wrap:wrap;gap:0.3rem">';
-    MODULES_PLATEFORME_SECTIONS.forEach(function(sec){
-      sec.modules.forEach(function(mod){
-        if (allowedModules.indexOf(mod.id) === -1) {
-          refusedHtml += '<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.18rem 0.55rem;border-radius:20px;font-size:0.68rem;background:var(--bg-3);border:1px solid var(--border);color:var(--text-3);text-decoration:line-through;opacity:0.7">'
-            + escHtml(mod.label) + '</span>';
-        }
-      });
-    });
-    refusedHtml += '</div></div>';
-  }
-
-  // ── Restrictions d'actions (création, suppression, etc.) ──
-  var restrictionsHtml = '<div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.8rem;font-weight:600">Actions autorisées</div>';
-  restrictionsHtml += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:0.8rem">';
-  if (isGerant) {
-    restrictionsHtml += '<div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.7rem;background:rgba(88,166,135,0.08);border:1px solid rgba(88,166,135,0.25);border-radius:6px;font-size:0.78rem;color:var(--green)">'
-      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>'
-      + 'Aucune restriction — accès administrateur complet.</div>';
-  } else {
-    var keys = Object.keys(ruleSet);
-    if (keys.length === 0) {
-      restrictionsHtml += '<div style="font-size:0.78rem;color:var(--text-3)">Aucune règle configurée.</div>';
-    } else {
-      restrictionsHtml += '<div style="display:grid;grid-template-columns:1fr;gap:0.35rem">';
-      keys.forEach(function(key){
-        var blocked = ruleSet[key] === true;
-        var label = _RESTRICTION_LABELS[key] || key;
-        restrictionsHtml += '<div style="display:flex;align-items:center;gap:0.55rem;padding:0.45rem 0.65rem;background:'+(blocked?'rgba(224,112,112,0.06)':'rgba(88,166,135,0.06)')+';border:1px solid '+(blocked?'rgba(224,112,112,0.22)':'rgba(88,166,135,0.22)')+';border-radius:5px;font-size:0.77rem">'
-          + (blocked
-              ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>'
-              : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>')
-          + '<span style="flex:1;color:'+(blocked?'#e07b72':'var(--text-2)')+'">'+escHtml(label)+'</span>'
-          + '<span style="font-size:0.68rem;color:var(--text-3);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">'+(blocked?'Bloqué':'Autorisé')+'</span>'
-          + '</div>';
-      });
-      restrictionsHtml += '</div>';
+  // S'assurer que le membre est bien dans localStorage pour que l'iframe puisse le relire
+  try {
+    var stored = JSON.parse(localStorage.getItem('cortoba_membres') || '[]');
+    var hasIt = (stored || []).some(function(x){ return x.id === m.id; });
+    if (!hasIt) {
+      // Sauvegarde en local seulement (pas d'API : le serveur connait déjà le membre)
+      var merged = (stored || []).concat([m]);
+      localStorage.setItem('cortoba_membres', JSON.stringify(merged));
     }
+  } catch(e) {}
+
+  // Mettre à jour sous-titre et titre
+  var title = document.getElementById('mb-preview-title');
+  var sub   = document.getElementById('mb-preview-subtitle');
+  if (title) title.textContent = 'Aperçu de la plateforme';
+  if (sub) {
+    var nm = ((m.prenom||'') + ' ' + (m.nom||'')).trim() || '—';
+    sub.innerHTML = '<strong style="color:var(--text-2)">' + escHtml(nm) + '</strong>'
+      + ' <span style="color:var(--text-3)">· ' + escHtml(m.role||'—') + '</span>';
   }
-  restrictionsHtml += '</div>';
 
-  // Accès aux zones UI sensibles (reflète canViewSensitiveMember / applyModuleAccess)
-  var sensitiveHtml = '<div style="margin-top:1.2rem"><div style="font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.6rem;font-weight:600">Zones UI sensibles</div>';
-  var voitRemuTabs = isGerant; // Rémunération / Augmentation : admin / gérant uniquement
-  var voitRestrictionsCard = isGerant; // Carte "Restrictions par rôle"
-  var voitParamRoles = isGerant; // Gestion des rôles dans Paramètres
-  var sensitiveRows = [
-    { label: 'Onglets Rémunération / Augmentation',          ok: voitRemuTabs },
-    { label: 'Carte "Restrictions par rôle" (page Équipe)',  ok: voitRestrictionsCard },
-    { label: 'Gestion des rôles (Paramètres)',               ok: voitParamRoles }
-  ];
-  sensitiveHtml += '<div style="display:flex;flex-direction:column;gap:0.3rem">';
-  sensitiveRows.forEach(function(row){
-    sensitiveHtml += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border:1px solid var(--border);border-radius:5px;font-size:0.76rem">'
-      + (row.ok
-          ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
-          : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e07b72" stroke-width="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>')
-      + '<span style="flex:1;color:'+(row.ok?'var(--text-2)':'var(--text-3)')+'">'+escHtml(row.label)+'</span>'
-      + '<span style="font-size:0.68rem;color:var(--text-3);font-weight:600;letter-spacing:0.04em;text-transform:uppercase">'+(row.ok?'Visible':'Masqué')+'</span>'
-      + '</div>';
-  });
-  sensitiveHtml += '</div></div>';
-
-  // ── Assemblage ──
-  var body = header + infoBanner
-    + '<div style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(260px,1fr);gap:1.2rem">'
-    +   '<div>' + sidebarHtml + refusedHtml + '</div>'
-    +   '<div>' + restrictionsHtml + sensitiveHtml + '</div>'
-    + '</div>';
-
-  var container = document.getElementById('mb-preview-body');
-  if (container) container.innerHTML = body;
+  // Charger l'iframe avec le paramètre preview
+  var iframe = document.getElementById('mb-preview-iframe');
+  if (iframe) {
+    // Timestamp pour forcer un rechargement propre à chaque ouverture
+    iframe.src = 'plateforme-nas.html?preview=' + encodeURIComponent(m.id) + '&ts=' + Date.now();
+  }
   openModal('modal-membre-preview');
 }
 window.openMembrePreview = openMembrePreview;
+
+// Fermeture du modal d'aperçu : vider l'iframe pour stopper le chargement/audio/timers
+function closeMembrePreview() {
+  var iframe = document.getElementById('mb-preview-iframe');
+  if (iframe) iframe.src = 'about:blank';
+  closeModal('modal-membre-preview');
+}
+window.closeMembrePreview = closeMembrePreview;
 
 // ── Tableau récap accès ──
 function toggleMembreModuleAccess(membreId, moduleId) {
