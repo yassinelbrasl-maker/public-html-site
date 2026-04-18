@@ -15,6 +15,9 @@ function ensureProjetsRendementColumns() {
         "project_type   VARCHAR(80)   DEFAULT NULL",
         "budget_heures  DECIMAL(8,2)  DEFAULT NULL",
         "nas_path       VARCHAR(500)  DEFAULT NULL",
+        "archived       TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '1 = projet archivé'",
+        "archived_at    DATETIME      DEFAULT NULL",
+        "archived_by    VARCHAR(120)  DEFAULT NULL",
     );
     foreach ($extra as $def) {
         try { $db->exec("ALTER TABLE CA_projets ADD COLUMN IF NOT EXISTS $def"); }
@@ -200,9 +203,24 @@ function update($id, array $user) {
     $stmt->execute([$id]);
     if (!$stmt->fetch()) jsonError('Projet introuvable', 404);
 
+    // ── Action : archiver / désarchiver un projet ──
+    $action = $_GET['action'] ?? '';
+    if ($action === 'archive' || $action === 'unarchive') {
+        $flag = ($action === 'archive') ? 1 : 0;
+        $db->prepare('UPDATE CA_projets SET archived=?, archived_at=?, archived_by=?, modifie_par=? WHERE id=?')
+           ->execute([
+               $flag,
+               $flag ? date('Y-m-d H:i:s') : null,
+               $flag ? ($user['name'] ?? null) : null,
+               $user['name'] ?? null,
+               $id,
+           ]);
+        jsonOk(['updated' => $id, 'archived' => $flag]);
+        return;
+    }
+
     // ── Mise à jour partielle : affectation de missions uniquement ──
     // Déclenchée par ?action=affect_mission ou par un body ne contenant que "missions"
-    $action = $_GET['action'] ?? '';
     $isMissionsOnly = (isset($body['missions']) && !isset($body['nom']) && !isset($body['code']));
     if ($action === 'affect_mission' || $isMissionsOnly) {
         $missions = is_array($body['missions'] ?? null) ? $body['missions'] : [];
