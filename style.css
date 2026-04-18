@@ -502,7 +502,8 @@ body.menu-open { overflow: hidden; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: brightness(0.5);
+  object-position: center center;
+  filter: brightness(0.55);
   flex-shrink: 0;
 }
 
@@ -2060,23 +2061,55 @@ footer {
    Ken Burns, scroll reveals, parallax, hero entrance
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Ken Burns effect on hero slider images ── */
+/* ── Ken Burns effect on hero slider images (subtle – no aggressive crop) ── */
 @keyframes kenBurnsZoom {
-  0%   { transform: scale(1.0) translate(0, 0); }
-  100% { transform: scale(1.12) translate(-1.5%, -1%); }
+  0%   { transform: scale(1.0); }
+  100% { transform: scale(1.05); }
 }
 @keyframes kenBurnsPan {
-  0%   { transform: scale(1.08) translate(1.5%, 0); }
-  100% { transform: scale(1.15) translate(-1.5%, -1.5%); }
+  0%   { transform: scale(1.03); }
+  100% { transform: scale(1.06); }
 }
 .slider-image {
-  animation: kenBurnsZoom 14s ease-in-out infinite alternate;
+  animation: kenBurnsZoom 20s ease-in-out infinite alternate;
   will-change: transform;
+  transform-origin: center center;
 }
 .slider-track > .slider-image:nth-child(even) {
   animation-name: kenBurnsPan;
-  animation-duration: 16s;
+  animation-duration: 22s;
 }
+
+/* ── Hero slide progression bar (replaces dots) ── */
+.hero-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.12);
+  z-index: 6;
+  overflow: hidden;
+}
+.hero-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.hero-progress-fill.run {
+  animation: heroProgressRun 5s linear forwards;
+}
+@keyframes heroProgressRun {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+/* Hide old dots now that we have a progress bar */
+.slider-dots { display: none; }
 
 /* ── Scroll-reveal: elements fade-up as they enter viewport ── */
 .reveal-up {
