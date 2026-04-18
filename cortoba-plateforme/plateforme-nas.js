@@ -9986,7 +9986,8 @@ function renderSuiviPage() {
     if (filterPriorite && t.priorite !== filterPriorite) return false;
     if (filterLocation && (t.location_type||'Bureau') !== filterLocation) return false;
     if (search) {
-      var hay = ((t.titre||'') + ' ' + (t.description||'') + ' ' + (t.assignee||'') + ' ' + (t.projetNom||'')).toLowerCase();
+      var _ass = getTacheAssignees(t).join(' ');
+      var hay = ((t.titre||'') + ' ' + (t.description||'') + ' ' + _ass + ' ' + (t.projetNom||'')).toLowerCase();
       if (hay.indexOf(search) === -1) return false;
     }
     return true;
@@ -10079,6 +10080,24 @@ function _memberDot(name) {
   var c = (typeof getMemberColor === 'function') ? getMemberColor(name) : '#c8a96e';
   return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+c+';margin-right:0.3rem;vertical-align:middle"></span>';
 }
+
+// Rendu groupé de tous les assignés d'une tâche (compact = 1er prénom + badge)
+function _renderAssignees(t, opts) {
+  var list = (typeof getTacheAssignees === 'function') ? getTacheAssignees(t) : (t && t.assignee ? [t.assignee] : []);
+  if (!list.length) return '';
+  opts = opts || {};
+  var compact = opts.compact !== false; // compact par défaut
+  var max = opts.max || (compact ? 2 : list.length);
+  var html = '<span class="suivi-assignees">';
+  list.slice(0, max).forEach(function(n) {
+    var display = compact ? n.split(' ')[0] : n;
+    html += '<span class="suivi-assignee" title="' + n.replace(/"/g,'&quot;') + '">' + _memberDot(n) + display + '</span>';
+  });
+  if (list.length > max) html += '<span class="suivi-assignees-more" title="' + list.slice(max).join(', ').replace(/"/g,'&quot;') + '">+' + (list.length - max) + '</span>';
+  html += '</span>';
+  return html;
+}
+window._renderAssignees = _renderAssignees;
 
 // ── Vue arborescente (liste) ──
 function renderSuiviTree(items) {
@@ -10203,7 +10222,7 @@ function renderSuiviTree(items) {
       html += '<div style="height:4px;background:var(--bg-2);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+realPct+'%;background:'+deltaColor+'"></div></div>';
       html += '</div>';
       if (m.dateEcheance) html += '<span class="suivi-date" title="Échéance">' + fmtDate(m.dateEcheance) + '</span>';
-      if (m.assignee) html += '<span class="suivi-assignee" title="' + m.assignee + '">' + _memberDot(m.assignee) + m.assignee.split(' ')[0] + '</span>';
+      html += _renderAssignees(m, {compact:true, max:2});
       html += '<div class="suivi-actions">';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(1, \'' + m.id + '\', \'' + pid + '\')" title="Ajouter tâche">+ Tâche</button>';
       html += '<button class="suivi-action-btn" onclick="event.stopPropagation();editTache(\'' + m.id + '\')" title="Modifier">✎</button>';
@@ -10235,7 +10254,7 @@ function renderSuiviTree(items) {
         html += suiviStatutBadge(tache.statut);
         html += suiviProgressBar(tache.progression);
         if (tache.dateEcheance) html += '<span class="suivi-date">' + fmtDate(tache.dateEcheance) + '</span>';
-        if (tache.assignee) html += '<span class="suivi-assignee">' + _memberDot(tache.assignee) + tache.assignee.split(' ')[0] + '</span>';
+        html += _renderAssignees(tache, {compact:true, max:2});
         html += '<div class="suivi-actions">';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openTimesheetModal(\'' + tache.id + '\')" title="Saisir du temps">⏱</button>';
         html += '<button class="suivi-action-btn" onclick="event.stopPropagation();openSuiviModal(2, \'' + tache.id + '\', \'' + pid + '\')" title="Ajouter sous-tâche">+</button>';
@@ -10257,7 +10276,7 @@ function renderSuiviTree(items) {
             html += '<div style="margin-left:auto;display:flex;align-items:center;gap:0.4rem">';
             html += suiviStatutBadge(st.statut);
             html += suiviProgressBar(st.progression || 0);
-            if (st.assignee) html += '<span class="suivi-assignee">' + _memberDot(st.assignee) + st.assignee.split(' ')[0] + '</span>';
+            html += _renderAssignees(st, {compact:true, max:2});
             html += '<button class="suivi-action-btn" onclick="editTache(\'' + st.id + '\')" title="Modifier">✎</button>';
             if (canDelete()) html += '<button class="suivi-action-btn suivi-del" onclick="deleteTache(\'' + st.id + '\')" title="Supprimer">✕</button>';
             html += '</div>';
@@ -10329,7 +10348,7 @@ function renderSuiviKanban(items) {
         html += '<div class="suivi-kanban-card-titre">' + (t.titre||'') + '</div>';
         if (t.projetNom) html += '<div class="suivi-kanban-card-projet">' + (t.projetCode ? t.projetCode + ' — ' : '') + t.projetNom + '</div>';
         html += '<div class="suivi-kanban-card-bottom">';
-        if (t.assignee) html += '<span class="suivi-assignee">' + _memberDot(t.assignee) + t.assignee + '</span>';
+        html += _renderAssignees(t, {compact:false, max:3});
         if (t.dateEcheance) html += '<span class="suivi-date">' + fmtDate(t.dateEcheance) + '</span>';
         html += '<button class="suivi-action-btn" style="margin-left:auto" onclick="event.stopPropagation();openTimesheetModal(\'' + t.id + '\')" title="Saisir du temps">⏱</button>';
         html += '</div>';
@@ -10355,14 +10374,16 @@ function renderSuiviKanban(items) {
 function renderSuiviMembres(items) {
   var wrap = document.getElementById('suivi-membres');
 
-  // Grouper par assignee
+  // Grouper par assignee — une tâche multi-affectée apparaît dans chaque colonne concernée
   var membreMap = {};
   var nonAssigne = [];
   items.forEach(function(t) {
-    var a = (t.assignee || '').trim();
-    if (!a) { nonAssigne.push(t); return; }
-    if (!membreMap[a]) membreMap[a] = [];
-    membreMap[a].push(t);
+    var list = getTacheAssignees(t);
+    if (!list.length) { nonAssigne.push(t); return; }
+    list.forEach(function(a) {
+      if (!membreMap[a]) membreMap[a] = [];
+      membreMap[a].push(t);
+    });
   });
 
   // Trier les membres par nombre de tâches (desc)
@@ -10680,9 +10701,9 @@ function openSuiviModal(niveau, parentId, projetId) {
   // Re-populer les missions après que le projet soit défini pour avoir le bon contexte
   if (niveau === 0) _populateMissionsSelect('');
 
-  // Populate assignee select with team members — default to current user
+  // Populate assignee multi-picker — défaut : utilisateur courant
   var _currentUserName = (window._currentUser || {}).name || '';
-  _populateAssigneeSelect(_currentUserName);
+  _setAssigneePicker(_currentUserName ? [_currentUserName] : []);
 
   openModal('modal-tache');
 }
@@ -11049,20 +11070,123 @@ function onTacheProjetChange() {
 }
 window.onTacheProjetChange = onTacheProjetChange;
 
-// ── Remplir le select assigné avec les membres de l'équipe ──
-function _populateAssigneeSelect(selectedValue) {
-  var selA = document.getElementById('tache-assignee');
-  selA.innerHTML = '<option value="">— Non assigné —</option>';
-  var membres = getMembres();
+// ── Multi-select assigné : liste des membres sélectionnés dans le modal ──
+var _tacheAssignees = [];
+
+// Parse souple : array, JSON string, CSV string, ou single string
+function parseAssigneesField(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(function(s){return String(s).trim();}).filter(Boolean);
+  var s = String(raw).trim();
+  if (!s) return [];
+  if (s.charAt(0) === '[') {
+    try { var arr = JSON.parse(s); if (Array.isArray(arr)) return arr.map(function(x){return String(x).trim();}).filter(Boolean); } catch(e) {}
+  }
+  // Legacy: chaîne simple (un seul nom) ou CSV
+  return s.split(',').map(function(x){return x.trim();}).filter(Boolean);
+}
+window.parseAssigneesField = parseAssigneesField;
+
+// Normaliser les affectés d'une tâche (accepte les 2 champs API)
+function getTacheAssignees(t) {
+  if (!t) return [];
+  var list = parseAssigneesField(t.assignees);
+  if (list.length) return list;
+  return parseAssigneesField(t.assignee);
+}
+window.getTacheAssignees = getTacheAssignees;
+
+// Ouvre / ferme le dropdown du picker
+function toggleAssigneePicker(e) {
+  if (e) e.stopPropagation();
+  var dd = document.getElementById('tache-assignee-dropdown');
+  if (!dd) return;
+  var open = dd.style.display !== 'none';
+  if (open) { dd.style.display = 'none'; return; }
+  dd.style.display = '';
+  var search = document.getElementById('tache-assignee-search');
+  if (search) { search.value = ''; setTimeout(function(){ search.focus(); }, 30); }
+  _renderAssigneePicker('');
+}
+window.toggleAssigneePicker = toggleAssigneePicker;
+
+function filterAssigneePicker(q) { _renderAssigneePicker(q || ''); }
+window.filterAssigneePicker = filterAssigneePicker;
+
+function _renderAssigneePicker(query) {
+  var list = document.getElementById('tache-assignee-list');
+  if (!list) return;
+  var q = (query || '').toLowerCase().trim();
+  var membres = getMembres() || [];
+  var html = '';
+  var shown = 0;
   membres.forEach(function(m) {
     var fullName = ((m.prenom || '') + ' ' + (m.nom || '')).trim();
     if (!fullName) return;
-    var opt = document.createElement('option');
-    opt.value = fullName;
-    opt.textContent = fullName + (m.role ? ' (' + m.role + ')' : '');
-    selA.appendChild(opt);
+    var label = fullName + (m.role ? ' (' + m.role + ')' : '');
+    if (q && label.toLowerCase().indexOf(q) === -1) return;
+    shown++;
+    var checked = _tacheAssignees.indexOf(fullName) !== -1;
+    var safe = fullName.replace(/"/g, '&quot;');
+    html += '<label class="assignee-multi-option' + (checked ? ' is-selected' : '') + '">';
+    html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleAssigneeValue(\'' + safe.replace(/'/g, "\\'") + '\', this.checked)" />';
+    html += '<span>' + escHtml(label) + '</span>';
+    html += '</label>';
   });
-  if (selectedValue) selA.value = selectedValue;
+  if (!shown) html = '<div class="assignee-multi-empty">Aucun membre trouvé.</div>';
+  list.innerHTML = html;
+}
+
+function toggleAssigneeValue(name, checked) {
+  var i = _tacheAssignees.indexOf(name);
+  if (checked && i === -1) _tacheAssignees.push(name);
+  if (!checked && i !== -1) _tacheAssignees.splice(i, 1);
+  _renderAssigneePickerLabel();
+  // Re-rendre la liste pour mettre à jour l'état visuel (hover/selected)
+  var search = document.getElementById('tache-assignee-search');
+  _renderAssigneePicker(search ? search.value : '');
+}
+window.toggleAssigneeValue = toggleAssigneeValue;
+
+function _renderAssigneePickerLabel() {
+  var lab = document.getElementById('tache-assignee-label');
+  if (!lab) return;
+  if (!_tacheAssignees.length) {
+    lab.textContent = '— Non assigné —';
+    lab.classList.remove('has-values');
+    return;
+  }
+  lab.classList.add('has-values');
+  var html = '';
+  var max = 3;
+  _tacheAssignees.slice(0, max).forEach(function(n) {
+    html += '<span class="assignee-multi-chip">' + _memberDot(n) + escHtml(n.split(' ')[0]) + '</span>';
+  });
+  if (_tacheAssignees.length > max) html += '<span class="assignee-multi-chip">+' + (_tacheAssignees.length - max) + '</span>';
+  lab.innerHTML = html;
+}
+
+// Ferme le dropdown sur clic extérieur
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('tache-assignee-multi');
+  var dd   = document.getElementById('tache-assignee-dropdown');
+  if (!wrap || !dd) return;
+  if (!wrap.contains(e.target)) dd.style.display = 'none';
+});
+
+// Initialise le picker pour une liste donnée (array de noms)
+function _setAssigneePicker(names) {
+  _tacheAssignees = Array.isArray(names) ? names.slice() : [];
+  _renderAssigneePickerLabel();
+  _renderAssigneePicker('');
+  var dd = document.getElementById('tache-assignee-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+// Alias de compat : utilisé par openSuiviModal/editTache avant refonte
+function _populateAssigneeSelect(selectedValue) {
+  var names = selectedValue ? (Array.isArray(selectedValue) ? selectedValue : parseAssigneesField(selectedValue)) : [];
+  _setAssigneePicker(names);
 }
 
 // ── Modifier une tâche existante ──
@@ -11126,8 +11250,8 @@ function editTache(id) {
   if (_ddM) _ddM.style.display = 'none';
   _missionDropOpen = false;
 
-  // Populate assignee select with team members
-  _populateAssigneeSelect(t.assignee || '');
+  // Populate assignee multi-picker avec la liste complète (priorité à assignees JSON, fallback legacy)
+  _setAssigneePicker(getTacheAssignees(t));
 
   // v3 : localisation / heures / ordre / manuelle
   var elLoc  = document.getElementById('tache-location-type');  if (elLoc) elLoc.value = t.location_type || 'Bureau';
@@ -11181,7 +11305,8 @@ function saveTache() {
     description:   document.getElementById('tache-desc').value.trim(),
     statut:        document.getElementById('tache-statut').value,
     priorite:      document.getElementById('tache-priorite').value,
-    assignee:      document.getElementById('tache-assignee').value.trim(),
+    assignees:     _tacheAssignees.slice(),
+    assignee:      _tacheAssignees[0] || '',
     progression:   parseInt(document.getElementById('tache-progression').value) || 0,
     date_debut:    document.getElementById('tache-date-debut').value || null,
     date_echeance: document.getElementById('tache-date-echeance').value || null,
@@ -11423,10 +11548,10 @@ function renderJournalPage() {
     var taches = results[0] || [];
     _journalCache = results[1].data || [];
 
-    // Filtrer les tâches assignées au membre sélectionné
+    // Filtrer les tâches assignées au membre sélectionné (inclut multi-affectation)
     var mesTaches = taches;
     if (membreFilter) {
-      mesTaches = taches.filter(function(t) { return t.assignee === membreFilter; });
+      mesTaches = taches.filter(function(t) { return getTacheAssignees(t).indexOf(membreFilter) !== -1; });
     }
 
     // Exclure les missions (niveau 0) — ne garder que tâches et sous-tâches
@@ -12080,7 +12205,8 @@ function _rdmComputeMemberStats(fullName, taches, entries, timesheets) {
 
   (taches || []).forEach(function(t) {
     if (t.niveau < 1) return;
-    if ((t.assignee || '').trim() !== fullName) return;
+    var _list = getTacheAssignees(t);
+    if (_list.indexOf(fullName) === -1) return;
     s.assignees++;
     if (t.statut === 'Terminé') s.terminees++;
     else if (t.statut === 'En cours') s.enCours++;
@@ -14152,7 +14278,8 @@ function openDeplacementsView() {
       var loc = t.location_type || 'Bureau';
       if (loc !== 'Chantier' && loc !== 'Administration') return false;
       if (t.statut === 'Terminé') return false;
-      if (myName && t.assignee && t.assignee !== myName && (me.role||'') !== 'admin' && (me.role||'') !== 'Architecte gérant') {
+      var _ass = getTacheAssignees(t);
+      if (myName && _ass.length && _ass.indexOf(myName) === -1 && (me.role||'') !== 'admin' && (me.role||'') !== 'Architecte gérant') {
         return false;
       }
       return true;
@@ -14176,7 +14303,8 @@ function openDeplacementsView() {
         html += '<tr class="sep"><td colspan="6">' + (r.location_zone || '— Zone non précisée —') + '</td></tr>';
         lastZone = r.location_zone;
       }
-      html += '<tr><td>'+(r.location_zone||'—')+'</td><td>'+(r.location_type||'')+'</td><td>'+((r.projetCode||r.projet_code||'')+(r.projetNom? ' — '+r.projetNom:''))+'</td><td>'+(r.titre||'')+'</td><td>'+(r.dateEcheance||r.date_echeance||'—')+'</td><td>'+(r.assignee||'—')+'</td></tr>';
+      var _assRow = getTacheAssignees(r).join(', ') || '—';
+      html += '<tr><td>'+(r.location_zone||'—')+'</td><td>'+(r.location_type||'')+'</td><td>'+((r.projetCode||r.projet_code||'')+(r.projetNom? ' — '+r.projetNom:''))+'</td><td>'+(r.titre||'')+'</td><td>'+(r.dateEcheance||r.date_echeance||'—')+'</td><td>'+_assRow+'</td></tr>';
     });
     html += '</tbody></table>';
     html += '<script>window.onload=function(){window.print();}</scr'+'ipt></body></html>';
@@ -14204,7 +14332,8 @@ function checkDeadlinesPopup() {
       if (!d) return false;
       var dd = new Date(d); dd.setHours(0,0,0,0);
       if (dd > lim) return false;
-      if (!isPriv && myName && t.assignee && t.assignee !== myName) return false;
+      var _assD = getTacheAssignees(t);
+      if (!isPriv && myName && _assD.length && _assD.indexOf(myName) === -1) return false;
       return true;
     });
     if (!alerts.length) return;
@@ -14219,7 +14348,8 @@ function checkDeadlinesPopup() {
       var color = overdue ? '#c0392b' : '#d18e1e';
       html += '<div style="border-left:3px solid '+color+';padding:0.5rem 0.7rem;background:var(--bg-2);border-radius:4px">';
       html += '<div style="font-size:0.85rem;font-weight:500">'+(t.titre||'')+'</div>';
-      html += '<div style="font-size:0.72rem;color:var(--text-3)">'+(t.projetCode||t.projet_code||'')+' · '+(t.assignee||'Non assigné')+' · <span style="color:'+color+'">échéance '+d+(overdue?' (en retard)':'')+'</span></div>';
+      var _assP = getTacheAssignees(t).join(', ') || 'Non assigné';
+      html += '<div style="font-size:0.72rem;color:var(--text-3)">'+(t.projetCode||t.projet_code||'')+' · '+_assP+' · <span style="color:'+color+'">échéance '+d+(overdue?' (en retard)':'')+'</span></div>';
       html += '</div>';
     });
     wrap.innerHTML = html;
@@ -14524,7 +14654,8 @@ function renderChargePage() {
     });
     var d1 = new Date(df), d2 = new Date(dt);
     (list||[]).forEach(function(t){
-      if (!t.assignee) return;
+      var _assL = getTacheAssignees(t);
+      if (!_assL.length) return;
       if (t.statut === 'Terminé') return;
       var td = t.date_debut || t.dateDebut;
       var te = t.date_echeance || t.dateEcheance;
@@ -14534,9 +14665,13 @@ function renderChargePage() {
         if (tend < d1 || ts > d2) return;
       }
       var he = parseFloat(t.heures_estimees)||0;
-      if (!byMember[t.assignee]) byMember[t.assignee] = { membre: { prenom:'', nom:t.assignee, heures_mois:160, color:'#c8a96e' }, planifie:0, tasks:[] };
-      byMember[t.assignee].planifie += he;
-      byMember[t.assignee].tasks.push(t);
+      // Réparti équitablement entre les affectés
+      var part = _assL.length > 0 ? (he / _assL.length) : 0;
+      _assL.forEach(function(an) {
+        if (!byMember[an]) byMember[an] = { membre: { prenom:'', nom:an, heures_mois:160, color:'#c8a96e' }, planifie:0, tasks:[] };
+        byMember[an].planifie += part;
+        byMember[an].tasks.push(t);
+      });
     });
 
     // Capacité = heures_mois / jours ouvrés du mois × jours ouvrés de la période

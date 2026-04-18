@@ -1476,10 +1476,17 @@
             </div>
             <div class="form-grid">
               <div class="form-field">
-                <label class="form-label">Assigné à</label>
-                <select id="tache-assignee" class="form-select">
-                  <option value="">— Non assigné —</option>
-                </select>
+                <label class="form-label">Assigné à <span style="font-size:0.68rem;color:var(--text-3);font-weight:400">(plusieurs possibles)</span></label>
+                <div class="assignee-multi" id="tache-assignee-multi">
+                  <button type="button" class="assignee-multi-trigger" id="tache-assignee-trigger" onclick="toggleAssigneePicker(event)">
+                    <span id="tache-assignee-label" class="assignee-multi-label">— Non assigné —</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="assignee-multi-dropdown" id="tache-assignee-dropdown" style="display:none">
+                    <input type="text" class="form-input assignee-multi-search" id="tache-assignee-search" placeholder="Rechercher un membre…" oninput="filterAssigneePicker(this.value)" />
+                    <div class="assignee-multi-list" id="tache-assignee-list"></div>
+                  </div>
+                </div>
               </div>
               <div class="form-field">
                 <label class="form-label">Progression</label>

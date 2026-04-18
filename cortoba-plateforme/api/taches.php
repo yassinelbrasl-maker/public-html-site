@@ -28,6 +28,7 @@ try {
         "progression_manuelle TINYINT(1) DEFAULT 0",
         "categorie VARCHAR(10) DEFAULT NULL COMMENT 'Code catégorie mission'",
         "demande_admin_id VARCHAR(32) DEFAULT NULL COMMENT 'Lien vers CA_demandes_admin'",
+        "assignees TEXT DEFAULT NULL COMMENT 'JSON array des membres assignés (multi-affectation)'",
     ];
     foreach ($addCols as $cdef) {
         try { $db0->exec("ALTER TABLE CA_taches ADD COLUMN IF NOT EXISTS $cdef"); }
@@ -73,7 +74,12 @@ function getAll() {
     if (isset($_GET['niveau']) && $_GET['niveau'] !== '') { $where[] = 't.niveau = ?'; $params[] = intval($_GET['niveau']); }
     if (!empty($_GET['parent_id']))             { $where[] = 't.parent_id = ?';     $params[] = $_GET['parent_id']; }
     if (!empty($_GET['statut']))                { $where[] = 't.statut = ?';        $params[] = $_GET['statut']; }
-    if (!empty($_GET['assignee']))              { $where[] = 't.assignee = ?';      $params[] = $_GET['assignee']; }
+    if (!empty($_GET['assignee'])) {
+        // Match legacy single-assignee field OU présence dans le JSON assignees (multi-affectation)
+        $where[]  = '(t.assignee = ? OR JSON_SEARCH(t.assignees, "one", ?) IS NOT NULL)';
+        $params[] = $_GET['assignee'];
+        $params[] = $_GET['assignee'];
+    }
     if (!empty($_GET['location_type']))         { $where[] = 't.location_type = ?'; $params[] = $_GET['location_type']; }
 
     $sql  = 'SELECT t.*, p.nom AS projet_nom, p.code AS projet_code, p.client AS projet_client,
@@ -130,12 +136,15 @@ function create(array $user) {
     $niveau = intval($body['niveau'] ?? 0);
     if ($niveau < 0 || $niveau > 2) $niveau = 0;
 
+    // Normaliser la liste d'affectés : accepte body.assignees (array) ou body.assignee (string legacy)
+    [$assigneeLegacy, $assigneesJson] = _normalizeAssignees($body);
+
     $db->prepare('
         INSERT INTO CA_taches (id, projet_id, parent_id, niveau, titre, description,
-            statut, priorite, assignee, date_debut, date_echeance, progression, ordre,
+            statut, priorite, assignee, assignees, date_debut, date_echeance, progression, ordre,
             categorie, location_type, location_zone, heures_estimees, heures_reelles,
             progression_planifiee, progression_manuelle, cree_par)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $projetId,
@@ -145,7 +154,8 @@ function create(array $user) {
         $body['description'] ?? null,
         $body['statut']      ?? 'A faire',
         $body['priorite']    ?? 'Normale',
-        $body['assignee']    ?? null,
+        $assigneeLegacy,
+        $assigneesJson,
         $body['date_debut']    ?: null,
         $body['date_echeance'] ?: null,
         intval($body['progression'] ?? 0),
@@ -163,20 +173,22 @@ function create(array $user) {
     // Cascade ascendante : recalculer le parent si enfant
     recalcParentProgression($db, $id);
 
-    // Hook chat : auto-adhésion de l'assignee au groupe projet (si existant)
-    if (!empty($body['assignee'])) {
-        chat_hook_task_assignment($projetId, $body['assignee'], $titre);
-        // Notifier l'assigné de la nouvelle tâche
-        if ($body['assignee'] !== ($user['id'] ?? '')) {
-            try {
-                $pNom = '';
-                try { $pSt = $db->prepare('SELECT nom FROM CA_projets WHERE id = ?'); $pSt->execute([$projetId]); $pRow = $pSt->fetch(); $pNom = $pRow['nom'] ?? ''; } catch (\Throwable $e) {}
-                dispatchNotification($db, $body['assignee'], 'tache_assigned',
-                    'Nouvelle tâche assignée : ' . $titre,
-                    'Projet : ' . ($pNom ?: $projetId) . "\nPriorité : " . ($body['priorite'] ?? 'Normale')
-                    . ($body['date_echeance'] ? "\nÉchéance : " . date('d/m/Y', strtotime($body['date_echeance'])) : ''),
-                    'suivi', $id, $user['name'] ?? null);
-            } catch (\Throwable $e) { /* silencieux */ }
+    // Hook chat + notifications : pour chaque assignee de la liste
+    $assigneeList = _assigneesFromJson($assigneesJson, $assigneeLegacy);
+    if (!empty($assigneeList)) {
+        $pNom = '';
+        try { $pSt = $db->prepare('SELECT nom FROM CA_projets WHERE id = ?'); $pSt->execute([$projetId]); $pRow = $pSt->fetch(); $pNom = $pRow['nom'] ?? ''; } catch (\Throwable $e) {}
+        foreach ($assigneeList as $assName) {
+            chat_hook_task_assignment($projetId, $assName, $titre);
+            if ($assName !== ($user['name'] ?? '') && $assName !== ($user['id'] ?? '')) {
+                try {
+                    dispatchNotification($db, $assName, 'tache_assigned',
+                        'Nouvelle tâche assignée : ' . $titre,
+                        'Projet : ' . ($pNom ?: $projetId) . "\nPriorité : " . ($body['priorite'] ?? 'Normale')
+                        . ($body['date_echeance'] ? "\nÉchéance : " . date('d/m/Y', strtotime($body['date_echeance'])) : ''),
+                        'suivi', $id, $user['name'] ?? null);
+                } catch (\Throwable $e) { /* silencieux */ }
+            }
         }
     }
 
@@ -208,6 +220,15 @@ function update($id, array $user) {
         $body['ordre'] = $body['order_index'];
     }
 
+    // Multi-affectation : si le client envoie un tableau, synchroniser assignee (legacy) + assignees (JSON)
+    if (array_key_exists('assignees', $body)) {
+        [$legacyForUpd, $jsonForUpd] = _normalizeAssignees($body);
+        $fields[] = 'assignee = ?';  $params[] = $legacyForUpd;
+        $fields[] = 'assignees = ?'; $params[] = $jsonForUpd;
+        // Ignorer 'assignee' scalaire si présent en parallèle — la liste fait foi
+        unset($body['assignee']);
+    }
+
     foreach ($allowed as $f) {
         if (array_key_exists($f, $body)) {
             $fields[] = "$f = ?";
@@ -217,6 +238,12 @@ function update($id, array $user) {
             if ($f === 'progression_manuelle') $val = !empty($val) ? 1 : 0;
             if (in_array($f, ['heures_estimees','heures_reelles'], true)) $val = floatval($val);
             $params[] = $val;
+            // Cas scalaire legacy : si on nous passe uniquement 'assignee' (sans 'assignees'),
+            // on synchronise aussi la colonne JSON pour rester cohérent
+            if ($f === 'assignee' && !array_key_exists('assignees', $body)) {
+                $fields[] = 'assignees = ?';
+                $params[] = $val ? json_encode([$val], JSON_UNESCAPED_UNICODE) : null;
+            }
         }
     }
 
@@ -230,22 +257,29 @@ function update($id, array $user) {
     // Cascade ascendante après update
     recalcParentProgression($db, $id);
 
-    // Hook chat : auto-adhésion si l'assignee est (re)défini
-    if (array_key_exists('assignee', $body) && !empty($body['assignee'])) {
+    // Hook chat + notifications : itérer sur tous les affectés définis
+    $newAssignees = [];
+    if (array_key_exists('assignees', $body)) {
+        $newAssignees = _normalizeAssigneeArray($body['assignees']);
+    } elseif (array_key_exists('assignee', $body) && !empty($body['assignee'])) {
+        $newAssignees = [trim($body['assignee'])];
+    }
+    if (!empty($newAssignees)) {
         try {
             $st = $db->prepare('SELECT projet_id, titre FROM CA_taches WHERE id = ?');
             $st->execute([$id]);
             $tRow = $st->fetch();
             if ($tRow) {
-                chat_hook_task_assignment($tRow['projet_id'], $body['assignee'], $tRow['titre']);
-                // Notifier le nouvel assigné
-                if ($body['assignee'] !== ($user['id'] ?? '')) {
-                    $pNom = '';
-                    try { $pSt = $db->prepare('SELECT nom FROM CA_projets WHERE id = ?'); $pSt->execute([$tRow['projet_id']]); $pRow = $pSt->fetch(); $pNom = $pRow['nom'] ?? ''; } catch (\Throwable $e2) {}
-                    dispatchNotification($db, $body['assignee'], 'tache_assigned',
-                        'Tâche réassignée : ' . $tRow['titre'],
-                        'Projet : ' . ($pNom ?: $tRow['projet_id']),
-                        'suivi', $id, $user['name'] ?? null);
+                $pNom = '';
+                try { $pSt = $db->prepare('SELECT nom FROM CA_projets WHERE id = ?'); $pSt->execute([$tRow['projet_id']]); $pRow = $pSt->fetch(); $pNom = $pRow['nom'] ?? ''; } catch (\Throwable $e2) {}
+                foreach ($newAssignees as $assName) {
+                    chat_hook_task_assignment($tRow['projet_id'], $assName, $tRow['titre']);
+                    if ($assName !== ($user['name'] ?? '') && $assName !== ($user['id'] ?? '')) {
+                        dispatchNotification($db, $assName, 'tache_assigned',
+                            'Tâche réassignée : ' . $tRow['titre'],
+                            'Projet : ' . ($pNom ?: $tRow['projet_id']),
+                            'suivi', $id, $user['name'] ?? null);
+                    }
                 }
             }
         } catch (\Throwable $e) { /* silencieux */ }
@@ -355,4 +389,44 @@ function recalcParentProgressionById($db, $parentId) {
 
     // Remonter la chaîne
     if (!empty($parent['parent_id'])) recalcParentProgressionById($db, $parent['parent_id']);
+}
+
+// ────────────────────────────────────────────────────────────────
+//  Helpers multi-affectation
+// ────────────────────────────────────────────────────────────────
+function _normalizeAssigneeArray($raw) {
+    if (is_string($raw)) {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) $raw = $decoded;
+        else $raw = array_filter(array_map('trim', explode(',', $raw)));
+    }
+    if (!is_array($raw)) return [];
+    $clean = [];
+    foreach ($raw as $n) {
+        $n = trim((string)$n);
+        if ($n !== '' && !in_array($n, $clean, true)) $clean[] = $n;
+    }
+    return $clean;
+}
+
+// Retourne [legacyString, jsonOrNull] pour un body créant/éditant une tâche.
+function _normalizeAssignees(array $body): array {
+    $list = [];
+    if (array_key_exists('assignees', $body)) {
+        $list = _normalizeAssigneeArray($body['assignees']);
+    } elseif (!empty($body['assignee'])) {
+        $list = [trim((string)$body['assignee'])];
+    }
+    if (empty($list)) return [null, null];
+    $json = json_encode($list, JSON_UNESCAPED_UNICODE);
+    return [$list[0], $json];
+}
+
+// Extrait la liste des affectés depuis la ligne (JSON prioritaire, sinon legacy)
+function _assigneesFromJson(?string $assigneesJson, ?string $legacy): array {
+    if ($assigneesJson) {
+        $arr = json_decode($assigneesJson, true);
+        if (is_array($arr) && !empty($arr)) return _normalizeAssigneeArray($arr);
+    }
+    return $legacy ? [trim($legacy)] : [];
 }
