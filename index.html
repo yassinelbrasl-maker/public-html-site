@@ -1791,8 +1791,12 @@
         var html = '';
         data.data.forEach(function(s){
           var fit = fitMap[s.fit_mode || 'cover'] || 'cover';
-          var px = s.position_x || 50, py = s.position_y || 50, zm = s.zoom || 100;
-          html += '<img src="' + s.image_path + '" class="slider-image" style="object-fit:' + fit + ';object-position:' + px + '% ' + py + '%;transform:scale(' + (zm/100) + ')" alt="' + (s.alt_text || 'Slide') + '">';
+          // Default vertical position biased toward upper-middle (40%)
+          // so architectural roofs/tops stay in frame on wide viewports.
+          var px = (s.position_x != null ? s.position_x : 50);
+          var py = (s.position_y != null ? s.position_y : 40);
+          var zm = s.zoom || 100;
+          html += '<img src="' + s.image_path + '" class="slider-image" style="object-fit:' + fit + ';object-position:' + px + '% ' + py + '%" alt="' + (s.alt_text || 'Slide') + '">';
         });
         track.innerHTML = html;
         total = data.data.length;
