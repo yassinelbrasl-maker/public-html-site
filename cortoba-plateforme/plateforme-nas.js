@@ -9965,7 +9965,12 @@ function renderSuiviPage() {
   var filterStatut   = document.getElementById('suivi-filter-statut').value;
   var filterPriorite = document.getElementById('suivi-filter-priorite').value;
   var filterLocation = (document.getElementById('suivi-filter-location')||{}).value || '';
+  var filterArchive  = (document.getElementById('suivi-filter-archive')||{}).value || 'actifs';
   var search = (document.getElementById('suivi-search').value || '').toLowerCase().trim();
+
+  // Index des projets archivés pour filtrage rapide
+  var _archivedSet = {};
+  getProjets().forEach(function(p) { if (_isArchivedProjet(p)) _archivedSet[p.id] = true; });
 
   // Populate project select (une seule fois)
   var selProjet = document.getElementById('suivi-filter-projet');
@@ -9981,7 +9986,12 @@ function renderSuiviPage() {
 
   // Filter tasks
   var filtered = _suiviCache.filter(function(t) {
-    if (filterProjet && (t.projet_id || t.projetId) !== filterProjet) return false;
+    var pid = (t.projet_id || t.projetId);
+    // Archive : actifs / archives / tous
+    var isArch = !!_archivedSet[pid];
+    if (filterArchive === 'actifs'   && isArch) return false;
+    if (filterArchive === 'archives' && !isArch) return false;
+    if (filterProjet && pid !== filterProjet) return false;
     if (filterStatut && t.statut !== filterStatut) return false;
     if (filterPriorite && t.priorite !== filterPriorite) return false;
     if (filterLocation && (t.location_type||'Bureau') !== filterLocation) return false;
@@ -10081,6 +10091,38 @@ function _memberDot(name) {
   return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+c+';margin-right:0.3rem;vertical-align:middle"></span>';
 }
 
+// Projet archivé ? (accepte différents types renvoyés par l'API)
+function _isArchivedProjet(p) {
+  if (!p) return false;
+  var v = p.archived;
+  return v === 1 || v === '1' || v === true;
+}
+window._isArchivedProjet = _isArchivedProjet;
+
+// Archive / désarchive un projet (avec confirmation)
+function toggleArchiveProjet(projetId, archive) {
+  var list = (typeof getProjets === 'function') ? getProjets() : [];
+  var p = list.find(function(x){ return x.id === projetId; });
+  var label = p ? ((p.code ? p.code + ' — ' : '') + (p.nom || '')) : projetId;
+  var msg = archive
+    ? 'Archiver le projet "' + label + '" ?\n\nIl sera masqué de la vue active mais vous pourrez le restaurer depuis "Projets archivés".'
+    : 'Restaurer le projet "' + label + '" depuis les archives ?';
+  if (!confirm(msg)) return;
+  var action = archive ? 'archive' : 'unarchive';
+  apiFetch('api/projets.php?id=' + projetId + '&action=' + action, { method: 'PUT', body: {} })
+    .then(function() {
+      showToast(archive ? '✓ Projet archivé' : '✓ Projet restauré');
+      // Mise à jour locale immédiate du cache (évite un full reload)
+      var cached = (getProjets() || []).find(function(x){ return x.id === projetId; });
+      if (cached) cached.archived = archive ? 1 : 0;
+      renderSuiviPage();
+    })
+    .catch(function(e) {
+      showToast('Erreur : ' + (e.message || 'archivage impossible'), 'error');
+    });
+}
+window.toggleArchiveProjet = toggleArchiveProjet;
+
 // Rendu groupé de tous les assignés d'une tâche (compact = 1er prénom + badge)
 function _renderAssignees(t, opts) {
   var list = (typeof getTacheAssignees === 'function') ? getTacheAssignees(t) : (t && t.assignee ? [t.assignee] : []);
@@ -10148,12 +10190,15 @@ function renderSuiviTree(items) {
     var done = projItems.filter(function(t){ return t.statut === 'Terminé'; }).length;
     var projProg = totalTasks > 0 ? Math.round((done / totalTasks) * 100) : 0;
 
-    html += '<div class="suivi-projet-group">';
+    var _projInfo = getProjets().find(function(x){ return x.id === pid; });
+    var _isArch   = _isArchivedProjet(_projInfo);
+    html += '<div class="suivi-projet-group' + (_isArch ? ' is-archived' : '') + '">';
     html += '<div class="suivi-projet-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">';
     html += '<div class="suivi-projet-left">';
     html += '<svg class="suivi-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
     html += '<span class="suivi-projet-code">' + (proj.code || '') + '</span>';
     html += '<span class="suivi-projet-nom">' + proj.nom + '</span>';
+    if (_isArch) html += '<span class="suivi-projet-archive-badge" title="Projet archivé">📦 Archivé</span>';
     if (proj.client) html += '<span class="suivi-projet-client" style="font-size:0.75rem;color:var(--text-3);margin-left:0.5rem">— ' + proj.client + '</span>';
     html += '</div>';
     html += '<div class="suivi-projet-right">';
@@ -10161,6 +10206,11 @@ function renderSuiviTree(items) {
     html += suiviProgressBar(projProg);
     html += '<button class="btn btn-sm" onclick="event.stopPropagation();openReassignProjetModal(\'' + pid + '\')" title="Réassigner le projet" style="font-size:0.7rem">✎ Projet</button>';
     html += '<button class="btn btn-sm" onclick="event.stopPropagation();openSuiviModal(0, null, \'' + pid + '\')" title="Ajouter une mission">+ Mission</button>';
+    if (_isArch) {
+      html += '<button class="btn btn-sm" onclick="event.stopPropagation();toggleArchiveProjet(\'' + pid + '\', false)" title="Restaurer ce projet" style="font-size:0.7rem">↩ Restaurer</button>';
+    } else {
+      html += '<button class="btn btn-sm" onclick="event.stopPropagation();toggleArchiveProjet(\'' + pid + '\', true)" title="Archiver ce projet" style="font-size:0.7rem">📦 Archiver</button>';
+    }
     if (canDelete()) html += '<button class="btn btn-sm suivi-del" onclick="event.stopPropagation();deleteProjetTaches(\'' + pid + '\')" title="Supprimer toutes les missions de ce projet" style="color:#c0392b;border-color:rgba(192,57,43,0.3)">✕</button>';
     html += '</div>';
     html += '</div>';
@@ -10704,6 +10754,8 @@ function openSuiviModal(niveau, parentId, projetId) {
   // Populate assignee multi-picker — défaut : utilisateur courant
   var _currentUserName = (window._currentUser || {}).name || '';
   _setAssigneePicker(_currentUserName ? [_currentUserName] : []);
+  // Nouvelle tâche : pas de snapshot (cascade uniquement sur modification)
+  _tacheOriginalAssignees = [];
 
   openModal('modal-tache');
 }
@@ -11072,6 +11124,8 @@ window.onTacheProjetChange = onTacheProjetChange;
 
 // ── Multi-select assigné : liste des membres sélectionnés dans le modal ──
 var _tacheAssignees = [];
+// Snapshot des affectés au moment de l'ouverture du modal (pour diff / cascade enfants)
+var _tacheOriginalAssignees = [];
 
 // Parse souple : array, JSON string, CSV string, ou single string
 function parseAssigneesField(raw) {
@@ -11252,6 +11306,8 @@ function editTache(id) {
 
   // Populate assignee multi-picker avec la liste complète (priorité à assignees JSON, fallback legacy)
   _setAssigneePicker(getTacheAssignees(t));
+  // Mémoriser la liste d'origine pour détecter un changement à la sauvegarde (cascade enfants)
+  _tacheOriginalAssignees = getTacheAssignees(t).slice();
 
   // v3 : localisation / heures / ordre / manuelle
   var elLoc  = document.getElementById('tache-location-type');  if (elLoc) elLoc.value = t.location_type || 'Bureau';
@@ -11323,17 +11379,79 @@ function saveTache() {
   var url    = isEdit ? 'api/taches.php?id=' + id : 'api/taches.php';
   var method = isEdit ? 'PUT' : 'POST';
 
+  // Sauvegarder le niveau + la liste d'origine AVANT de nettoyer _tacheAssignees
+  var _savedNiveau       = parseInt(document.getElementById('tache-niveau').value) || 0;
+  var _savedNewAssignees = _tacheAssignees.slice();
+  var _savedOldAssignees = _tacheOriginalAssignees.slice();
+
   apiFetch(url, { method: method, body: body })
-    .then(function() {
+    .then(function(resp) {
       closeModal('modal-tache');
       showToast(isEdit ? '✓ Tâche modifiée' : '✓ Tâche créée');
-      loadTaches().then(function(){ renderSuiviPage(); });
+      // Cascade d'affectation vers les enfants (missions / tâches uniquement, pas sous-tâches)
+      var savedId = (resp && resp.data && resp.data.id) ? resp.data.id : id;
+      maybeCascadeAssignees(savedId, _savedNiveau, _savedOldAssignees, _savedNewAssignees).finally(function() {
+        loadTaches().then(function(){ renderSuiviPage(); });
+      });
     })
     .catch(function(e) {
       errEl.textContent = e.message || 'Erreur lors de l\'enregistrement';
       errEl.style.display = 'block';
     });
 }
+
+// ── Cascade d'affectation : propose d'appliquer les membres aux enfants ──
+function maybeCascadeAssignees(parentId, niveau, oldList, newList) {
+  return new Promise(function(resolve) {
+    // Uniquement missions (0) et tâches (1) — pas les sous-tâches
+    if (niveau >= 2 || !parentId) return resolve();
+    // Si aucun changement → rien à cascader
+    var setA = (oldList || []).slice().sort().join('||');
+    var setB = (newList || []).slice().sort().join('||');
+    if (setA === setB) return resolve();
+    // Aucun enfant à affecter → skip
+    var descendants = _collectDescendants(parentId);
+    if (!descendants.length) return resolve();
+
+    var label = niveau === 0 ? 'tâches et sous-tâches' : 'sous-tâches';
+    var who   = newList.length ? newList.join(', ') : '(aucun)';
+    var msg   = 'Voulez-vous affecter les mêmes membres (' + who + ') aux ' + descendants.length + ' ' + label + ' sous cet élément ?';
+    if (!confirm(msg)) return resolve();
+
+    // PUT chaque descendant avec la nouvelle liste d'affectés (séquentiel pour ne pas surcharger)
+    var chain = Promise.resolve();
+    descendants.forEach(function(d) {
+      chain = chain.then(function() {
+        return apiFetch('api/taches.php?id=' + d.id, {
+          method: 'PUT',
+          body: { assignees: newList.slice(), assignee: newList[0] || '' }
+        }).catch(function(){ /* ignorer l'échec d'un enfant pour ne pas bloquer les suivants */ });
+      });
+    });
+    chain.then(function() {
+      showToast('✓ Affectations propagées (' + descendants.length + ')');
+      resolve();
+    });
+  });
+}
+
+// Retourne tous les descendants (tâches + sous-tâches) d'un parent depuis le cache
+function _collectDescendants(parentId) {
+  var all = (typeof _suiviCache !== 'undefined' && Array.isArray(_suiviCache)) ? _suiviCache : [];
+  var out = [];
+  var queue = [parentId];
+  while (queue.length) {
+    var pid = queue.shift();
+    all.forEach(function(t) {
+      if (t.parent_id === pid) {
+        out.push(t);
+        queue.push(t.id);
+      }
+    });
+  }
+  return out;
+}
+window.maybeCascadeAssignees = maybeCascadeAssignees;
 
 // ── Toggle statut rapide (checkbox) ──
 function toggleTacheStatut(id, checked) {

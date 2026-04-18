@@ -435,6 +435,9 @@ ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `heures_reelles`       DECIMAL(
 ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `progression_planifiee` INT          DEFAULT 0 COMMENT '% planifié vs réel';
 ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `progression_manuelle` TINYINT(1)    DEFAULT 0 COMMENT '1 = progression forcée manuellement, ignorer cascade';
 ALTER TABLE `CA_taches` ADD COLUMN IF NOT EXISTS `assignees`             TEXT          DEFAULT NULL COMMENT 'JSON array des membres assignés (multi-affectation)';
+ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `archived`              TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '1 = projet archivé';
+ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `archived_at`           DATETIME      DEFAULT NULL;
+ALTER TABLE `CA_projets` ADD COLUMN IF NOT EXISTS `archived_by`           VARCHAR(120)  DEFAULT NULL;
 
 -- Couleur d'identification membre (badges kanban, avatars)
 ALTER TABLE `cortoba_users` ADD COLUMN IF NOT EXISTS `color` VARCHAR(9) DEFAULT '#c8a96e';

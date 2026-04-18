@@ -1365,6 +1365,11 @@
             <option value="">Tous lieux</option>
             <option>Bureau</option><option>Chantier</option><option>Administration</option>
           </select>
+          <select id="suivi-filter-archive" class="form-select" style="width:auto;min-width:160px" onchange="renderSuiviPage()" title="Afficher les projets archivés">
+            <option value="actifs">Projets actifs</option>
+            <option value="archives">Projets archivés</option>
+            <option value="tous">Actifs + archivés</option>
+          </select>
           <button class="btn btn-sm" title="Mes déplacements (chantier/administration)" onclick="openDeplacementsView()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             Mes déplacements
