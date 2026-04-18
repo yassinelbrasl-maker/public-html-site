@@ -581,14 +581,15 @@ body.menu-open { overflow: hidden; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── CTA BUTTON ─────────────────────────── */
+/* ─── CTA BUTTON (primary – solid gold) ──── */
 .cta-button {
   display: inline-flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 1.1rem 2.6rem;
-  border: 1px solid var(--accent);
-  color: var(--accent);
+  padding: 1.1rem 3rem;
+  border: none;
+  background: var(--accent);
+  color: var(--bg);
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 700;
@@ -596,7 +597,7 @@ body.menu-open { overflow: hidden; }
   text-transform: uppercase;
   position: relative;
   overflow: hidden;
-  transition: color 0.35s ease;
+  transition: background 0.35s ease, transform 0.25s ease;
   opacity: 0;
   animation: fadeUp 1s ease 5s forwards;
 }
@@ -605,7 +606,7 @@ body.menu-open { overflow: hidden; }
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--accent);
+  background: #b8973f;
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.38s cubic-bezier(0.76, 0, 0.24, 1);
@@ -1496,12 +1497,19 @@ footer {
 
 .cta-button-config {
   background: transparent !important;
-  border: 1px solid rgba(200,169,110,0.5) !important;
+  border: none !important;
   color: var(--accent) !important;
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  padding: 0.6rem 1rem !important;
+  letter-spacing: 0.15em;
+}
+.cta-button-config::before {
+  display: none !important;
 }
 .cta-button-config:hover {
-  background: rgba(200,169,110,0.08) !important;
-  border-color: var(--accent) !important;
+  background: transparent !important;
+  color: #fff !important;
 }
 
 /* ── Google Maps button redesign ── */
