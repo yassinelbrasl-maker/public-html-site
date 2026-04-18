@@ -1196,6 +1196,9 @@
         </div>
       </div>
       <div class="slider-dots" id="sliderDots"></div>
+      <div class="hero-progress" aria-hidden="true">
+        <div class="hero-progress-fill" id="heroProgressFill"></div>
+      </div>
       <div class="hero-scroll-indicator" aria-hidden="true"></div>
     </section>
 
@@ -1713,12 +1716,21 @@
   (function(){
     var track = document.getElementById('sliderTrack');
     var dotsWrap = document.getElementById('sliderDots');
+    var progressFill = document.getElementById('heroProgressFill');
     if (!track) return;
 
     var current = 0;
     var total = 0;
     var timer = null;
     var INTERVAL = 5000;
+
+    function restartProgress() {
+      if (!progressFill) return;
+      progressFill.classList.remove('run');
+      // Force reflow so the animation restarts
+      void progressFill.offsetWidth;
+      progressFill.classList.add('run');
+    }
 
     function goTo(idx) {
       current = idx;
@@ -1727,13 +1739,17 @@
       for (var i = 0; i < dots.length; i++) {
         dots[i].classList.toggle('active', i === current);
       }
+      restartProgress();
     }
 
     function next() { goTo((current + 1) % total); }
 
     function startAuto() {
       stopAuto();
-      if (total > 1) timer = setInterval(next, INTERVAL);
+      if (total > 1) {
+        restartProgress();
+        timer = setInterval(next, INTERVAL);
+      }
     }
 
     function stopAuto() { if (timer) { clearInterval(timer); timer = null; } }
@@ -1754,7 +1770,18 @@
       }
     }
 
-    // Fetch slider images + settings
+    // Initialise with whatever images are already in the track (fallback)
+    function initFromExisting() {
+      var imgs = track.querySelectorAll('img');
+      if (imgs.length > 0) {
+        total = imgs.length;
+        buildDots();
+        startAuto();
+      }
+    }
+    initFromExisting();
+
+    // Fetch slider images + settings (overrides fallback if API returns data)
     fetch('cortoba-plateforme/api/slider.php')
       .then(function(r){ return r.json(); })
       .then(function(data){
@@ -1769,10 +1796,21 @@
         });
         track.innerHTML = html;
         total = data.data.length;
+        current = 0;
+        track.style.transform = 'translateX(0)';
         buildDots();
         startAuto();
       })
       .catch(function(){});
+
+    // Pause slider + progress when tab is hidden; resume on return
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        stopAuto();
+      } else if (total > 1) {
+        startAuto();
+      }
+    });
   })();
   </script>
 
