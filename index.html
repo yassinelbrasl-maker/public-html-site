@@ -1196,10 +1196,11 @@
         </div>
       </div>
       <div class="slider-dots" id="sliderDots"></div>
+      <div class="hero-scroll-indicator" aria-hidden="true"></div>
     </section>
 
     <section id="projects">
-      <div class="projects-header">
+      <div class="projects-header reveal-up" data-reveal>
         <h2 data-i18n="projects_title">Projets</h2>
         <p class="intro-text" data-i18n="projects_intro">Une sélection de réalisations qui définissent notre approche.</p>
       </div>
@@ -1209,24 +1210,24 @@
     </section>
 
     <section id="services">
-      <h2 data-i18n="services_title">Nos Services</h2>
-      <p class="intro-text" data-i18n="services_intro">Une expertise sur mesure pour sublimer chaque projet.</p>
+      <h2 data-i18n="services_title" class="reveal-up" data-reveal>Nos Services</h2>
+      <p class="intro-text reveal-up" data-reveal data-i18n="services_intro">Une expertise sur mesure pour sublimer chaque projet.</p>
       <div class="service-list">
-        <div class="service-card">
+        <div class="service-card reveal-stagger" data-reveal>
           <h3 data-i18n="s1_title">Conception Architecturale</h3>
           <p data-i18n="s1_p1">Études architecturales en 2D et 3D</p>
           <p data-i18n="s1_p2">Dossier d'exécution détaillé</p>
         </div>
-        <div class="service-card">
+        <div class="service-card reveal-stagger" data-reveal>
           <h3 data-i18n="s2_title">Assistance Immobilière</h3>
           <p data-i18n="s2_p1">Accompagnement à la vente et l'achat de votre bien immobilier</p>
           <p data-i18n="s2_p2">Études de faisabilité et de rentabilité</p>
         </div>
-        <div class="service-card">
+        <div class="service-card reveal-stagger" data-reveal>
           <h3 data-i18n="s3_title">Design Intérieur</h3>
           <p data-i18n="s3_p1">Aménagement d'espaces, simulation 3D et choix des matériaux.</p>
         </div>
-        <div class="service-card">
+        <div class="service-card reveal-stagger" data-reveal>
           <h3 data-i18n="s4_title">Suivi et Gestion de Chantier</h3>
           <p data-i18n="s4_p1">Accompagnement complet comprenant le contrôle technique et financier en passant par le choix des entreprises.</p>
         </div>
@@ -1250,8 +1251,8 @@
     <!-- ═══ FIN CONFIGURATEUR ═══ -->
 
     <section id="about">
-      <h2 data-i18n="about_title">À propos</h2>
-      <div class="about-wrapper">
+      <h2 data-i18n="about_title" class="reveal-up" data-reveal>À propos</h2>
+      <div class="about-wrapper reveal-up" data-reveal>
         <div class="about-text">
           <p data-i18n="about_p1">Fondé par Amal Cortoba et Yassine Mestiri, Cortoba Architecture Studio est né de la rencontre entre l'architecture méditerranéenne intemporelle et les lignes contemporaines. Tous deux diplômés en HQE (Haute Qualité Environnementale), nous défendons une architecture durable qui dialogue avec son environnement sans sacrifier le confort moderne absolu.</p>
           <br>
@@ -1264,7 +1265,7 @@
     </section>
 
     <section id="team">
-      <h2 data-i18n="team_title">Notre Équipe</h2>
+      <h2 data-i18n="team_title" class="reveal-up" data-reveal>Notre Équipe</h2>
       <div class="team-grid" id="team-grid">
         <!-- Chargé dynamiquement depuis la plateforme (membres cochés « Afficher sur le site web »). -->
       </div>
@@ -1300,9 +1301,9 @@
     </script>
 
     <section id="contact">
-      <h2 data-i18n="contact_title">Contact</h2>
-      <p class="intro-text" data-i18n="contact_intro">Envie d'échanger ou de démarrer un projet ? Parlons-en.</p>
-      <div class="contact-wrapper">
+      <h2 data-i18n="contact_title" class="reveal-up" data-reveal>Contact</h2>
+      <p class="intro-text reveal-up" data-reveal data-i18n="contact_intro">Envie d'échanger ou de démarrer un projet ? Parlons-en.</p>
+      <div class="contact-wrapper reveal-up" data-reveal>
         <form class="contact-form" action="https://formspree.io/f/mbdzlnny" method="POST" id="contactForm">
           <label for="contact-nom" class="sr-only">Votre nom</label>
           <input type="text" name="nom" id="contact-nom" data-i18n-placeholder="form_name" placeholder="Votre nom" required aria-label="Votre nom">
@@ -1329,8 +1330,8 @@
     </section>
 
     <section id="map">
-      <h2>📍 <span data-i18n="map_title">Localisation</span></h2>
-      <p class="intro-text" data-i18n="map_intro">Retrouvez-nous à Midoun, Djerba – en face du stade, Immeuble Cortoba, 1er étage.</p>
+      <h2 class="reveal-up" data-reveal>📍 <span data-i18n="map_title">Localisation</span></h2>
+      <p class="intro-text reveal-up" data-reveal data-i18n="map_intro">Retrouvez-nous à Midoun, Djerba – en face du stade, Immeuble Cortoba, 1er étage.</p>
       <div class="map-container">
         <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3932.5934013895326!2d10.986050799999997!3d33.804753999999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x13aa9779f4ac460b%3A0x95f2918c9f396d68!2sCortoba%20Architecture%20Studio!5e1!3m2!1sfr!2stn!4v1769655382963!5m2!1sfr!2stn" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Localisation de Cortoba Architecture Studio sur Google Maps"></iframe>
       </div>
@@ -1772,6 +1773,48 @@
         startAuto();
       })
       .catch(function(){});
+  })();
+  </script>
+
+  <!-- ═══ DYNAMIC MOTION: scroll-reveal observer ═══ -->
+  <script>
+  (function() {
+    if (!('IntersectionObserver' in window)) {
+      document.querySelectorAll('[data-reveal]').forEach(function(el){ el.classList.add('in-view'); });
+      return;
+    }
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+
+    function attach() {
+      document.querySelectorAll('[data-reveal]:not(.in-view)').forEach(function(el) {
+        observer.observe(el);
+      });
+      // Stagger delays for reveal-stagger groups
+      document.querySelectorAll('.service-list, .projects-grid, .team-grid').forEach(function(group) {
+        var children = group.querySelectorAll('.reveal-stagger, .project-card-link, .team-card, .service-card');
+        children.forEach(function(child, i) {
+          child.classList.add('reveal-stagger');
+          child.setAttribute('data-reveal', '');
+          child.style.transitionDelay = (i * 80) + 'ms';
+          observer.observe(child);
+        });
+      });
+    }
+
+    attach();
+    // Re-attach after dynamic content loads (projects, team)
+    var mo = new MutationObserver(function() { attach(); });
+    ['projectsGrid', 'team-grid'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) mo.observe(el, { childList: true });
+    });
   })();
   </script>
 

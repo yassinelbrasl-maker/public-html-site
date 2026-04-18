@@ -2054,3 +2054,124 @@ footer {
   .cfg-style-grid-v2 { grid-template-columns: 1fr; }
   .cfg-scard-photos { height: 70px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   DYNAMIC MOTION LAYER
+   Ken Burns, scroll reveals, parallax, hero entrance
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Ken Burns effect on hero slider images ── */
+@keyframes kenBurnsZoom {
+  0%   { transform: scale(1.0) translate(0, 0); }
+  100% { transform: scale(1.12) translate(-1.5%, -1%); }
+}
+@keyframes kenBurnsPan {
+  0%   { transform: scale(1.08) translate(1.5%, 0); }
+  100% { transform: scale(1.15) translate(-1.5%, -1.5%); }
+}
+.slider-image {
+  animation: kenBurnsZoom 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.slider-track > .slider-image:nth-child(even) {
+  animation-name: kenBurnsPan;
+  animation-duration: 16s;
+}
+
+/* ── Scroll-reveal: elements fade-up as they enter viewport ── */
+.reveal-up {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.9s cubic-bezier(0.22, 0.61, 0.36, 1),
+              transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal-up.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered reveals for grids (applied via JS with transition-delay) */
+.reveal-stagger {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s cubic-bezier(0.22, 0.61, 0.36, 1),
+              transform 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.reveal-stagger.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Hero title: slow letter-spacing reveal ── */
+.overlay h1 {
+  animation: heroTitleReveal 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0.4s both;
+}
+@keyframes heroTitleReveal {
+  0%   { opacity: 0; letter-spacing: 0.5em; filter: blur(8px); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; letter-spacing: 0.25em; filter: blur(0); }
+}
+
+/* Subtitle fade in after title */
+.overlay p {
+  animation: fadeUp 1.2s cubic-bezier(0.22, 0.61, 0.36, 1) 1.4s both;
+}
+
+/* ── Scroll indicator at bottom of hero ── */
+.hero-scroll-indicator {
+  position: absolute;
+  bottom: 5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 48px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.7) 100%);
+  z-index: 4;
+  opacity: 0;
+  animation: scrollIndicatorFade 1s ease 2.5s forwards, scrollIndicatorPulse 2.2s ease-in-out 3.5s infinite;
+  pointer-events: none;
+}
+@keyframes scrollIndicatorFade {
+  to { opacity: 1; }
+}
+@keyframes scrollIndicatorPulse {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.8; }
+  50%      { transform: translateX(-50%) translateY(10px); opacity: 0.3; }
+}
+
+/* ── Enhanced project card hover (lift + stronger zoom) ── */
+.project-card-link {
+  transition: transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.project-card-link:hover {
+  transform: translateY(-4px);
+}
+.project-card-link:hover .project-card-img {
+  transform: scale(1.08);
+  filter: brightness(1);
+}
+
+/* ── Subtle parallax on hero slider (via slight zoom while scrolled) ── */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-section .slider-container {
+    transform: translateZ(0);
+  }
+}
+
+/* ── Respect reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .slider-image,
+  .slider-track > .slider-image:nth-child(even) {
+    animation: none !important;
+  }
+  .reveal-up, .reveal-stagger {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .overlay h1, .overlay p {
+    animation: none !important;
+  }
+  .hero-scroll-indicator { display: none; }
+}
