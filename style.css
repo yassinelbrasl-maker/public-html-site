@@ -317,12 +317,12 @@ body {
 .language-switcher {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
+  gap: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .lang-sep {
-  color: rgba(255,255,255,0.2);
+  display: none;
 }
 
 .language-switcher .lang-btn {
@@ -330,15 +330,15 @@ body {
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 400;
   letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.65);
-  padding: 0.15rem 0.2rem;
+  color: rgba(255,255,255,0.45);
+  padding: 0.15rem 0.1rem;
   transition: color 0.2s;
 }
-.language-switcher .lang-btn:hover { color: rgba(255,255,255,0.9); }
-.language-switcher .lang-btn.active { color: var(--accent); }
+.language-switcher .lang-btn:hover { color: rgba(255,255,255,0.8); }
+.language-switcher .lang-btn.active { color: #fff; font-weight: 500; }
 
 /* ── Bouton Cortoba Landscaping ── */
 .nav-leaf-btn {
@@ -516,19 +516,18 @@ body.menu-open { overflow: hidden; }
   z-index: 5;
 }
 .slider-dot {
-  width: 12px; height: 12px;
+  width: 8px; height: 8px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.35);
-  border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.3);
+  border: none;
   cursor: pointer;
   transition: all 0.3s;
   padding: 0;
 }
 .slider-dot:hover { background: rgba(255,255,255,0.6); }
 .slider-dot.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  transform: scale(1.25);
+  background: #fff;
+  transform: scale(1.15);
 }
 
 .overlay {
@@ -624,13 +623,32 @@ body.menu-open { overflow: hidden; }
 section { padding: 5rem 2rem; background: var(--bg); }
 
 h2 {
-  font-size: 2.1rem;
+  font-size: 1.6rem;
   margin-bottom: 1.5rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 300;
   color: var(--text);
   text-align: center;
+}
+
+/* Primary sections – largest headings */
+#projects h2,
+#contact h2 {
+  font-size: 2.2rem;
+}
+
+/* Secondary sections */
+#services h2,
+#about h2 {
+  font-size: 1.7rem;
+}
+
+/* Tertiary sections */
+#map h2,
+#team h2 {
+  font-size: 1.35rem;
+  color: rgba(255,255,255,0.7);
 }
 
 .intro-text {
@@ -1148,22 +1166,7 @@ footer {
 }
 
 .floating-route-button {
-  position: fixed;
-  bottom: 20px; left: 20px;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 14px 22px;
-  border-radius: 30px;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.92rem;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-  z-index: 1002;
-  transition: background 0.3s, transform 0.3s, border-color 0.3s, color 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: none;
 }
 .floating-route-button:hover {
   background-color: var(--accent);
