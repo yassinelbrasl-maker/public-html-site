@@ -849,42 +849,29 @@
           </div>
         </div>
 
-        <div class="grid-3">
+        <!-- KPIs dynamiques -->
+        <div class="grid-3" id="bilans-kpis">
           <div class="kpi-card" style="border:1px solid var(--border)">
-            <div class="kpi-label">Produits (CA) 2026</div>
-            <div class="kpi-value" style="color:var(--green)">148 000<span class="kpi-unit"> TND</span></div>
+            <div class="kpi-label" id="bilans-kpi-ca-label">Produits (CA) —</div>
+            <div class="kpi-value" style="color:var(--green)" id="bilans-kpi-ca">—</div>
           </div>
           <div class="kpi-card" style="border:1px solid var(--border)">
-            <div class="kpi-label">Charges 2026</div>
-            <div class="kpi-value" style="color:var(--red)">62 400<span class="kpi-unit"> TND</span></div>
+            <div class="kpi-label" id="bilans-kpi-charges-label">Charges —</div>
+            <div class="kpi-value" style="color:var(--red)" id="bilans-kpi-charges">—</div>
           </div>
           <div class="kpi-card" style="border:1px solid var(--border)">
             <div class="kpi-label">Résultat net estimé</div>
-            <div class="kpi-value" style="color:var(--accent)">85 600<span class="kpi-unit"> TND</span></div>
+            <div class="kpi-value" style="color:var(--accent)" id="bilans-kpi-resultat">—</div>
           </div>
         </div>
 
         <div class="grid-2">
           <div class="card">
-            <div class="card-title">Compte de résultat simplifié — 2026</div>
-            <table>
-              <thead><tr><th>Poste</th><th>Montant</th><th>%</th></tr></thead>
-              <tbody>
-                <tr><td>Honoraires d'architecture</td><td class="inline-val">132 000 TND</td><td>89%</td></tr>
-                <tr><td>Études spécialisées</td><td class="inline-val">12 000 TND</td><td>8%</td></tr>
-                <tr><td>Conseil & expertise</td><td class="inline-val">4 000 TND</td><td>3%</td></tr>
-                <tr style="border-top:2px solid var(--accent)"><td><strong>Total produits</strong></td><td class="inline-val" style="color:var(--green)"><strong>148 000 TND</strong></td><td></td></tr>
-                <tr><td style="padding-top:1rem">Salaires & charges sociales</td><td class="inline-val">34 000 TND</td><td>55%</td></tr>
-                <tr><td>Logiciels & licences</td><td class="inline-val">8 200 TND</td><td>13%</td></tr>
-                <tr><td>Loyer & charges</td><td class="inline-val">9 600 TND</td><td>15%</td></tr>
-                <tr><td>Frais divers & déplacements</td><td class="inline-val">6 400 TND</td><td>10%</td></tr>
-                <tr><td>Marketing & communication</td><td class="inline-val">4 200 TND</td><td>7%</td></tr>
-                <tr style="border-top:2px solid var(--border-md)"><td><strong>Total charges</strong></td><td class="inline-val" style="color:var(--red)"><strong>62 400 TND</strong></td><td></td></tr>
-              </tbody>
-            </table>
+            <div class="card-title" id="bilans-cr-title">Compte de résultat simplifié</div>
+            <div id="bilans-cr-body"><div class="dash-loading">Chargement…</div></div>
           </div>
           <div class="card">
-            <div class="card-title">Trésorerie prévisionnelle — 2026</div>
+            <div class="card-title" id="bilans-tresorerie-title">Trésorerie prévisionnelle</div>
             <div class="chart-area" id="tresorerie-chart"></div>
           </div>
         </div>

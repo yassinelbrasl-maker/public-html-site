@@ -5369,28 +5369,39 @@ function genFacturesPDF(factures){
 
 // ── Export Bilans Excel (CSV téléchargeable) ──
 function exportBilansExcel(){
+  var year = new Date().getFullYear();
   var factures = getFactures();
   var depenses = getDepenses();
   var sep = ';';
   var nl = '\r\n';
-  var rows = [['Type','Libellé','Montant TND','Date','Statut'].join(sep)];
+  var rows = [['Type','Libellé','Catégorie','Montant TND','Date','Statut'].join(sep)];
+
+  // Produits : factures payées de l'année
   factures.forEach(function(f){
+    var d = new Date(f.dateEmission||f.date_emission||f.echeance||'');
+    if (isNaN(d) || d.getFullYear() !== year || f.statut !== 'Payée') return;
     var ttc = f.montantTtc||f.montant_ttc||f.montant||0;
-    var lib = ((f.client||'') + ' — ' + (f.projet||'')).trim();
-    var dt  = f.echeance||f.dateEcheance||f.date_echeance||'';
-    rows.push(['"Facture"', '"'+lib.replace(/"/g,'""')+'"', ttc, '"'+dt+'"', '"'+(f.statut||'')+'"'].join(sep));
+    var lib = ((f.client||'') + ' — ' + (f.projet||f.objet||'')).trim();
+    var dt  = f.dateEmission||f.date_emission||f.echeance||'';
+    rows.push(['"Produit (facture)"', '"'+lib.replace(/"/g,'""')+'"', '"Honoraires"', ttc, '"'+dt+'"', '"'+(f.statut||'')+'"'].join(sep));
   });
+
+  // Charges : dépenses de l'année
   depenses.forEach(function(d){
-    var ttc = d.montantTTC||d.montant||0;
+    var dt = new Date(d.date||d.date_dep||d.dateDep||'');
+    if (isNaN(dt) || dt.getFullYear() !== year) return;
+    var ttc = parseFloat(d.montant_ttc||d.montantTTC||d.montant||0);
     var lib = (d.libelle||d.description||'');
-    var dt  = d.date||d.dateDep||'';
-    rows.push(['"Dépense"', '"'+lib.replace(/"/g,'""')+'"', ttc, '"'+dt+'"', '"'+(d.cat||d.categorie||'')+'"'].join(sep));
+    var cat = (d.cat||d.categorie||'Autre');
+    var dStr = d.date||d.date_dep||d.dateDep||'';
+    rows.push(['"Charge (dépense)"', '"'+lib.replace(/"/g,'""')+'"', '"'+cat+'"', ttc, '"'+dStr+'"', '""'].join(sep));
   });
+
   var csv = '\uFEFF' + rows.join(nl);
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'Bilan_Cortoba_' + new Date().getFullYear() + '.csv';
+  a.download = 'Bilan_Cortoba_' + year + '.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -5733,6 +5744,7 @@ function showPage(id){
   if(id==='portail-messages') setTimeout(function(){ if(typeof renderPortailMessages==='function') renderPortailMessages(); },80);
   if(id==='portail-journal') setTimeout(function(){ if(typeof renderPortailJournal==='function') renderPortailJournal(); },80);
   if(id==='journal-membres') setTimeout(function(){ if(typeof renderJournalMembres==='function') renderJournalMembres(); },80);
+  if(id==='bilans')     setTimeout(function(){ if(typeof renderBilansPage==='function') renderBilansPage(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='facturation') setTimeout(function(){ if(typeof renderCreancesPage==='function') renderCreancesPage(); },80);
   if(id==='paiements-clients') setTimeout(function(){ if(typeof renderPaiementsClientsPage==='function') renderPaiementsClientsPage(); },80);
@@ -5921,25 +5933,140 @@ function nasConnect(){
 // ── Charts ──
 function renderCharts(){
   renderDashboard();
-  // Trésorerie prévisionnelle (bilans page) — toujours depuis cache local
-  var factures = getFactures();
+  // Trésorerie sera rendue par renderBilansPage()
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BILANS — Compte de résultat et trésorerie (données réelles)
+// ═══════════════════════════════════════════════════════════
+
+function renderBilansPage(){
   var now = new Date();
   var year = now.getFullYear();
-  var mois = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  var curMonth = now.getMonth(); // 0-based
+  var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+  // ── 1. Collecter les données réelles ──
+  var depenses = getDepenses();
+  var factures = getFactures();
+
+  // CA (produits) — priorité aux données dashboard, sinon cache
+  var caYtd = 0;
   var caParMois = new Array(12).fill(0);
-  factures.forEach(function(f){
-    var d = new Date(f.dateEmission||f.date_emission||f.echeance||f.date_echeance||'');
-    if (!isNaN(d) && d.getFullYear()===year && f.statut==='Payée') {
-      caParMois[d.getMonth()] += (f.montantTtc||f.montant_ttc||f.montant||0)/1000;
-    }
+  var caSource = 'cache';
+
+  if (_dashData && _dashData.kpis && _dashData.kpis.ca_ytd > 0) {
+    caYtd = _dashData.kpis.ca_ytd;
+    caParMois = (_dashData.ca_mensuel || []).slice();
+    while (caParMois.length < 12) caParMois.push(0);
+    caSource = _dashData.ca_source || 'api';
+  } else {
+    // Fallback : recalculer depuis les paiements clients ou factures payées
+    factures.forEach(function(f){
+      var d = new Date(f.dateEmission || f.date_emission || f.echeance || '');
+      if (!isNaN(d) && d.getFullYear() === year && f.statut === 'Payée') {
+        var m = (f.montantTtc || f.montant_ttc || f.montant || 0);
+        caYtd += m;
+        caParMois[d.getMonth()] += m;
+      }
+    });
+  }
+
+  // Charges — dépenses de l'année courante
+  var chargesYtd = 0;
+  var chargesParMois = new Array(12).fill(0);
+  var chargesParCat = {};
+  depenses.forEach(function(d){
+    var dt = new Date(d.date || d.date_dep || d.dateDep || '');
+    if (isNaN(dt) || dt.getFullYear() !== year) return;
+    var m = parseFloat(d.montant_ttc || d.montantTTC || d.montant || 0);
+    chargesYtd += m;
+    chargesParMois[dt.getMonth()] += m;
+    var cat = (d.cat || d.categorie || d.category || 'Autre').trim();
+    if (!cat) cat = 'Autre';
+    chargesParCat[cat] = (chargesParCat[cat] || 0) + m;
   });
-  var curMonth = now.getMonth();
+
+  var resultatNet = caYtd - chargesYtd;
+
+  // ── 2. Formater les montants ──
+  function fmt(v) {
+    v = Math.round(v);
+    return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  // ── 3. KPIs ──
+  var elCaLabel = document.getElementById('bilans-kpi-ca-label');
+  var elCa = document.getElementById('bilans-kpi-ca');
+  var elChLabel = document.getElementById('bilans-kpi-charges-label');
+  var elCh = document.getElementById('bilans-kpi-charges');
+  var elRes = document.getElementById('bilans-kpi-resultat');
+  if (elCaLabel) elCaLabel.textContent = 'Produits (CA) ' + year;
+  if (elCa) elCa.innerHTML = fmt(caYtd) + '<span class="kpi-unit"> TND</span>';
+  if (elChLabel) elChLabel.textContent = 'Charges ' + year;
+  if (elCh) elCh.innerHTML = fmt(chargesYtd) + '<span class="kpi-unit"> TND</span>';
+  if (elRes) {
+    elRes.innerHTML = fmt(resultatNet) + '<span class="kpi-unit"> TND</span>';
+    elRes.style.color = resultatNet >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+
+  // ── 4. Compte de résultat simplifié ──
+  var crTitle = document.getElementById('bilans-cr-title');
+  if (crTitle) crTitle.textContent = 'Compte de résultat simplifié — ' + year;
+
+  var crBody = document.getElementById('bilans-cr-body');
+  if (crBody) {
+    var html = '<table><thead><tr><th>Poste</th><th>Montant</th><th>%</th></tr></thead><tbody>';
+
+    // Produits = une seule ligne (honoraires d'architecture) pour l'instant
+    html += '<tr><td>Honoraires d\'architecture (encaissé)</td>'
+          + '<td class="inline-val">' + fmt(caYtd) + ' TND</td><td>100%</td></tr>';
+    html += '<tr style="border-top:2px solid var(--accent)"><td><strong>Total produits</strong></td>'
+          + '<td class="inline-val" style="color:var(--green)"><strong>' + fmt(caYtd) + ' TND</strong></td><td></td></tr>';
+
+    // Charges par catégorie — triées par montant décroissant
+    var catEntries = Object.keys(chargesParCat).map(function(k){ return {cat:k, total:chargesParCat[k]}; });
+    catEntries.sort(function(a,b){ return b.total - a.total; });
+    var firstCharge = true;
+    catEntries.forEach(function(c){
+      var pct = chargesYtd > 0 ? Math.round(c.total / chargesYtd * 100) : 0;
+      html += '<tr' + (firstCharge ? ' style="padding-top:1rem"' : '') + '>'
+            + '<td>' + c.cat + '</td>'
+            + '<td class="inline-val">' + fmt(c.total) + ' TND</td>'
+            + '<td>' + pct + '%</td></tr>';
+      firstCharge = false;
+    });
+    if (catEntries.length === 0) {
+      html += '<tr><td colspan="3" style="color:var(--text-3);font-style:italic;padding:0.8rem 0">Aucune dépense enregistrée en ' + year + '</td></tr>';
+    }
+    html += '<tr style="border-top:2px solid var(--border-md)"><td><strong>Total charges</strong></td>'
+          + '<td class="inline-val" style="color:var(--red)"><strong>' + fmt(chargesYtd) + ' TND</strong></td><td></td></tr>';
+
+    // Résultat
+    html += '<tr style="border-top:2px solid var(--accent);background:rgba(200,169,110,0.05)"><td><strong>Résultat net</strong></td>'
+          + '<td class="inline-val" style="color:' + (resultatNet >= 0 ? 'var(--green)' : 'var(--red)') + ';font-size:1rem"><strong>' + fmt(resultatNet) + ' TND</strong></td><td></td></tr>';
+
+    html += '</tbody></table>';
+    crBody.innerHTML = html;
+  }
+
+  // ── 5. Trésorerie prévisionnelle ──
+  var trTitle = document.getElementById('bilans-tresorerie-title');
+  if (trTitle) trTitle.textContent = 'Trésorerie prévisionnelle — ' + year;
+
   var cumul = 0;
   var trData = [];
-  for (var j=0; j<=Math.min(curMonth+3, 11); j++){
-    if (j <= curMonth) cumul += caParMois[j];
-    var maxCumul = Math.max(cumul * 1.3, 10);
-    trData.push({label:mois[j], val:Math.round(cumul*10)/10, max:maxCumul, future: j > curMonth});
+  for (var j = 0; j <= Math.min(curMonth + 3, 11); j++) {
+    if (j <= curMonth) {
+      cumul += (caParMois[j] || 0) - (chargesParMois[j] || 0);
+    }
+    var maxCumul = Math.max(Math.abs(cumul) * 1.3, 10);
+    trData.push({
+      label: MOIS[j],
+      val: Math.round(cumul / 100) / 10, // en k
+      max: maxCumul / 1000,
+      future: j > curMonth
+    });
   }
   renderBarChart('tresorerie-chart', trData, 'k', true);
 }
