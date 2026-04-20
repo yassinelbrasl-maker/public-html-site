@@ -2151,7 +2151,7 @@ footer {
 @keyframes heroTitleReveal {
   0%   { opacity: 0; letter-spacing: 0.5em; filter: blur(8px); }
   60%  { opacity: 1; }
-  100% { opacity: 1; letter-spacing: 0.25em; filter: blur(0); }
+  100% { opacity: 1; letter-spacing: 0.18em; filter: blur(0); }
 }
 
 /* Subtitle fade in after title */
