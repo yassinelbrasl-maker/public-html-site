@@ -5958,6 +5958,8 @@ function renderDashboard(){
     _renderDashProjets(_dashData.projets_actifs);
     _renderDashDepenses(_dashData.depenses_par_cat, _dashData.kpis.depenses_mois);
     renderDashSoldes(_dashData);
+    _renderDashCreances(_dashData.creances, _dashData.kpis);
+    _renderDashHonorairesAlerts(_dashData.alertes_hono, _dashData.kpis);
     // Mettre à jour le label mois
     var MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
     var el = document.getElementById('dash-current-month');
@@ -5972,6 +5974,100 @@ function renderDashboard(){
     // Fallback : données locales depuis le cache
     _renderDashboardFromCache();
   });
+}
+
+// ─── Widget : Créances clients ───────────────────────────────
+function _renderDashCreances(creances, kpis){
+  var el = document.getElementById('dash-creances-widget');
+  if(!el) return;
+  creances = creances || {};
+  kpis = kpis || {};
+  var totalCr = parseFloat(creances.total_creances || kpis.factures_total || 0);
+  var totalEch = parseFloat(creances.total_echues || 0);
+  var nbFact = parseInt(creances.nb_factures || kpis.factures_impayees || 0, 10);
+  var nbEch = parseInt(creances.nb_echues || 0, 10);
+  var joursRetard = parseInt(kpis.jours_retard || 0, 10);
+
+  if(!nbFact){
+    el.innerHTML = '<div class="dash-empty">Aucune créance en cours — tout est à jour ✨</div>';
+    return;
+  }
+
+  var pctEch = totalCr > 0 ? Math.round(totalEch/totalCr*100) : 0;
+  var html = ''
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.8rem">'
+      + '<div><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Total dû</div>'
+      + '<div style="font-size:1.45rem;font-weight:600;font-family:var(--mono);color:var(--orange)">'+_fmtMontant(totalCr)+' <span style="font-size:0.72rem;color:var(--text-3);font-family:inherit">TND</span></div></div>'
+      + '<div style="text-align:right"><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Factures</div>'
+      + '<div style="font-size:1.1rem;font-weight:500">'+nbFact+' <span style="font-size:0.72rem;color:var(--text-3)">ouverte'+(nbFact>1?'s':'')+'</span></div></div>'
+    + '</div>'
+    + '<div style="height:8px;background:var(--bg-3);border-radius:4px;overflow:hidden;margin-bottom:0.4rem"><div style="height:100%;width:'+pctEch+'%;background:var(--red);border-radius:4px;transition:width 0.5s"></div></div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-3);margin-bottom:0.9rem">'
+      + '<span>Échues : <strong style="color:var(--red)">'+_fmtMontant(totalEch)+' TND</strong> ('+nbEch+')</span>'
+      + '<span>'+pctEch+'% en retard</span>'
+    + '</div>';
+  if(joursRetard > 0){
+    html += '<div style="padding:0.55rem 0.8rem;background:rgba(224,112,112,0.08);border-left:2px solid var(--red);border-radius:4px;font-size:0.78rem;color:var(--text-2);margin-bottom:0.6rem">'
+      + '⚠️ Échéance la plus ancienne : <strong>'+joursRetard+' jour'+(joursRetard>1?'s':'')+'</strong> de retard</div>';
+  }
+  html += '<button class="btn btn-sm" onclick="showPage(\'paiements-clients\')" style="width:100%;margin-top:0.4rem">Voir les paiements</button>';
+  el.innerHTML = html;
+}
+
+// ─── Widget : Alertes budget honoraires ──────────────────────
+function _renderDashHonorairesAlerts(alertes, kpis){
+  var el = document.getElementById('dash-honoraires-widget');
+  if(!el) return;
+  alertes = alertes || [];
+  kpis = kpis || {};
+
+  var prevu = parseFloat(kpis.total_hono_prevus || 0);
+  var facture = parseFloat(kpis.total_hono_facture || 0);
+  var encaisse = parseFloat(kpis.total_hono_encaisse || 0);
+
+  if(prevu <= 0){
+    el.innerHTML = '<div class="dash-empty">Aucun budget honoraires configuré</div>';
+    return;
+  }
+
+  var pctFact = Math.round(facture/prevu*100);
+  var pctEnc = Math.round(encaisse/prevu*100);
+
+  var html = ''
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.8rem">'
+      + '<div><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Budget total</div>'
+      + '<div style="font-size:1.35rem;font-weight:600;font-family:var(--mono)">'+_fmtMontant(prevu)+' <span style="font-size:0.72rem;color:var(--text-3);font-family:inherit">TND</span></div></div>'
+      + '<div style="text-align:right"><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Taux d\'encaissement</div>'
+      + '<div style="font-size:1.1rem;font-weight:600;color:var(--green)">'+pctEnc+'%</div></div>'
+    + '</div>'
+    + '<div style="position:relative;height:10px;background:var(--bg-3);border-radius:5px;overflow:hidden;margin-bottom:0.4rem">'
+      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.min(100,pctFact)+'%;background:var(--accent);border-radius:5px"></div>'
+      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.min(100,pctEnc)+'%;background:var(--green);border-radius:5px"></div>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-3);margin-bottom:0.8rem">'
+      + '<span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:4px"></span>Encaissé '+_fmtMontant(encaisse)+'</span>'
+      + '<span><span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:2px;margin-right:4px"></span>Facturé '+_fmtMontant(facture)+'</span>'
+    + '</div>';
+
+  if(alertes.length){
+    var levelColor = {red:'var(--red)', orange:'var(--orange)', yellow:'var(--accent)'};
+    var levelLabel = {red:'Dépassement', orange:'Critique', yellow:'Alerte'};
+    html += '<div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.4rem">Projets à surveiller</div>';
+    html += alertes.slice(0,4).map(function(a){
+      var color = levelColor[a.niveau] || 'var(--accent)';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0.6rem;background:rgba(255,255,255,0.02);border-left:2px solid '+color+';border-radius:3px;margin-bottom:0.35rem;font-size:0.78rem">'
+        + '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0"><strong>'+(a.nom||'—')+'</strong>'
+        + (a.client?' <span style="color:var(--text-3);font-size:0.72rem">· '+a.client+'</span>':'')
+        + '</div>'
+        + '<div style="color:'+color+';font-weight:600;margin-left:0.5rem;white-space:nowrap">'+(a.ratio||0)+'%</div>'
+        + '</div>';
+    }).join('');
+  } else {
+    html += '<div style="font-size:0.75rem;color:var(--text-3);padding:0.4rem 0">✅ Aucun projet en dépassement de budget</div>';
+  }
+
+  html += '<button class="btn btn-sm" onclick="showPage(\'honoraires\')" style="width:100%;margin-top:0.5rem">Voir tous les projets</button>';
+  el.innerHTML = html;
 }
 
 // Fallback : construire le dashboard depuis les données déjà en cache (loadData)
