@@ -159,10 +159,10 @@ html { scroll-behavior: smooth; }
 
 /* ── Sous-titre ── */
 .intro-sub {
-  font-size: clamp(0.6rem, 1.2vw, 0.72rem);
+  font-size: clamp(0.8rem, 1.2vw, 0.9rem);
   letter-spacing: 0.35em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.62);
   opacity: 0;
   animation: introSubFade 0.7s ease 1.7s forwards;
 }
@@ -330,11 +330,16 @@ body {
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 400;
   letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.45);
-  padding: 0.15rem 0.1rem;
+  color: rgba(255,255,255,0.7);
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: color 0.2s;
 }
 .language-switcher .lang-btn:hover { color: rgba(255,255,255,0.8); }
@@ -553,7 +558,8 @@ body.menu-open { overflow: hidden; }
 .overlay h1 {
   font-size: clamp(1.8rem, 5vw, 4.2rem);
   font-weight: 300;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.18em;
+  line-height: 1.08;
   text-transform: uppercase;
   margin-bottom: 1.2rem;
   opacity: 0;
@@ -2145,7 +2151,7 @@ footer {
 @keyframes heroTitleReveal {
   0%   { opacity: 0; letter-spacing: 0.5em; filter: blur(8px); }
   60%  { opacity: 1; }
-  100% { opacity: 1; letter-spacing: 0.25em; filter: blur(0); }
+  100% { opacity: 1; letter-spacing: 0.18em; filter: blur(0); }
 }
 
 /* Subtitle fade in after title */

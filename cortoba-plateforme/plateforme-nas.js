@@ -5369,28 +5369,39 @@ function genFacturesPDF(factures){
 
 // ── Export Bilans Excel (CSV téléchargeable) ──
 function exportBilansExcel(){
+  var year = new Date().getFullYear();
   var factures = getFactures();
   var depenses = getDepenses();
   var sep = ';';
   var nl = '\r\n';
-  var rows = [['Type','Libellé','Montant TND','Date','Statut'].join(sep)];
+  var rows = [['Type','Libellé','Catégorie','Montant TND','Date','Statut'].join(sep)];
+
+  // Produits : factures payées de l'année
   factures.forEach(function(f){
+    var d = new Date(f.dateEmission||f.date_emission||f.echeance||'');
+    if (isNaN(d) || d.getFullYear() !== year || f.statut !== 'Payée') return;
     var ttc = f.montantTtc||f.montant_ttc||f.montant||0;
-    var lib = ((f.client||'') + ' — ' + (f.projet||'')).trim();
-    var dt  = f.echeance||f.dateEcheance||f.date_echeance||'';
-    rows.push(['"Facture"', '"'+lib.replace(/"/g,'""')+'"', ttc, '"'+dt+'"', '"'+(f.statut||'')+'"'].join(sep));
+    var lib = ((f.client||'') + ' — ' + (f.projet||f.objet||'')).trim();
+    var dt  = f.dateEmission||f.date_emission||f.echeance||'';
+    rows.push(['"Produit (facture)"', '"'+lib.replace(/"/g,'""')+'"', '"Honoraires"', ttc, '"'+dt+'"', '"'+(f.statut||'')+'"'].join(sep));
   });
+
+  // Charges : dépenses de l'année
   depenses.forEach(function(d){
-    var ttc = d.montantTTC||d.montant||0;
+    var dt = new Date(d.date||d.date_dep||d.dateDep||'');
+    if (isNaN(dt) || dt.getFullYear() !== year) return;
+    var ttc = parseFloat(d.montant_ttc||d.montantTTC||d.montant||0);
     var lib = (d.libelle||d.description||'');
-    var dt  = d.date||d.dateDep||'';
-    rows.push(['"Dépense"', '"'+lib.replace(/"/g,'""')+'"', ttc, '"'+dt+'"', '"'+(d.cat||d.categorie||'')+'"'].join(sep));
+    var cat = (d.cat||d.categorie||'Autre');
+    var dStr = d.date||d.date_dep||d.dateDep||'';
+    rows.push(['"Charge (dépense)"', '"'+lib.replace(/"/g,'""')+'"', '"'+cat+'"', ttc, '"'+dStr+'"', '""'].join(sep));
   });
+
   var csv = '\uFEFF' + rows.join(nl);
   var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'Bilan_Cortoba_' + new Date().getFullYear() + '.csv';
+  a.download = 'Bilan_Cortoba_' + year + '.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -5733,6 +5744,7 @@ function showPage(id){
   if(id==='portail-messages') setTimeout(function(){ if(typeof renderPortailMessages==='function') renderPortailMessages(); },80);
   if(id==='portail-journal') setTimeout(function(){ if(typeof renderPortailJournal==='function') renderPortailJournal(); },80);
   if(id==='journal-membres') setTimeout(function(){ if(typeof renderJournalMembres==='function') renderJournalMembres(); },80);
+  if(id==='bilans')     setTimeout(function(){ if(typeof renderBilansPage==='function') renderBilansPage(); },80);
   if(id==='equipe')     setTimeout(renderEquipePage,80);
   if(id==='facturation') setTimeout(function(){ if(typeof renderCreancesPage==='function') renderCreancesPage(); },80);
   if(id==='paiements-clients') setTimeout(function(){ if(typeof renderPaiementsClientsPage==='function') renderPaiementsClientsPage(); },80);
@@ -5921,25 +5933,140 @@ function nasConnect(){
 // ── Charts ──
 function renderCharts(){
   renderDashboard();
-  // Trésorerie prévisionnelle (bilans page) — toujours depuis cache local
-  var factures = getFactures();
+  // Trésorerie sera rendue par renderBilansPage()
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BILANS — Compte de résultat et trésorerie (données réelles)
+// ═══════════════════════════════════════════════════════════
+
+function renderBilansPage(){
   var now = new Date();
   var year = now.getFullYear();
-  var mois = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  var curMonth = now.getMonth(); // 0-based
+  var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+  // ── 1. Collecter les données réelles ──
+  var depenses = getDepenses();
+  var factures = getFactures();
+
+  // CA (produits) — priorité aux données dashboard, sinon cache
+  var caYtd = 0;
   var caParMois = new Array(12).fill(0);
-  factures.forEach(function(f){
-    var d = new Date(f.dateEmission||f.date_emission||f.echeance||f.date_echeance||'');
-    if (!isNaN(d) && d.getFullYear()===year && f.statut==='Payée') {
-      caParMois[d.getMonth()] += (f.montantTtc||f.montant_ttc||f.montant||0)/1000;
-    }
+  var caSource = 'cache';
+
+  if (_dashData && _dashData.kpis && _dashData.kpis.ca_ytd > 0) {
+    caYtd = _dashData.kpis.ca_ytd;
+    caParMois = (_dashData.ca_mensuel || []).slice();
+    while (caParMois.length < 12) caParMois.push(0);
+    caSource = _dashData.ca_source || 'api';
+  } else {
+    // Fallback : recalculer depuis les paiements clients ou factures payées
+    factures.forEach(function(f){
+      var d = new Date(f.dateEmission || f.date_emission || f.echeance || '');
+      if (!isNaN(d) && d.getFullYear() === year && f.statut === 'Payée') {
+        var m = (f.montantTtc || f.montant_ttc || f.montant || 0);
+        caYtd += m;
+        caParMois[d.getMonth()] += m;
+      }
+    });
+  }
+
+  // Charges — dépenses de l'année courante
+  var chargesYtd = 0;
+  var chargesParMois = new Array(12).fill(0);
+  var chargesParCat = {};
+  depenses.forEach(function(d){
+    var dt = new Date(d.date || d.date_dep || d.dateDep || '');
+    if (isNaN(dt) || dt.getFullYear() !== year) return;
+    var m = parseFloat(d.montant_ttc || d.montantTTC || d.montant || 0);
+    chargesYtd += m;
+    chargesParMois[dt.getMonth()] += m;
+    var cat = (d.cat || d.categorie || d.category || 'Autre').trim();
+    if (!cat) cat = 'Autre';
+    chargesParCat[cat] = (chargesParCat[cat] || 0) + m;
   });
-  var curMonth = now.getMonth();
+
+  var resultatNet = caYtd - chargesYtd;
+
+  // ── 2. Formater les montants ──
+  function fmt(v) {
+    v = Math.round(v);
+    return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  // ── 3. KPIs ──
+  var elCaLabel = document.getElementById('bilans-kpi-ca-label');
+  var elCa = document.getElementById('bilans-kpi-ca');
+  var elChLabel = document.getElementById('bilans-kpi-charges-label');
+  var elCh = document.getElementById('bilans-kpi-charges');
+  var elRes = document.getElementById('bilans-kpi-resultat');
+  if (elCaLabel) elCaLabel.textContent = 'Produits (CA) ' + year;
+  if (elCa) elCa.innerHTML = fmt(caYtd) + '<span class="kpi-unit"> TND</span>';
+  if (elChLabel) elChLabel.textContent = 'Charges ' + year;
+  if (elCh) elCh.innerHTML = fmt(chargesYtd) + '<span class="kpi-unit"> TND</span>';
+  if (elRes) {
+    elRes.innerHTML = fmt(resultatNet) + '<span class="kpi-unit"> TND</span>';
+    elRes.style.color = resultatNet >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+
+  // ── 4. Compte de résultat simplifié ──
+  var crTitle = document.getElementById('bilans-cr-title');
+  if (crTitle) crTitle.textContent = 'Compte de résultat simplifié — ' + year;
+
+  var crBody = document.getElementById('bilans-cr-body');
+  if (crBody) {
+    var html = '<table><thead><tr><th>Poste</th><th>Montant</th><th>%</th></tr></thead><tbody>';
+
+    // Produits = une seule ligne (honoraires d'architecture) pour l'instant
+    html += '<tr><td>Honoraires d\'architecture (encaissé)</td>'
+          + '<td class="inline-val">' + fmt(caYtd) + ' TND</td><td>100%</td></tr>';
+    html += '<tr style="border-top:2px solid var(--accent)"><td><strong>Total produits</strong></td>'
+          + '<td class="inline-val" style="color:var(--green)"><strong>' + fmt(caYtd) + ' TND</strong></td><td></td></tr>';
+
+    // Charges par catégorie — triées par montant décroissant
+    var catEntries = Object.keys(chargesParCat).map(function(k){ return {cat:k, total:chargesParCat[k]}; });
+    catEntries.sort(function(a,b){ return b.total - a.total; });
+    var firstCharge = true;
+    catEntries.forEach(function(c){
+      var pct = chargesYtd > 0 ? Math.round(c.total / chargesYtd * 100) : 0;
+      html += '<tr' + (firstCharge ? ' style="padding-top:1rem"' : '') + '>'
+            + '<td>' + c.cat + '</td>'
+            + '<td class="inline-val">' + fmt(c.total) + ' TND</td>'
+            + '<td>' + pct + '%</td></tr>';
+      firstCharge = false;
+    });
+    if (catEntries.length === 0) {
+      html += '<tr><td colspan="3" style="color:var(--text-3);font-style:italic;padding:0.8rem 0">Aucune dépense enregistrée en ' + year + '</td></tr>';
+    }
+    html += '<tr style="border-top:2px solid var(--border-md)"><td><strong>Total charges</strong></td>'
+          + '<td class="inline-val" style="color:var(--red)"><strong>' + fmt(chargesYtd) + ' TND</strong></td><td></td></tr>';
+
+    // Résultat
+    html += '<tr style="border-top:2px solid var(--accent);background:rgba(200,169,110,0.05)"><td><strong>Résultat net</strong></td>'
+          + '<td class="inline-val" style="color:' + (resultatNet >= 0 ? 'var(--green)' : 'var(--red)') + ';font-size:1rem"><strong>' + fmt(resultatNet) + ' TND</strong></td><td></td></tr>';
+
+    html += '</tbody></table>';
+    crBody.innerHTML = html;
+  }
+
+  // ── 5. Trésorerie prévisionnelle ──
+  var trTitle = document.getElementById('bilans-tresorerie-title');
+  if (trTitle) trTitle.textContent = 'Trésorerie prévisionnelle — ' + year;
+
   var cumul = 0;
   var trData = [];
-  for (var j=0; j<=Math.min(curMonth+3, 11); j++){
-    if (j <= curMonth) cumul += caParMois[j];
-    var maxCumul = Math.max(cumul * 1.3, 10);
-    trData.push({label:mois[j], val:Math.round(cumul*10)/10, max:maxCumul, future: j > curMonth});
+  for (var j = 0; j <= Math.min(curMonth + 3, 11); j++) {
+    if (j <= curMonth) {
+      cumul += (caParMois[j] || 0) - (chargesParMois[j] || 0);
+    }
+    var maxCumul = Math.max(Math.abs(cumul) * 1.3, 10);
+    trData.push({
+      label: MOIS[j],
+      val: Math.round(cumul / 100) / 10, // en k
+      max: maxCumul / 1000,
+      future: j > curMonth
+    });
   }
   renderBarChart('tresorerie-chart', trData, 'k', true);
 }
@@ -5958,6 +6085,8 @@ function renderDashboard(){
     _renderDashProjets(_dashData.projets_actifs);
     _renderDashDepenses(_dashData.depenses_par_cat, _dashData.kpis.depenses_mois);
     renderDashSoldes(_dashData);
+    _renderDashCreances(_dashData.creances, _dashData.kpis);
+    _renderDashHonorairesAlerts(_dashData.alertes_hono, _dashData.kpis);
     // Mettre à jour le label mois
     var MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
     var el = document.getElementById('dash-current-month');
@@ -5972,6 +6101,100 @@ function renderDashboard(){
     // Fallback : données locales depuis le cache
     _renderDashboardFromCache();
   });
+}
+
+// ─── Widget : Créances clients ───────────────────────────────
+function _renderDashCreances(creances, kpis){
+  var el = document.getElementById('dash-creances-widget');
+  if(!el) return;
+  creances = creances || {};
+  kpis = kpis || {};
+  var totalCr = parseFloat(creances.total_creances || kpis.factures_total || 0);
+  var totalEch = parseFloat(creances.total_echues || 0);
+  var nbFact = parseInt(creances.nb_factures || kpis.factures_impayees || 0, 10);
+  var nbEch = parseInt(creances.nb_echues || 0, 10);
+  var joursRetard = parseInt(kpis.jours_retard || 0, 10);
+
+  if(!nbFact){
+    el.innerHTML = '<div class="dash-empty">Aucune créance en cours — tout est à jour ✨</div>';
+    return;
+  }
+
+  var pctEch = totalCr > 0 ? Math.round(totalEch/totalCr*100) : 0;
+  var html = ''
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.8rem">'
+      + '<div><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Total dû</div>'
+      + '<div style="font-size:1.45rem;font-weight:600;font-family:var(--mono);color:var(--orange)">'+_fmtMontant(totalCr)+' <span style="font-size:0.72rem;color:var(--text-3);font-family:inherit">TND</span></div></div>'
+      + '<div style="text-align:right"><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Factures</div>'
+      + '<div style="font-size:1.1rem;font-weight:500">'+nbFact+' <span style="font-size:0.72rem;color:var(--text-3)">ouverte'+(nbFact>1?'s':'')+'</span></div></div>'
+    + '</div>'
+    + '<div style="height:8px;background:var(--bg-3);border-radius:4px;overflow:hidden;margin-bottom:0.4rem"><div style="height:100%;width:'+pctEch+'%;background:var(--red);border-radius:4px;transition:width 0.5s"></div></div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-3);margin-bottom:0.9rem">'
+      + '<span>Échues : <strong style="color:var(--red)">'+_fmtMontant(totalEch)+' TND</strong> ('+nbEch+')</span>'
+      + '<span>'+pctEch+'% en retard</span>'
+    + '</div>';
+  if(joursRetard > 0){
+    html += '<div style="padding:0.55rem 0.8rem;background:rgba(224,112,112,0.08);border-left:2px solid var(--red);border-radius:4px;font-size:0.78rem;color:var(--text-2);margin-bottom:0.6rem">'
+      + '⚠️ Échéance la plus ancienne : <strong>'+joursRetard+' jour'+(joursRetard>1?'s':'')+'</strong> de retard</div>';
+  }
+  html += '<button class="btn btn-sm" onclick="showPage(\'paiements-clients\')" style="width:100%;margin-top:0.4rem">Voir les paiements</button>';
+  el.innerHTML = html;
+}
+
+// ─── Widget : Alertes budget honoraires ──────────────────────
+function _renderDashHonorairesAlerts(alertes, kpis){
+  var el = document.getElementById('dash-honoraires-widget');
+  if(!el) return;
+  alertes = alertes || [];
+  kpis = kpis || {};
+
+  var prevu = parseFloat(kpis.total_hono_prevus || 0);
+  var facture = parseFloat(kpis.total_hono_facture || 0);
+  var encaisse = parseFloat(kpis.total_hono_encaisse || 0);
+
+  if(prevu <= 0){
+    el.innerHTML = '<div class="dash-empty">Aucun budget honoraires configuré</div>';
+    return;
+  }
+
+  var pctFact = Math.round(facture/prevu*100);
+  var pctEnc = Math.round(encaisse/prevu*100);
+
+  var html = ''
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.8rem">'
+      + '<div><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Budget total</div>'
+      + '<div style="font-size:1.35rem;font-weight:600;font-family:var(--mono)">'+_fmtMontant(prevu)+' <span style="font-size:0.72rem;color:var(--text-3);font-family:inherit">TND</span></div></div>'
+      + '<div style="text-align:right"><div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.2rem">Taux d\'encaissement</div>'
+      + '<div style="font-size:1.1rem;font-weight:600;color:var(--green)">'+pctEnc+'%</div></div>'
+    + '</div>'
+    + '<div style="position:relative;height:10px;background:var(--bg-3);border-radius:5px;overflow:hidden;margin-bottom:0.4rem">'
+      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.min(100,pctFact)+'%;background:var(--accent);border-radius:5px"></div>'
+      + '<div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.min(100,pctEnc)+'%;background:var(--green);border-radius:5px"></div>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-3);margin-bottom:0.8rem">'
+      + '<span><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:2px;margin-right:4px"></span>Encaissé '+_fmtMontant(encaisse)+'</span>'
+      + '<span><span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:2px;margin-right:4px"></span>Facturé '+_fmtMontant(facture)+'</span>'
+    + '</div>';
+
+  if(alertes.length){
+    var levelColor = {red:'var(--red)', orange:'var(--orange)', yellow:'var(--accent)'};
+    var levelLabel = {red:'Dépassement', orange:'Critique', yellow:'Alerte'};
+    html += '<div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.4rem">Projets à surveiller</div>';
+    html += alertes.slice(0,4).map(function(a){
+      var color = levelColor[a.niveau] || 'var(--accent)';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0.6rem;background:rgba(255,255,255,0.02);border-left:2px solid '+color+';border-radius:3px;margin-bottom:0.35rem;font-size:0.78rem">'
+        + '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0"><strong>'+(a.nom||'—')+'</strong>'
+        + (a.client?' <span style="color:var(--text-3);font-size:0.72rem">· '+a.client+'</span>':'')
+        + '</div>'
+        + '<div style="color:'+color+';font-weight:600;margin-left:0.5rem;white-space:nowrap">'+(a.ratio||0)+'%</div>'
+        + '</div>';
+    }).join('');
+  } else {
+    html += '<div style="font-size:0.75rem;color:var(--text-3);padding:0.4rem 0">✅ Aucun projet en dépassement de budget</div>';
+  }
+
+  html += '<button class="btn btn-sm" onclick="showPage(\'honoraires\')" style="width:100%;margin-top:0.5rem">Voir tous les projets</button>';
+  el.innerHTML = html;
 }
 
 // Fallback : construire le dashboard depuis les données déjà en cache (loadData)
@@ -8746,6 +8969,10 @@ function renderDemandes() {
       cout = Math.round(d.cout_estime_low/1000) + 'k – ' + Math.round(d.cout_estime_high/1000) + 'k TND';
     }
     var statutBadge = getDemandeStatutBadge(d.statut);
+    var archiveBtn = d.statut === 'archivee'
+      ? ''
+      : '<button class="btn btn-sm" title="Archiver" onclick="event.stopPropagation();archiveDemandeFromList(\'' + d.id + '\')" style="padding:0.3rem 0.5rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></button>';
+    var deleteBtn = '<button class="btn btn-sm" title="Supprimer" onclick="event.stopPropagation();deleteDemandeFromList(\'' + d.id + '\')" style="padding:0.3rem 0.5rem;color:var(--red, #e74c3c)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg></button>';
     html += '<tr style="cursor:pointer" onclick="openDemande(\'' + d.id + '\')">'
       + '<td>' + date + '</td>'
       + '<td><strong>' + esc(d.nom_projet) + '</strong></td>'
@@ -8754,7 +8981,11 @@ function renderDemandes() {
       + '<td>' + surface + '</td>'
       + '<td>' + cout + '</td>'
       + '<td>' + statutBadge + '</td>'
-      + '<td><button class="btn btn-sm" onclick="event.stopPropagation();openDemande(\'' + d.id + '\')">Voir</button></td>'
+      + '<td style="white-space:nowrap"><div style="display:inline-flex;gap:0.3rem;align-items:center">'
+      +   '<button class="btn btn-sm" onclick="event.stopPropagation();openDemande(\'' + d.id + '\')">Voir</button>'
+      +   archiveBtn
+      +   deleteBtn
+      + '</div></td>'
       + '</tr>';
   });
   tbody.innerHTML = html;
@@ -9136,6 +9367,34 @@ function archiveDemande() {
     closeModal('modal-demande');
     showToast('Demande archivée');
   }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+// Archiver directement depuis la liste (sans ouvrir la modale)
+function archiveDemandeFromList(id) {
+  if (!id) return;
+  if (!confirm('Archiver cette demande ?')) return;
+  apiFetch('api/demandes.php?id=' + id, {
+    method: 'PUT',
+    body: { action: 'update_statut', statut: 'archivee' }
+  }).then(function() {
+    var d = getDemandes().find(function(x) { return x.id === id; });
+    if (d) d.statut = 'archivee';
+    renderDemandes();
+    showToast('Demande archivée');
+  }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+// Supprimer (déplacer vers la corbeille) depuis la liste
+function deleteDemandeFromList(id) {
+  if (!id) return;
+  if (!confirm('Supprimer cette demande ?\n\nElle sera déplacée vers la corbeille et pourra être restaurée ultérieurement.')) return;
+  apiFetch('api/demandes.php?id=' + id, { method: 'DELETE' })
+    .then(function() {
+      _cache.demandes = (getDemandes() || []).filter(function(x) { return x.id !== id; });
+      renderDemandes();
+      showToast('Demande supprimée (déplacée dans la corbeille)');
+    })
+    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
 }
 
 // ══════════════════════════════════════════════════════════

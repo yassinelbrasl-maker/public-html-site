@@ -93,6 +93,9 @@ function ensurePaiementsClientsSchema() {
 }
 
 // ── Main handler ──
+// Ne s'exécute QUE si le script est appelé directement (pas via require_once d'un autre fichier).
+if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'paiements_clients.php') {
+
 setCorsHeaders();
 ensurePaiementsClientsSchema();
 
@@ -147,6 +150,8 @@ try {
 } catch (\Throwable $e) {
     jsonError('Erreur serveur: ' . $e->getMessage(), 500);
 }
+
+} // fin du guard basename === 'paiements_clients.php'
 
 // ═══════════════════════════════════════════════════════════════
 //  LIST
