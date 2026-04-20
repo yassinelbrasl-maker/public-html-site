@@ -9,8 +9,8 @@
   <title>Cortoba Atelier — Espace Privé</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;1,200;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="plateforme.css?t=20260406c">
-  <link rel="stylesheet" href="ergonomie.css">
+  <link rel="stylesheet" href="plateforme.css?t=20260418a">
+  <link rel="stylesheet" href="ergonomie.css?t=20260418a">
   <link rel="stylesheet" href="chat.css?t=20260406b">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css" />
@@ -58,11 +58,11 @@
         <div style="position:relative;display:flex;align-items:center">
           <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
             onkeydown="if(event.key==='Enter') doLogin()"
-            style="width:100%;padding-right:2.8rem" />
+            style="width:100%;padding-right:3rem" />
           <button type="button" onclick="togglePwd('login-pass',this)" aria-label="Afficher ou masquer le mot de passe"
-            style="position:absolute;right:0.7rem;background:none;border:none;cursor:pointer;color:var(--text-3);padding:0.2rem;display:flex;align-items:center;transition:color .2s"
+            style="position:absolute;right:3px;background:none;border:none;cursor:pointer;color:var(--text-3);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;transition:color .2s"
             onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-3)'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
       </div>
@@ -76,20 +76,21 @@
      MAIN APP
 ══════════════════════════════════ -->
 <div id="app" role="main">
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
   <!-- Header -->
   <header class="app-header">
     <div class="app-header-left">
-      <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Menu">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Ouvrir ou fermer le menu de navigation">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
       <div class="app-wordmark">CORTOBA <span>×</span> Atelier</div>
       <div class="header-sep"></div>
       <div class="app-section-label" id="section-label">Tableau de bord</div>
     </div>
     <div class="app-header-right">
-      <button class="header-notif" title="Notifications" onclick="showNotifications()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <button class="header-notif" title="Notifications" aria-label="Notifications" onclick="showNotifications()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span class="notif-badge" id="notif-badge">0</span>
       </button>
       <div class="header-user" id="user-display">
@@ -101,8 +102,8 @@
   </header>
 
   <!-- Sidebar show button (visible when sidebar is hidden) -->
-  <button class="sidebar-show-btn" id="sidebar-show-btn" onclick="showSidebar()" title="Afficher la barre latérale">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 5l7 7-7 7"/><path d="M6 5l7 7-7 7"/></svg>
+  <button class="sidebar-show-btn" id="sidebar-show-btn" onclick="showSidebar()" title="Afficher la barre latérale" aria-label="Afficher la barre latérale">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M6 5l7 7-7 7"/></svg>
   </button>
 
   <!-- Hover trigger zone for auto-hide sidebar -->
@@ -113,15 +114,15 @@
 
   <div class="app-body">
     <!-- Sidebar -->
-    <nav class="sidebar" id="sidebar">
+    <nav class="sidebar" id="sidebar" aria-label="Navigation principale">
 
       <!-- Sidebar controls: hide & pin -->
       <div class="sidebar-controls">
-        <button class="sidebar-ctrl-btn" id="sidebar-hide-btn" onclick="hideSidebar()" title="Masquer la barre latérale">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 19l-7-7 7-7"/><path d="M18 19l-7-7 7-7"/></svg>
+        <button class="sidebar-ctrl-btn" id="sidebar-hide-btn" onclick="hideSidebar()" title="Masquer la barre latérale" aria-label="Masquer la barre latérale">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 19l-7-7 7-7"/><path d="M18 19l-7-7 7-7"/></svg>
         </button>
-        <button class="sidebar-ctrl-btn" id="sidebar-pin-btn" onclick="toggleSidebarPin()" title="Épingler / Masquer automatiquement">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="pin-icon"><path d="M12 2v4"/><path d="M15.5 6h-7l-1 8h9l-1-8z"/><path d="M12 14v8"/></svg>
+        <button class="sidebar-ctrl-btn" id="sidebar-pin-btn" onclick="toggleSidebarPin()" title="Épingler / Masquer automatiquement" aria-label="Épingler ou masquer automatiquement la barre latérale">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" id="pin-icon"><path d="M12 2v4"/><path d="M15.5 6h-7l-1 8h9l-1-8z"/><path d="M12 14v8"/></svg>
         </button>
       </div>
 
@@ -353,7 +354,7 @@
     </nav>
 
     <!-- Main content -->
-    <main class="main-content">
+    <main class="main-content" id="main-content" tabindex="-1">
 
       <!-- ══ DASHBOARD ══ -->
       <div class="page active" id="page-dashboard">
@@ -500,7 +501,7 @@
                 <td class="inline-val">12 500 TND</td>
                 <td>08 Mar 2026</td>
                 <td><span class="badge badge-green">Accepté</span></td>
-                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-042')" title="Dupliquer">⧉</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" aria-label="Dupliquer ce devis" onclick="duplicateDevis('DV-2026-042')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-039</td>
@@ -509,7 +510,7 @@
                 <td class="inline-val">38 000 TND</td>
                 <td>02 Mar 2026</td>
                 <td><span class="badge badge-orange">En attente</span></td>
-                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-039')" title="Dupliquer">⧉</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" aria-label="Dupliquer ce devis" onclick="duplicateDevis('DV-2026-039')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-036</td>
@@ -518,7 +519,7 @@
                 <td class="inline-val">6 200 TND</td>
                 <td>22 Fév 2026</td>
                 <td><span class="badge badge-orange">En attente</span></td>
-                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-036')" title="Dupliquer">⧉</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" aria-label="Dupliquer ce devis" onclick="duplicateDevis('DV-2026-036')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-031</td>
@@ -527,7 +528,7 @@
                 <td class="inline-val">95 000 TND</td>
                 <td>10 Fév 2026</td>
                 <td><span class="badge badge-blue">En négociation</span></td>
-                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-031')" title="Dupliquer">⧉</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" aria-label="Dupliquer ce devis" onclick="duplicateDevis('DV-2026-031')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-028</td>
@@ -536,7 +537,7 @@
                 <td class="inline-val">9 800 TND</td>
                 <td>01 Fév 2026</td>
                 <td><span class="badge badge-red">Refusé</span></td>
-                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-028')" title="Dupliquer">⧉</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" aria-label="Dupliquer ce devis" onclick="duplicateDevis('DV-2026-028')" title="Dupliquer">⧉</button></td>
               </tr>
               <tr>
                 <td class="inline-val">DV-2026-021</td>
@@ -545,7 +546,7 @@
                 <td class="inline-val">22 000 TND</td>
                 <td>15 Jan 2026</td>
                 <td><span class="badge badge-green">Accepté</span></td>
-                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" onclick="duplicateDevis('DV-2026-021')" title="Dupliquer">⧉</button></td>
+                <td style="display:flex;gap:0.4rem"><button class="btn btn-sm">Voir</button><button class="ergo-dup-btn" aria-label="Dupliquer ce devis" onclick="duplicateDevis('DV-2026-021')" title="Dupliquer">⧉</button></td>
               </tr>
             </tbody>
           </table>
