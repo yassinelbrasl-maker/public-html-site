@@ -6338,14 +6338,17 @@ document.addEventListener('DOMContentLoaded',function(){
 //  IRPP · TVA · RAS · Acomptes provisionnels · Déclarations mensuelles
 // ═══════════════════════════════════════════════════════════════════════
 
-// ── Barème IRPP 2024 (Tunisie, personnes physiques) ──
+// ── Barème IRPP LF 2025 (Tunisie, personnes physiques) ──
+// Applicable aux revenus 2025 déclarés en 2026 (art. 44 CIRPPIS révisé par LF 2025)
 var IRPP_BAREME = [
-  { de: 0,      a: 5000,   taux: 0,   libelle: '0 à 5 000 TND' },
-  { de: 5000,   a: 20000,  taux: 26,  libelle: '5 001 à 20 000 TND' },
-  { de: 20000,  a: 30000,  taux: 28,  libelle: '20 001 à 30 000 TND' },
-  { de: 30000,  a: 50000,  taux: 32,  libelle: '30 001 à 50 000 TND' },
-  { de: 50000,  a: 70000,  taux: 35,  libelle: '50 001 à 70 000 TND' },
-  { de: 70000,  a: Infinity,taux: 40, libelle: 'Au-delà de 70 000 TND' },
+  { de: 0,      a: 5000,    taux: 0,   libelle: '0 à 5 000 TND' },
+  { de: 5000,   a: 10000,   taux: 15,  libelle: '5 001 à 10 000 TND' },
+  { de: 10000,  a: 20000,   taux: 25,  libelle: '10 001 à 20 000 TND' },
+  { de: 20000,  a: 30000,   taux: 30,  libelle: '20 001 à 30 000 TND' },
+  { de: 30000,  a: 40000,   taux: 33,  libelle: '30 001 à 40 000 TND' },
+  { de: 40000,  a: 50000,   taux: 36,  libelle: '40 001 à 50 000 TND' },
+  { de: 50000,  a: 70000,   taux: 38,  libelle: '50 001 à 70 000 TND' },
+  { de: 70000,  a: Infinity,taux: 40,  libelle: 'Au-delà de 70 000 TND' },
 ];
 
 // ── Calcul IRPP selon le barème progressif ──
@@ -6374,10 +6377,10 @@ function nomMoisComplet(m) {
   return ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][m-1] || '';
 }
 function dateEcheanceMensuelle(annee, moisOp) {
-  // Mois d'opération → échéance = 28 du mois suivant
+  // Personne physique : échéance = 15 du mois suivant (art. 18 CTVA & CDPF)
   var moisEch = moisOp === 12 ? 1 : moisOp + 1;
   var anneeEch = moisOp === 12 ? annee + 1 : annee;
-  return new Date(anneeEch, moisEch - 1, 28);
+  return new Date(anneeEch, moisEch - 1, 15);
 }
 function isDepassee(date) { return date < new Date(); }
 function jours(date) {
@@ -6497,7 +6500,7 @@ function renderFiscalAlerts() {
   var tvaJours = jours(tvaEch);
   if (tvaJours <= 7 && tvaJours >= 0) {
     var tvaData = calcTVAMoisAnnee(yr, mo === 1 ? 12 : mo - 1);
-    alerts.push({ level: 'orange', msg: 'Déclaration TVA de ' + nomMoisComplet(mo===1?12:mo-1) + ' — ' + fmtTND(tvaData.nette), detail: 'Échéance : 28/' + (mo===1?'01':String(mo).padStart(2,'0')) + '. Dans ' + tvaJours + ' jour(s).' });
+    alerts.push({ level: 'orange', msg: 'Déclaration TVA de ' + nomMoisComplet(mo===1?12:mo-1) + ' — ' + fmtTND(tvaData.nette), detail: 'Échéance : 15/' + (mo===1?'01':String(mo).padStart(2,'0')) + '. Dans ' + tvaJours + ' jour(s).' });
   }
 
   // Badge nav
@@ -6545,7 +6548,7 @@ function renderFiscalKPIs() {
   setEl('fk-tva-col', '<span style="font-size:1.1rem;font-weight:700">' + fmtTND(tvaCol) + '</span>');
   setEl('fk-tva-ded', '<span style="font-size:1.1rem;font-weight:700">' + fmtTND(tvaDed) + '</span>');
   setEl('fk-tva-net', '<span style="font-size:1.1rem;font-weight:700">' + fmtTND(tvaNet) + '</span>');
-  setEl('fk-tva-ech', 'Prochain dépôt : 28/' + String(getMonth()+1>12?'01':getMonth()+1).padStart(2,'0'));
+  setEl('fk-tva-ech', 'Prochain dépôt : 15/' + String(getMonth()+1>12?'01':getMonth()+1).padStart(2,'0'));
   setEl('fk-ras', '<span style="font-size:1.1rem;font-weight:700">' + fmtTND(ras) + '</span>');
   setEl('fk-irpp', '<span style="font-size:1.1rem;font-weight:700">' + fmtTND(irppNet) + '</span>');
   setEl('fk-irpp-sub', 'Après déduction RAS | Base : ' + fmtTND(revNet));
@@ -6564,22 +6567,23 @@ function renderFiscalCalendar() {
   if (labelYr) labelYr.textContent = yr;
 
   var events = [
-    { date: new Date(yr, 0, 28),  label: 'TVA + RAS déclaration décembre N-1',    type: 'tva' },
-    { date: new Date(yr, 1, 28),  label: 'TVA + RAS déclaration janvier',          type: 'tva' },
-    { date: new Date(yr, 2, 28),  label: 'TVA + RAS déclaration février',          type: 'tva' },
-    { date: new Date(yr, 3, 28),  label: 'TVA + RAS déclaration mars',             type: 'tva' },
-    { date: new Date(yr, 4, 25),  label: 'Déclaration annuelle IRPP N-1',          type: 'irpp', montant: null, urgent: true },
-    { date: new Date(yr, 4, 28),  label: 'TVA + RAS déclaration avril',            type: 'tva' },
-    { date: new Date(yr, 5, 25),  label: '1er acompte IRPP (30%)',                 type: 'acompte', montant: acompte },
-    { date: new Date(yr, 5, 28),  label: 'TVA + RAS déclaration mai',              type: 'tva' },
-    { date: new Date(yr, 6, 28),  label: 'TVA + RAS déclaration juin',             type: 'tva' },
-    { date: new Date(yr, 7, 28),  label: 'TVA + RAS déclaration juillet',          type: 'tva' },
-    { date: new Date(yr, 8, 25),  label: '2ème acompte IRPP (30%)',                type: 'acompte', montant: acompte },
-    { date: new Date(yr, 8, 28),  label: 'TVA + RAS déclaration août',             type: 'tva' },
-    { date: new Date(yr, 9, 28),  label: 'TVA + RAS déclaration septembre',        type: 'tva' },
-    { date: new Date(yr, 10, 28), label: 'TVA + RAS déclaration octobre',          type: 'tva' },
-    { date: new Date(yr, 11, 25), label: '3ème acompte IRPP (30%)',                type: 'acompte', montant: acompte },
-    { date: new Date(yr, 11, 28), label: 'TVA + RAS déclaration novembre',         type: 'tva' },
+    { date: new Date(yr, 0, 15),  label: 'Déclaration mensuelle décembre N-1',     type: 'tva' },
+    { date: new Date(yr, 1, 15),  label: 'Déclaration mensuelle janvier',          type: 'tva' },
+    { date: new Date(yr, 1, 28),  label: 'Déclaration d\'employeur N-1',           type: 'irpp', urgent: true },
+    { date: new Date(yr, 2, 15),  label: 'Déclaration mensuelle février',          type: 'tva' },
+    { date: new Date(yr, 3, 15),  label: 'Déclaration mensuelle mars',             type: 'tva' },
+    { date: new Date(yr, 4, 15),  label: 'Déclaration mensuelle avril',            type: 'tva' },
+    { date: new Date(yr, 4, 25),  label: 'Déclaration annuelle IRPP N-1 (BNC)',    type: 'irpp', montant: null, urgent: true },
+    { date: new Date(yr, 5, 15),  label: 'Déclaration mensuelle mai',              type: 'tva' },
+    { date: new Date(yr, 5, 25),  label: '1er acompte provisionnel (30%)',         type: 'acompte', montant: acompte },
+    { date: new Date(yr, 6, 15),  label: 'Déclaration mensuelle juin',             type: 'tva' },
+    { date: new Date(yr, 7, 15),  label: 'Déclaration mensuelle juillet',          type: 'tva' },
+    { date: new Date(yr, 8, 15),  label: 'Déclaration mensuelle août',             type: 'tva' },
+    { date: new Date(yr, 8, 25),  label: '2ème acompte provisionnel (30%)',        type: 'acompte', montant: acompte },
+    { date: new Date(yr, 9, 15),  label: 'Déclaration mensuelle septembre',        type: 'tva' },
+    { date: new Date(yr, 10, 15), label: 'Déclaration mensuelle octobre',          type: 'tva' },
+    { date: new Date(yr, 11, 15), label: 'Déclaration mensuelle novembre',         type: 'tva' },
+    { date: new Date(yr, 11, 25), label: '3ème acompte provisionnel (30%)',        type: 'acompte', montant: acompte },
   ].sort(function(a,b){ return a.date - b.date; });
 
   var colors = { tva:'#6fa8d6', irpp:'#c8a96e', acompte:'#e07b72' };
