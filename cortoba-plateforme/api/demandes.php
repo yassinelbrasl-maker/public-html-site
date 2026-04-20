@@ -4,6 +4,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/corbeille.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = $_GET['id'] ?? null;
@@ -611,6 +612,15 @@ function remove($id, array $user) {
     if (!$id) jsonError('ID requis');
     $role = $user['role'] ?? '';
     if ($role !== 'admin' && $role !== 'Architecte gérant') jsonError('Seul un admin peut supprimer', 403);
-    getDB()->prepare('DELETE FROM CA_demandes WHERE id = ?')->execute([$id]);
+    $db = getDB();
+    // Récupérer un label lisible pour la corbeille
+    $stmt = $db->prepare('SELECT nom_projet, prenom, nom FROM CA_demandes WHERE id = ?');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+    if (!$row) jsonError('Demande introuvable', 404);
+    $label = trim(($row['nom_projet'] ?? '') . ' — ' . ($row['prenom'] ?? '') . ' ' . ($row['nom'] ?? '')) ?: 'Demande';
+    if (!moveToCorbeille($db, 'CA_demandes', $id, $label, $user['name'] ?? 'unknown')) {
+        jsonError('Impossible de déplacer vers la corbeille', 500);
+    }
     jsonOk(['deleted' => $id]);
 }

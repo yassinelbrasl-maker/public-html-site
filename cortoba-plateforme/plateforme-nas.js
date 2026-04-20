@@ -8746,6 +8746,10 @@ function renderDemandes() {
       cout = Math.round(d.cout_estime_low/1000) + 'k – ' + Math.round(d.cout_estime_high/1000) + 'k TND';
     }
     var statutBadge = getDemandeStatutBadge(d.statut);
+    var archiveBtn = d.statut === 'archivee'
+      ? ''
+      : '<button class="btn btn-sm" title="Archiver" onclick="event.stopPropagation();archiveDemandeFromList(\'' + d.id + '\')" style="padding:0.3rem 0.5rem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></button>';
+    var deleteBtn = '<button class="btn btn-sm" title="Supprimer" onclick="event.stopPropagation();deleteDemandeFromList(\'' + d.id + '\')" style="padding:0.3rem 0.5rem;color:var(--red, #e74c3c)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg></button>';
     html += '<tr style="cursor:pointer" onclick="openDemande(\'' + d.id + '\')">'
       + '<td>' + date + '</td>'
       + '<td><strong>' + esc(d.nom_projet) + '</strong></td>'
@@ -8754,7 +8758,11 @@ function renderDemandes() {
       + '<td>' + surface + '</td>'
       + '<td>' + cout + '</td>'
       + '<td>' + statutBadge + '</td>'
-      + '<td><button class="btn btn-sm" onclick="event.stopPropagation();openDemande(\'' + d.id + '\')">Voir</button></td>'
+      + '<td style="white-space:nowrap"><div style="display:inline-flex;gap:0.3rem;align-items:center">'
+      +   '<button class="btn btn-sm" onclick="event.stopPropagation();openDemande(\'' + d.id + '\')">Voir</button>'
+      +   archiveBtn
+      +   deleteBtn
+      + '</div></td>'
       + '</tr>';
   });
   tbody.innerHTML = html;
@@ -9136,6 +9144,34 @@ function archiveDemande() {
     closeModal('modal-demande');
     showToast('Demande archivée');
   }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+// Archiver directement depuis la liste (sans ouvrir la modale)
+function archiveDemandeFromList(id) {
+  if (!id) return;
+  if (!confirm('Archiver cette demande ?')) return;
+  apiFetch('api/demandes.php?id=' + id, {
+    method: 'PUT',
+    body: { action: 'update_statut', statut: 'archivee' }
+  }).then(function() {
+    var d = getDemandes().find(function(x) { return x.id === id; });
+    if (d) d.statut = 'archivee';
+    renderDemandes();
+    showToast('Demande archivée');
+  }).catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
+}
+
+// Supprimer (déplacer vers la corbeille) depuis la liste
+function deleteDemandeFromList(id) {
+  if (!id) return;
+  if (!confirm('Supprimer cette demande ?\n\nElle sera déplacée vers la corbeille et pourra être restaurée ultérieurement.')) return;
+  apiFetch('api/demandes.php?id=' + id, { method: 'DELETE' })
+    .then(function() {
+      _cache.demandes = (getDemandes() || []).filter(function(x) { return x.id !== id; });
+      renderDemandes();
+      showToast('Demande supprimée (déplacée dans la corbeille)');
+    })
+    .catch(function(e) { showToast('Erreur : ' + e.message, 'error'); });
 }
 
 // ══════════════════════════════════════════════════════════
