@@ -23,9 +23,14 @@
         border: none;
         cursor: pointer;
         font-family: inherit;
-        font-size: inherit;
+        font-size: 13px;
         color: inherit;
-        padding: 0;
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0.5rem 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
       .lang-btn.active {
         font-weight: bold;
@@ -1208,7 +1213,31 @@
         <p class="intro-text" data-i18n="projects_intro">Une sélection de réalisations qui définissent notre approche.</p>
       </div>
       <div class="projects-grid" id="projectsGrid">
-        <!-- Dynamically loaded from API -->
+        <!-- Static fallback cards. JS may replace these when API returns projects. -->
+        <a class="project-card-link project-card-big" href="#contact" aria-label="Projet résidentiel à Djerba">
+          <div class="project-card-img" style="background-image: url('img/bg.jpg');" role="img" aria-label="Villa contemporaine à Djerba"></div>
+          <div class="project-card-overlay">
+            <p class="project-tag">RÉSIDENTIEL</p>
+            <h3 class="project-card-title">Villa Méditerranée</h3>
+            <p class="project-card-loc">Djerba, Tunisie</p>
+          </div>
+        </a>
+        <a class="project-card-link" href="#contact" aria-label="Projet tertiaire">
+          <div class="project-card-img" style="background-image: url('img/office.jpg');" role="img" aria-label="Espace de bureau"></div>
+          <div class="project-card-overlay">
+            <p class="project-tag">TERTIAIRE</p>
+            <h3 class="project-card-title">Atelier Studio</h3>
+            <p class="project-card-loc">Midoun</p>
+          </div>
+        </a>
+        <a class="project-card-link" href="#contact" aria-label="Projet résidentiel Houmt Souk">
+          <div class="project-card-img" style="background-image: url('img/IMG_5524.JPG');" role="img" aria-label="Réalisation architecturale"></div>
+          <div class="project-card-overlay">
+            <p class="project-tag">RÉNOVATION</p>
+            <h3 class="project-card-title">Maison de Ville</h3>
+            <p class="project-card-loc">Houmt Souk</p>
+          </div>
+        </a>
       </div>
     </section>
 
