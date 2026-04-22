@@ -7084,6 +7084,52 @@ document.addEventListener('DOMContentLoaded', function() {
   .ob-msg.err   { display: block; background: rgba(220,100,100,0.12); color: #eba5a5; border: 1px solid rgba(220,100,100,0.35); }
   .ob-msg.info  { display: block; background: rgba(200,169,110,0.10); color: #e5cf9b; border: 1px solid rgba(200,169,110,0.3); }
 
+  /* Logo upload widget ------------------------------------------ */
+  .ob-logo-slot {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 12px; background: #0e0e0e; border: 1px dashed #2a2a2a;
+    border-radius: 6px;
+  }
+  .ob-logo-preview {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 90px; max-height: 160px; padding: 8px;
+    background: #161616; border: 1px solid #1e1e1e; border-radius: 4px;
+    overflow: hidden;
+  }
+  .ob-logo-preview img { max-width: 100%; max-height: 140px; object-fit: contain; display: block; }
+  .ob-logo-placeholder {
+    color: #666; font-size: 12px; letter-spacing: .04em;
+  }
+  .ob-logo-actions {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .ob-logo-status { font-size: 11.5px; color: #888; }
+
+  /* Subfolders list widget -------------------------------------- */
+  .ob-folders-slot {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ob-folders-input { display: flex; gap: 8px; align-items: center; }
+  .ob-folders-input input { flex: 1; }
+  .ob-folders-list {
+    display: flex; flex-direction: column; gap: 5px; margin-top: 2px;
+  }
+  .ob-folder-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; background: #161616; border: 1px solid #2a2a2a;
+    border-radius: 4px; font-size: 12.5px; color: #d8d8d8;
+  }
+  .ob-folder-item .ob-folder-name { flex: 1; }
+  .ob-folder-item .ob-folder-del {
+    background: none; border: none; color: #b86b6b; cursor: pointer;
+    font-size: 14px; padding: 2px 6px; border-radius: 3px;
+    font-family: inherit;
+  }
+  .ob-folder-item .ob-folder-del:hover { background: rgba(184,107,107,0.12); color: #e08a8a; }
+  .ob-folders-empty {
+    padding: 8px 10px; font-size: 11.5px; color: #666; font-style: italic;
+  }
+
   .ob-foot {
     display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
     padding: 13px 22px 17px; border-top: 1px solid #1e1e1e;
@@ -7170,16 +7216,43 @@ document.addEventListener('DOMContentLoaded', function() {
       title: 'Identité de votre agence',
       intro: '<p>Ces informations apparaîtront sur vos <strong>devis, factures et documents</strong>.</p>',
       fields: [
-        { name:'raison',  label:'Raison sociale',   type:'text',  placeholder:'Ex: Cortoba Architecture Studio', settingKey:'cortoba_agence_raison', full:true },
-        { name:'email',   label:'Email pro',        type:'email', placeholder:'contact@exemple.com',            settingKey:'cortoba_agence_email' },
-        { name:'tel',     label:'Téléphone',        type:'tel',   placeholder:'+216 XX XXX XXX',                 settingKey:'cortoba_agence_tel' },
-        { name:'adresse', label:'Adresse',          type:'text',  placeholder:'Ville, pays',                    settingKey:'cortoba_agence_adresse', full:true },
-        { name:'mf',      label:'Matricule fiscal', type:'text',  placeholder:'MF-XXXXXXX',                     settingKey:'cortoba_agence_mf' },
-        { name:'cnoa',    label:'Numéro CNOA',      type:'text',  placeholder:'XX/XXXX',                         settingKey:'cortoba_agence_cnoa' }
+        { name:'raison',  label:'Raison sociale',   type:'text',  placeholder:'Nom de votre agence',  settingKey:'cortoba_agence_raison', full:true },
+        { name:'email',   label:'Email pro',        type:'email', placeholder:'contact@exemple.com',  settingKey:'cortoba_agence_email' },
+        { name:'tel',     label:'Téléphone',        type:'tel',   placeholder:'+216 XX XXX XXX',      settingKey:'cortoba_agence_tel' },
+        { name:'adresse', label:'Adresse',          type:'text',  placeholder:'Ville, pays',          settingKey:'cortoba_agence_adresse', full:true },
+        { name:'mf',      label:'Matricule fiscal', type:'text',  placeholder:'MF-XXXXXXX',           settingKey:'cortoba_agence_mf' },
+        { name:'cnoa',    label:'Numéro CNOA',      type:'text',  placeholder:'XX/XXXX',              settingKey:'cortoba_agence_cnoa' }
       ]
     },
     {
-      eyebrow: 'Étape 2 — Sécurité',
+      eyebrow: 'Étape 2 — Identité visuelle',
+      title: 'Logo de votre agence',
+      intro: '<p>Chargez le logo qui apparaîtra sur vos <strong>devis, factures et documents</strong>. '
+           + 'L\'image est automatiquement redimensionnée (max 600 × 200 px).</p>',
+      fields: [
+        { name:'logo', type:'logo', settingKey:'cortoba_logo', full:true,
+          label:'Logo (PNG ou JPG — optionnel)',
+          hint:'Vous pourrez le remplacer à tout moment depuis Paramètres → Général.' }
+      ],
+      onSave: function(data) {
+        var v = data.logo;
+        if (v === '__REMOVE__') {
+          if (typeof deleteSetting === 'function') {
+            return deleteSetting('cortoba_logo').then(function(){ return {ok:true, message:'Logo retiré'}; });
+          }
+          return Promise.resolve({skipped: true});
+        }
+        if (!v) return Promise.resolve({skipped: true});
+        if (typeof saveSetting !== 'function') return Promise.reject(new Error('API indisponible.'));
+        return saveSetting('cortoba_logo', v).then(function(r){
+          if (r && r.error) throw new Error(r.message || 'Erreur serveur');
+          try { if (typeof loadLogoParam === 'function') loadLogoParam(); } catch(e){}
+          return {ok:true, message:'Logo enregistré'};
+        });
+      }
+    },
+    {
+      eyebrow: 'Étape 3 — Sécurité',
       title: 'Mot de passe administrateur',
       intro: '<p>Pour votre sécurité, remplacez dès maintenant le <strong>mot de passe temporaire</strong> reçu par email.</p>',
       fields: [
@@ -7200,7 +7273,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     },
     {
-      eyebrow: 'Étape 3 — Équipe & taux',
+      eyebrow: 'Étape 4 — Équipe & taux',
       title: 'Taux horaires standards',
       intro: '<p>Ces <strong>taux</strong> servent à calculer la marge nette et le bénéfice généré dans le module Rendement, '
            + 'quand un collaborateur n\'a pas de taux individuel défini.</p>',
@@ -7210,7 +7283,7 @@ document.addEventListener('DOMContentLoaded', function() {
       ]
     },
     {
-      eyebrow: 'Étape 4 — Facturation',
+      eyebrow: 'Étape 5 — Facturation',
       title: 'Coordonnées bancaires',
       intro: '<p>Facultatif — ces informations apparaîtront au bas de vos <strong>factures</strong>.</p>',
       fields: [
@@ -7220,13 +7293,54 @@ document.addEventListener('DOMContentLoaded', function() {
       ]
     },
     {
+      eyebrow: 'Étape 6 — Communications',
+      title: 'Email de réception des demandes',
+      intro: '<p>L\'adresse email qui recevra les <strong>nouvelles demandes</strong> soumises via le formulaire public '
+           + 'de votre site (contact, devis, etc.).</p>',
+      fields: [
+        { name:'email_dest', label:'Email destinataire', type:'email',
+          placeholder:'contact@votre-agence.com',
+          settingKey:'cfg_email_destinataire', full:true,
+          hint:'Laissez vide pour désactiver la notification par email.' }
+      ]
+    },
+    {
+      eyebrow: 'Étape 7 — Serveur NAS',
+      title: 'Connexion à votre serveur NAS',
+      intro: '<p>Connectez votre <strong>NAS local</strong> (QNAP, Synology…) pour synchroniser automatiquement '
+           + 'vos dossiers projets. Laissez vide si vous n\'utilisez pas de NAS.</p>',
+      fields: [
+        { name:'nas_local',   label:'IP locale du NAS', type:'text',     placeholder:'Ex: 192.168.1.100',   settingKey:'cortoba_nas_local',  full:true, hint:'Adresse IP ou chemin UNC (\\\\ip\\Public\\...)' },
+        { name:'nas_port',    label:'Port HTTP',        type:'text',     placeholder:'8080',                settingKey:'cortoba_nas_port' },
+        { name:'nas_webdav',  label:'Port WebDAV',      type:'text',     placeholder:'5005',                settingKey:'cortoba_nas_webdav_port' },
+        { name:'nas_user',    label:'Utilisateur NAS',  type:'text',     placeholder:'admin',               settingKey:'cortoba_nas_user' },
+        { name:'nas_pass',    label:'Mot de passe NAS', type:'password', placeholder:'••••••••',            settingKey:'cortoba_nas_pass' },
+        { name:'nas_public',  label:'IP publique (optionnel)', type:'text', placeholder:'Accès distant',    settingKey:'cortoba_nas_public_ip', full:true, hint:'Nécessite un port forward sur votre routeur.' }
+      ]
+    },
+    {
+      eyebrow: 'Étape 8 — Dossiers projets',
+      title: 'Création automatique de dossiers',
+      intro: '<p>À chaque nouveau projet, la plateforme peut créer automatiquement sur votre NAS '
+           + 'un <strong>dossier projet</strong> avec ses sous-dossiers standards.</p>',
+      fields: [
+        { name:'template', label:'Dossier modèle (sur le NAS)', type:'text',
+          placeholder:'00-Dossier Type',
+          settingKey:'cortoba_nas_template_folder', full:true,
+          hint:'Nom du dossier modèle existant sur votre NAS qui sera dupliqué pour chaque projet.' },
+        { name:'subs', type:'subfolders', settingKey:'cortoba_nas_subfolders', full:true,
+          label:'Sous-dossiers à créer',
+          hint:'Exemples : 01-Esquisses, 02-APS, 03-PC, 04-DCE, 05-EXE, 06-Photos' }
+      ]
+    },
+    {
       eyebrow: 'Terminé',
       title: 'Vous êtes prêt·e',
       intro: '<p>Votre plateforme est configurée. Vous pouvez maintenant :</p>'
            + '<ul><li>Créer votre <strong>premier projet</strong> depuis le menu Projets</li>'
            + '<li>Inviter vos <strong>collaborateurs</strong> dans Équipe (Paramètres → Équipe)</li>'
            + '<li>Personnaliser les <strong>listes et missions</strong> (Paramètres → Projets)</li>'
-           + '<li>Connecter votre <strong>serveur NAS</strong> (Paramètres → NAS)</li>'
+           + '<li>Ajuster la <strong>configuration NAS</strong> (Paramètres → NAS)</li>'
            + '<li>Générer vos premiers <strong>devis et factures</strong></li></ul>'
            + '<p>Bonne utilisation&nbsp;!</p>'
     }
@@ -7234,8 +7348,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Version du guide : bumpée quand on change la structure des étapes
   // pour forcer la réapparition chez les utilisateurs qui l'ont déjà vu.
-  var OB_STORAGE_KEY = 'cortoba_onboarding_done_v2';
-  var OB_DISMISS_KEY = 'cortoba_onboarding_dismissed_v2';
+  var OB_STORAGE_KEY = 'cortoba_onboarding_done_v3';
+  var OB_DISMISS_KEY = 'cortoba_onboarding_dismissed_v3';
   var _obStep = 0;
   var _obShownThisSession = false;
   var _obSaving = false;
@@ -7276,18 +7390,60 @@ document.addEventListener('DOMContentLoaded', function() {
     var rows = step.fields.map(function(f) {
       var id = 'ob-f-' + f.name;
       var cls = 'ob-field' + (f.full ? ' full' : '');
-      var val = obEscapeAttr(obGetFieldValue(f));
-      var commonAttrs = 'id="' + id + '" name="' + f.name + '" placeholder="' + obEscapeAttr(f.placeholder || '') + '"';
       var input;
-      if (f.type === 'textarea') {
+
+      if (f.type === 'logo') {
+        // Widget logo : aperçu + bouton upload + bouton retirer + hidden input
+        var curLogo = '';
+        try {
+          if (typeof getSetting === 'function') curLogo = String(getSetting(f.settingKey || 'cortoba_logo', '') || '');
+        } catch (e) {}
+        var imgStyle = curLogo ? '' : ' style="display:none"';
+        var phStyle  = curLogo ? ' style="display:none"' : '';
+        input = '<div class="ob-logo-slot">'
+              +   '<div class="ob-logo-preview">'
+              +     '<img id="ob-logo-img" alt="Logo"' + imgStyle + (curLogo ? ' src="' + obEscapeAttr(curLogo) + '"' : '') + '>'
+              +     '<span class="ob-logo-placeholder" id="ob-logo-ph"' + phStyle + '>Aucun logo chargé</span>'
+              +   '</div>'
+              +   '<div class="ob-logo-actions">'
+              +     '<label class="ob-btn" for="ob-logo-file">Choisir un fichier…</label>'
+              +     '<input id="ob-logo-file" type="file" accept="image/*" style="display:none">'
+              +     '<button type="button" class="ob-btn ghost" id="ob-logo-clear">Retirer le logo</button>'
+              +   '</div>'
+              +   '<input type="hidden" id="' + id + '" name="' + f.name + '" value="">'
+              +   '<div class="ob-logo-status" id="ob-logo-status"></div>'
+              + '</div>';
+      } else if (f.type === 'subfolders') {
+        // Widget liste de sous-dossiers : input ajout + liste modifiable + hidden input (JSON)
+        var initial = [];
+        try {
+          if (typeof getSetting === 'function') {
+            var v = getSetting(f.settingKey || 'cortoba_nas_subfolders', []);
+            if (Array.isArray(v)) initial = v.slice();
+          }
+        } catch (e) {}
+        input = '<div class="ob-folders-slot">'
+              +   '<div class="ob-folders-input">'
+              +     '<input id="ob-subs-input" type="text" placeholder="Ex: 03-PC">'
+              +     '<button type="button" class="ob-btn" id="ob-subs-add">Ajouter</button>'
+              +   '</div>'
+              +   '<div class="ob-folders-list" id="ob-subs-list"></div>'
+              +   '<input type="hidden" id="' + id + '" name="' + f.name + '" value="' + obEscapeAttr(JSON.stringify(initial)) + '">'
+              + '</div>';
+      } else if (f.type === 'textarea') {
+        var val = obEscapeAttr(obGetFieldValue(f));
+        var commonAttrs = 'id="' + id + '" name="' + f.name + '" placeholder="' + obEscapeAttr(f.placeholder || '') + '"';
         input = '<textarea ' + commonAttrs + ' rows="3">' + val + '</textarea>';
       } else {
+        var val2 = obEscapeAttr(obGetFieldValue(f));
+        var commonAttrs2 = 'id="' + id + '" name="' + f.name + '" placeholder="' + obEscapeAttr(f.placeholder || '') + '"';
         var extra = '';
         if (f.step != null) extra += ' step="' + obEscapeAttr(f.step) + '"';
         if (f.min  != null) extra += ' min="'  + obEscapeAttr(f.min)  + '"';
         if (f.type === 'password') extra += ' autocomplete="new-password"';
-        input = '<input type="' + (f.type || 'text') + '" ' + commonAttrs + ' value="' + val + '"' + extra + '>';
+        input = '<input type="' + (f.type || 'text') + '" ' + commonAttrs2 + ' value="' + val2 + '"' + extra + '>';
       }
+
       return '<div class="' + cls + '">'
            + '<label for="' + id + '">' + obEscapeAttr(f.label) + '</label>'
            + input
@@ -7296,6 +7452,126 @@ document.addEventListener('DOMContentLoaded', function() {
     }).join('');
     return '<form class="ob-form" id="ob-form" onsubmit="return false">' + rows + '</form>'
          + '<div class="ob-msg" id="ob-msg"></div>';
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  Post-render : wire up les widgets personnalisés (logo, subfolders)
+  // ────────────────────────────────────────────────────────────
+  function obWireFields(step) {
+    if (!step.fields) return;
+    step.fields.forEach(function(f) {
+      if (f.type === 'logo')        obWireLogoField(f);
+      else if (f.type === 'subfolders') obWireSubfoldersField(f);
+    });
+  }
+
+  function obWireLogoField(f) {
+    var fileInput = document.getElementById('ob-logo-file');
+    var hidden    = document.getElementById('ob-f-' + f.name);
+    var img       = document.getElementById('ob-logo-img');
+    var ph        = document.getElementById('ob-logo-ph');
+    var status    = document.getElementById('ob-logo-status');
+    var clearBtn  = document.getElementById('ob-logo-clear');
+    if (!fileInput || !hidden) return;
+
+    fileInput.addEventListener('change', function() {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      if (status) { status.style.color = '#888'; status.textContent = 'Compression…'; }
+      var image = new Image();
+      var objUrl = URL.createObjectURL(file);
+      image.onload = function() {
+        var maxW = 600, maxH = 200, w = image.width, h = image.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(image, 0, 0, w, h);
+        var dataUrl = cv.toDataURL('image/png', 0.88);
+        URL.revokeObjectURL(objUrl);
+        hidden.value = dataUrl;
+        if (img) { img.src = dataUrl; img.style.display = 'block'; }
+        if (ph)  { ph.style.display = 'none'; }
+        if (status) { status.style.color = '#9ad494'; status.textContent = '✓ Logo prêt à être enregistré (' + Math.round(dataUrl.length/1024) + ' ko)'; }
+      };
+      image.onerror = function() {
+        URL.revokeObjectURL(objUrl);
+        if (status) { status.style.color = '#eba5a5'; status.textContent = '⚠ Lecture impossible.'; }
+      };
+      image.src = objUrl;
+    });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        hidden.value = '__REMOVE__';
+        if (img) { img.src = ''; img.style.display = 'none'; }
+        if (ph)  { ph.style.display = 'block'; }
+        if (status) { status.style.color = '#e5cf9b'; status.textContent = 'Logo retiré (à confirmer à l\'enregistrement).'; }
+      });
+    }
+  }
+
+  function obWireSubfoldersField(f) {
+    var hidden  = document.getElementById('ob-f-' + f.name);
+    var listEl  = document.getElementById('ob-subs-list');
+    var inputEl = document.getElementById('ob-subs-input');
+    var addBtn  = document.getElementById('ob-subs-add');
+    if (!hidden || !listEl) return;
+
+    function getArr() {
+      try { var a = JSON.parse(hidden.value || '[]'); return Array.isArray(a) ? a : []; }
+      catch (e) { return []; }
+    }
+    function setArr(arr) {
+      hidden.value = JSON.stringify(arr);
+      render();
+    }
+    function sanitize(name) {
+      return String(name || '').trim().replace(/[<>:"\/\\|?*]/g, '_');
+    }
+    function render() {
+      var arr = getArr();
+      if (!arr.length) {
+        listEl.innerHTML = '<div class="ob-folders-empty">Aucun sous-dossier — ajoutez-en pour qu\'ils soient créés automatiquement.</div>';
+        return;
+      }
+      listEl.innerHTML = arr.map(function(s, i) {
+        return '<div class="ob-folder-item" data-idx="' + i + '">'
+             +   '<span class="ob-folder-name">' + obEscapeAttr(s) + '</span>'
+             +   '<button type="button" class="ob-folder-del" title="Retirer">✕</button>'
+             + '</div>';
+      }).join('');
+      // Wire delete buttons
+      var dels = listEl.querySelectorAll('.ob-folder-del');
+      dels.forEach(function(btn) {
+        btn.addEventListener('click', function(ev) {
+          var parent = ev.target.closest('.ob-folder-item');
+          if (!parent) return;
+          var idx = parseInt(parent.getAttribute('data-idx'), 10);
+          var cur = getArr();
+          cur.splice(idx, 1);
+          setArr(cur);
+        });
+      });
+    }
+
+    function addOne() {
+      var name = sanitize(inputEl.value);
+      if (!name) return;
+      var cur = getArr();
+      if (cur.indexOf(name) !== -1) { inputEl.value = ''; return; }
+      cur.push(name);
+      setArr(cur);
+      inputEl.value = '';
+      inputEl.focus();
+    }
+
+    if (addBtn) addBtn.addEventListener('click', addOne);
+    if (inputEl) {
+      inputEl.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); addOne(); }
+      });
+    }
+    render();
   }
 
   function obRender() {
@@ -7308,6 +7584,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var body = obEl('ob-body');
     body.innerHTML = (step.intro ? '<div class="ob-intro">' + step.intro + '</div>' : '')
                    + obRenderForm(step);
+
+    // Wire up custom widgets (logo, subfolders) après insertion dans le DOM
+    try { obWireFields(step); } catch (e) { console && console.error && console.error('[ob] wire', e); }
 
     // Footer buttons
     var prev = obEl('ob-prev');
@@ -7344,7 +7623,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!step.fields) return data;
     step.fields.forEach(function(f) {
       var el = document.getElementById('ob-f-' + f.name);
-      data[f.name] = el ? (el.value != null ? String(el.value).trim() : '') : '';
+      if (!el) { data[f.name] = (f.type === 'subfolders') ? [] : ''; return; }
+      var raw = el.value;
+      if (f.type === 'subfolders') {
+        try { var arr = JSON.parse(raw || '[]'); data[f.name] = Array.isArray(arr) ? arr : []; }
+        catch (e) { data[f.name] = []; }
+      } else if (f.type === 'logo') {
+        // Ne pas trimmer (dataURL) — garde '__REMOVE__' sentinel tel quel
+        data[f.name] = raw || '';
+      } else {
+        data[f.name] = raw != null ? String(raw).trim() : '';
+      }
     });
     return data;
   }
@@ -7398,7 +7687,14 @@ document.addEventListener('DOMContentLoaded', function() {
         val = (val === '' || val == null) ? 0 : parseFloat(val);
         if (isNaN(val)) val = 0;
       }
-      // Ne pas écraser une valeur existante avec une chaîne vide
+      // Listes (subfolders) : tableau JSON — toujours sauvegarder (même vide pour permettre le reset)
+      if (f.type === 'subfolders') {
+        if (typeof saveSetting !== 'function') return;
+        saveCount++;
+        promises.push(saveSetting(f.settingKey, Array.isArray(val) ? val : []));
+        return;
+      }
+      // Texte vide + valeur existante = ne pas écraser
       if (val === '' && (typeof getSetting === 'function') && getSetting(f.settingKey, '')) return;
       if (typeof saveSetting !== 'function') return;
       saveCount++;
@@ -7429,8 +7725,12 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(obGoNext, 450);
       }
       // Si l'UI Paramètres est visible, mettre à jour ses champs aussi
-      try { if (typeof loadAgenceParams === 'function') loadAgenceParams(); } catch(e){}
+      try { if (typeof loadAgenceParams    === 'function') loadAgenceParams();    } catch(e){}
       try { if (typeof loadRendementParams === 'function') loadRendementParams(); } catch(e){}
+      try { if (typeof loadNasParams       === 'function') loadNasParams();       } catch(e){}
+      try { if (typeof loadCfgParams       === 'function') loadCfgParams();       } catch(e){}
+      try { if (typeof renderNasSubfolders === 'function') renderNasSubfolders(); } catch(e){}
+      try { if (typeof loadLogoParam       === 'function') loadLogoParam();       } catch(e){}
     });
   }
 
