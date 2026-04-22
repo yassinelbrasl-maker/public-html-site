@@ -53,13 +53,12 @@ La mise en production finale nécessitera :
 
 Ordre du moins risqué au plus risqué :
 
-1. **Landscaping** (risque faible, trafic modéré, pas d'interaction complexe)
-2. **Project detail pages** (`/projet-:slug`) — liste simple, facile
-3. **Home** (compléter les sections manquantes)
-4. **Settings** (admin public content) — risque moyen, utilisé occasionnellement
-5. **Configurateur** (risque élevé — c'est le tunnel de leads) — prévoir
-   une campagne de tests avant de basculer
-6. **Plateforme admin** (risque élevé — votre outil quotidien) — à faire
+1. ✅ **Landscaping** (fait)
+2. ✅ **Project detail pages** (fait)
+3. ✅ **Home** (fait)
+4. 🟡 **Configurateur** — scaffold fait, reste à terminer steps 2-6 (voir TODO dans `src/configurator/steps/MiddleSteps.tsx`)
+5. ❌ **Settings** (admin public content) — risque moyen, utilisé occasionnellement
+6. ❌ **Plateforme admin** (risque élevé — votre outil quotidien) — à faire
    en dernier, sur un sous-domaine de test
 
 ## Patterns à réutiliser entre pages
