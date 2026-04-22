@@ -13,6 +13,15 @@ export interface Project {
   hero_position: number | string;
   gallery_images?: string[];
   grid_class?: "big" | "wide" | "tall" | "full" | "";
+  description?: string;
+  year?: string | number;
+  surface?: string | number;
+}
+
+/** Récupère un projet par son slug depuis la liste publiée. */
+export async function fetchProjectBySlug(slug: string): Promise<Project | null> {
+  const all = await fetchPublishedProjects();
+  return all.find((p) => p.slug === slug) || null;
 }
 
 interface ProjectsResponse {
