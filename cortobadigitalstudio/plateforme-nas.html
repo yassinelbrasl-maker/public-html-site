@@ -7007,5 +7007,332 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+<!-- ══════════════════════════════════
+     ONBOARDING WIZARD — Guide de première mise en marche
+══════════════════════════════════ -->
+<style>
+  #onboarding-wizard {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(8,8,8,0.82); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px; animation: ob-fade .2s ease-out;
+  }
+  #onboarding-wizard.open { display: flex; }
+  @keyframes ob-fade { from { opacity: 0 } to { opacity: 1 } }
+  .ob-card {
+    width: 100%; max-width: 560px; background: #141414;
+    border: 1px solid #2a2a2a; border-radius: 10px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    color: #e8e8e8; font-family: -apple-system, "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+  .ob-progress {
+    display: flex; gap: 4px; padding: 14px 22px 0;
+  }
+  .ob-progress span {
+    flex: 1; height: 3px; background: #2a2a2a; border-radius: 2px;
+    transition: background .2s;
+  }
+  .ob-progress span.done   { background: #c8a96e; }
+  .ob-progress span.active { background: #c8a96e; opacity: .55; }
+  .ob-head {
+    padding: 18px 22px 10px;
+    border-bottom: 1px solid #1e1e1e;
+  }
+  .ob-eyebrow {
+    color: #c8a96e; font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase; font-weight: 600;
+  }
+  .ob-title {
+    margin: 6px 0 0; font-size: 18px; font-weight: 400; color: #f1f1f1;
+  }
+  .ob-body {
+    padding: 20px 22px; line-height: 1.55; font-size: 14px; color: #c8c8c8;
+  }
+  .ob-body p { margin: 0 0 10px; }
+  .ob-body ul { margin: 6px 0 0 18px; padding: 0; color: #b4b4b4; }
+  .ob-body li { margin: 4px 0; }
+  .ob-body strong { color: #e8e8e8; font-weight: 500; }
+  .ob-foot {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    padding: 14px 22px 18px; border-top: 1px solid #1e1e1e;
+    align-items: center;
+  }
+  .ob-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border-radius: 5px; cursor: pointer;
+    font-size: 13px; font-weight: 500; border: 1px solid #2a2a2a;
+    background: #1a1a1a; color: #d8d8d8; letter-spacing: .02em;
+    transition: background .15s, border-color .15s;
+  }
+  .ob-btn:hover { background: #222; border-color: #383838; }
+  .ob-btn.primary {
+    background: #c8a96e; border-color: #c8a96e; color: #0e0e0e;
+    font-weight: 600;
+  }
+  .ob-btn.primary:hover { background: #d6b97c; border-color: #d6b97c; }
+  .ob-btn.ghost {
+    background: transparent; border-color: transparent; color: #888;
+  }
+  .ob-btn.ghost:hover { color: #c8a96e; background: transparent; }
+  .ob-skip-all {
+    margin-left: auto; font-size: 12px; color: #777;
+    background: none; border: none; cursor: pointer; padding: 6px 8px;
+    letter-spacing: .03em;
+  }
+  .ob-skip-all:hover { color: #c8a96e; text-decoration: underline; }
+  .ob-counter { font-size: 11px; color: #666; margin-left: 4px; }
+</style>
+
+<div id="onboarding-wizard" role="dialog" aria-modal="true" aria-labelledby="ob-title">
+  <div class="ob-card">
+    <div class="ob-progress" id="ob-progress"></div>
+    <div class="ob-head">
+      <div class="ob-eyebrow" id="ob-eyebrow">Bienvenue</div>
+      <h2 class="ob-title" id="ob-title">—</h2>
+    </div>
+    <div class="ob-body" id="ob-body">—</div>
+    <div class="ob-foot">
+      <button class="ob-btn" type="button" id="ob-prev">← Retour</button>
+      <button class="ob-btn ghost" type="button" id="ob-skip-step">Passer cette étape</button>
+      <button class="ob-btn primary" type="button" id="ob-next">Suivant →</button>
+      <button class="ob-skip-all" type="button" id="ob-skip-all">Ignorer le guide</button>
+      <span class="ob-counter" id="ob-counter"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Étapes du guide de première mise en marche ──
+  // Chaque étape : title, body (HTML), et optionnellement action(=bouton "Aller voir")
+  var OB_STEPS = [
+    {
+      eyebrow: 'Bienvenue',
+      title: 'Votre plateforme est prête',
+      body: '<p>Ce court guide vous accompagne pour <strong>configurer votre plateforme</strong> en quelques minutes.</p>'
+          + '<p>Vous pouvez passer une étape ou ignorer tout le guide à tout moment. Vous le retrouverez plus tard via le menu Paramètres si besoin.</p>'
+    },
+    {
+      eyebrow: 'Étape 1 — Paramètres',
+      title: 'Informations de l\'agence',
+      body: '<p>Renseignez les informations qui apparaîtront sur vos devis, factures et documents :</p>'
+          + '<ul><li><strong>Raison sociale</strong>, email pro, téléphone</li>'
+          + '<li><strong>Matricule fiscal</strong> et numéro CNOA</li>'
+          + '<li>Adresse de l\'agence</li></ul>',
+      action: { label: 'Ouvrir Paramètres → Agence', target: 'agence' }
+    },
+    {
+      eyebrow: 'Étape 2 — Paramètres',
+      title: 'Sécurité & accès',
+      body: '<p>Changez immédiatement le <strong>mot de passe administrateur</strong> temporaire reçu par email.</p>'
+          + '<p>Vous pourrez ensuite ajouter vos collaborateurs dans la section Équipe.</p>',
+      action: { label: 'Ouvrir Paramètres → Sécurité', target: 'securite' }
+    },
+    {
+      eyebrow: 'Étape 3 — Paramètres',
+      title: 'Équipe & taux horaires',
+      body: '<p>Définissez les <strong>taux horaires standards</strong> (facturation et coût agence) utilisés pour calculer la marge et le bénéfice généré.</p>'
+          + '<p>Ajoutez ensuite vos collaborateurs, leurs profils, taux individuels et droits d\'accès.</p>',
+      action: { label: 'Ouvrir Paramètres → Équipe', target: 'equipe' }
+    },
+    {
+      eyebrow: 'Étape 4 — Paramètres',
+      title: 'Projets & listes déroulantes',
+      body: '<p>Personnalisez les <strong>types de bâtiment</strong>, missions, tâches-types et livrables utilisés dans vos projets.</p>'
+          + '<p>Ces éléments alimentent le configurateur, les devis et le module Suivi.</p>',
+      action: { label: 'Ouvrir Paramètres → Projets', target: 'projets' }
+    },
+    {
+      eyebrow: 'Étape 5 — Paramètres',
+      title: 'Serveur NAS (optionnel)',
+      body: '<p>Si vous disposez d\'un serveur NAS, connectez-le pour <strong>centraliser les fichiers projet</strong> et synchroniser les livrables.</p>'
+          + '<p>Cette étape peut être faite plus tard.</p>',
+      action: { label: 'Ouvrir Paramètres → NAS', target: 'nas' }
+    },
+    {
+      eyebrow: 'Terminé',
+      title: 'Vous êtes prêt·e',
+      body: '<p>Votre plateforme est configurée. Vous pouvez maintenant :</p>'
+          + '<ul><li>Créer votre <strong>premier projet</strong> depuis le menu Projets</li>'
+          + '<li>Inviter vos <strong>collaborateurs</strong> dans Équipe</li>'
+          + '<li>Générer des <strong>devis et factures</strong></li></ul>'
+          + '<p>Bonne utilisation&nbsp;!</p>'
+    }
+  ];
+
+  var OB_STORAGE_KEY = 'cortoba_onboarding_done_v1';
+  var OB_DISMISS_KEY = 'cortoba_onboarding_dismissed_v1';
+  var _obStep = 0;
+  var _obShownThisSession = false;
+
+  function obGetElement(id) { return document.getElementById(id); }
+
+  function obRenderProgress() {
+    var pr = obGetElement('ob-progress');
+    if (!pr) return;
+    pr.innerHTML = '';
+    for (var i = 0; i < OB_STEPS.length; i++) {
+      var s = document.createElement('span');
+      if (i < _obStep) s.className = 'done';
+      else if (i === _obStep) s.className = 'active';
+      pr.appendChild(s);
+    }
+  }
+
+  function obRender() {
+    var step = OB_STEPS[_obStep];
+    if (!step) { obFinish(); return; }
+
+    obGetElement('ob-eyebrow').textContent = step.eyebrow || '';
+    obGetElement('ob-title').textContent   = step.title || '';
+    var body = obGetElement('ob-body');
+    body.innerHTML = step.body || '';
+
+    // Bouton action optionnel (aller sur Paramètres > tab)
+    if (step.action) {
+      var actBtn = document.createElement('button');
+      actBtn.className = 'ob-btn';
+      actBtn.type = 'button';
+      actBtn.style.marginTop = '8px';
+      actBtn.textContent = step.action.label;
+      actBtn.onclick = function() {
+        obGoToParamTab(step.action.target);
+      };
+      body.appendChild(actBtn);
+    }
+
+    // Boutons footer : configurer selon position
+    var prev = obGetElement('ob-prev');
+    var next = obGetElement('ob-next');
+    var skip = obGetElement('ob-skip-step');
+    var cnt  = obGetElement('ob-counter');
+
+    prev.style.visibility = (_obStep === 0) ? 'hidden' : 'visible';
+
+    if (_obStep === OB_STEPS.length - 1) {
+      next.textContent = 'Terminer';
+      skip.style.display = 'none';
+    } else {
+      next.textContent = 'Suivant →';
+      // Masquer "Passer cette étape" sur la première et la dernière étape
+      skip.style.display = (_obStep === 0) ? 'none' : 'inline-flex';
+    }
+
+    cnt.textContent = (_obStep + 1) + ' / ' + OB_STEPS.length;
+
+    obRenderProgress();
+  }
+
+  function obGoToParamTab(tab) {
+    // Affiche Paramètres puis active le bon onglet
+    try {
+      if (typeof showPage === 'function') showPage('parametres');
+      setTimeout(function() {
+        if (typeof switchParamTab === 'function') {
+          // Chercher le bouton du tab correspondant
+          var btn = document.querySelector('.param-tab[data-param-tab="' + tab + '"]');
+          if (btn) switchParamTab(tab, btn);
+        }
+      }, 80);
+    } catch (e) {}
+  }
+
+  function obOpen() {
+    var ov = obGetElement('onboarding-wizard');
+    if (!ov) return;
+    _obStep = 0;
+    _obShownThisSession = true;
+    ov.classList.add('open');
+    obRender();
+  }
+
+  function obClose(persist) {
+    var ov = obGetElement('onboarding-wizard');
+    if (ov) ov.classList.remove('open');
+    if (persist) {
+      try { localStorage.setItem(OB_STORAGE_KEY, new Date().toISOString()); } catch (e) {}
+    }
+  }
+
+  function obNext() {
+    if (_obStep < OB_STEPS.length - 1) {
+      _obStep++;
+      obRender();
+    } else {
+      obFinish();
+    }
+  }
+
+  function obPrev() {
+    if (_obStep > 0) {
+      _obStep--;
+      obRender();
+    }
+  }
+
+  function obSkipStep() { obNext(); }
+
+  function obSkipAll() {
+    try { localStorage.setItem(OB_DISMISS_KEY, new Date().toISOString()); } catch (e) {}
+    obClose(true);
+  }
+
+  function obFinish() {
+    obClose(true);
+  }
+
+  // Point d'entrée — à appeler après connexion
+  window.maybeShowOnboarding = function() {
+    if (_obShownThisSession) return;
+    var done, dismissed;
+    try {
+      done      = localStorage.getItem(OB_STORAGE_KEY);
+      dismissed = localStorage.getItem(OB_DISMISS_KEY);
+    } catch (e) { done = null; dismissed = null; }
+    if (done || dismissed) return;
+    // Petit délai pour laisser le dashboard s'afficher d'abord
+    setTimeout(obOpen, 900);
+  };
+
+  // Permet de relancer manuellement le guide (ex: bouton "Revoir le guide")
+  window.openOnboarding = function() {
+    try {
+      localStorage.removeItem(OB_STORAGE_KEY);
+      localStorage.removeItem(OB_DISMISS_KEY);
+    } catch (e) {}
+    obOpen();
+  };
+
+  // Branchements des boutons
+  document.addEventListener('DOMContentLoaded', function() {
+    var next = obGetElement('ob-next');
+    var prev = obGetElement('ob-prev');
+    var skip = obGetElement('ob-skip-step');
+    var all  = obGetElement('ob-skip-all');
+    if (next) next.addEventListener('click', obNext);
+    if (prev) prev.addEventListener('click', obPrev);
+    if (skip) skip.addEventListener('click', obSkipStep);
+    if (all)  all.addEventListener('click',  obSkipAll);
+
+    // Observer l'affichage de #app pour déclencher le guide au premier affichage
+    var appEl = document.getElementById('app');
+    if (!appEl) return;
+    var tryStart = function() {
+      var visible = appEl && appEl.style.display && appEl.style.display !== 'none';
+      if (visible && typeof window.maybeShowOnboarding === 'function') {
+        window.maybeShowOnboarding();
+      }
+    };
+    // Vérifier périodiquement pendant les 20 premières secondes
+    var n = 0;
+    var t = setInterval(function() {
+      tryStart();
+      if (++n > 40) clearInterval(t);
+    }, 500);
+  });
+})();
+</script>
+
 </body>
 </html>
