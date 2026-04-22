@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurateur de projet — CORTOBA ATELIER</title>
+  <link rel="stylesheet" href="plateforme.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    /* ── Layout configurateur ── */
+    body { min-height:100vh; background:var(--bg); color:var(--text); font-family:var(--font); overflow-x:hidden; }
+
+    #cfg-header {
+      position:sticky; top:0; z-index:100;
+      background:rgba(17,17,17,0.97); backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border);
+    }
+    #cfg-topbar {
+      display:flex; align-items:center; gap:1rem;
+      padding:0 1.5rem; height:54px;
+    }
+    #cfg-progress-bar { flex:1; display:flex; gap:3px; align-items:center; }
+    #cfg-step-tabs {
+      display:flex; overflow-x:auto; gap:0; padding:0 1.5rem;
+      scrollbar-width:none; -webkit-overflow-scrolling:touch;
+    }
+    #cfg-step-tabs::-webkit-scrollbar { display:none; }
+
+    #cfg-body { max-width:740px; margin:0 auto; padding:2.5rem 1.5rem 7rem; }
+
+    .cfg-step { display:none; animation:fadeIn .2s ease; }
+    .cfg-step.active { display:block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    .cfg-step-eyebrow {
+      font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase;
+      color:var(--text-3); margin-bottom:0.35rem;
+    }
+    .cfg-step-title { font-size:1.5rem; font-weight:600; margin-bottom:0.3rem; }
+    .cfg-step-sub { font-size:0.82rem; color:var(--text-3); margin-bottom:2rem; }
+
+    /* Option button (standing / zone) */
+    .opt-btn {
+      padding:0.55rem 0.95rem; border:1px solid var(--border);
+      border-radius:6px; background:var(--bg-2); color:var(--text-2);
+      cursor:pointer; font-size:0.8rem; transition:all .2s; white-space:nowrap;
+      font-family:var(--font);
+    }
+    .opt-btn[data-sel="1"] {
+      border-color:var(--accent); background:var(--accent-bg); color:var(--accent);
+    }
+
+    /* Footer nav */
+    #cfg-footer {
+      position:fixed; bottom:0; left:0; right:0; z-index:100;
+      background:rgba(17,17,17,0.97); backdrop-filter:blur(12px);
+      border-top:1px solid var(--border); padding:0.85rem 1.5rem;
+    }
+    #cfg-footer-inner {
+      max-width:740px; margin:0 auto;
+      display:flex; justify-content:space-between; align-items:center; gap:0.8rem;
+    }
+
+    /* Benchmark bar */
+    .bench-bar-track {
+      background:var(--bg-3); border-radius:4px; height:5px; overflow:hidden; margin:0.35rem 0;
+    }
+    .bench-bar-fill {
+      height:100%; background:var(--accent); width:0%; border-radius:4px;
+      transition:width .5s ease, background .3s;
+    }
+
+    /* Success screen */
+    #cfg-success {
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      min-height:60vh; text-align:center; padding:2rem;
+    }
+    .success-icon {
+      width:64px; height:64px; border-radius:50%;
+      background:var(--green-bg); border:2px solid var(--green);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.8rem; margin-bottom:1.5rem;
+    }
+
+    /* Auth error screen */
+    #auth-wall {
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      min-height:100vh; text-align:center; padding:2rem;
+    }
+
+    /* Loading overlay */
+    #cfg-loading {
+      position:fixed; inset:0; background:var(--bg);
+      display:flex; align-items:center; justify-content:center;
+      z-index:999; flex-direction:column; gap:1rem;
+    }
+    .spinner {
+      width:32px; height:32px; border:2px solid var(--border);
+      border-top-color:var(--accent); border-radius:50%;
+      animation:spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Misc */
+    .sep { width:1px; height:18px; background:var(--border); flex-shrink:0; }
+    .cfg-label { font-size:0.72rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-2); }
+    .type-radio-label {
+      display:flex; align-items:center; gap:0.5rem; cursor:pointer;
+      flex:1; min-width:140px; padding:0.75rem;
+      border:1px solid var(--border); border-radius:4px; transition:border-color .15s;
+    }
+    .type-radio-label.active { border-color:var(--accent); }
+    .client-mode-label {
+      display:flex; align-items:center; gap:0.6rem; flex:1; min-width:180px;
+      padding:0.85rem 1rem; border:1px solid var(--border); border-radius:6px;
+      cursor:pointer; transition:border-color .15s, background .15s;
+    }
+    .client-mode-label.active { border-color:var(--accent); background:var(--accent-bg); }
+  </style>
+</head>
+<body>
+
+<!-- ── Loading screen ── -->
+<div id="cfg-loading">
+  <div style="font-size:0.72rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.5rem">CORTOBA ATELIER</div>
+  <div class="spinner"></div>
+  <div style="font-size:0.78rem;color:var(--text-3)" id="cfg-load-msg">Chargement…</div>
+</div>
+
+<!-- ── Auth wall ── -->
+<div id="auth-wall">
+  <div style="font-size:2rem;margin-bottom:1rem">🔒</div>
+  <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem">Session expirée</div>
+  <div style="font-size:0.85rem;color:var(--text-3);margin-bottom:1.5rem">Veuillez vous connecter depuis la plateforme.</div>
+  <button class="btn btn-primary" onclick="window.location.href='plateforme-nas.html'">Retour à la plateforme</button>
+</div>
+
+<!-- ── Main app ── -->
+<div id="cfg-app" style="display:none">
+
+  <!-- Header sticky -->
+  <div id="cfg-header">
+    <div id="cfg-topbar">
+      <button onclick="goBack()" class="btn btn-sm" style="font-size:0.78rem;padding:0.3rem 0.7rem;display:flex;align-items:center;gap:0.4rem">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Retour
+      </button>
+      <div class="sep"></div>
+      <div class="cfg-label">Configurateur de projet</div>
+      <div id="cfg-progress-bar"></div>
+      <span id="cfg-step-counter" style="font-size:0.7rem;color:var(--text-3);white-space:nowrap;font-variant-numeric:tabular-nums"></span>
+    </div>
+    <div id="cfg-step-tabs"></div>
+  </div>
+
+  <!-- Body -->
+  <div id="cfg-body">
+
+    <!-- ══ Étape 1 : Identité ══ -->
+    <div id="cfg-s1" class="cfg-step active">
+      <div class="cfg-step-eyebrow">Étape 1 / 6</div>
+      <div class="cfg-step-title">Identité du projet</div>
+      <div class="cfg-step-sub">Donnez un nom clair — il sera la référence centrale dans tous les dossiers.</div>
+
+      <div style="margin-bottom:1.8rem">
+        <label class="form-label" style="display:block;margin-bottom:0.5rem">
+          Nom du projet <span style="color:var(--red)">*</span>
+        </label>
+        <input id="cfg-nom" class="form-input"
+          placeholder="Ex: Villa Djerba, Résidence Gammarth, Bureaux Lac 2…"
+          style="font-size:1.15rem;padding:0.85rem 1rem;font-weight:500"
+          oninput="clearErr(1)" autocomplete="off" />
+        <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.35rem">
+          Ce nom apparaît dans les codes dossiers, factures et courriers.
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="form-label">Type de bâtiment</label>
+          <select id="cfg-type-bat" class="form-select">
+            <option value="">— Sélectionner —</option>
+            <!-- Peuplé dynamiquement depuis cfg_types_batiment -->
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Statut</label>
+          <select id="cfg-statut" class="form-select">
+            <option>Actif</option><option>En pause</option><option>Prospection</option><option>Archivé</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Année</label>
+          <input id="cfg-annee" class="form-input" type="number" placeholder="2026" />
+        </div>
+        <div class="form-field full">
+          <label class="form-label">Description du projet</label>
+          <textarea id="cfg-description" class="form-input" rows="2"
+            placeholder="Programme, spécificités, contexte…" style="resize:vertical"></textarea>
+        </div>
+      </div>
+      <div id="cfg-err-1" class="cfg-err" style="display:none"></div>
+    </div>
+
+    <!-- ══ Étape 2 : Surfaces ══ -->
+    <div id="cfg-s2" class="cfg-step">
+      <div class="cfg-step-eyebrow">Étape 2 / 6</div>
+      <div class="cfg-step-title">Surfaces & Programme</div>
+      <div class="cfg-step-sub">Ces données alimentent les calculs de coût et les benchmarks de marché.</div>
+
+      <div class="form-grid" style="margin-bottom:2rem">
+        <div class="form-field">
+          <label class="form-label">Surface SHON (m²) <span style="font-weight:400;color:var(--text-3)">de référence</span></label>
+          <input id="cfg-shon" class="form-input" type="number" min="0" step="0.5" placeholder="0" oninput="autoCalcCout()" />
+          <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.25rem">Surface Hors Œuvre Nette</div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Surface SHOB (m²)</label>
+          <input id="cfg-shob" class="form-input" type="number" min="0" step="0.5" placeholder="0" />
+          <div style="font-size:0.68rem;color:var(--text-3);margin-top:0.25rem">Surface Hors Œuvre Brute</div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Surface terrain (m²)</label>
+          <input id="cfg-terrain" class="form-input" type="number" min="0" placeholder="0" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:1.8rem">
+        <label class="form-label" style="display:block;margin-bottom:0.7rem">Standing du projet</label>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap" id="cfg-standing-opts"></div>
+      </div>
+      <div>
+        <label class="form-label" style="display:block;margin-bottom:0.7rem">Zone d'implantation</label>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap" id="cfg-zone-opts"></div>
+        <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.6rem">
+          La zone affecte les références de coût (agricole/rurale = coûts réduits vs urbaine).
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Étape 3 : Coûts ══ -->
+    <div id="cfg-s3" class="cfg-step">
+      <div class="cfg-step-eyebrow">Étape 3 / 6</div>
+      <div class="cfg-step-title">Coûts & Honoraires</div>
+      <div style="margin-bottom:1.8rem"></div>
+
+      <!-- Benchmark box -->
+      <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:1.1rem 1.3rem;margin-bottom:1.8rem">
+        <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.7rem">
+          Référence de marché — <span id="cfg-bench-label" style="color:var(--accent)">sélectionnez standing & zone (étape 2)</span>
+        </div>
+        <div style="display:flex;gap:2.5rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:0.9rem">
+          <div>
+            <div style="font-size:0.7rem;color:var(--text-3);margin-bottom:0.2rem">Coût/m² référence</div>
+            <div id="cfg-bench-range" style="font-size:1.05rem;font-weight:700;color:var(--accent)">—</div>
+          </div>
+          <div id="cfg-bench-total-wrap" style="display:none">
+            <div style="font-size:0.7rem;color:var(--text-3);margin-bottom:0.2rem">Budget estimé pour <span id="cfg-bench-shon"></span> m² SHON</div>
+            <div id="cfg-bench-total" style="font-size:1.05rem;font-weight:700;color:var(--text)">—</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.68rem;color:var(--text-3);margin-bottom:0.35rem">Position de votre budget par rapport à la fourchette haute</div>
+          <div class="bench-bar-track"><div id="cfg-bench-bar" class="bench-bar-fill"></div></div>
+          <div id="cfg-bench-pos" style="font-size:0.7rem;color:var(--text-3);margin-top:0.2rem"></div>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field full">
+          <label class="form-label">Budget de construction (TND)
+            <span style="font-weight:400;color:var(--text-3)">— coût total travaux estimé</span>
+          </label>
+          <input id="cfg-cout-construction" class="form-input" type="number" min="0" placeholder="0" oninput="autoCalcCout()" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">
+            Coût au m² (TND/m²)
+            <span id="cfg-m2-lbl" style="font-size:0.68rem;color:var(--text-3);font-weight:400;margin-left:0.3rem">calculé automatiquement</span>
+          </label>
+          <div style="display:flex;gap:0.5rem">
+            <input id="cfg-cout-m2" class="form-input" type="number" min="0" placeholder="0" style="flex:1" readonly />
+            <button type="button" id="cfg-m2-auto-btn" onclick="toggleM2Auto()"
+              style="padding:0.4rem 0.75rem;background:var(--accent-bg);border:1px solid var(--accent);border-radius:4px;color:var(--accent);font-size:0.72rem;cursor:pointer;white-space:nowrap;font-family:var(--font)">
+              AUTO
+            </button>
+          </div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Honoraires HT (TND)</label>
+          <input id="cfg-honoraires" class="form-input" type="number" min="0" placeholder="0" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Budget client (TND) <span style="font-weight:400;color:var(--text-3)">optionnel</span></label>
+          <input id="cfg-budget" class="form-input" type="number" min="0" placeholder="0" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Étape 4 : Missions ══ -->
+    <div id="cfg-s4" class="cfg-step">
+      <div class="cfg-step-eyebrow">Étape 4 / 6</div>
+      <div class="cfg-step-title">Missions & Intervenants</div>
+      <div style="margin-bottom:1.8rem"></div>
+
+      <div style="margin-bottom:1.8rem">
+        <div style="font-size:0.75rem;font-weight:500;color:var(--text-2);margin-bottom:0.8rem">Missions confiées au cabinet</div>
+        <div style="position:relative;margin-bottom:0.8rem">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.7rem;top:50%;transform:translateY(-50%);opacity:.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="cfg-missions-search" class="form-input" style="padding-left:2.2rem;font-size:0.82rem" placeholder="Rechercher une mission…" oninput="filterCfgMissions()" />
+        </div>
+        <div id="cfg-missions-list"></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+          <div style="font-size:0.75rem;font-weight:500;color:var(--text-2)">Bureaux d'étude & intervenants</div>
+          <button class="btn btn-sm" type="button" onclick="addItv()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Ajouter
+          </button>
+        </div>
+        <div id="cfg-itvs"></div>
+      </div>
+    </div>
+
+    <!-- ══ Étape 5 : Localisation ══ -->
+    <div id="cfg-s5" class="cfg-step">
+      <div class="cfg-step-eyebrow">Étape 5 / 6</div>
+      <div class="cfg-step-title">Localisation</div>
+      <div class="cfg-step-sub">Étape optionnelle — cliquez sur la carte pour positionner le projet.</div>
+
+      <div class="form-field" style="margin-bottom:1rem">
+        <label class="form-label">Adresse / Lieu</label>
+        <input id="cfg-adresse" class="form-input" placeholder="Ex: Route de Houmt Souk, Djerba" />
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-3);margin-bottom:0.5rem">Cliquez sur la carte pour poser le repère.</div>
+      <div id="cfg-map" style="height:340px;width:100%;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:0.8rem"></div>
+      <div id="cfg-coords" style="display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.65rem 1rem;font-size:0.82rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+          <div>
+            <span style="color:var(--text-3)">Coordonnées : </span>
+            <span id="cfg-lat-display" style="font-family:var(--mono);color:var(--accent)"></span>
+            <span style="color:var(--text-3);margin:0 0.3rem">,</span>
+            <span id="cfg-lng-display" style="font-family:var(--mono);color:var(--accent)"></span>
+          </div>
+          <a id="cfg-maps-link" href="#" target="_blank" style="color:var(--accent);font-size:0.78rem">Ouvrir dans Google Maps</a>
+        </div>
+      </div>
+      <input type="hidden" id="cfg-lat" /><input type="hidden" id="cfg-lng" />
+    </div>
+
+    <!-- ══ Étape 6 : Client ══ -->
+    <div id="cfg-s6" class="cfg-step">
+      <div class="cfg-step-eyebrow">Étape 6 / 6</div>
+      <div class="cfg-step-title">Données client</div>
+      <div class="cfg-step-sub">Associez un client existant ou créez directement une nouvelle fiche.</div>
+
+      <!-- Mode selector -->
+      <div style="display:flex;gap:0.6rem;margin-bottom:1.5rem;flex-wrap:wrap">
+        <label class="client-mode-label active" id="lbl-cl-ex">
+          <input type="radio" name="cl-mode" value="existant" checked onchange="toggleClientMode()" style="accent-color:var(--accent)" />
+          <div>
+            <div style="font-size:0.85rem;font-weight:500">Client existant</div>
+            <div style="font-size:0.7rem;color:var(--text-3)">Sélectionner dans la base</div>
+          </div>
+        </label>
+        <label class="client-mode-label" id="lbl-cl-nv">
+          <input type="radio" name="cl-mode" value="nouveau" onchange="toggleClientMode()" style="accent-color:var(--accent)" />
+          <div>
+            <div style="font-size:0.85rem;font-weight:500">Nouveau client</div>
+            <div style="font-size:0.7rem;color:var(--text-3)">Créer une fiche</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Existing client -->
+      <div id="panel-cl-ex" style="position:relative">
+        <select id="cl-select" class="form-select" style="display:none" onchange="showClientPreview()">
+          <option value="">— Sélectionner un client —</option>
+        </select>
+        <div style="position:relative">
+          <input id="cl-search" class="form-input" style="font-size:0.9rem;padding:0.7rem 0.9rem" placeholder="Rechercher un client…" autocomplete="off"
+            oninput="filterCfgClientDropdown()" onfocus="showCfgClientDropdown()" onblur="hideCfgClientDropdown()" />
+          <button type="button" onclick="clearCfgClientSearch()" style="position:absolute;right:0.7rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.9rem;display:none" id="cl-search-clear">✕</button>
+        </div>
+        <div id="cl-dropdown" style="display:none;position:absolute;z-index:300;top:100%;left:0;right:0;max-height:240px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:0 0 8px 8px;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
+        <div id="cl-preview" style="display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem;margin-top:1rem">
+          <div style="font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.5rem">Fiche client</div>
+          <div id="cl-preview-body"></div>
+        </div>
+      </div>
+
+      <!-- New client -->
+      <div id="panel-cl-nv" style="display:none">
+        <div style="display:flex;gap:0.5rem;margin-bottom:1.2rem;flex-wrap:wrap">
+          <label class="type-radio-label active" id="lbl-physique">
+            <input type="radio" name="cl-type" value="physique" id="cl-type-ph" checked onchange="toggleClType()" style="accent-color:var(--accent)" />
+            <div><div style="font-size:0.85rem">Personne physique</div><div style="font-size:0.7rem;color:var(--text-3)">Particulier</div></div>
+          </label>
+          <label class="type-radio-label" id="lbl-morale">
+            <input type="radio" name="cl-type" value="morale" id="cl-type-mo" onchange="toggleClType()" style="accent-color:var(--accent)" />
+            <div><div style="font-size:0.85rem">Personne morale</div><div style="font-size:0.7rem;color:var(--text-3)">Société, SCI, SARL…</div></div>
+          </label>
+        </div>
+        <div id="cl-f-ph" class="form-grid">
+          <div class="form-field"><label class="form-label">Prénom</label><input id="cl-prenom" class="form-input" placeholder="Prénom" style="text-transform:uppercase" /></div>
+          <div class="form-field"><label class="form-label">Nom <span style="color:var(--red)">*</span></label><input id="cl-nom" class="form-input" placeholder="Nom de famille" style="text-transform:uppercase" /></div>
+        </div>
+        <div id="cl-f-mo" class="form-grid" style="display:none">
+          <div class="form-field full"><label class="form-label">Raison sociale <span style="color:var(--red)">*</span></label><input id="cl-raison" class="form-input" placeholder="Ex: SARL MÉDITERRANÉE" style="text-transform:uppercase" /></div>
+          <div class="form-field"><label class="form-label">Matricule fiscal</label><input id="cl-matricule" class="form-input" placeholder="XXXXXXX/X/X/XXX" /></div>
+        </div>
+        <div class="form-grid" style="margin-top:1rem">
+          <div class="form-field"><label class="form-label">Email</label><input id="cl-email" class="form-input" type="email" placeholder="contact@email.com" /></div>
+          <div class="form-field"><label class="form-label">Téléphone</label><input id="cl-tel" class="form-input" type="tel" placeholder="+216 XX XXX XXX" /></div>
+          <div class="form-field full"><label class="form-label">Adresse</label><input id="cl-adresse" class="form-input" placeholder="Adresse complète, ville" /></div>
+          <div class="form-field">
+            <label class="form-label">Statut client</label>
+            <select id="cl-statut" class="form-select"><option>Actif</option><option>Standby</option><option>Clôturé</option></select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Source d'acquisition</label>
+            <select id="cl-source" class="form-select">
+              <option value="">— Sélectionner —</option>
+              <option>Google</option><option>Facebook</option><option>Instagram</option>
+              <option>Recommandation client</option><option>Bouche à oreille</option>
+              <option>Appel d'offres</option><option>Autre</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="cfg-err-6" class="cfg-err" style="display:none"></div>
+    </div>
+
+    <!-- ══ Écran succès ══ -->
+    <div id="cfg-success">
+      <div class="success-icon">✓</div>
+      <div style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem">Projet créé avec succès</div>
+      <div id="success-projet-name" style="font-size:0.9rem;color:var(--text-3);margin-bottom:0.5rem"></div>
+      <div id="success-code" style="font-family:var(--mono);font-size:0.85rem;color:var(--accent);margin-bottom:2rem"></div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center">
+        <button id="btn-voir-plateforme" class="btn btn-primary" onclick="goToProjet()">Voir dans la plateforme</button>
+        <button class="btn" onclick="resetWizard()">Nouveau projet</button>
+      </div>
+    </div>
+
+  </div><!-- /cfg-body -->
+
+  <!-- Footer nav -->
+  <div id="cfg-footer">
+    <div id="cfg-footer-inner">
+      <button id="btn-prev" onclick="goPrev()" class="btn" style="visibility:hidden">← Précédent</button>
+      <div id="cfg-hint" style="font-size:0.7rem;color:var(--text-3);text-align:center;flex:1;min-width:0"></div>
+      <label id="cfg-nas-create-wrap" style="display:none;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--text-2)">
+        <input type="checkbox" id="cfg-nas-create" checked style="accent-color:var(--accent)" />
+        Dossier NAS
+      </label>
+      <div style="display:flex;gap:0.5rem">
+        <button id="btn-next" onclick="goNext()" class="btn btn-primary">Suivant →</button>
+        <button id="btn-save" onclick="saveProjet()" class="btn btn-primary" style="display:none">Créer le projet →</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /cfg-app -->
+
+<!-- Error styles -->
+<style>
+  .cfg-err {
+    background:rgba(224,123,114,0.1); border:1px solid var(--red);
+    border-radius:6px; padding:0.55rem 0.8rem;
+    font-size:0.8rem; color:var(--red); margin-top:1rem;
+  }
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIGURATEUR DE PROJET — Page autonome
+// ═══════════════════════════════════════════════════════════════
+
+// ── API ──
+var API_BASE = (function(){
+  var p = window.location.pathname;
+  return window.location.origin + p.substring(0, p.lastIndexOf('/') + 1);
+})();
+
+var _token = null;
+var _createdProjetId = null;
+var _clients = [];
+var _projets = [];
+var _missions = [];
+var _missionCategories = [];
+var _roles = [];
+var _typesBatiment = [];
+var _nasConfig = {};
+
+var CFG_TYPES_BATIMENT_DEFAULT = [
+  { id:'logement', label:'Logement', icon:'🏠', subtypes:[
+      {id:'individuel', label:'Individuel', icon:'🏡'},
+      {id:'collectif',  label:'Collectif',  icon:'🏘️'}
+  ]},
+  { id:'immeuble', label:'Immeuble', icon:'🏢', subtypes:[
+      {id:'residentiel', label:'Résidentiel', icon:'🏠'},
+      {id:'commercial',  label:'Commercial',  icon:'🏪'},
+      {id:'bureautique', label:'Bureautique', icon:'💼'},
+      {id:'mixte',       label:'Mixte',       icon:'🔀'}
+  ]}
+];
+
+function apiFetch(path, opts) {
+  opts = opts || {};
+  var url = (path.indexOf('http') === 0) ? path : API_BASE + path;
+  var headers = { 'Content-Type': 'application/json' };
+  if (_token) headers['Authorization'] = 'Bearer ' + _token;
+  var init = { method: opts.method || 'GET', headers: headers };
+  if (opts.body && (opts.method === 'POST' || opts.method === 'PUT'))
+    init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
+  return fetch(url, init).then(function(r) {
+    var ct = r.headers.get('Content-Type') || '';
+    if (!ct.includes('json')) return r.text().then(function(t){ throw new Error(t || 'Erreur serveur'); });
+    return r.json().then(function(j) {
+      if (r.status === 401) { showAuthWall(); throw new Error('Non autorisé'); }
+      if (!j.success && j.error) throw new Error(j.error);
+      return j;
+    });
+  });
+}
+
+// ── Auth ──
+function initAuth() {
+  // Récupérer le token : sessionStorage ou transfert depuis l'onglet parent
+  _token = sessionStorage.getItem('cortoba_token');
+  if (!_token) {
+    var xfer = localStorage.getItem('cortoba_xfer_token');
+    if (xfer) {
+      try {
+        var obj = JSON.parse(xfer);
+        if (Date.now() - (obj.ts || 0) < 15000) { // valide 15s
+          _token = obj.token;
+          sessionStorage.setItem('cortoba_token', _token);
+        }
+      } catch(e) {}
+      localStorage.removeItem('cortoba_xfer_token');
+    }
+  }
+  if (!_token) { showAuthWall(); return false; }
+  return true;
+}
+
+function showAuthWall() {
+  document.getElementById('cfg-loading').style.display = 'none';
+  document.getElementById('auth-wall').style.display = 'flex';
+  document.getElementById('cfg-app').style.display = 'none';
+}
+
+// ── Données initiales ──
+function loadInitialData() {
+  setLoadMsg('Chargement des clients…');
+  return apiFetch('api/clients.php')
+    .then(function(r) {
+      _clients = (r.data || r || []);
+      setLoadMsg('Chargement des projets…');
+      return apiFetch('api/projets.php');
+    })
+    .then(function(r) {
+      _projets = (r.data || r || []);
+      setLoadMsg('Chargement des paramètres…');
+      return apiFetch('api/settings.php');
+    })
+    .then(function(r) {
+      var settings = r.data || r || {};
+      // Missions (source unique : Paramètres)
+      var m = settings['cds_missions'];
+      if (typeof m === 'string') { try { m = JSON.parse(m); } catch(e) { m = null; } }
+      _missions = Array.isArray(m) ? m : [];
+      // Catégories de missions
+      var mc = settings['cortoba_mission_categories'];
+      if (typeof mc === 'string') { try { mc = JSON.parse(mc); } catch(e) { mc = null; } }
+      _missionCategories = Array.isArray(mc) ? mc : [];
+      // Roles
+      var ro = settings['cortoba_roles'];
+      if (typeof ro === 'string') { try { ro = JSON.parse(ro); } catch(e) { ro = null; } }
+      _roles = Array.isArray(ro) ? ro : [];
+      // Types de bâtiment
+      var tb = settings['cfg_types_batiment'];
+      if (typeof tb === 'string') { try { tb = JSON.parse(tb); } catch(e) { tb = null; } }
+      _typesBatiment = (Array.isArray(tb) && tb.length > 0) ? tb : CFG_TYPES_BATIMENT_DEFAULT;
+      populateCfgTypeBatSelect();
+      // NAS config
+      _nasConfig = {
+        local:      settings['cortoba_nas_local'] || '',
+        user:       settings['cortoba_nas_user'] || '',
+        pass:       settings['cortoba_nas_pass'] || '',
+        webdavPort: settings['cortoba_nas_webdav_port'] || '5005',
+        projetsRoot: settings['cortoba_nas_projets_root'] || '',
+      };
+    })
+    .catch(function(e) {
+      console.warn('Erreur chargement données:', e);
+      _missions = [];
+      _missionCategories = [];
+      _typesBatiment = CFG_TYPES_BATIMENT_DEFAULT;
+      populateCfgTypeBatSelect();
+    });
+}
+
+function setLoadMsg(msg) {
+  var el = document.getElementById('cfg-load-msg'); if (el) el.textContent = msg;
+}
+
+// ── Peuplement dynamique du select Type de bâtiment ──
+function populateCfgTypeBatSelect() {
+  var sel = document.getElementById('cfg-type-bat');
+  if (!sel) return;
+  var currentVal = sel.value;
+  // Garder seulement le premier option (— Sélectionner —)
+  while (sel.options.length > 1) sel.remove(1);
+  _typesBatiment.forEach(function(group) {
+    var og = document.createElement('optgroup');
+    og.label = group.icon + ' ' + group.label;
+    (group.subtypes || []).forEach(function(st) {
+      var opt = document.createElement('option');
+      opt.value = group.label + ' ' + st.label;
+      opt.textContent = st.icon + ' ' + st.label;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+  if (currentVal) sel.value = currentVal;
+}
+
+// ── Données par défaut ──
+var BENCH = {
+  'Économique':    {min:700,  max:1100},
+  'Standard':      {min:1100, max:1700},
+  'Moyen-Haut':    {min:1700, max:2600},
+  'Haut standing': {min:2600, max:4200},
+  'Luxe':          {min:4200, max:7500}
+};
+var ZONE_COEFF = {'Urbaine':1.00,'Périurbaine':0.92,'Rurale':0.82,'Agricole':0.75};
+
+// ── État du wizard ──
+var _step = 1;
+var _maxStep = 1;
+var TOTAL = 6;
+var STEPS = [
+  {n:1,label:'Identité'},
+  {n:2,label:'Surfaces'},
+  {n:3,label:'Coûts'},
+  {n:4,label:'Missions'},
+  {n:5,label:'Localisation'},
+  {n:6,label:'Client'}
+];
+var _m2Auto = true;
+var _itvCount = 0;
+var _map = null;
+var _marker = null;
+
+// ── Navigation ──
+function goNext() { goStep(_step + 1); }
+function goPrev() { goStep(_step - 1); }
+
+function goStep(n) {
+  // Navigation libre : pas de validation bloquante sauf à l'enregistrement
+  if (n < 1 || n > TOTAL) return;
+  var cur = document.getElementById('cfg-s' + _step);
+  var nxt = document.getElementById('cfg-s' + n);
+  if (!nxt) return;
+  if (cur) cur.classList.remove('active');
+  nxt.classList.add('active');
+  // Mémoriser le pas le plus avancé atteint (pour la barre de progression)
+  if (n > _maxStep) _maxStep = n;
+  _step = n;
+  renderProgress();
+  updateFooter();
+  window.scrollTo(0, 0);
+  // Init spécifique
+  if (n === 3) updateBenchmark();
+  if (n === 4) renderMissions();
+  if (n === 5) setTimeout(initMap, 200);
+  if (n === 6) populateClientSelect();
+  saveDraft();
+  // Focus premier champ
+  setTimeout(function() {
+    var s = document.getElementById('cfg-s' + n); if (!s) return;
+    var inp = s.querySelector('input:not([type=hidden]):not([type=radio]):not([type=checkbox]),select,textarea');
+    if (inp) inp.focus();
+  }, 160);
+}
+
+function validateStep(n) {
+  if (n === 1) {
+    var nom = (v('cfg-nom') || '').trim();
+    if (!nom) { showErr(1, 'Le nom du projet est obligatoire.'); document.getElementById('cfg-nom').focus(); return false; }
+    hideErr(1);
+  }
+  if (n === 6) {
+    var mode = document.querySelector('input[name="cl-mode"]:checked');
+    if (!mode) return false;
+    if (mode.value === 'existant') {
+      if (!v('cl-select')) { showErr(6, 'Veuillez sélectionner un client.'); return false; }
+    } else {
+      var type = document.querySelector('input[name="cl-type"]:checked');
+      if (!type || type.value === 'physique') {
+        if (!(v('cl-nom') || '').trim()) { showErr(6, 'Le nom du client est obligatoire.'); return false; }
+      } else {
+        if (!(v('cl-raison') || '').trim()) { showErr(6, 'La raison sociale est obligatoire.'); return false; }
+      }
+    }
+    hideErr(6);
+  }
+  return true;
+}
+
+function renderProgress() {
+  // Barre de progression
+  var bar = document.getElementById('cfg-progress-bar');
+  if (bar) {
+    bar.innerHTML = '';
+    for (var i = 1; i <= TOTAL; i++) {
+      var seg = document.createElement('div');
+      seg.style.cssText = 'flex:1;height:3px;border-radius:2px;transition:background .3s;cursor:pointer;background:' + (i <= _step ? 'var(--accent)' : 'var(--border)');
+      (function(s){ seg.addEventListener('click',function(){goStep(s);}); })(i);
+      bar.appendChild(seg);
+    }
+  }
+  var ctr = document.getElementById('cfg-step-counter');
+  if (ctr) ctr.textContent = 'Étape ' + _step + ' / ' + TOTAL;
+  // Onglets
+  var tabs = document.getElementById('cfg-step-tabs');
+  if (tabs) tabs.innerHTML = STEPS.map(function(s) {
+    var active = s.n === _step, done = s.n < _step;
+    return '<button onclick="goStep(' + s.n + ')" style="background:none;border:none;border-bottom:2px solid ' + (active ? 'var(--accent)' : 'transparent') + ';padding:0.45rem 0.8rem;font-size:0.72rem;color:' + (active ? 'var(--accent)' : done ? 'var(--text-2)' : 'var(--text-3)') + ';cursor:pointer;white-space:nowrap;letter-spacing:0.06em;font-family:var(--font);transition:color .2s">' + (done ? '✓ ' : '') + s.label + '</button>';
+  }).join('');
+}
+
+function updateFooter() {
+  var prev = document.getElementById('btn-prev');
+  var next = document.getElementById('btn-next');
+  var save = document.getElementById('btn-save');
+  var nasWrap = document.getElementById('cfg-nas-create-wrap');
+  if (prev) prev.style.visibility = _step > 1 ? 'visible' : 'hidden';
+  if (next) next.style.display = _step < TOTAL ? 'inline-flex' : 'none';
+  if (save) save.style.display = _step === TOTAL ? 'inline-flex' : 'none';
+  if (nasWrap) nasWrap.style.display = _step === TOTAL ? 'flex' : 'none';
+}
+
+// ── Utilitaires ──
+function v(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+function showErr(s, m) { var el = document.getElementById('cfg-err-' + s); if(el){ el.textContent=m; el.style.display='block'; } }
+function hideErr(s) { var el = document.getElementById('cfg-err-' + s); if(el) el.style.display='none'; }
+function clearErr(s) { hideErr(s); }
+
+// ── Étape 2 : options standing / zone ──
+function renderOptButtons(containerId, values, cls) {
+  var c = document.getElementById(containerId); if (!c) return;
+  c.innerHTML = values.map(function(val) {
+    return '<button type="button" class="opt-btn ' + cls + '" data-value="' + val + '" onclick="selectOpt(this,\'' + cls + '\')">' + val + '</button>';
+  }).join('');
+}
+
+function selectOpt(btn, cls) {
+  document.querySelectorAll('.' + cls).forEach(function(b) {
+    b.style.borderColor = 'var(--border)'; b.style.background = 'var(--bg-2)'; b.style.color = 'var(--text-2)'; b.removeAttribute('data-sel');
+  });
+  btn.style.borderColor = 'var(--accent)'; btn.style.background = 'var(--accent-bg)'; btn.style.color = 'var(--accent)'; btn.setAttribute('data-sel', '1');
+  if (_step === 3) updateBenchmark();
+}
+
+function getSel(cls) { var el = document.querySelector('.' + cls + '[data-sel="1"]'); return el ? el.getAttribute('data-value') : null; }
+
+// ── Étape 3 : calculs coûts ──
+function autoCalcCout() {
+  if (!_m2Auto) return;
+  var shon = parseFloat(v('cfg-shon')) || 0;
+  var cout = parseFloat(v('cfg-cout-construction')) || 0;
+  var m2El = document.getElementById('cfg-cout-m2');
+  if (m2El && shon > 0 && cout > 0) m2El.value = Math.round(cout / shon);
+  if (_step === 3) updateBenchmark();
+}
+
+function toggleM2Auto() {
+  _m2Auto = !_m2Auto;
+  var btn = document.getElementById('cfg-m2-auto-btn');
+  var m2El = document.getElementById('cfg-cout-m2');
+  var lbl = document.getElementById('cfg-m2-lbl');
+  if (btn) { btn.style.opacity = _m2Auto ? '1' : '0.45'; btn.style.background = _m2Auto ? 'var(--accent-bg)' : 'var(--bg-2)'; }
+  if (m2El) m2El.readOnly = _m2Auto;
+  if (lbl) lbl.textContent = _m2Auto ? 'calculé automatiquement' : 'saisie manuelle';
+  if (_m2Auto) autoCalcCout();
+}
+
+function updateBenchmark() {
+  var standing = getSel('opt-std');
+  var zone = getSel('opt-zone');
+  var lbl = document.getElementById('cfg-bench-label');
+  var rng = document.getElementById('cfg-bench-range');
+  var tWrap = document.getElementById('cfg-bench-total-wrap');
+  var tEl = document.getElementById('cfg-bench-total');
+  var sVal = document.getElementById('cfg-bench-shon');
+  var bar = document.getElementById('cfg-bench-bar');
+  var posLbl = document.getElementById('cfg-bench-pos');
+  if (!standing || !zone) {
+    if (lbl) lbl.textContent = 'sélectionnez le standing et la zone (étape 2)';
+    if (rng) rng.textContent = '—';
+    return;
+  }
+  var b = BENCH[standing]; if (!b) return;
+  var coeff = ZONE_COEFF[zone] || 1;
+  var minA = Math.round(b.min * coeff), maxA = Math.round(b.max * coeff);
+  if (lbl) lbl.textContent = standing + ' · Zone ' + zone;
+  if (rng) rng.textContent = minA.toLocaleString('fr-FR') + ' — ' + maxA.toLocaleString('fr-FR') + ' TND/m²';
+  var shon = parseFloat(v('cfg-shon')) || 0;
+  if (shon > 0) {
+    if (tWrap) tWrap.style.display = 'block';
+    if (sVal) sVal.textContent = shon.toLocaleString('fr-FR');
+    if (tEl) tEl.textContent = Math.round(minA * shon).toLocaleString('fr-FR') + ' — ' + Math.round(maxA * shon).toLocaleString('fr-FR') + ' TND';
+  } else { if (tWrap) tWrap.style.display = 'none'; }
+  var cm2 = parseFloat(v('cfg-cout-m2')) || 0;
+  if (cm2 > 0 && maxA > 0) {
+    var pct = Math.min(120, Math.round((cm2 / maxA) * 100));
+    if (bar) { bar.style.width = Math.min(100, pct) + '%'; bar.style.background = pct > 100 ? 'var(--red)' : pct >= 60 ? 'var(--accent)' : 'var(--blue)'; }
+    if (posLbl) posLbl.textContent = cm2 < minA ? '⬇ En dessous de la référence ' + standing : cm2 <= maxA ? '✓ Dans la fourchette ' + standing : '⬆ Au-dessus de la référence ' + standing;
+  }
+}
+
+// ── Étape 4 : missions ──
+function renderMissions() {
+  var list = document.getElementById('cfg-missions-list'); if (!list) return;
+  if (!_missions.length) { list.innerHTML = '<span style="font-size:0.82rem;color:var(--text-3)">Aucune mission configurée. Rendez-vous dans Paramètres.</span>'; return; }
+  function _mkLabel(m) {
+    var val = m.id + '_' + (m.nom || '');
+    return '<label class="cfg-mission-item" data-cat="' + (m.cat||'') + '" data-nom="' + (m.nom||'').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"") + '" style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-2);border-radius:5px;cursor:pointer;border:1px solid transparent;transition:border-color .15s" onchange="this.style.borderColor=this.querySelector(\'input\').checked?\'var(--accent)\':\'transparent\'">' +
+      '<input type="checkbox" class="cfg-mission-cb" data-cat="' + (m.cat||'') + '" value="' + val + '" style="accent-color:var(--accent)">' +
+      '<span style="font-size:0.78rem">' + (m.nom || m.id || '') + '</span></label>';
+  }
+  var html = '';
+  if (_missionCategories.length) {
+    _missionCategories.forEach(function(c) {
+      var mList = _missions.filter(function(m){ return m.cat === c.id; });
+      if (!mList.length) return;
+      html += '<div class="cfg-mission-cat" data-cat="' + c.id + '" style="margin-bottom:1rem">';
+      html += '<div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);margin-bottom:0.4rem;font-weight:600;display:flex;align-items:center;gap:0.4rem">' + (c.label || '') + ' <button type="button" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:0.65rem;padding:0" onclick="toggleCfgMissionCat(this,\'' + c.id + '\')">tout cocher</button></div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.35rem">';
+      html += mList.map(_mkLabel).join('');
+      html += '</div></div>';
+    });
+    var orphans = _missions.filter(function(m){ return !m.cat || !_missionCategories.find(function(c){ return c.id === m.cat; }); });
+    if (orphans.length) {
+      html += '<div class="cfg-mission-cat" data-cat="_other" style="margin-bottom:1rem">';
+      html += '<div style="font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.4rem">Autres</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.35rem">';
+      html += orphans.map(_mkLabel).join('');
+      html += '</div></div>';
+    }
+  } else {
+    html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.35rem">' + _missions.map(_mkLabel).join('') + '</div>';
+  }
+  list.innerHTML = html;
+}
+
+function toggleCfgMissionCat(btn, catId) {
+  var cbs = document.querySelectorAll('.cfg-mission-cb[data-cat="'+catId+'"]');
+  var allChecked = Array.from(cbs).every(function(c){ return c.checked; });
+  cbs.forEach(function(c){
+    c.checked = !allChecked;
+    c.closest('label').style.borderColor = c.checked ? 'var(--accent)' : 'transparent';
+  });
+  btn.textContent = allChecked ? 'tout cocher' : 'tout décocher';
+}
+
+function filterCfgMissions() {
+  var q = (document.getElementById('cfg-missions-search') || {value:''}).value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  var items = document.querySelectorAll('.cfg-mission-item');
+  var catVisible = {};
+  items.forEach(function(item) {
+    var nom = item.getAttribute('data-nom') || '';
+    var show = !q || nom.indexOf(q) !== -1;
+    item.style.display = show ? '' : 'none';
+    if (show) {
+      var cat = item.getAttribute('data-cat') || '_other';
+      catVisible[cat] = true;
+    }
+  });
+  document.querySelectorAll('.cfg-mission-cat').forEach(function(catEl) {
+    var cat = catEl.getAttribute('data-cat') || '';
+    catEl.style.display = catVisible[cat] ? '' : 'none';
+  });
+}
+
+function getSelectedMissions() {
+  return Array.from(document.querySelectorAll('#cfg-missions-list input[type=checkbox]:checked')).map(function(c) { return c.value; });
+}
+
+function addItv() {
+  _itvCount++;
+  var n = _itvCount;
+  var list = document.getElementById('cfg-itvs'); if (!list) return;
+  var opts = _roles.length
+    ? _roles.map(function(r) { return '<option>' + (r.nom || r) + '</option>'; }).join('')
+    : '<option>Bureau structure</option><option>Bureau fluides</option><option>Géomètre</option><option>Économiste</option><option>Autre</option>';
+  var row = document.createElement('div');
+  row.id = 'itv-' + n;
+  row.style.cssText = 'display:flex;gap:0.5rem;align-items:center;margin-bottom:0.45rem;background:var(--bg-2);border-radius:6px;padding:0.5rem 0.65rem';
+  row.innerHTML = '<select class="form-select" style="width:155px;flex-shrink:0"><option value="">Rôle</option>' + opts + '</select>' +
+    '<input class="form-input" placeholder="Nom / Cabinet" style="flex:1"/>' +
+    '<input class="form-input" placeholder="Contact" style="flex:1"/>' +
+    '<button type="button" onclick="document.getElementById(\'itv-' + n + '\').remove()" style="background:none;border:none;color:var(--text-3);cursor:pointer;padding:0.1rem 0.4rem;font-size:1rem;flex-shrink:0">✕</button>';
+  list.appendChild(row);
+}
+
+function getIntervenants() {
+  return Array.from(document.querySelectorAll('[id^="itv-"]')).map(function(r) {
+    var sel = r.querySelector('select'); var inp = r.querySelectorAll('input');
+    return { role: sel ? sel.value : '', nom: inp[0] ? inp[0].value : '', contact: inp[1] ? inp[1].value : '' };
+  }).filter(function(i) { return i.nom.trim(); });
+}
+
+// ── Étape 5 : carte ──
+function initMap() {
+  var c = document.getElementById('cfg-map');
+  if (!c || !window.L) return;
+  if (_map) { _map.invalidateSize(); return; }
+  _map = L.map('cfg-map').setView([33.8869, 9.5375], 7);
+  L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: '© Google', maxZoom: 21 }).addTo(_map);
+  _map.on('click', function(e) {
+    var lat = e.latlng.lat, lng = e.latlng.lng;
+    if (_marker) _marker.setLatLng([lat, lng]); else _marker = L.marker([lat, lng]).addTo(_map);
+    document.getElementById('cfg-lat').value = lat;
+    document.getElementById('cfg-lng').value = lng;
+    document.getElementById('cfg-lat-display').textContent = lat.toFixed(6);
+    document.getElementById('cfg-lng-display').textContent = lng.toFixed(6);
+    var link = document.getElementById('cfg-maps-link');
+    if (link) link.href = 'https://maps.google.com/?q=' + lat + ',' + lng;
+    document.getElementById('cfg-coords').style.display = 'block';
+  });
+}
+
+// ── Étape 6 : client ──
+function populateClientSelect() {
+  var sel = document.getElementById('cl-select'); if (!sel) return;
+  sel.innerHTML = '<option value="">— Sélectionner un client —</option>' +
+    _clients.map(function(c) {
+      var nom = c.displayNom || c.display_nom || c.nom || c.raison || '';
+      return '<option value="' + c.id + '">' + nom + ' (' + (c.code || '') + ')</option>';
+    }).join('');
+}
+
+// ── Client searchable dropdown for configurateur ──
+var _cfgClDropOpen = false;
+function filterCfgClientDropdown() {
+  var input = document.getElementById('cl-search');
+  var q = (input.value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  var clearBtn = document.getElementById('cl-search-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  renderCfgClientDropdown(q);
+  showCfgClientDropdown();
+}
+function showCfgClientDropdown() {
+  var dd = document.getElementById('cl-dropdown'); if (!dd) return;
+  dd.style.display = 'block'; _cfgClDropOpen = true;
+  var q = (document.getElementById('cl-search').value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  renderCfgClientDropdown(q);
+}
+function hideCfgClientDropdown() {
+  setTimeout(function() {
+    var dd = document.getElementById('cl-dropdown');
+    if (dd) dd.style.display = 'none'; _cfgClDropOpen = false;
+  }, 200);
+}
+function renderCfgClientDropdown(q) {
+  var dd = document.getElementById('cl-dropdown'); if (!dd) return;
+  var filtered = _clients.filter(function(c) {
+    if (!q) return true;
+    var nom = (c.displayNom || c.display_nom || c.nom || c.raison || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var code = (c.code || '').toLowerCase();
+    return nom.indexOf(q) !== -1 || code.indexOf(q) !== -1;
+  });
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:0.8rem 1rem;color:var(--text-3);font-size:0.82rem">Aucun client trouvé</div>';
+    return;
+  }
+  dd.innerHTML = filtered.map(function(c) {
+    var nom = c.displayNom || c.display_nom || c.nom || c.raison || '';
+    var code = c.code || '';
+    return '<div onmousedown="selectCfgClient(\'' + c.id + '\')" style="padding:0.55rem 1rem;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'none\'">' +
+      '<span style="color:var(--text-1)">' + nom + '</span>' +
+      (code ? ' <span style="color:var(--text-3);font-size:0.72rem">(' + code + ')</span>' : '') +
+      '</div>';
+  }).join('');
+}
+function selectCfgClient(clientId) {
+  var sel = document.getElementById('cl-select');
+  var input = document.getElementById('cl-search');
+  var clearBtn = document.getElementById('cl-search-clear');
+  sel.value = clientId;
+  var opt = sel.selectedOptions[0];
+  if (opt && clientId) input.value = opt.textContent;
+  else input.value = '';
+  if (clearBtn) clearBtn.style.display = clientId ? 'block' : 'none';
+  hideCfgClientDropdown();
+  showClientPreview();
+}
+function clearCfgClientSearch() {
+  var input = document.getElementById('cl-search');
+  var sel = document.getElementById('cl-select');
+  var clearBtn = document.getElementById('cl-search-clear');
+  if (input) input.value = '';
+  if (sel) sel.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  input.focus();
+  showCfgClientDropdown();
+  var preview = document.getElementById('cl-preview');
+  if (preview) preview.style.display = 'none';
+}
+document.addEventListener('click', function(e) {
+  if (!_cfgClDropOpen) return;
+  var input = document.getElementById('cl-search');
+  var dd = document.getElementById('cl-dropdown');
+  if (input && dd && !input.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none'; _cfgClDropOpen = false;
+  }
+});
+
+function toggleClientMode() {
+  var mode = document.querySelector('input[name="cl-mode"]:checked');
+  var panelEx = document.getElementById('panel-cl-ex');
+  var panelNv = document.getElementById('panel-cl-nv');
+  var lblEx = document.getElementById('lbl-cl-ex');
+  var lblNv = document.getElementById('lbl-cl-nv');
+  var isEx = !mode || mode.value === 'existant';
+  if (panelEx) panelEx.style.display = isEx ? 'block' : 'none';
+  if (panelNv) panelNv.style.display = isEx ? 'none' : 'block';
+  if (lblEx) lblEx.className = 'client-mode-label' + (isEx ? ' active' : '');
+  if (lblNv) lblNv.className = 'client-mode-label' + (isEx ? '' : ' active');
+}
+
+function toggleClType() {
+  var type = document.querySelector('input[name="cl-type"]:checked');
+  var fph = document.getElementById('cl-f-ph');
+  var fmo = document.getElementById('cl-f-mo');
+  var lph = document.getElementById('lbl-physique');
+  var lmo = document.getElementById('lbl-morale');
+  var isph = !type || type.value === 'physique';
+  if (fph) fph.style.display = isph ? 'grid' : 'none';
+  if (fmo) fmo.style.display = isph ? 'none' : 'grid';
+  if (lph) lph.className = 'type-radio-label' + (isph ? ' active' : '');
+  if (lmo) lmo.className = 'type-radio-label' + (isph ? '' : ' active');
+}
+
+function showClientPreview() {
+  var sel = document.getElementById('cl-select');
+  var preview = document.getElementById('cl-preview');
+  var body = document.getElementById('cl-preview-body');
+  if (!sel || !sel.value) { if (preview) preview.style.display = 'none'; return; }
+  var client = _clients.find(function(c) { return c.id === sel.value; });
+  if (!client || !preview || !body) return;
+  var nom = client.displayNom || client.display_nom || client.nom || '';
+  var rows = [
+    ['Client', '<strong>' + esc(nom) + '</strong>'],
+    client.email ? ['Email', esc(client.email)] : null,
+    client.tel   ? ['Tél',   esc(client.tel)]   : null,
+    client.adresse ? ['Adresse', esc(client.adresse)] : null,
+    ['Statut', '<span style="font-size:0.75rem">' + esc(client.statut || '—') + '</span>'],
+    client.source ? ['Source', esc(client.source)] : null
+  ].filter(Boolean);
+  body.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
+    rows.map(function(r) {
+      return '<tr><td style="padding:0.3rem 1rem 0.3rem 0;color:var(--text-3);font-size:0.75rem;white-space:nowrap;vertical-align:top">' + r[0] + '</td><td style="padding:0.3rem 0;font-size:0.82rem">' + r[1] + '</td></tr>';
+    }).join('') + '</table>';
+  preview.style.display = 'block';
+}
+
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Génération code projet ──
+function genProjetCode(annee, clientCode) {
+  var yy = String(annee || new Date().getFullYear()).slice(-2);
+  // Chercher le MAX séquentiel parmi les projets existants de la même année
+  var maxSeq = 0;
+  (_projets || []).forEach(function(p) {
+    if (p.annee == annee || (p.code && p.code.indexOf('_' + yy + '_') !== -1)) {
+      var match = (p.code || '').match(/^(\d+)_/);
+      if (match) {
+        var n = parseInt(match[1], 10);
+        if (n > maxSeq) maxSeq = n;
+      }
+    }
+  });
+  var seq = String(maxSeq + 1).padStart(2, '0');
+  return seq + '_' + yy + '_' + (clientCode || 'XXX');
+}
+
+// ── Brouillon ──
+function saveDraft() {
+  try {
+    var d = {
+      nom: v('cfg-nom'), typeBat: v('cfg-type-bat'),
+      statut: v('cfg-statut'), annee: v('cfg-annee'),
+      description: v('cfg-description'), shon: v('cfg-shon'), shob: v('cfg-shob'),
+      terrain: v('cfg-terrain'), standing: getSel('opt-std'), zone: getSel('opt-zone'),
+      coutConst: v('cfg-cout-construction'), coutM2: v('cfg-cout-m2'),
+      honoraires: v('cfg-honoraires'), budget: v('cfg-budget'),
+      adresse: v('cfg-adresse'), step: _step, ts: Date.now()
+    };
+    localStorage.setItem('cortoba_cfg_draft', JSON.stringify(d));
+    var hint = document.getElementById('cfg-hint');
+    if (hint) { hint.textContent = '✓ Brouillon sauvegardé'; setTimeout(function(){ var h=document.getElementById('cfg-hint'); if(h&&h.textContent.startsWith('✓')) h.textContent=''; }, 2200); }
+  } catch(e) {}
+}
+
+function restoreDraft() {
+  try {
+    var raw = localStorage.getItem('cortoba_cfg_draft'); if (!raw) return;
+    var d = JSON.parse(raw); if (!d || !d.nom) return;
+    if (Date.now() - (d.ts || 0) > 7 * 24 * 3600 * 1000) { localStorage.removeItem('cortoba_cfg_draft'); return; }
+    var hint = document.getElementById('cfg-hint');
+    if (hint) hint.innerHTML = '<span style="color:var(--accent)">Brouillon : ' + esc(d.nom) + '</span> — ' +
+      '<button onclick="applyDraft()" style="background:none;border:none;color:var(--accent);cursor:pointer;text-decoration:underline;font-size:0.7rem;padding:0;font-family:var(--font)">Restaurer</button>' +
+      ' · <button onclick="discardDraft()" style="background:none;border:none;color:var(--text-3);cursor:pointer;text-decoration:underline;font-size:0.7rem;padding:0;font-family:var(--font)">Ignorer</button>';
+  } catch(e) {}
+}
+
+function applyDraft() {
+  try {
+    var d = JSON.parse(localStorage.getItem('cortoba_cfg_draft') || '{}'); if (!d.nom) return;
+    function sv(id, val) { var el = document.getElementById(id); if (el && val != null) el.value = val; }
+    sv('cfg-nom',d.nom); sv('cfg-type-bat',d.typeBat);
+    sv('cfg-statut',d.statut); sv('cfg-annee',d.annee);
+    sv('cfg-description',d.description); sv('cfg-shon',d.shon); sv('cfg-shob',d.shob);
+    sv('cfg-terrain',d.terrain); sv('cfg-cout-construction',d.coutConst);
+    sv('cfg-cout-m2',d.coutM2); sv('cfg-honoraires',d.honoraires);
+    sv('cfg-budget',d.budget); sv('cfg-adresse',d.adresse);
+    if (d.standing) { var sb = document.querySelector('.opt-std[data-value="' + d.standing + '"]'); if (sb) selectOpt(sb, 'opt-std'); }
+    if (d.zone)     { var zb = document.querySelector('.opt-zone[data-value="' + d.zone + '"]'); if (zb) selectOpt(zb, 'opt-zone'); }
+    var hint = document.getElementById('cfg-hint'); if (hint) hint.textContent = '✓ Brouillon restauré';
+    setTimeout(function(){ var h=document.getElementById('cfg-hint'); if(h&&h.textContent.startsWith('✓')) h.textContent=''; }, 2200);
+  } catch(e) {}
+}
+
+function discardDraft() {
+  localStorage.removeItem('cortoba_cfg_draft');
+  var hint = document.getElementById('cfg-hint'); if (hint) hint.textContent = '';
+}
+
+// ── Sauvegarde projet ──
+function saveProjet() {
+  // Validation de tous les champs obligatoires avant enregistrement
+  var nom = (v('cfg-nom') || '').trim();
+  if (!nom) { goStep(1); showErr(1, 'Le nom du projet est obligatoire.'); document.getElementById('cfg-nom').focus(); return; }
+  hideErr(1);
+  if (!validateStep(6)) { goStep(6); return; }
+  var mode = document.querySelector('input[name="cl-mode"]:checked'); if (!mode) { goStep(6); showErr(6, 'Veuillez sélectionner ou créer un client.'); return; }
+  var saveBtn = document.getElementById('btn-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Création…'; }
+
+  function doCreate(clientId, clientNom, clientCode) {
+    var annee = parseInt(v('cfg-annee')) || new Date().getFullYear();
+    var code = genProjetCode(annee, clientCode);
+    var body = {
+      nom: (v('cfg-nom') || '').trim(),
+      client: clientNom, clientId: clientId, clientCode: clientCode,
+      code: code, annee: annee,
+      statut: v('cfg-statut'),
+      typeBat: v('cfg-type-bat') || null, type_bat: v('cfg-type-bat') || null,
+      honoraires: parseFloat(v('cfg-honoraires')) || 0,
+      budget: parseFloat(v('cfg-budget')) || null,
+      surface: parseFloat(v('cfg-shon')) || null,
+      surface_shon: parseFloat(v('cfg-shon')) || null,
+      surface_shob: parseFloat(v('cfg-shob')) || null,
+      surface_terrain: parseFloat(v('cfg-terrain')) || null,
+      standing: getSel('opt-std') || null,
+      zone: getSel('opt-zone') || null,
+      cout_construction: parseFloat(v('cfg-cout-construction')) || null,
+      cout_m2: parseFloat(v('cfg-cout-m2')) || null,
+      description: (v('cfg-description') || '').trim() || null,
+      adresse: (v('cfg-adresse') || '').trim() || null,
+      lat: parseFloat(v('cfg-lat')) || null,
+      lng: parseFloat(v('cfg-lng')) || null,
+      missions: getSelectedMissions(),
+      intervenants: getIntervenants()
+    };
+    var wantNas = (document.getElementById('cfg-nas-create') || {}).checked || false;
+    // Ouvrir la popup NAS AVANT l'appel async (sinon popup blocker)
+    var nasPopup = null;
+    if (wantNas) {
+      nasPopup = window.open('about:blank', 'nas-bridge', 'width=520,height=420');
+    }
+    apiFetch('api/projets.php', { method: 'POST', body: body })
+      .then(function(resp) {
+        localStorage.removeItem('cortoba_cfg_draft');
+        var projet = resp.data || resp || {};
+        var finalCode = projet.code || code;
+        // Rediriger la popup vers le bridge NAS avec les params
+        if (nasPopup) {
+          nasPopup.location.href = buildNasBridgeUrl(finalCode, clientNom, annee);
+        }
+        showSuccess(v('cfg-nom'), finalCode, projet.id);
+      })
+      .catch(function(e) {
+        if (nasPopup) try { nasPopup.close(); } catch(x) {}
+        showErr(6, 'Erreur : ' + (e.message || 'Erreur serveur'));
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Créer le projet →'; }
+      });
+  }
+
+  if (mode.value === 'existant') {
+    var sel = document.getElementById('cl-select');
+    var client = _clients.find(function(c) { return c.id === sel.value; }) || {};
+    var nom = client.displayNom || client.display_nom || client.nom || client.raison || '';
+    doCreate(client.id, nom, client.code || '');
+  } else {
+    var clType = document.querySelector('input[name="cl-type"]:checked');
+    var isPh = !clType || clType.value === 'physique';
+    var prenom = (v('cl-prenom') || '').trim();
+    var cnom   = (v('cl-nom')    || '').trim();
+    var raison = (v('cl-raison') || '').trim();
+    var mat    = (v('cl-matricule') || '').trim();
+    var displayNom = isPh ? (prenom ? (prenom + ' ' + cnom).trim() : cnom) : raison;
+    var clBody = {
+      type: isPh ? 'physique' : 'morale',
+      prenom: prenom || null, nom: cnom || null, raison: raison || null,
+      matricule: mat || null, display_nom: displayNom,
+      email: (v('cl-email') || '').trim() || null,
+      tel: (v('cl-tel') || '').trim() || null,
+      adresse: (v('cl-adresse') || '').trim() || null,
+      statut: v('cl-statut') || 'Actif',
+      source: v('cl-source') || null
+    };
+    apiFetch('api/clients.php', { method: 'POST', body: clBody })
+      .then(function(resp) {
+        var nc = resp.data || resp;
+        // Refresh clients list
+        return apiFetch('api/clients.php').then(function(r) {
+          _clients = r.data || r || [];
+          doCreate(nc.id, displayNom, nc.code || '');
+        });
+      })
+      .catch(function(e) {
+        showErr(6, 'Erreur création client : ' + (e.message || 'Erreur'));
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Créer le projet →'; }
+      });
+  }
+}
+
+// ── Construire l'URL du bridge NAS (HTTP sur le NAS local) ──
+function buildNasBridgeUrl(code, clientName, annee) {
+  var cfg = _nasConfig || {};
+  var uncPath = cfg.local || '';
+  var match = uncPath.match(/\\\\([^\\]+)/);
+  var ip = match ? match[1] : '192.168.1.165';
+  var user = cfg.user || 'CASNAS';
+  var pass = cfg.pass || 'Cortoba2026';
+  var port = cfg.webdavPort || '5005';
+
+  var folderName = (code + '_' + clientName).replace(/[<>:"\/\\|?*]/g, '_').replace(/\s+/g, ' ').trim();
+  var folders = 'Public/CAS_PROJETS/' + annee + '/' + folderName;
+  var nasPath = '\\\\' + ip + '\\Public\\CAS_PROJETS\\' + annee + '\\' + folderName;
+
+  var templateFolder = 'Public/CAS_PROJETS/00-Dossier Type';
+
+  var hash = 'ip=' + encodeURIComponent(ip)
+    + '&user=' + encodeURIComponent(user)
+    + '&pass=' + encodeURIComponent(pass)
+    + '&port=' + port
+    + '&folders=' + encodeURIComponent(folders)
+    + '&nasPath=' + encodeURIComponent(nasPath)
+    + '&template=' + encodeURIComponent(templateFolder);
+
+  return 'http://' + ip + ':' + port + '/Public/nas-tools/nas-bridge-v2.html#' + hash;
+}
+
+function showSuccess(nom, code, projetId) {
+  // Cacher le wizard
+  for (var i = 1; i <= TOTAL; i++) {
+    var s = document.getElementById('cfg-s' + i); if (s) s.classList.remove('active');
+  }
+  document.getElementById('cfg-footer').style.display = 'none';
+  var header = document.getElementById('cfg-header'); if (header) header.style.display = 'none';
+  var success = document.getElementById('cfg-success');
+  if (success) {
+    success.style.display = 'flex';
+    var pn = document.getElementById('success-projet-name'); if (pn) pn.textContent = nom;
+    var pc = document.getElementById('success-code'); if (pc) pc.textContent = code;
+  }
+  // Stocker l'ID du projet créé pour le bouton "Voir dans la plateforme"
+  _createdProjetId = projetId || null;
+}
+
+function goToProjet() {
+  var url = 'plateforme-nas.html?page=projets';
+  if (_createdProjetId) url += '&projet=' + encodeURIComponent(_createdProjetId);
+  window.location.href = url;
+}
+
+function resetWizard() {
+  window.location.reload();
+}
+
+function goBack() {
+  window.location.href = 'plateforme-nas.html?page=projets';
+}
+
+// ── Initialisation ──
+
+// ── Pré-remplissage depuis une demande ──
+function prefillFromDemande(demandeId) {
+  apiFetch('api/demandes.php?id=' + demandeId).then(function(r) {
+    var d = r.data || r;
+    if (!d) return;
+    // Données de la demande
+    var cfg = {};
+    try { cfg = typeof d.cfg_data === 'string' ? JSON.parse(d.cfg_data) : (d.cfg_data || {}); } catch(e) {}
+    // Nom du projet
+    var nomEl = document.getElementById('cfg-nom');
+    if (nomEl && cfg.type_batiment) nomEl.value = cfg.type_batiment;
+    // Type de bâtiment
+    var typeEl = document.getElementById('cfg-type-bat');
+    if (typeEl && cfg.type_batiment) typeEl.value = cfg.type_batiment;
+    // Surfaces
+    if (cfg.surface_terrain) { var el = document.getElementById('cfg-terrain'); if(el) el.value = cfg.surface_terrain; }
+    if (cfg.surface_shon || cfg.surface_construite) { var el = document.getElementById('cfg-shon'); if(el) el.value = cfg.surface_shon || cfg.surface_construite; }
+    if (cfg.surface_shob) { var el = document.getElementById('cfg-shob'); if(el) el.value = cfg.surface_shob; }
+    // Budget
+    if (cfg.budget || d.budget) { var el = document.getElementById('cfg-budget'); if(el) el.value = cfg.budget || d.budget; }
+    // Description
+    if (cfg.description || d.notes) { var el = document.getElementById('cfg-description'); if(el) el.value = cfg.description || d.notes || ''; }
+    // Standing
+    if (cfg.standing) {
+      setTimeout(function(){
+        var btns = document.querySelectorAll('.opt-std');
+        btns.forEach(function(b){ if(b.getAttribute('data-value')===cfg.standing) selectOpt(b,'opt-std'); });
+      }, 100);
+    }
+    // Zone
+    if (cfg.zone) {
+      setTimeout(function(){
+        var btns = document.querySelectorAll('.opt-zone');
+        btns.forEach(function(b){ if(b.getAttribute('data-value')===cfg.zone) selectOpt(b,'opt-zone'); });
+      }, 100);
+    }
+    // Localisation
+    if (cfg.adresse) { var el = document.getElementById('cfg-adresse'); if(el) el.value = cfg.adresse; }
+    if (cfg.lat && cfg.lng) {
+      document.getElementById('cfg-lat').value = cfg.lat;
+      document.getElementById('cfg-lng').value = cfg.lng;
+    }
+    // Missions
+    if (cfg.missions && Array.isArray(cfg.missions)) {
+      setTimeout(function(){
+        renderMissions();
+        cfg.missions.forEach(function(m){
+          var cb = document.querySelector('#cfg-missions-list input[value="' + (m.id || m) + '"]');
+          if(cb) cb.checked = true;
+        });
+      }, 200);
+    }
+    // Client — pré-sélectionner si on a le nom/email
+    if (d.nom || d.email) {
+      setTimeout(function(){
+        var modeExist = document.getElementById('cl-mode-existant');
+        if (modeExist) { modeExist.checked = true; modeExist.dispatchEvent(new Event('change')); }
+        var client = _clients.find(function(c){
+          return (c.email && c.email === d.email) ||
+                 (c.displayNom || c.display_nom || '') === d.nom ||
+                 (c.nom || '') === d.nom;
+        });
+        if (client) {
+          var sel = document.getElementById('cl-select');
+          if (sel) sel.value = client.id;
+        }
+      }, 300);
+    }
+    // Indicateur visuel
+    var eyebrow = document.querySelector('.cfg-step-eyebrow');
+    if (eyebrow) eyebrow.innerHTML = '<span style="color:var(--accent)">▶ Pré-rempli depuis la demande #' + demandeId.substring(0,8) + '</span>';
+  }).catch(function(e) {
+    console.warn('Impossible de charger la demande:', e);
+  });
+}
+
+window.addEventListener('load', function() {
+  // Auth
+  if (!initAuth()) return;
+
+  // Charger les données
+  loadInitialData().then(function() {
+    // Cacher le loading, montrer l'app
+    document.getElementById('cfg-loading').style.display = 'none';
+    document.getElementById('cfg-app').style.display = 'block';
+
+    // Année par défaut
+    document.getElementById('cfg-annee').value = new Date().getFullYear();
+
+    // Rendu initial
+    renderOptButtons('cfg-standing-opts', Object.keys(BENCH), 'opt-std');
+    renderOptButtons('cfg-zone-opts', Object.keys(ZONE_COEFF), 'opt-zone');
+    renderProgress();
+    updateFooter();
+
+    // Pré-remplissage depuis une demande (paramètre URL ?demande=ID)
+    var urlParams = new URLSearchParams(window.location.search);
+    var demandeId = urlParams.get('demande');
+    if (demandeId) {
+      prefillFromDemande(demandeId);
+    } else {
+      // Brouillon (seulement si pas de pré-remplissage)
+      restoreDraft();
+    }
+
+    // Focus
+    setTimeout(function() {
+      var n = document.getElementById('cfg-nom'); if (n) n.focus();
+    }, 100);
+  }).catch(function(e) {
+    console.error('Erreur init:', e);
+    document.getElementById('cfg-loading').style.display = 'none';
+    document.getElementById('cfg-app').style.display = 'block';
+    document.getElementById('cfg-annee').value = new Date().getFullYear();
+    renderOptButtons('cfg-standing-opts', Object.keys(BENCH), 'opt-std');
+    renderOptButtons('cfg-zone-opts', Object.keys(ZONE_COEFF), 'opt-zone');
+    renderProgress();
+    updateFooter();
+  });
+});
+</script>
+</body>
+</html>

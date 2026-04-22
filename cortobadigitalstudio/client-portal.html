@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Espace client — Cortoba Atelier</title>
+  <style>
+    :root {
+      --bg-1: #1a1a1a; --bg-2: #222; --bg-3: #2b2b2b;
+      --text-1: #e6e6e6; --text-2: #b8b8b8; --text-3: #888;
+      --accent: #c8a96e; --border: rgba(255,255,255,0.08);
+      --red: #c0392b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg-1); color: var(--text-1); min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .hdr {
+      width: 100%; max-width: 780px; padding: 1.2rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .hdr .brand { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); }
+    .hdr h1 { margin: 0.2rem 0 0.3rem; font-size: 1.15rem; font-weight: 600; }
+    .hdr .sub { font-size: 0.8rem; color: var(--text-3); }
+    .wrap { width: 100%; max-width: 780px; padding: 1rem 1.5rem 7rem; flex: 1; }
+    .msg { display: flex; gap: 0.6rem; margin-bottom: 0.8rem; max-width: 85%; }
+    .msg.me { flex-direction: row-reverse; margin-left: auto; }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--accent); color: #1a1a1a;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.78rem; flex-shrink: 0;
+    }
+    .msg.me .avatar { background: #555; color: #fff; }
+    .bubble {
+      background: var(--bg-2); border: 1px solid var(--border);
+      padding: 0.5rem 0.8rem; border-radius: 10px; font-size: 0.85rem;
+      line-height: 1.4; word-wrap: break-word;
+    }
+    .msg.me .bubble { background: rgba(200,169,110,0.2); border-color: rgba(200,169,110,0.4); }
+    .sender { font-size: 0.66rem; color: var(--text-3); font-weight: 600; margin-bottom: 0.2rem; }
+    .time { font-size: 0.62rem; color: var(--text-3); margin-top: 0.25rem; }
+    .system {
+      text-align: center; font-style: italic; color: var(--text-3);
+      font-size: 0.75rem; padding: 0.4rem; border-top: 1px dashed var(--border);
+      border-bottom: 1px dashed var(--border); margin: 0.8rem 0;
+    }
+    .composer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--bg-2); border-top: 1px solid var(--border);
+      padding: 0.7rem 1rem; display: flex; justify-content: center;
+    }
+    .composer-inner {
+      display: flex; gap: 0.5rem; width: 100%; max-width: 780px;
+    }
+    .composer textarea {
+      flex: 1; min-height: 40px; max-height: 120px; resize: none;
+      background: var(--bg-1); color: var(--text-1);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.6rem 0.8rem; font-size: 0.85rem; font-family: inherit;
+    }
+    .composer textarea:focus { border-color: var(--accent); }
+    .composer button {
+      background: var(--accent); color: #1a1a1a; border: none;
+      border-radius: 6px; padding: 0 1.1rem; font-weight: 600;
+      font-size: 0.82rem; cursor: pointer;
+    }
+    .composer button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error {
+      background: rgba(192,57,43,0.15); border: 1px solid var(--red);
+      color: #ffb0a6; padding: 1rem; border-radius: 6px; margin: 2rem;
+      text-align: center;
+    }
+    .empty { text-align: center; color: var(--text-3); font-size: 0.85rem; padding: 2rem; }
+    .archived-note {
+      background: var(--bg-3); padding: 0.7rem; text-align: center;
+      color: var(--text-3); font-size: 0.78rem; border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="hdr">
+    <div class="brand">CORTOBA ATELIER · ESPACE CLIENT</div>
+    <h1 id="projet-nom">Chargement…</h1>
+    <div class="sub" id="projet-sub"></div>
+  </div>
+  <div class="wrap" id="messages">
+    <div class="empty">Chargement…</div>
+  </div>
+  <div class="composer" id="composer" style="display:none">
+    <div class="composer-inner">
+      <label for="msg-input" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Votre message</label>
+      <textarea id="msg-input" placeholder="Votre message à l'équipe Cortoba…" rows="1" aria-label="Votre message à l'équipe Cortoba"></textarea>
+      <button id="send-btn">Envoyer</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var token  = params.get('token');
+  if (!token) {
+    document.body.innerHTML = '<div class="error">Lien invalide : token manquant.</div>';
+    return;
+  }
+  var lastMsgId = null;
+  var esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}); };
+  var initials = function(n){ if(!n)return '?'; var p=n.trim().split(/\s+/); return ((p[0]||'')[0]||'')+((p[1]||'')[0]||''); };
+  var fmtTime = function(iso){ if(!iso)return ''; try{ var d=new Date(iso.replace(' ','T')); return d.toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){return iso;} };
+  var clientName = null;
+
+  function load() {
+    fetch('api/chat.php?action=client_view&token='+encodeURIComponent(token))
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j.error) { showError(j.error); return; }
+        var d = j.data || j;
+        var room = d.room || {};
+        clientName = room.client_name || 'Client';
+        document.getElementById('projet-nom').textContent = (room.projet_code ? room.projet_code+' — ' : '') + (room.projet_nom || 'Projet');
+        document.getElementById('projet-sub').textContent = 'Phase : ' + (room.projet_phase || '—') + (room.client_name ? ' · Espace de ' + room.client_name : '');
+        render(d.messages || []);
+        if (!room.is_archived) {
+          document.getElementById('composer').style.display = 'flex';
+        } else {
+          document.getElementById('composer').style.display = 'none';
+          var note = document.createElement('div');
+          note.className = 'archived-note';
+          note.textContent = '🔒 Discussion clôturée — lecture seule.';
+          document.body.appendChild(note);
+        }
+      })
+      .catch(function(e){ showError('Erreur de chargement'); });
+  }
+  function render(messages) {
+    var wrap = document.getElementById('messages');
+    if (!messages.length) { wrap.innerHTML = '<div class="empty">Aucun message. Envoyez votre premier message ci-dessous.</div>'; return; }
+    var html = '';
+    messages.forEach(function(m){
+      if (m.kind === 'system') {
+        html += '<div class="system">'+esc(m.content||'')+'</div>';
+        return;
+      }
+      var mine = (m.sender_name === clientName) || m.sender_id === null;
+      // Attention : les messages du client ont sender_id NULL ; ceux de l'équipe sont remplis
+      mine = m.sender_id === null && (m.sender_name === clientName || m.sender_name === 'Client');
+      html += '<div class="msg'+(mine?' me':'')+'">';
+      html += '<div class="avatar">'+esc(initials(m.sender_name||''))+'</div>';
+      html += '<div>';
+      if (!mine) html += '<div class="sender">'+esc(m.sender_name||'')+'</div>';
+      html += '<div class="bubble">'+esc(m.content||'').replace(/\n/g,'<br>')+'</div>';
+      html += '<div class="time">'+fmtTime(m.cree_at)+'</div>';
+      html += '</div></div>';
+      lastMsgId = m.id;
+    });
+    wrap.innerHTML = html;
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+  function showError(msg) {
+    document.body.innerHTML = '<div class="error">'+esc(msg)+'</div>';
+  }
+
+  var input = document.getElementById('msg-input');
+  var btn   = document.getElementById('send-btn');
+  input.addEventListener('input', function(){
+    input.style.height = 'auto';
+    input.style.height = Math.min(120, input.scrollHeight) + 'px';
+  });
+  input.addEventListener('keydown', function(ev){
+    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); send(); }
+  });
+  btn.addEventListener('click', send);
+  function send() {
+    var text = (input.value||'').trim();
+    if (!text) return;
+    btn.disabled = true;
+    fetch('api/chat.php?action=client_send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, content: text })
+    }).then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j.error) { alert(j.error); }
+        else { input.value = ''; input.style.height = 'auto'; load(); }
+      })
+      .catch(function(){ alert('Erreur envoi'); })
+      .then(function(){ btn.disabled = false; });
+  }
+
+  load();
+  setInterval(load, 6000); // polling simple toutes les 6 s
+})();
+</script>
+</body>
+</html>
