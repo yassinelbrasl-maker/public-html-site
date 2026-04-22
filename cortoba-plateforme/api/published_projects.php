@@ -5,6 +5,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/../config/image_optimizer.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $pdo    = getDB();
@@ -193,6 +194,9 @@ if ($method === 'POST' && !empty($_FILES['image'])) {
     if (!move_uploaded_file($file['tmp_name'], $dest)) {
         jsonError('Erreur lors de l\'upload');
     }
+
+    // Same optimisation as the settings.html upload — keeps the public gallery fast.
+    optimizeImage($dest, ['max_width' => 1920, 'max_height' => 1920, 'quality' => 82]);
 
     jsonOk(['path' => '/img/Projets/published/' . $filename]);
 }
