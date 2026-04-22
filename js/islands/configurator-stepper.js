@@ -213,23 +213,21 @@ function Stepper() {
     return () => { cancelled = true; };
   }, [step]);
 
-  // ─── Indicateur visuel : pastille "Étape X / 6 · Label" en AnimatePresence ───
-  // (Purement React + framer-motion, valeur ajoutée visible de l'approche B)
+  // ─── Indicateur visuel : pastille "Étape X / 6 · Label" ───
+  // Animée par key-based remount (enter transition uniquement, pas d'exit ;
+  // mode="wait" de AnimatePresence peut se bloquer si l'onglet est throttlé).
   const label = STEP_LABELS[step] || '';
 
   return html`
     <div className="cfg-step-indicator-wrap">
-      <${AnimatePresence} mode="wait">
-        <${motion.div}
-          key=${step}
-          className="cfg-step-indicator-pill"
-          initial=${{ opacity: 0, y: -6 }}
-          animate=${{ opacity: 1, y: 0 }}
-          exit=${{ opacity: 0, y: 6 }}
-          transition=${{ duration: 0.25, ease: [0.22, 0.61, 0.36, 1] }}
-        >
-          Étape ${step} / 6 · ${label}
-        <//>
+      <${motion.div}
+        key=${step}
+        className="cfg-step-indicator-pill"
+        initial=${{ opacity: 0, y: -6 }}
+        animate=${{ opacity: 1, y: 0 }}
+        transition=${{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
+      >
+        Étape ${step} / 6 · ${label}
       <//>
     </div>
   `;
