@@ -3121,5 +3121,50 @@
     })();
   </script>
 
+  <!-- ═══ MOTION.DEV: login box entrance + section cross-fade ═══ -->
+  <!-- Panneau admin : Motion limité à 2 polissages sûrs —
+       (1) l'entrée de la login-box pré-auth, (2) un léger fade à chaque changement
+       de section dans la sidebar. Le toast et les transitions existantes ne sont
+       pas touchés. -->
+  <script type="module">
+  import { animate } from "https://cdn.jsdelivr.net/npm/motion@11.11.17/+esm";
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── (1) Login box entrance ──
+  const loginBox = document.querySelector('.login-screen .login-box');
+  if (loginBox && !reducedMotion) {
+    const loginScreen = document.getElementById('loginScreen');
+    // N'animer que si l'écran de login est effectivement visible (utilisateur non auth)
+    if (loginScreen && getComputedStyle(loginScreen).display !== 'none') {
+      loginBox.style.opacity = '0';
+      loginBox.style.transform = 'translateY(20px) scale(0.97)';
+      animate(loginBox,
+        { opacity: 1, y: 0, scale: 1 },
+        { duration: 0.8, delay: 0.15, easing: [0.22, 0.61, 0.36, 1] }
+      );
+    }
+  }
+
+  // ── (2) Section crossfade sur changement de sidebar ──
+  // On hook après le handler existant (même pile d'event listeners, ajout en second).
+  if (!reducedMotion) {
+    document.querySelectorAll('.sidebar-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Le handler existant a déjà basculé .section.active — on attend 1 frame
+        // puis on anime la nouvelle section entrante.
+        requestAnimationFrame(() => {
+          const active = document.querySelector('.section.active');
+          if (!active) return;
+          animate(active,
+            { opacity: [0.4, 1], y: [6, 0] },
+            { duration: 0.35, easing: 'ease-out' }
+          );
+        });
+      });
+    });
+  }
+  </script>
+
 </body>
 </html>
