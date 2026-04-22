@@ -1,0 +1,6 @@
+# This directory contains the in-progress React migration of cortobaarchitecture.com.
+# It is NOT the live site and must not be publicly accessible.
+# Once the migration is complete, the build output will be copied to the site root
+# and this folder will move to a build-only location (or be removed from deploy).
+Require all denied
+Options -Indexes

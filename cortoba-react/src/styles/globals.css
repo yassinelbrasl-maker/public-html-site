@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-feature-settings: "kern" 1;
+  }
+}
+
+@layer components {
+  /* Shared primitives migrated from the legacy style.css */
+  .cta-button {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-full
+           border border-gold text-gold bg-transparent
+           text-xs tracking-[0.15em] uppercase font-semibold
+           transition-colors hover:bg-gold hover:text-bg cursor-pointer;
+  }
+  .cta-button-primary {
+    @apply bg-gold text-bg hover:bg-gold-hover;
+  }
+  .section-h2 {
+    @apply font-serif font-light text-4xl md:text-5xl tracking-wide;
+  }
+  .intro-text {
+    @apply text-fg-muted text-sm md:text-base leading-relaxed max-w-prose;
+  }
+}

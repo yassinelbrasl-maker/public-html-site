@@ -1,0 +1,30 @@
+# Dependencies — not committed, installed via npm install
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build output — not committed, produced via npm run build
+dist/
+dist-ssr/
+*.local
+
+# TypeScript incremental build cache — regenerated each build
+*.tsbuildinfo
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
