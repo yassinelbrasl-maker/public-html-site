@@ -1806,6 +1806,7 @@
     function initFromExisting() {
       var imgs = track.querySelectorAll('img');
       if (imgs.length > 0) {
+        imgs[0].classList.add('active');
         total = imgs.length;
         buildDots();
         startAuto();
