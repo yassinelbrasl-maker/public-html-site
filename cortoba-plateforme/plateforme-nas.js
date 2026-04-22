@@ -10225,27 +10225,33 @@ function loadTaches(projetId) {
 function renderSuiviPage() {
   console.info('[renderSuiviPage] _suiviCache:', _suiviCache.length, 'éléments');
   var filterProjet   = document.getElementById('suivi-filter-projet').value;
+  var filterAnnee    = (document.getElementById('suivi-filter-annee')||{}).value || '';
   var filterStatut   = document.getElementById('suivi-filter-statut').value;
   var filterPriorite = document.getElementById('suivi-filter-priorite').value;
   var filterLocation = (document.getElementById('suivi-filter-location')||{}).value || '';
   var filterArchive  = (document.getElementById('suivi-filter-archive')||{}).value || 'actifs';
   var search = (document.getElementById('suivi-search').value || '').toLowerCase().trim();
 
+  // Bouton "effacer" dans la barre de recherche
+  var clearBtn = document.getElementById('suivi-search-clear');
+  if (clearBtn) clearBtn.style.display = search ? '' : 'none';
+
   // Index des projets archivés pour filtrage rapide
   var _archivedSet = {};
   getProjets().forEach(function(p) { if (_isArchivedProjet(p)) _archivedSet[p.id] = true; });
 
-  // Populate project select (une seule fois)
-  var selProjet = document.getElementById('suivi-filter-projet');
-  if (selProjet.options.length <= 1) {
-    getProjets().forEach(function(p) {
-      var opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = (p.code ? p.code + ' — ' : '') + p.nom;
-      selProjet.appendChild(opt);
-    });
-    if (filterProjet) selProjet.value = filterProjet;
-  }
+  // Peupler le filtre année (dynamique selon les projets existants)
+  populateSuiviAnneeFilter();
+
+  // Peupler le select "Tous les projets" avec regroupement par année
+  populateSuiviProjetFilter(filterAnnee);
+
+  // Index catégories (pour permettre la recherche par libellé de catégorie)
+  var _catMap = {};
+  try {
+    var _cats = (typeof getMissionCategories === 'function') ? getMissionCategories() : [];
+    _cats.forEach(function(c){ _catMap[c.id] = c.label || ''; });
+  } catch(e) {}
 
   // Filter tasks
   var filtered = _suiviCache.filter(function(t) {
@@ -10255,13 +10261,26 @@ function renderSuiviPage() {
     if (filterArchive === 'actifs'   && isArch) return false;
     if (filterArchive === 'archives' && !isArch) return false;
     if (filterProjet && pid !== filterProjet) return false;
+    if (filterAnnee) {
+      var yy = _extractProjetYear(t.projetCode, t.creeAt || t.cree_at);
+      if (String(yy) !== String(filterAnnee)) return false;
+    }
     if (filterStatut && t.statut !== filterStatut) return false;
     if (filterPriorite && t.priorite !== filterPriorite) return false;
     if (filterLocation && (t.location_type||'Bureau') !== filterLocation) return false;
     if (search) {
       var _ass = getTacheAssignees(t).join(' ');
-      var hay = ((t.titre||'') + ' ' + (t.description||'') + ' ' + _ass + ' ' + (t.projetNom||'')).toLowerCase();
-      if (hay.indexOf(search) === -1) return false;
+      var _catLabel = _catMap[t.categorie||''] || '';
+      var hay = [
+        t.titre||'', t.description||'', _ass,
+        t.projetNom||'', t.projetCode||'', t.projetClient||'',
+        t.location_type||'', t.location_zone||'', _catLabel,
+        t.statut||'', t.priorite||''
+      ].join(' ').toLowerCase();
+      // Recherche multi-mots : tous les tokens doivent être présents
+      var tokens = search.split(/\s+/).filter(Boolean);
+      var matchAll = tokens.every(function(w){ return hay.indexOf(w) !== -1; });
+      if (!matchAll) return false;
     }
     return true;
   });
@@ -10284,6 +10303,82 @@ function renderSuiviPage() {
     renderSuiviTree(filtered);
   }
 }
+
+// ── Filtres Suivi : peuplement du select année ──
+var _suiviAnneeInitDone = false;
+function populateSuiviAnneeFilter() {
+  var sel = document.getElementById('suivi-filter-annee'); if (!sel) return;
+  var current = sel.value;
+  var years = {};
+  // Extraire les années depuis toutes les tâches (via le code projet / date création)
+  _suiviCache.forEach(function(t) {
+    var y = _extractProjetYear(t.projetCode, t.creeAt || t.cree_at);
+    if (y) years[y] = 1;
+  });
+  // Ajouter aussi les années des projets (au cas où certains n'ont aucune mission)
+  getProjets().forEach(function(p) {
+    if (p.annee) years[p.annee] = 1;
+    var y2 = _extractProjetYear(p.code, p.creeAt || p.cree_at);
+    if (y2) years[y2] = 1;
+  });
+  var sorted = Object.keys(years).map(Number).sort(function(a,b){ return b - a; });
+  // Première ouverture : présélectionner l'année la plus récente
+  if (!_suiviAnneeInitDone && !current && sorted.length > 0) {
+    current = String(sorted[0]);
+    _suiviAnneeInitDone = true;
+  }
+  var html = '<option value="">Toutes les années</option>';
+  sorted.forEach(function(y){ html += '<option value="'+y+'"'+(String(y)===String(current)?' selected':'')+'>'+y+'</option>'; });
+  sel.innerHTML = html;
+  if (current) sel.value = current;
+}
+
+// ── Peuple le select "Tous les projets" en regroupant par année (optgroup) ──
+function populateSuiviProjetFilter(filterAnnee) {
+  var sel = document.getElementById('suivi-filter-projet'); if (!sel) return;
+  var current = sel.value;
+  // Regrouper par année
+  var groups = {};
+  getProjets().forEach(function(p) {
+    var y = p.annee || _extractProjetYear(p.code, p.creeAt || p.cree_at);
+    if (filterAnnee && String(y) !== String(filterAnnee)) return;
+    if (!groups[y]) groups[y] = [];
+    groups[y].push(p);
+  });
+  var years = Object.keys(groups).map(Number).sort(function(a,b){ return b - a; });
+  // Reconstruire les options
+  sel.innerHTML = '';
+  var optAll = document.createElement('option');
+  optAll.value = ''; optAll.textContent = 'Tous les projets';
+  sel.appendChild(optAll);
+  years.forEach(function(y) {
+    var og = document.createElement('optgroup');
+    og.label = 'Année ' + y + ' (' + groups[y].length + ')';
+    groups[y].sort(function(a,b){ return (a.code||'').localeCompare(b.code||''); });
+    groups[y].forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      var label = (p.code ? p.code + ' — ' : '') + (p.nom || '');
+      if (p.client) label += ' · ' + p.client;
+      opt.textContent = label;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+  // Restaurer la sélection si elle est toujours valide
+  if (current) {
+    var still = Array.prototype.slice.call(sel.options).some(function(o){ return o.value === current; });
+    sel.value = still ? current : '';
+  }
+}
+
+// ── Effacer la recherche Suivi ──
+function clearSuiviSearch() {
+  var inp = document.getElementById('suivi-search');
+  if (inp) { inp.value = ''; inp.focus(); }
+  renderSuiviPage();
+}
+window.clearSuiviSearch = clearSuiviSearch;
 
 // ── Statut badge helper ──
 function suiviStatutBadge(statut) {
@@ -10443,7 +10538,11 @@ function renderSuiviTree(items) {
 
   var html = '';
   yearsSorted.forEach(function(year){
-    html += '<div class="suivi-year-header" style="font-size:0.72rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);font-weight:600;padding:0.5rem 0.3rem;margin-top:0.8rem;border-bottom:1px solid var(--border)">▸ Année ' + year + ' <span style="color:var(--text-3);font-weight:400">(' + yearGroups[year].length + ' projet' + (yearGroups[year].length>1?'s':'') + ')</span></div>';
+    html += '<div class="suivi-year-header">'
+         +  '<span class="suivi-year-mark">'+year+'</span>'
+         +  '<span class="suivi-year-label">Année ' + year + '</span>'
+         +  '<span class="suivi-year-count">' + yearGroups[year].length + ' projet' + (yearGroups[year].length>1?'s':'') + '</span>'
+         +  '</div>';
     yearGroups[year].forEach(function(pid){
     var proj = projetMap[pid];
     var projItems = proj.items;
@@ -10455,14 +10554,24 @@ function renderSuiviTree(items) {
 
     var _projInfo = getProjets().find(function(x){ return x.id === pid; });
     var _isArch   = _isArchivedProjet(_projInfo);
+    // Nom du client (fallback si absent dans la tâche)
+    var clientName = proj.client || (_projInfo && _projInfo.client) || '';
     html += '<div class="suivi-projet-group' + (_isArch ? ' is-archived' : '') + '">';
     html += '<div class="suivi-projet-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">';
     html += '<div class="suivi-projet-left">';
     html += '<svg class="suivi-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
     html += '<span class="suivi-projet-code">' + (proj.code || '') + '</span>';
-    html += '<span class="suivi-projet-nom">' + proj.nom + '</span>';
+    html += '<span class="suivi-projet-nom">' + (proj.nom || '—') + '</span>';
     if (_isArch) html += '<span class="suivi-projet-archive-badge" title="Projet archivé">📦 Archivé</span>';
-    if (proj.client) html += '<span class="suivi-projet-client" style="font-size:0.75rem;color:var(--text-3);margin-left:0.5rem">— ' + proj.client + '</span>';
+    // Client mis en avant (pastille avec icône)
+    if (clientName) {
+      html += '<span class="suivi-projet-client" title="Client">'
+           +  '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+           +  '<span class="suivi-projet-client-name">' + clientName + '</span>'
+           +  '</span>';
+    } else {
+      html += '<span class="suivi-projet-client suivi-projet-client-empty" title="Client non renseigné">— client à renseigner —</span>';
+    }
     html += '</div>';
     html += '<div class="suivi-projet-right">';
     html += '<span class="suivi-projet-stats">' + done + '/' + totalTasks + '</span>';
@@ -11591,6 +11700,41 @@ function saveTache() {
   var titre = selectVisible
     ? (document.getElementById('tache-titre-select').value.trim() || document.getElementById('tache-mission-search').value.trim())
     : document.getElementById('tache-titre').value.trim();
+
+  // Auto-save du titre comme modèle réutilisable (niveau 1 = tâche, niveau 2 = sous-tâche)
+  // pour que chaque saisie enregistrée soit disponible lors de créations futures.
+  if (!id && titre) {
+    try {
+      if (niveau === 1) {
+        var tTypes = getTachesTypes();
+        var existsT = tTypes.some(function(x){ return (x.nom||'').toLowerCase() === titre.toLowerCase(); });
+        if (!existsT) {
+          // Rattacher à la mission parente si disponible
+          var pId = document.getElementById('tache-parent-id').value || '';
+          var missionIdForTT = null;
+          if (pId && typeof _suiviCache !== 'undefined') {
+            var parentMiss = _suiviCache.find(function(x){ return x.id === pId && x.niveau === 0; });
+            if (parentMiss) {
+              var mMatch = getMissions().find(function(m){ return m.nom === parentMiss.titre; });
+              if (mMatch) missionIdForTT = mMatch.id;
+            }
+          }
+          if (missionIdForTT) {
+            tTypes.push({ id: 'tt_' + Date.now(), mission_id: missionIdForTT, nom: titre });
+            saveSetting('cortoba_taches_types', tTypes);
+          }
+        }
+      } else if (niveau === 2) {
+        var pId2 = document.getElementById('tache-parent-id').value || '';
+        var parentTitre = '';
+        if (pId2 && typeof _suiviCache !== 'undefined') {
+          var parent = _suiviCache.find(function(x){ return x.id === pId2; });
+          if (parent) parentTitre = parent.titre || '';
+        }
+        addSousTacheType(parentTitre, titre);
+      }
+    } catch(_ttErr) { /* ne pas bloquer la sauvegarde si auto-save échoue */ }
+  }
   var projetId = document.getElementById('tache-projet').value;
   var errEl    = document.getElementById('tache-err');
 
@@ -12285,24 +12429,25 @@ _toggleTitreField = function(niveau, selectedValue) {
     if (labelEl) labelEl.textContent = 'Mission *';
     _populateMissionsSelect(selectedValue);
   } else if (niveau === 1) {
-    // Tâche → select tâches-types OU input libre
-    var tachesTypes = getTachesTypes();
-    if (tachesTypes.length > 0) {
-      fieldSelect.style.display = '';
-      fieldInput.style.display = 'none';
-      var labelEl = fieldSelect.querySelector('.form-label');
-      if (labelEl) labelEl.textContent = 'Tâche *';
-      _populateTachesTypesSelect(selectedValue);
-    } else {
-      fieldSelect.style.display = 'none';
-      fieldInput.style.display = '';
-      document.getElementById('tache-titre').value = selectedValue || '';
-    }
-  } else {
-    // Sous-tâche → input libre
+    // Tâche → select tâches-types + input libre (toujours visibles)
     fieldSelect.style.display = 'none';
     fieldInput.style.display = '';
-    document.getElementById('tache-titre').value = selectedValue || '';
+    var labelEl2 = fieldInput.querySelector('.form-label');
+    if (labelEl2) labelEl2.textContent = 'Tâche *';
+    var titreInp1 = document.getElementById('tache-titre');
+    if (titreInp1) titreInp1.placeholder = 'Ex: Vérification des plans — saisie libre ou modèle ci-dessus';
+    _populateTachesTypesInlineSelect(selectedValue);
+    if (titreInp1) titreInp1.value = selectedValue || '';
+  } else {
+    // Sous-tâche → select sous-tâches-types (réutilisables) + input libre
+    fieldSelect.style.display = 'none';
+    fieldInput.style.display = '';
+    var labelEl3 = fieldInput.querySelector('.form-label');
+    if (labelEl3) labelEl3.textContent = 'Sous-tâche *';
+    var titreInp2 = document.getElementById('tache-titre');
+    if (titreInp2) titreInp2.placeholder = 'Ex: Vérifier dimensions — saisie libre ou modèle ci-dessus';
+    _populateSousTachesTypesInlineSelect(selectedValue);
+    if (titreInp2) titreInp2.value = selectedValue || '';
   }
 };
 
@@ -12334,6 +12479,170 @@ function _populateTachesTypesSelect(selectedValue) {
   });
 
   if (selectedValue) sel.value = selectedValue;
+}
+
+// ── Select inline « modèles de tâches » (niveau 1) avec filtrage par mission parente ──
+function _populateTachesTypesInlineSelect(selectedValue) {
+  var sel = document.getElementById('tache-titre-type-select');
+  if (!sel) return;
+  var tachesTypes = getTachesTypes();
+  var missions = getMissions();
+  var cats = getMissionCategories();
+
+  // Identifier la mission parente si la tâche est créée sous une mission existante
+  var parentMissionId = null;
+  var parentId = (document.getElementById('tache-parent-id')||{}).value;
+  if (parentId && typeof _suiviCache !== 'undefined') {
+    var parentMission = _suiviCache.find(function(x){ return x.id === parentId && x.niveau === 0; });
+    if (parentMission) {
+      var mMatch = missions.find(function(m){ return m.nom === parentMission.titre; });
+      if (mMatch) parentMissionId = mMatch.id;
+    }
+  }
+
+  sel.innerHTML = '<option value="">— Choisir un modèle de tâche —</option>'
+                + '<option value="__add__">➕ Enregistrer la saisie comme nouveau modèle…</option>';
+  sel.onchange = function(){
+    if (sel.value === '__add__') {
+      sel.value = '';
+      openAddTacheTypeInline(1);
+      return;
+    }
+    var inp = document.getElementById('tache-titre');
+    if (inp && sel.value) inp.value = sel.value;
+  };
+
+  // Si parent connu : afficher d'abord les modèles de cette mission
+  if (parentMissionId) {
+    var m = missions.find(function(x){ return x.id === parentMissionId; });
+    var mTaches = tachesTypes.filter(function(t){ return t.mission_id === parentMissionId; });
+    if (m && mTaches.length) {
+      var cat = cats.find(function(c){ return c.id === m.cat; });
+      var og = document.createElement('optgroup');
+      og.label = '★ ' + (cat ? cat.label + ' › ' : '') + m.nom;
+      mTaches.forEach(function(t){
+        var opt = document.createElement('option');
+        opt.value = t.nom; opt.textContent = t.nom;
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    }
+  }
+
+  // Puis autres missions
+  missions.forEach(function(m) {
+    if (m.id === parentMissionId) return;
+    var mTaches = tachesTypes.filter(function(t) { return t.mission_id === m.id; });
+    if (mTaches.length === 0) return;
+    var cat = cats.find(function(c) { return c.id === m.cat; });
+    var og = document.createElement('optgroup');
+    og.label = (cat ? cat.label + ' › ' : '') + m.nom;
+    mTaches.forEach(function(t) {
+      var opt = document.createElement('option');
+      opt.value = t.nom; opt.textContent = t.nom;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+
+  if (selectedValue) {
+    // Regarde si une option correspond
+    var found = Array.prototype.slice.call(sel.options).some(function(o){ return o.value === selectedValue; });
+    if (found) sel.value = selectedValue;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SOUS-TÂCHES-TYPES — Catalogue réutilisable (niveau 2)
+// ═══════════════════════════════════════════════════════════
+
+function getSousTachesTypes() {
+  var t = getSetting('cortoba_sous_taches_types', []);
+  return Array.isArray(t) ? t : [];
+}
+
+function addSousTacheType(parentTitre, nom) {
+  var list = getSousTachesTypes();
+  // Dédoublonner (même parent + même nom)
+  var exists = list.find(function(x){
+    return (x.parent_titre||'').toLowerCase() === (parentTitre||'').toLowerCase()
+        && (x.nom||'').toLowerCase() === (nom||'').toLowerCase();
+  });
+  if (exists) return exists;
+  var entry = { id: 'st_' + Date.now(), parent_titre: parentTitre || '', nom: nom };
+  list.push(entry);
+  saveSetting('cortoba_sous_taches_types', list);
+  return entry;
+}
+window.addSousTacheType = addSousTacheType;
+
+function removeSousTacheType(id) {
+  if (!confirm('Supprimer ce modèle de sous-tâche ?')) return;
+  var list = getSousTachesTypes().filter(function(t) { return t.id !== id; });
+  saveSetting('cortoba_sous_taches_types', list);
+  showToast('Modèle supprimé');
+}
+window.removeSousTacheType = removeSousTacheType;
+
+// Select inline « modèles de sous-tâches » (niveau 2)
+function _populateSousTachesTypesInlineSelect(selectedValue) {
+  var sel = document.getElementById('tache-titre-type-select');
+  if (!sel) return;
+  var all = getSousTachesTypes();
+
+  // Identifier le titre de la tâche parente
+  var parentTitre = '';
+  var parentId = (document.getElementById('tache-parent-id')||{}).value;
+  if (parentId && typeof _suiviCache !== 'undefined') {
+    var parent = _suiviCache.find(function(x){ return x.id === parentId; });
+    if (parent) parentTitre = parent.titre || '';
+  }
+
+  sel.innerHTML = '<option value="">— Choisir un modèle de sous-tâche —</option>'
+                + '<option value="__add__">➕ Enregistrer la saisie comme nouveau modèle…</option>';
+  sel.onchange = function(){
+    if (sel.value === '__add__') {
+      sel.value = '';
+      openAddTacheTypeInline(2);
+      return;
+    }
+    var inp = document.getElementById('tache-titre');
+    if (inp && sel.value) inp.value = sel.value;
+  };
+
+  // Modèles liés au même parent en premier
+  var related = all.filter(function(x){ return (x.parent_titre||'').toLowerCase() === (parentTitre||'').toLowerCase(); });
+  var others  = all.filter(function(x){ return (x.parent_titre||'').toLowerCase() !== (parentTitre||'').toLowerCase(); });
+  if (related.length) {
+    var og = document.createElement('optgroup');
+    og.label = '★ Pour « ' + (parentTitre || 'cette tâche') + ' »';
+    related.forEach(function(t){
+      var opt = document.createElement('option');
+      opt.value = t.nom; opt.textContent = t.nom;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  }
+  if (others.length) {
+    // Grouper les autres par parent
+    var byParent = {};
+    others.forEach(function(t){ var k = t.parent_titre || '(sans parent)'; (byParent[k] = byParent[k] || []).push(t); });
+    Object.keys(byParent).sort().forEach(function(k){
+      var og2 = document.createElement('optgroup');
+      og2.label = k;
+      byParent[k].forEach(function(t){
+        var opt = document.createElement('option');
+        opt.value = t.nom; opt.textContent = t.nom;
+        og2.appendChild(opt);
+      });
+      sel.appendChild(og2);
+    });
+  }
+
+  if (selectedValue) {
+    var found = Array.prototype.slice.call(sel.options).some(function(o){ return o.value === selectedValue; });
+    if (found) sel.value = selectedValue;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -14607,44 +14916,127 @@ function onTacheTitreTypeChange(sel) {
   if (inp && sel.value) inp.value = sel.value;
 }
 
-function openAddTacheTypeInline() {
-  var selM = document.getElementById('add-tt-mission');
-  if (selM) {
-    selM.innerHTML = '';
-    var missions = getMissions();
-    missions.forEach(function(m){
-      var o = document.createElement('option');
-      o.value = m.id; o.textContent = m.nom;
-      selM.appendChild(o);
-    });
-    // Pré-sélectionner la mission du parent si niveau 1
-    var parentId = (document.getElementById('tache-parent-id')||{}).value;
-    if (parentId && typeof _suiviCache !== 'undefined') {
-      var parent = _suiviCache.find(function(x){ return x.id === parentId; });
-      if (parent) {
-        var mMatch = missions.find(function(m){ return m.nom === parent.titre; });
-        if (mMatch) selM.value = mMatch.id;
+function openAddTacheTypeInline(niveauArg) {
+  // Détecter le niveau : argument explicite, ou valeur du modal tâche courant
+  var niveau = (typeof niveauArg === 'number') ? niveauArg
+    : parseInt((document.getElementById('tache-niveau')||{}).value, 10);
+  if (isNaN(niveau)) niveau = 1;
+
+  // Pré-remplir le nom avec la saisie actuelle si présente
+  var currentTitre = ((document.getElementById('tache-titre')||{}).value || '').trim();
+
+  // Mémoriser le niveau dans le modal
+  var nivInput = document.getElementById('add-tt-niveau');
+  if (nivInput) nivInput.value = String(niveau);
+
+  var titleEl = document.getElementById('add-tt-title');
+  var kindEl  = document.getElementById('add-tt-kind-label');
+  var missionField = document.getElementById('add-tt-mission-field');
+  var parentField  = document.getElementById('add-tt-parent-field');
+  var nomLabel     = document.getElementById('add-tt-nom-label');
+
+  if (niveau === 2) {
+    // Sous-tâche
+    if (titleEl) titleEl.textContent = 'Nouveau modèle de sous-tâche';
+    if (kindEl)  kindEl.textContent  = 'sous-tâches';
+    if (nomLabel) nomLabel.textContent = 'Nom de la sous-tâche';
+    if (missionField) missionField.style.display = 'none';
+    if (parentField)  parentField.style.display  = '';
+
+    // Peupler le select "Tâche parente" avec les tâches-types existantes + option générique
+    var selP = document.getElementById('add-tt-parent');
+    if (selP) {
+      selP.innerHTML = '';
+      // Titre de la tâche parente (contexte courant)
+      var parentTitreCurrent = '';
+      var parentId = (document.getElementById('tache-parent-id')||{}).value;
+      if (parentId && typeof _suiviCache !== 'undefined') {
+        var parent = _suiviCache.find(function(x){ return x.id === parentId; });
+        if (parent) parentTitreCurrent = parent.titre || '';
+      }
+      // Option "contexte courant"
+      if (parentTitreCurrent) {
+        var optCtx = document.createElement('option');
+        optCtx.value = parentTitreCurrent;
+        optCtx.textContent = parentTitreCurrent + '  (tâche courante)';
+        selP.appendChild(optCtx);
+      }
+      // Tous les modèles de tâches uniques
+      var tTypes = getTachesTypes();
+      var seen = {};
+      tTypes.forEach(function(tt){
+        var n = tt.nom;
+        if (!n || seen[n.toLowerCase()]) return;
+        if (n === parentTitreCurrent) return;
+        seen[n.toLowerCase()] = 1;
+        var o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        selP.appendChild(o);
+      });
+      // Option libre « Générique »
+      var optGen = document.createElement('option');
+      optGen.value = ''; optGen.textContent = '— Générique (toutes tâches) —';
+      selP.appendChild(optGen);
+    }
+  } else {
+    // Tâche (niveau 1)
+    if (titleEl) titleEl.textContent = 'Nouveau modèle de tâche';
+    if (kindEl)  kindEl.textContent  = 'tâches';
+    if (nomLabel) nomLabel.textContent = 'Nom de la tâche';
+    if (missionField) missionField.style.display = '';
+    if (parentField)  parentField.style.display  = 'none';
+
+    var selM = document.getElementById('add-tt-mission');
+    if (selM) {
+      selM.innerHTML = '';
+      var missions = getMissions();
+      missions.forEach(function(m){
+        var o = document.createElement('option');
+        o.value = m.id; o.textContent = m.nom;
+        selM.appendChild(o);
+      });
+      // Pré-sélectionner la mission du parent si niveau 1
+      var parentId2 = (document.getElementById('tache-parent-id')||{}).value;
+      if (parentId2 && typeof _suiviCache !== 'undefined') {
+        var parent2 = _suiviCache.find(function(x){ return x.id === parentId2; });
+        if (parent2) {
+          var mMatch = missions.find(function(m){ return m.nom === parent2.titre; });
+          if (mMatch) selM.value = mMatch.id;
+        }
       }
     }
   }
-  var nomEl = document.getElementById('add-tt-nom'); if (nomEl) nomEl.value = '';
+  var nomEl = document.getElementById('add-tt-nom');
+  if (nomEl) nomEl.value = currentTitre || '';
   openModal('modal-add-tachetype');
+  setTimeout(function(){ if (nomEl) nomEl.focus(); }, 50);
 }
 
 function confirmAddTacheTypeInline() {
-  var missionId = (document.getElementById('add-tt-mission')||{}).value;
+  var niveau = parseInt((document.getElementById('add-tt-niveau')||{}).value, 10);
+  if (isNaN(niveau)) niveau = 1;
   var nom = ((document.getElementById('add-tt-nom')||{}).value || '').trim();
-  if (!missionId) { showToast('Mission requise', 'error'); return; }
   if (!nom) { showToast('Nom requis', 'error'); return; }
-  var list = getTachesTypes();
-  var newId = 'tt_' + Date.now();
-  list.push({ id: newId, mission_id: missionId, nom: nom });
-  saveSetting('cortoba_taches_types', list);
-  closeModal('modal-add-tachetype');
-  showToast('✓ Tâche-type ajoutée');
-  // Re-peupler le select courant et pré-sélectionner
-  try { _populateTachesTypesSelect(nom); } catch(e) {}
-  var inp = document.getElementById('tache-titre'); if (inp) inp.value = nom;
+
+  if (niveau === 2) {
+    var parentTitre = ((document.getElementById('add-tt-parent')||{}).value || '').trim();
+    addSousTacheType(parentTitre, nom);
+    closeModal('modal-add-tachetype');
+    showToast('✓ Modèle de sous-tâche enregistré');
+    try { _populateSousTachesTypesInlineSelect(nom); } catch(e) {}
+  } else {
+    var missionId = (document.getElementById('add-tt-mission')||{}).value;
+    if (!missionId) { showToast('Mission requise', 'error'); return; }
+    var list = getTachesTypes();
+    var newId = 'tt_' + Date.now();
+    list.push({ id: newId, mission_id: missionId, nom: nom });
+    saveSetting('cortoba_taches_types', list);
+    closeModal('modal-add-tachetype');
+    showToast('✓ Modèle de tâche enregistré');
+    try { _populateTachesTypesInlineSelect(nom); } catch(e) {}
+  }
+  var inp = document.getElementById('tache-titre');
+  if (inp) inp.value = nom;
 }
 
 // ═══════════════════════════════════════════════════════════════
