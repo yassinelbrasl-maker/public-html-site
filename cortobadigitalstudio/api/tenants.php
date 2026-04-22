@@ -224,6 +224,11 @@ function handleCreate() {
         jsonError('Creation du compte admin echouee : ' . $e->getMessage(), 500);
     }
 
+    // 4bis. Pre-remplir les settings du tenant avec son nom de société
+    //       (pour que la raison sociale s'affiche correctement dès le premier
+    //       accès, sans avoir besoin de passer par le guide d'onboarding)
+    seedTenantSettings($db, $dbPrefix, $company, $email);
+
     // 5. Enregistrer dans CDS_clients
     $now      = new DateTime();
     $expiresAt = (clone $now)->modify('+' . $days . ' days');
@@ -663,6 +668,10 @@ function copyDirRecursive(string $srcRoot, string $destRoot, string $rel,
             if ($relEntry === 'plateforme-nas.html') {
                 $content = applyTenantBranding($content, $company);
             }
+            // Nettoyer les valeurs par défaut codées en dur qui référencent
+            // Cortoba Architecture Studio / Midoun Djerba — s'applique à tous
+            // les fichiers texte (JS, PHP, HTML) pour que le tenant démarre vierge.
+            $content = applyTenantDefaultsCleanup($content, $company);
             if (@file_put_contents($dPath, $content) === false) {
                 $log['errors'][] = 'write ' . $relEntry;
                 continue;
@@ -713,6 +722,97 @@ function applyTenantBranding(string $html, string $company): string {
     );
 
     return $html;
+}
+
+// Pre-seed la table T_<SLUG>_settings avec le nom de société du tenant
+// (et son email admin) afin que le guide d'onboarding et les templates
+// de documents affichent des informations cohérentes dès le premier accès.
+function seedTenantSettings(PDO $db, string $dbPrefix, string $company, string $email): void {
+    // Créer la table settings si elle n'existe pas (le schema.sql ne la crée
+    // que lors du premier accès via api/settings.php — sécurité en double)
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS `{$dbPrefix}settings` (
+            `setting_key`   VARCHAR(120) NOT NULL PRIMARY KEY,
+            `setting_value` MEDIUMTEXT   NOT NULL,
+            `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                            ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (\Throwable $e) { /* silencieux */ }
+
+    $seed = [
+        'cortoba_agence_raison' => $company,
+        'cortoba_agence_email'  => $email,
+    ];
+
+    try {
+        $stmt = $db->prepare("INSERT IGNORE INTO `{$dbPrefix}settings` (setting_key, setting_value) VALUES (?, ?)");
+        foreach ($seed as $key => $value) {
+            if ($value === '' || $value === null) continue;
+            // On stocke toujours en chaîne simple (pas de JSON wrap pour les scalars)
+            $stmt->execute([$key, $value]);
+        }
+    } catch (\Throwable $e) { /* non-bloquant */ }
+}
+
+// Nettoie les valeurs par défaut codées en dur qui référencent
+// "Cortoba Architecture Studio" ou "Midoun, Djerba, Tunisie".
+// Objectif : à la création d'un nouveau tenant, les champs (cachet,
+// entête, adresse, raison sociale fallback…) démarrent vierges ou
+// pré-remplis avec le nom du client — jamais avec les infos Cortoba.
+function applyTenantDefaultsCleanup(string $content, string $company): string {
+    // Échappements pour les différents contextes (JS simple, JS double, HTML)
+    $jsSingle = str_replace(['\\', "'"], ['\\\\', "\\'"], $company);
+    $jsDouble = str_replace(['\\', '"'], ['\\\\', '\\"'], $company);
+    $htmlEsc  = htmlspecialchars($company, ENT_QUOTES, 'UTF-8');
+
+    // 1. Chaînes JS simple-quote : getSetting('key','Cortoba Architecture Studio')
+    $content = str_replace(
+        "'Cortoba Architecture Studio'",
+        "'" . $jsSingle . "'",
+        $content
+    );
+    // 2. Chaînes JS/HTML double-quote
+    $content = str_replace(
+        '"Cortoba Architecture Studio"',
+        '"' . $jsDouble . '"',
+        $content
+    );
+    // 3. Titres d'export (après tiret long ou court)
+    $content = str_replace('— Cortoba Architecture Studio', '— ' . $company, $content);
+    $content = str_replace('- Cortoba Architecture Studio',  '- ' . $company,  $content);
+    // 4. Copyright (published_projects.php)
+    $content = str_replace(
+        '&copy; 2026 Cortoba Architecture Studio',
+        '&copy; 2026 ' . $htmlEsc,
+        $content
+    );
+    // 5. Adresse hardcodée en fallback → vide (le tenant saisira la sienne)
+    $content = str_replace("'Midoun, Djerba, Tunisie'", "''", $content);
+    $content = str_replace('"Midoun, Djerba, Tunisie"', '""', $content);
+    // 5bis. URL QNAPCloud spécifique à Cortoba en fallback → vide
+    $content = str_replace(
+        "'https://www.myqnapcloud.com/smartshare/79e3hh7i5m13n741tx673995_d1731k4140o82pqur26146zbb4761i64'",
+        "''",
+        $content
+    );
+    // 6. Placeholders HTML des formulaires Paramètres
+    $content = str_replace(
+        'placeholder="Ex: Cortoba Architecture Studio"',
+        'placeholder="Votre agence"',
+        $content
+    );
+    $content = str_replace(
+        'placeholder="Cortoba Architecture Studio"',
+        'placeholder="Votre agence"',
+        $content
+    );
+    $content = str_replace(
+        'placeholder="Midoun, Djerba, Tunisie"',
+        'placeholder="Ville, pays"',
+        $content
+    );
+
+    return $content;
 }
 
 // Genere un db.php custom pour un tenant :
