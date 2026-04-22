@@ -51,7 +51,8 @@ const html = htm.bind(React.createElement);
     }
     .cfg-step-indicator-wrap {
       display: flex; justify-content: center;
-      margin-top: -1.5rem; margin-bottom: 0.5rem;
+      margin: 1.25rem auto 0.25rem;
+      padding: 0 2rem;
     }
   `;
   document.head.appendChild(s);
