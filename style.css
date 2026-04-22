@@ -2216,8 +2216,11 @@ footer {
 /* ── Respect reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   .slider-image,
-  .slider-track > .slider-image:nth-child(even) {
+  .slider-image.active,
+  .slider-track > .slider-image.active:nth-child(even) {
     animation: none !important;
+    transition: opacity 0.3s linear !important;
+    transform: none !important;
   }
   .reveal-up, .reveal-stagger {
     opacity: 1 !important;
