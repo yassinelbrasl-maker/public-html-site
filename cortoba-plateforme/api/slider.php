@@ -25,6 +25,7 @@ try {
     try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN position_x INT DEFAULT 50 AFTER fit_mode"); } catch (Exception $ignore) {}
     try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN position_y INT DEFAULT 50 AFTER position_x"); } catch (Exception $ignore) {}
     try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN zoom INT DEFAULT 100 AFTER position_y"); } catch (Exception $ignore) {}
+    try { $pdo->exec("ALTER TABLE " . DB_PREFIX . "slider_images ADD COLUMN animation_type VARCHAR(30) DEFAULT 'zoom-in' AFTER zoom"); } catch (Exception $ignore) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS " . DB_PREFIX . "slider_settings (
         id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,7 +57,11 @@ if ($method === 'POST') {
     $path = trim($d['image_path'] ?? '');
     if (!$path) jsonError('Chemin image requis');
 
-    $stmt = $pdo->prepare("INSERT INTO $table (image_path, alt_text, fit_mode, position_x, position_y, zoom, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $allowedAnim = ['none','zoom-in','zoom-out','pan-left','pan-right','pan-up','pan-down','drift'];
+    $anim = trim($d['animation_type'] ?? 'zoom-in');
+    if (!in_array($anim, $allowedAnim, true)) $anim = 'zoom-in';
+
+    $stmt = $pdo->prepare("INSERT INTO $table (image_path, alt_text, fit_mode, position_x, position_y, zoom, animation_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $path,
         trim($d['alt_text'] ?? ''),
@@ -64,6 +69,7 @@ if ($method === 'POST') {
         (int)($d['position_x'] ?? 50),
         (int)($d['position_y'] ?? 50),
         (int)($d['zoom'] ?? 100),
+        $anim,
         (int)($d['sort_order'] ?? 0)
     ]);
     jsonOk(['id' => $pdo->lastInsertId()], 201);
@@ -75,12 +81,21 @@ if ($method === 'PUT') {
     $id = (int)($d['id'] ?? 0);
     if (!$id) jsonError('ID requis');
 
+    $allowedAnim = ['none','zoom-in','zoom-out','pan-left','pan-right','pan-up','pan-down','drift'];
+
     $sets = ["image_path = ?", "alt_text = ?", "sort_order = ?"];
     $vals = [trim($d['image_path'] ?? ''), trim($d['alt_text'] ?? ''), (int)($d['sort_order'] ?? 0)];
-    foreach (['fit_mode' => 's', 'position_x' => 'i', 'position_y' => 'i', 'zoom' => 'i'] as $col => $type) {
+    foreach (['fit_mode' => 's', 'position_x' => 'i', 'position_y' => 'i', 'zoom' => 'i', 'animation_type' => 's'] as $col => $type) {
         if (isset($d[$col])) {
-            $sets[] = "$col = ?";
-            $vals[] = $type === 'i' ? (int)$d[$col] : trim($d[$col]);
+            if ($col === 'animation_type') {
+                $val = trim($d[$col]);
+                if (!in_array($val, $allowedAnim, true)) continue;
+                $sets[] = "$col = ?";
+                $vals[] = $val;
+            } else {
+                $sets[] = "$col = ?";
+                $vals[] = $type === 'i' ? (int)$d[$col] : trim($d[$col]);
+            }
         }
     }
     $vals[] = $id;

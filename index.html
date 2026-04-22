@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cortoba Architecture Studio</title>
-    <link rel="stylesheet" href="style.css?v=20260422b" />
+    <link rel="stylesheet" href="style.css?v=20260422d" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <style>
       /* RTL support for Arabic */
@@ -1204,7 +1204,6 @@
       <div class="hero-progress" aria-hidden="true">
         <div class="hero-progress-fill" id="heroProgressFill"></div>
       </div>
-      <div class="hero-scroll-indicator" aria-hidden="true"></div>
     </section>
 
     <section id="projects">
@@ -1821,6 +1820,7 @@
         if (!data.success || !data.data || data.data.length === 0) return;
 
         var fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
+        var allowedAnim = { 'none':1,'zoom-in':1,'zoom-out':1,'pan-left':1,'pan-right':1,'pan-up':1,'pan-down':1,'drift':1 };
         var html = '';
         data.data.forEach(function(s){
           var fit = fitMap[s.fit_mode || 'cover'] || 'cover';
@@ -1828,8 +1828,8 @@
           // so architectural roofs/tops stay in frame on wide viewports.
           var px = (s.position_x != null ? s.position_x : 50);
           var py = (s.position_y != null ? s.position_y : 40);
-          var zm = s.zoom || 100;
-          html += '<img src="' + s.image_path + '" class="slider-image" style="object-fit:' + fit + ';object-position:' + px + '% ' + py + '%" alt="' + (s.alt_text || 'Slide') + '">';
+          var anim = (s.animation_type && allowedAnim[s.animation_type]) ? s.animation_type : 'zoom-in';
+          html += '<img src="' + s.image_path + '" class="slider-image" data-anim="' + anim + '" style="object-fit:' + fit + ';object-position:' + px + '% ' + py + '%" alt="' + (s.alt_text || 'Slide') + '">';
         });
         track.innerHTML = html;
         total = data.data.length;

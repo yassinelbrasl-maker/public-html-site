@@ -1107,6 +1107,19 @@
             </div>
           </div>
           <div class="slide-ctrl-row">
+            <label>Animation</label>
+            <select id="slideAnimation" style="flex:1;padding:0.45rem 0.6rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.85rem">
+              <option value="zoom-in">Zoom avant (Ken Burns)</option>
+              <option value="zoom-out">Zoom arrière</option>
+              <option value="pan-left">Traveling ← gauche</option>
+              <option value="pan-right">Traveling → droite</option>
+              <option value="pan-up">Traveling ↑ haut</option>
+              <option value="pan-down">Traveling ↓ bas</option>
+              <option value="drift">Drift diagonal</option>
+              <option value="none">Aucune (statique)</option>
+            </select>
+          </div>
+          <div class="slide-ctrl-row">
             <label>Ordre</label>
             <input type="number" id="slideSortOrder" min="0" value="0" style="width:70px;padding:0.4rem 0.6rem;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.85rem" />
           </div>
@@ -2005,6 +2018,7 @@
       }
       empty.style.display = 'none';
       const fitLabels = { cover: 'Adapté', contain: 'Contenu', original: 'Original', fill: 'Étiré' };
+      const animLabels = { 'zoom-in': 'Zoom ↗', 'zoom-out': 'Zoom ↘', 'pan-left': 'Pan ←', 'pan-right': 'Pan →', 'pan-up': 'Pan ↑', 'pan-down': 'Pan ↓', 'drift': 'Drift', 'none': 'Statique' };
       list.innerHTML = sliderImages.map((s, i) => {
         const fm = s.fit_mode || 'cover';
         const fitMap = { cover: 'cover', contain: 'contain', original: 'none', fill: 'fill' };
@@ -2012,6 +2026,7 @@
         const posX = s.position_x ?? 50;
         const posY = s.position_y ?? 50;
         const zm = s.zoom ?? 100;
+        const anim = s.animation_type || 'zoom-in';
         return `
           <div class="slider-card" data-id="${s.id}" style="height:auto">
             <div style="position:relative;width:100%;height:150px;overflow:hidden">
@@ -2022,7 +2037,7 @@
               <button class="slider-card-btn del" onclick="deleteSliderImage(${s.id})" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
             </div>
             <div class="slider-card-order">${i + 1}</div>
-            <div style="padding:0.3rem 0.5rem;font-size:0.6rem;color:var(--text-muted);text-align:center">${fitLabels[fm] || fm} · ${zm}%</div>
+            <div style="padding:0.3rem 0.5rem;font-size:0.6rem;color:var(--text-muted);text-align:center">${fitLabels[fm] || fm} · ${zm}% · ${animLabels[anim] || anim}</div>
           </div>`;
       }).join('');
       renderSliderPreview();
@@ -2031,7 +2046,7 @@
     // ══════════════════════════════════════════
     //  SLIDER EDITOR
     // ══════════════════════════════════════════
-    let slideEditorState = { id: null, image_path: '', fit_mode: 'cover', position_x: 50, position_y: 50, zoom: 100, sort_order: 0, alt_text: '', isNew: false };
+    let slideEditorState = { id: null, image_path: '', fit_mode: 'cover', position_x: 50, position_y: 50, zoom: 100, animation_type: 'zoom-in', sort_order: 0, alt_text: '', isNew: false };
     let pendingUploads = []; // files waiting to be edited before publish
 
     function openSlideEditor(idOrNull) {
@@ -2043,7 +2058,7 @@
         // Edit existing
         const s = sliderImages.find(x => x.id == idOrNull);
         if (!s) return;
-        slideEditorState = { id: s.id, image_path: s.image_path, fit_mode: s.fit_mode || 'cover', position_x: parseInt(s.position_x) || 50, position_y: parseInt(s.position_y) || 50, zoom: parseInt(s.zoom) || 100, sort_order: parseInt(s.sort_order) || 0, alt_text: s.alt_text || '', isNew: false };
+        slideEditorState = { id: s.id, image_path: s.image_path, fit_mode: s.fit_mode || 'cover', position_x: parseInt(s.position_x) || 50, position_y: parseInt(s.position_y) || 50, zoom: parseInt(s.zoom) || 100, animation_type: s.animation_type || 'zoom-in', sort_order: parseInt(s.sort_order) || 0, alt_text: s.alt_text || '', isNew: false };
         document.getElementById('slideEditorTitle').textContent = 'Modifier l\'image';
         saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer';
       } else {
@@ -2060,6 +2075,8 @@
       document.getElementById('slidePosY').value = slideEditorState.position_y;
       document.getElementById('slidePosYVal').textContent = slideEditorState.position_y + '%';
       document.getElementById('slideSortOrder').value = slideEditorState.sort_order;
+      const animSel = document.getElementById('slideAnimation');
+      if (animSel) animSel.value = slideEditorState.animation_type || 'zoom-in';
       document.querySelectorAll('.se-fit').forEach(b => b.classList.toggle('active', b.dataset.mode === slideEditorState.fit_mode));
       updateSlideEditorPreview();
       backdrop.classList.add('open');
@@ -2103,6 +2120,14 @@
         updateSlideEditorPreview();
       });
     });
+
+    // Animation type in editor
+    const slideAnimEl = document.getElementById('slideAnimation');
+    if (slideAnimEl) {
+      slideAnimEl.addEventListener('change', function() {
+        slideEditorState.animation_type = this.value;
+      });
+    }
 
     // Drag to reposition in editor
     (function() {
@@ -2168,7 +2193,7 @@
           const res = await fetch(SLIDER_API, {
             method: 'POST',
             headers: headers(),
-            body: JSON.stringify({ image_path: s.image_path, alt_text: s.alt_text, fit_mode: s.fit_mode, position_x: s.position_x, position_y: s.position_y, zoom: s.zoom, sort_order: s.sort_order })
+            body: JSON.stringify({ image_path: s.image_path, alt_text: s.alt_text, fit_mode: s.fit_mode, position_x: s.position_x, position_y: s.position_y, zoom: s.zoom, animation_type: s.animation_type, sort_order: s.sort_order })
           });
           const data = await res.json();
           if (!data.success) throw new Error(data.error);
@@ -2178,7 +2203,7 @@
           const res = await fetch(SLIDER_API, {
             method: 'PUT',
             headers: headers(),
-            body: JSON.stringify({ id: s.id, image_path: s.image_path, alt_text: s.alt_text, sort_order: s.sort_order, fit_mode: s.fit_mode, position_x: s.position_x, position_y: s.position_y, zoom: s.zoom })
+            body: JSON.stringify({ id: s.id, image_path: s.image_path, alt_text: s.alt_text, sort_order: s.sort_order, fit_mode: s.fit_mode, position_x: s.position_x, position_y: s.position_y, zoom: s.zoom, animation_type: s.animation_type })
           });
           const data = await res.json();
           if (!data.success) throw new Error(data.error);
@@ -2236,7 +2261,7 @@
     function processNextUpload() {
       if (pendingUploads.length === 0) return;
       const next = pendingUploads.shift();
-      slideEditorState = { id: null, image_path: next.image_path, fit_mode: 'cover', position_x: 50, position_y: 50, zoom: 100, sort_order: next.sort_order, alt_text: '', isNew: true };
+      slideEditorState = { id: null, image_path: next.image_path, fit_mode: 'cover', position_x: 50, position_y: 50, zoom: 100, animation_type: 'zoom-in', sort_order: next.sort_order, alt_text: '', isNew: true };
       openSlideEditor(null);
     }
 
