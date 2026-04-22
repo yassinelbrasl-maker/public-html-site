@@ -1273,11 +1273,15 @@
         </div>
 
         <!-- Filtres -->
-        <div style="display:flex;gap:0.7rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
-          <div style="position:relative;flex:1;min-width:220px">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="suivi-search" class="form-input" style="padding-left:2.2rem;width:100%;box-sizing:border-box" placeholder="Rechercher une mission, tâche…" oninput="renderSuiviPage()" />
+        <div class="suivi-filters-bar">
+          <div class="suivi-search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="suivi-search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="suivi-search" class="form-input suivi-search-input" placeholder="Rechercher : projet, client, code, assigné, lieu…" oninput="renderSuiviPage()" />
+            <button type="button" id="suivi-search-clear" class="suivi-search-clear" title="Effacer" onclick="clearSuiviSearch()" style="display:none">&times;</button>
           </div>
+          <select id="suivi-filter-annee" class="form-select" style="width:auto;min-width:120px" onchange="renderSuiviPage()" title="Filtrer par année">
+            <option value="">Toutes les années</option>
+          </select>
           <select id="suivi-filter-projet" class="form-select" style="width:auto;min-width:180px" onchange="renderSuiviPage()">
             <option value="">Tous les projets</option>
           </select>
@@ -1289,11 +1293,11 @@
             <option value="">Toutes priorités</option>
             <option>Urgente</option><option>Haute</option><option>Normale</option><option>Basse</option>
           </select>
-          <select id="suivi-filter-location" class="form-select" style="width:auto;min-width:140px" onchange="renderSuiviPage()">
+          <select id="suivi-filter-location" class="form-select" style="width:auto;min-width:130px" onchange="renderSuiviPage()">
             <option value="">Tous lieux</option>
             <option>Bureau</option><option>Chantier</option><option>Administration</option>
           </select>
-          <select id="suivi-filter-archive" class="form-select" style="width:auto;min-width:160px" onchange="renderSuiviPage()" title="Afficher les projets archivés">
+          <select id="suivi-filter-archive" class="form-select" style="width:auto;min-width:150px" onchange="renderSuiviPage()" title="Afficher les projets archivés">
             <option value="actifs">Projets actifs</option>
             <option value="archives">Projets archivés</option>
             <option value="tous">Actifs + archivés</option>
@@ -1302,7 +1306,7 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             Mes déplacements
           </button>
-          <span id="suivi-count" style="font-size:0.78rem;color:var(--text-3);white-space:nowrap;margin-left:auto"></span>
+          <span id="suivi-count" class="suivi-count-pill"></span>
         </div>
 
         <!-- Vue liste (défaut) -->
@@ -4802,21 +4806,27 @@
   </div>
 </div>
 
-<!-- ══ Modal ajout rapide tâche-type (inline) ══ -->
+<!-- ══ Modal ajout rapide tâche-type / sous-tâche-type (inline) ══ -->
 <div class="modal-overlay" id="modal-add-tachetype">
   <div class="modal" style="max-width:420px">
     <div class="modal-header">
-      <h2 class="modal-title">Nouvelle tâche-type</h2>
+      <h2 class="modal-title" id="add-tt-title">Nouvelle tâche-type</h2>
       <button class="modal-close" onclick="closeModal('modal-add-tachetype')">&times;</button>
     </div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:0.7rem">
-      <div class="form-field">
+      <input type="hidden" id="add-tt-niveau" value="1" />
+      <div class="form-field" id="add-tt-mission-field">
         <label class="form-label">Mission parente</label>
         <select id="add-tt-mission" class="form-select"></select>
       </div>
+      <div class="form-field" id="add-tt-parent-field" style="display:none">
+        <label class="form-label">Tâche parente</label>
+        <select id="add-tt-parent" class="form-select"></select>
+      </div>
       <div class="form-field">
-        <label class="form-label">Nom de la tâche-type</label>
+        <label class="form-label" id="add-tt-nom-label">Nom de la tâche-type</label>
         <input id="add-tt-nom" class="form-input" placeholder="Ex: Vérification des plans" />
+        <div style="font-size:0.7rem;color:var(--text-3);margin-top:0.3rem">Ce modèle sera réutilisable lors de la création de futures <span id="add-tt-kind-label">tâches</span>.</div>
       </div>
     </div>
     <div class="modal-footer">
