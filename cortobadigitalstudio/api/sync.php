@@ -65,10 +65,16 @@ function handleRun() {
     // Chemins relatifs (depuis la racine de l'instance) a ne JAMAIS ecraser
     $protected = [
         'config/db.php',           // Config BDD independante
+        'config/trial_guard.php',  // Garde d'expiration des tenants
         'settings.html',           // Page de gestion commerciale
         'api/sync.php',            // Cette API
+        'api/tenants.php',         // API gestion des tenants (essais)
+        'api/migrate.php',         // API migration vers nouveau domaine
         '.htaccess',               // Routing local
     ];
+
+    // Dossiers du source a ignorer (tenants/exports specifiques a l'instance)
+    $skipDirs = ['c', 'exports'];
 
     // Fichiers du source a ignorer (residus d'install/dev)
     $skipFiles = [
@@ -92,7 +98,7 @@ function handleRun() {
 
     $stats = ['copied' => 0, 'skipped' => 0, 'log' => []];
 
-    syncDirectory($sourceRoot, $destRoot, '', $protected, $skipFiles, $replacements, $textExt, $stats);
+    syncDirectory($sourceRoot, $destRoot, '', $protected, $skipFiles, $skipDirs, $replacements, $textExt, $stats);
 
     // Enregistrer la date de derniere synchro
     try {
@@ -122,9 +128,16 @@ function handleRun() {
 // ──────────────────────────────────────────────────────────────
 //  Parcourt recursivement $sourceDir et copie vers $destDir
 // ──────────────────────────────────────────────────────────────
-function syncDirectory($sourceRoot, $destRoot, $relPath, $protected, $skipFiles, $replacements, $textExt, &$stats) {
+function syncDirectory($sourceRoot, $destRoot, $relPath, $protected, $skipFiles, $skipDirs, $replacements, $textExt, &$stats) {
     $sourceDir = $sourceRoot . ($relPath ? '/' . $relPath : '');
     $destDir   = $destRoot   . ($relPath ? '/' . $relPath : '');
+
+    // Ignorer les dossiers proteges de l'instance (tenants, exports)
+    if ($relPath !== '' && in_array($relPath, $skipDirs, true)) {
+        $stats['skipped']++;
+        $stats['log'][] = 'dossier protege : ' . $relPath;
+        return;
+    }
 
     if (!is_dir($destDir)) {
         if (!@mkdir($destDir, 0755, true)) {
@@ -148,7 +161,7 @@ function syncDirectory($sourceRoot, $destRoot, $relPath, $protected, $skipFiles,
         $relEntryLow = strtolower($relEntry);
 
         if (is_dir($sourcePath)) {
-            syncDirectory($sourceRoot, $destRoot, $relEntry, $protected, $skipFiles, $replacements, $textExt, $stats);
+            syncDirectory($sourceRoot, $destRoot, $relEntry, $protected, $skipFiles, $skipDirs, $replacements, $textExt, $stats);
             continue;
         }
 
