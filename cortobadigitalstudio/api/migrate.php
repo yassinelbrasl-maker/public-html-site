@@ -132,7 +132,7 @@ function handlePrepare() {
         'zip_file'      => $zipName,
         'zip_key'       => $key,
         'size_bytes'    => $size,
-        'size_mb'       => round($size / 1048576, 2),
+        'size_mb'       => (float) number_format($size / 1048576, 2, '.', ''),
         'download_url'  => 'api/migrate.php?action=download&slug=' . rawurlencode($slug) . '&key=' . $key,
         'duration_ms'   => (int) round((microtime(true) - $started) * 1000)
     ]);
@@ -214,7 +214,7 @@ function handleListPackages() {
     }
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) {
-        $r['size_mb']      = round(((int)$r['size_bytes']) / 1048576, 2);
+        $r['size_mb']      = (float) number_format(((int)$r['size_bytes']) / 1048576, 2, '.', '');
         $r['download_url'] = 'api/migrate.php?action=download&slug=' . rawurlencode($r['slug']) . '&key=' . $r['zip_key'];
     }
     jsonOk($rows);
