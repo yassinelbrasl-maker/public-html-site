@@ -7009,6 +7009,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ══════════════════════════════════
      ONBOARDING WIZARD — Guide de première mise en marche
+     Permet de remplir les paramètres directement dans le guide
 ══════════════════════════════════ -->
 <style>
   #onboarding-wizard {
@@ -7020,14 +7021,14 @@ document.addEventListener('DOMContentLoaded', function() {
   #onboarding-wizard.open { display: flex; }
   @keyframes ob-fade { from { opacity: 0 } to { opacity: 1 } }
   .ob-card {
-    width: 100%; max-width: 560px; background: #141414;
+    width: 100%; max-width: 620px; max-height: 92vh; background: #141414;
     border: 1px solid #2a2a2a; border-radius: 10px;
     box-shadow: 0 24px 60px rgba(0,0,0,0.5);
     color: #e8e8e8; font-family: -apple-system, "Segoe UI", sans-serif;
-    overflow: hidden;
+    overflow: hidden; display: flex; flex-direction: column;
   }
   .ob-progress {
-    display: flex; gap: 4px; padding: 14px 22px 0;
+    display: flex; gap: 4px; padding: 14px 22px 0; flex-shrink: 0;
   }
   .ob-progress span {
     flex: 1; height: 3px; background: #2a2a2a; border-radius: 2px;
@@ -7036,7 +7037,7 @@ document.addEventListener('DOMContentLoaded', function() {
   .ob-progress span.done   { background: #c8a96e; }
   .ob-progress span.active { background: #c8a96e; opacity: .55; }
   .ob-head {
-    padding: 18px 22px 10px;
+    padding: 18px 22px 10px; flex-shrink: 0;
     border-bottom: 1px solid #1e1e1e;
   }
   .ob-eyebrow {
@@ -7047,15 +7048,45 @@ document.addEventListener('DOMContentLoaded', function() {
     margin: 6px 0 0; font-size: 18px; font-weight: 400; color: #f1f1f1;
   }
   .ob-body {
-    padding: 20px 22px; line-height: 1.55; font-size: 14px; color: #c8c8c8;
+    padding: 18px 22px; line-height: 1.55; font-size: 14px; color: #c8c8c8;
+    overflow-y: auto; flex: 1;
   }
-  .ob-body p { margin: 0 0 10px; }
-  .ob-body ul { margin: 6px 0 0 18px; padding: 0; color: #b4b4b4; }
-  .ob-body li { margin: 4px 0; }
-  .ob-body strong { color: #e8e8e8; font-weight: 500; }
+  .ob-intro { margin: 0 0 14px; }
+  .ob-intro p { margin: 0 0 8px; }
+  .ob-intro ul { margin: 6px 0 0 18px; padding: 0; color: #b4b4b4; }
+  .ob-intro li { margin: 4px 0; }
+  .ob-intro strong { color: #e8e8e8; font-weight: 500; }
+
+  .ob-form { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 14px; }
+  .ob-field { display: flex; flex-direction: column; gap: 4px; }
+  .ob-field.full { grid-column: 1 / -1; }
+  .ob-field label {
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: #999; font-weight: 500;
+  }
+  .ob-field input, .ob-field textarea, .ob-field select {
+    background: #0e0e0e; border: 1px solid #2a2a2a; border-radius: 5px;
+    padding: 9px 11px; color: #e8e8e8; font-size: 13px;
+    font-family: inherit; transition: border-color .15s, background .15s;
+    width: 100%; box-sizing: border-box;
+  }
+  .ob-field input:focus, .ob-field textarea:focus, .ob-field select:focus {
+    outline: none; border-color: #c8a96e; background: #161616;
+  }
+  .ob-field-hint {
+    font-size: 11px; color: #777; margin-top: 2px;
+  }
+  .ob-msg {
+    margin-top: 12px; padding: 9px 12px; border-radius: 5px; font-size: 12.5px;
+    display: none;
+  }
+  .ob-msg.ok    { display: block; background: rgba(120,180,110,0.12); color: #9ad494; border: 1px solid rgba(120,180,110,0.35); }
+  .ob-msg.err   { display: block; background: rgba(220,100,100,0.12); color: #eba5a5; border: 1px solid rgba(220,100,100,0.35); }
+  .ob-msg.info  { display: block; background: rgba(200,169,110,0.10); color: #e5cf9b; border: 1px solid rgba(200,169,110,0.3); }
+
   .ob-foot {
-    display: flex; gap: 10px; flex-wrap: wrap;
-    padding: 14px 22px 18px; border-top: 1px solid #1e1e1e;
+    display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
+    padding: 13px 22px 17px; border-top: 1px solid #1e1e1e;
     align-items: center;
   }
   .ob-btn {
@@ -7063,9 +7094,11 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 9px 16px; border-radius: 5px; cursor: pointer;
     font-size: 13px; font-weight: 500; border: 1px solid #2a2a2a;
     background: #1a1a1a; color: #d8d8d8; letter-spacing: .02em;
-    transition: background .15s, border-color .15s;
+    transition: background .15s, border-color .15s, opacity .15s;
+    font-family: inherit;
   }
-  .ob-btn:hover { background: #222; border-color: #383838; }
+  .ob-btn:hover  { background: #222; border-color: #383838; }
+  .ob-btn:disabled { opacity: .5; cursor: not-allowed; }
   .ob-btn.primary {
     background: #c8a96e; border-color: #c8a96e; color: #0e0e0e;
     font-weight: 600;
@@ -7078,10 +7111,15 @@ document.addEventListener('DOMContentLoaded', function() {
   .ob-skip-all {
     margin-left: auto; font-size: 12px; color: #777;
     background: none; border: none; cursor: pointer; padding: 6px 8px;
-    letter-spacing: .03em;
+    letter-spacing: .03em; font-family: inherit;
   }
   .ob-skip-all:hover { color: #c8a96e; text-decoration: underline; }
   .ob-counter { font-size: 11px; color: #666; margin-left: 4px; }
+
+  @media (max-width: 560px) {
+    .ob-form { grid-template-columns: 1fr; }
+    .ob-field.full { grid-column: auto; }
+  }
 </style>
 
 <div id="onboarding-wizard" role="dialog" aria-modal="true" aria-labelledby="ob-title">
@@ -7095,7 +7133,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="ob-foot">
       <button class="ob-btn" type="button" id="ob-prev">← Retour</button>
       <button class="ob-btn ghost" type="button" id="ob-skip-step">Passer cette étape</button>
-      <button class="ob-btn primary" type="button" id="ob-next">Suivant →</button>
+      <button class="ob-btn primary" type="button" id="ob-next">Enregistrer et continuer →</button>
       <button class="ob-skip-all" type="button" id="ob-skip-all">Ignorer le guide</button>
       <span class="ob-counter" id="ob-counter"></span>
     </div>
@@ -7104,60 +7142,93 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 (function() {
-  // ── Étapes du guide de première mise en marche ──
-  // Chaque étape : title, body (HTML), et optionnellement action(=bouton "Aller voir")
+  // ════════════════════════════════════════════════════════════════
+  //  Étapes du guide — chaque étape peut contenir des champs éditables
+  //  qui seront sauvegardés via saveSetting() (appels API settings.php)
+  //  ou via l'API dédiée (ex: change_password).
+  // ════════════════════════════════════════════════════════════════
+  //
+  //  Format :
+  //    { eyebrow, title, intro:html,
+  //      fields:[{name, label, type, placeholder, hint, full:bool, required:bool}],
+  //      onSave: function(data) => Promise  (optionnel — sinon saveSetting par champ)
+  //    }
+  //
+  //  Si `settingKey` est défini sur un champ, la valeur est mappée
+  //  vers ce paramètre via saveSetting().
+  //
   var OB_STEPS = [
     {
       eyebrow: 'Bienvenue',
       title: 'Votre plateforme est prête',
-      body: '<p>Ce court guide vous accompagne pour <strong>configurer votre plateforme</strong> en quelques minutes.</p>'
-          + '<p>Vous pouvez passer une étape ou ignorer tout le guide à tout moment. Vous le retrouverez plus tard via le menu Paramètres si besoin.</p>'
+      intro: '<p>Ce court guide vous accompagne pour <strong>configurer votre plateforme</strong> en quelques minutes. '
+           + 'Vous remplirez chaque paramètre directement ici.</p>'
+           + '<p>Vous pouvez passer une étape ou ignorer tout le guide à tout moment. Vous le retrouverez plus tard via le menu Paramètres si besoin.</p>'
     },
     {
-      eyebrow: 'Étape 1 — Paramètres',
-      title: 'Informations de l\'agence',
-      body: '<p>Renseignez les informations qui apparaîtront sur vos devis, factures et documents :</p>'
-          + '<ul><li><strong>Raison sociale</strong>, email pro, téléphone</li>'
-          + '<li><strong>Matricule fiscal</strong> et numéro CNOA</li>'
-          + '<li>Adresse de l\'agence</li></ul>',
-      action: { label: 'Ouvrir Paramètres → Agence', target: 'agence' }
+      eyebrow: 'Étape 1 — Informations de l\'agence',
+      title: 'Identité de votre agence',
+      intro: '<p>Ces informations apparaîtront sur vos <strong>devis, factures et documents</strong>.</p>',
+      fields: [
+        { name:'raison',  label:'Raison sociale',   type:'text',  placeholder:'Ex: Cortoba Architecture Studio', settingKey:'cortoba_agence_raison', full:true },
+        { name:'email',   label:'Email pro',        type:'email', placeholder:'contact@exemple.com',            settingKey:'cortoba_agence_email' },
+        { name:'tel',     label:'Téléphone',        type:'tel',   placeholder:'+216 XX XXX XXX',                 settingKey:'cortoba_agence_tel' },
+        { name:'adresse', label:'Adresse',          type:'text',  placeholder:'Ville, pays',                    settingKey:'cortoba_agence_adresse', full:true },
+        { name:'mf',      label:'Matricule fiscal', type:'text',  placeholder:'MF-XXXXXXX',                     settingKey:'cortoba_agence_mf' },
+        { name:'cnoa',    label:'Numéro CNOA',      type:'text',  placeholder:'XX/XXXX',                         settingKey:'cortoba_agence_cnoa' }
+      ]
     },
     {
-      eyebrow: 'Étape 2 — Paramètres',
-      title: 'Sécurité & accès',
-      body: '<p>Changez immédiatement le <strong>mot de passe administrateur</strong> temporaire reçu par email.</p>'
-          + '<p>Vous pourrez ensuite ajouter vos collaborateurs dans la section Équipe.</p>',
-      action: { label: 'Ouvrir Paramètres → Sécurité', target: 'securite' }
+      eyebrow: 'Étape 2 — Sécurité',
+      title: 'Mot de passe administrateur',
+      intro: '<p>Pour votre sécurité, remplacez dès maintenant le <strong>mot de passe temporaire</strong> reçu par email.</p>',
+      fields: [
+        { name:'pass1', label:'Nouveau mot de passe',  type:'password', placeholder:'••••••••', hint:'Minimum 6 caractères', full:true },
+        { name:'pass2', label:'Confirmer le mot de passe', type:'password', placeholder:'••••••••', full:true }
+      ],
+      onSave: function(data) {
+        var p1 = (data.pass1 || '').trim();
+        var p2 = (data.pass2 || '').trim();
+        // Si les deux sont vides => on considère l'étape ignorée, pas d'erreur
+        if (!p1 && !p2) return Promise.resolve({skipped: true});
+        if (!p1)            return Promise.reject(new Error('Saisissez un nouveau mot de passe.'));
+        if (p1.length < 6)  return Promise.reject(new Error('Le mot de passe doit faire au moins 6 caractères.'));
+        if (p1 !== p2)      return Promise.reject(new Error('Les deux mots de passe ne correspondent pas.'));
+        if (typeof apiFetch !== 'function') return Promise.reject(new Error('API indisponible.'));
+        return apiFetch('api/auth.php?action=change_password', {method:'POST', body:{password: p1}})
+          .then(function(){ return {ok:true, message:'Mot de passe mis à jour'}; });
+      }
     },
     {
-      eyebrow: 'Étape 3 — Paramètres',
-      title: 'Équipe & taux horaires',
-      body: '<p>Définissez les <strong>taux horaires standards</strong> (facturation et coût agence) utilisés pour calculer la marge et le bénéfice généré.</p>'
-          + '<p>Ajoutez ensuite vos collaborateurs, leurs profils, taux individuels et droits d\'accès.</p>',
-      action: { label: 'Ouvrir Paramètres → Équipe', target: 'equipe' }
+      eyebrow: 'Étape 3 — Équipe & taux',
+      title: 'Taux horaires standards',
+      intro: '<p>Ces <strong>taux</strong> servent à calculer la marge nette et le bénéfice généré dans le module Rendement, '
+           + 'quand un collaborateur n\'a pas de taux individuel défini.</p>',
+      fields: [
+        { name:'fact', label:'Taux facturation (TND/h)', type:'number', placeholder:'Ex: 60', settingKey:'rendement_taux_facturation_std', step:'0.001', min:'0', hint:'Prix vendu au client par heure facturable.' },
+        { name:'cout', label:'Coût horaire agence (TND/h)', type:'number', placeholder:'Ex: 25', settingKey:'rendement_taux_cout_std',        step:'0.001', min:'0', hint:'Coût interne moyen d\'une heure de collaborateur.' }
+      ]
     },
     {
-      eyebrow: 'Étape 4 — Paramètres',
-      title: 'Projets & listes déroulantes',
-      body: '<p>Personnalisez les <strong>types de bâtiment</strong>, missions, tâches-types et livrables utilisés dans vos projets.</p>'
-          + '<p>Ces éléments alimentent le configurateur, les devis et le module Suivi.</p>',
-      action: { label: 'Ouvrir Paramètres → Projets', target: 'projets' }
-    },
-    {
-      eyebrow: 'Étape 5 — Paramètres',
-      title: 'Serveur NAS (optionnel)',
-      body: '<p>Si vous disposez d\'un serveur NAS, connectez-le pour <strong>centraliser les fichiers projet</strong> et synchroniser les livrables.</p>'
-          + '<p>Cette étape peut être faite plus tard.</p>',
-      action: { label: 'Ouvrir Paramètres → NAS', target: 'nas' }
+      eyebrow: 'Étape 4 — Facturation',
+      title: 'Coordonnées bancaires',
+      intro: '<p>Facultatif — ces informations apparaîtront au bas de vos <strong>factures</strong>.</p>',
+      fields: [
+        { name:'rib',       label:'RIB',               type:'text', placeholder:'XX XXX XXXXXXXXXXXX XX', settingKey:'cortoba_rib', full:true },
+        { name:'banque',    label:'Banque',            type:'text', placeholder:'Nom de la banque',       settingKey:'cortoba_banque' },
+        { name:'mentions',  label:'Mentions légales',  type:'textarea', placeholder:'Ex: TVA applicable selon régime réel…', settingKey:'cortoba_fa_mentions', full:true }
+      ]
     },
     {
       eyebrow: 'Terminé',
       title: 'Vous êtes prêt·e',
-      body: '<p>Votre plateforme est configurée. Vous pouvez maintenant :</p>'
-          + '<ul><li>Créer votre <strong>premier projet</strong> depuis le menu Projets</li>'
-          + '<li>Inviter vos <strong>collaborateurs</strong> dans Équipe</li>'
-          + '<li>Générer des <strong>devis et factures</strong></li></ul>'
-          + '<p>Bonne utilisation&nbsp;!</p>'
+      intro: '<p>Votre plateforme est configurée. Vous pouvez maintenant :</p>'
+           + '<ul><li>Créer votre <strong>premier projet</strong> depuis le menu Projets</li>'
+           + '<li>Inviter vos <strong>collaborateurs</strong> dans Équipe (Paramètres → Équipe)</li>'
+           + '<li>Personnaliser les <strong>listes et missions</strong> (Paramètres → Projets)</li>'
+           + '<li>Connecter votre <strong>serveur NAS</strong> (Paramètres → NAS)</li>'
+           + '<li>Générer vos premiers <strong>devis et factures</strong></li></ul>'
+           + '<p>Bonne utilisation&nbsp;!</p>'
     }
   ];
 
@@ -7165,11 +7236,12 @@ document.addEventListener('DOMContentLoaded', function() {
   var OB_DISMISS_KEY = 'cortoba_onboarding_dismissed_v1';
   var _obStep = 0;
   var _obShownThisSession = false;
+  var _obSaving = false;
 
-  function obGetElement(id) { return document.getElementById(id); }
+  function obEl(id) { return document.getElementById(id); }
 
   function obRenderProgress() {
-    var pr = obGetElement('ob-progress');
+    var pr = obEl('ob-progress');
     if (!pr) return;
     pr.innerHTML = '';
     for (var i = 0; i < OB_STEPS.length; i++) {
@@ -7180,82 +7252,187 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  function obEscapeAttr(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function obGetFieldValue(f) {
+    // Pré-remplir depuis getSetting() si disponible
+    try {
+      if (f.settingKey && typeof getSetting === 'function') {
+        var v = getSetting(f.settingKey, '');
+        return v == null ? '' : String(v);
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  function obRenderForm(step) {
+    if (!step.fields || !step.fields.length) return '';
+    var rows = step.fields.map(function(f) {
+      var id = 'ob-f-' + f.name;
+      var cls = 'ob-field' + (f.full ? ' full' : '');
+      var val = obEscapeAttr(obGetFieldValue(f));
+      var commonAttrs = 'id="' + id + '" name="' + f.name + '" placeholder="' + obEscapeAttr(f.placeholder || '') + '"';
+      var input;
+      if (f.type === 'textarea') {
+        input = '<textarea ' + commonAttrs + ' rows="3">' + val + '</textarea>';
+      } else {
+        var extra = '';
+        if (f.step != null) extra += ' step="' + obEscapeAttr(f.step) + '"';
+        if (f.min  != null) extra += ' min="'  + obEscapeAttr(f.min)  + '"';
+        if (f.type === 'password') extra += ' autocomplete="new-password"';
+        input = '<input type="' + (f.type || 'text') + '" ' + commonAttrs + ' value="' + val + '"' + extra + '>';
+      }
+      return '<div class="' + cls + '">'
+           + '<label for="' + id + '">' + obEscapeAttr(f.label) + '</label>'
+           + input
+           + (f.hint ? '<div class="ob-field-hint">' + obEscapeAttr(f.hint) + '</div>' : '')
+           + '</div>';
+    }).join('');
+    return '<form class="ob-form" id="ob-form" onsubmit="return false">' + rows + '</form>'
+         + '<div class="ob-msg" id="ob-msg"></div>';
+  }
+
   function obRender() {
     var step = OB_STEPS[_obStep];
     if (!step) { obFinish(); return; }
 
-    obGetElement('ob-eyebrow').textContent = step.eyebrow || '';
-    obGetElement('ob-title').textContent   = step.title || '';
-    var body = obGetElement('ob-body');
-    body.innerHTML = step.body || '';
+    obEl('ob-eyebrow').textContent = step.eyebrow || '';
+    obEl('ob-title').textContent   = step.title || '';
 
-    // Bouton action optionnel (aller sur Paramètres > tab)
-    if (step.action) {
-      var actBtn = document.createElement('button');
-      actBtn.className = 'ob-btn';
-      actBtn.type = 'button';
-      actBtn.style.marginTop = '8px';
-      actBtn.textContent = step.action.label;
-      actBtn.onclick = function() {
-        obGoToParamTab(step.action.target);
-      };
-      body.appendChild(actBtn);
-    }
+    var body = obEl('ob-body');
+    body.innerHTML = (step.intro ? '<div class="ob-intro">' + step.intro + '</div>' : '')
+                   + obRenderForm(step);
 
-    // Boutons footer : configurer selon position
-    var prev = obGetElement('ob-prev');
-    var next = obGetElement('ob-next');
-    var skip = obGetElement('ob-skip-step');
-    var cnt  = obGetElement('ob-counter');
+    // Footer buttons
+    var prev = obEl('ob-prev');
+    var next = obEl('ob-next');
+    var skip = obEl('ob-skip-step');
+    var cnt  = obEl('ob-counter');
 
     prev.style.visibility = (_obStep === 0) ? 'hidden' : 'visible';
 
-    if (_obStep === OB_STEPS.length - 1) {
+    var isFirst = (_obStep === 0);
+    var isLast  = (_obStep === OB_STEPS.length - 1);
+    var hasFields = !!(step.fields && step.fields.length);
+
+    if (isLast) {
       next.textContent = 'Terminer';
       skip.style.display = 'none';
+    } else if (hasFields) {
+      next.textContent = 'Enregistrer et continuer →';
+      skip.style.display = 'inline-flex';
     } else {
       next.textContent = 'Suivant →';
-      // Masquer "Passer cette étape" sur la première et la dernière étape
-      skip.style.display = (_obStep === 0) ? 'none' : 'inline-flex';
+      skip.style.display = isFirst ? 'none' : 'inline-flex';
     }
 
     cnt.textContent = (_obStep + 1) + ' / ' + OB_STEPS.length;
+    _obSaving = false;
+    next.disabled = false;
 
     obRenderProgress();
   }
 
-  function obGoToParamTab(tab) {
-    // Affiche Paramètres puis active le bon onglet
-    try {
-      if (typeof showPage === 'function') showPage('parametres');
-      setTimeout(function() {
-        if (typeof switchParamTab === 'function') {
-          // Chercher le bouton du tab correspondant
-          var btn = document.querySelector('.param-tab[data-param-tab="' + tab + '"]');
-          if (btn) switchParamTab(tab, btn);
-        }
-      }, 80);
-    } catch (e) {}
+  function obCollect(step) {
+    var data = {};
+    if (!step.fields) return data;
+    step.fields.forEach(function(f) {
+      var el = document.getElementById('ob-f-' + f.name);
+      data[f.name] = el ? (el.value != null ? String(el.value).trim() : '') : '';
+    });
+    return data;
   }
 
-  function obOpen() {
-    var ov = obGetElement('onboarding-wizard');
-    if (!ov) return;
-    _obStep = 0;
-    _obShownThisSession = true;
-    ov.classList.add('open');
-    obRender();
+  function obShowMsg(kind, text) {
+    var m = obEl('ob-msg');
+    if (!m) return;
+    m.className = 'ob-msg ' + kind;
+    m.textContent = text;
   }
 
-  function obClose(persist) {
-    var ov = obGetElement('onboarding-wizard');
-    if (ov) ov.classList.remove('open');
-    if (persist) {
-      try { localStorage.setItem(OB_STORAGE_KEY, new Date().toISOString()); } catch (e) {}
+  function obSaveAndNext() {
+    var step = OB_STEPS[_obStep];
+    if (!step) return;
+
+    // Étape d'intro ou de fin : passer directement
+    if (!step.fields || !step.fields.length) {
+      return obGoNext();
     }
+
+    if (_obSaving) return;
+    var data = obCollect(step);
+
+    // Callback personnalisé ?
+    if (typeof step.onSave === 'function') {
+      _obSaving = true;
+      obEl('ob-next').disabled = true;
+      obShowMsg('info', 'Enregistrement…');
+      Promise.resolve(step.onSave(data))
+        .then(function(res) {
+          if (res && res.skipped) { obShowMsg('info', 'Étape ignorée.'); }
+          else                    { obShowMsg('ok',   '✓ ' + ((res && res.message) || 'Enregistré.')); }
+          setTimeout(obGoNext, 450);
+        })
+        .catch(function(err) {
+          _obSaving = false;
+          obEl('ob-next').disabled = false;
+          obShowMsg('err', '⚠ ' + (err && err.message ? err.message : 'Erreur lors de l\'enregistrement.'));
+        });
+      return;
+    }
+
+    // Sauvegarde par settingKey
+    var promises = [];
+    var saveCount = 0;
+    step.fields.forEach(function(f) {
+      if (!f.settingKey) return;
+      var val = data[f.name];
+      // Convertir les champs numériques
+      if (f.type === 'number') {
+        val = (val === '' || val == null) ? 0 : parseFloat(val);
+        if (isNaN(val)) val = 0;
+      }
+      // Ne pas écraser une valeur existante avec une chaîne vide
+      if (val === '' && (typeof getSetting === 'function') && getSetting(f.settingKey, '')) return;
+      if (typeof saveSetting !== 'function') return;
+      saveCount++;
+      promises.push(saveSetting(f.settingKey, val));
+    });
+
+    if (saveCount === 0) {
+      // Rien à enregistrer — on considère ça comme "passer"
+      obShowMsg('info', 'Aucun changement, on passe à la suite.');
+      setTimeout(obGoNext, 300);
+      return;
+    }
+
+    _obSaving = true;
+    obEl('ob-next').disabled = true;
+    obShowMsg('info', 'Enregistrement…');
+
+    Promise.all(promises).then(function(results) {
+      var errs = (results || []).filter(function(r){ return r && r.error; });
+      if (errs.length) {
+        obShowMsg('err', '⚠ ' + errs.length + ' erreur(s) côté serveur (enregistrement local conservé).');
+        _obSaving = false;
+        obEl('ob-next').disabled = false;
+        // Continuer quand même après un court délai
+        setTimeout(obGoNext, 1500);
+      } else {
+        obShowMsg('ok', '✓ Paramètres enregistrés.');
+        setTimeout(obGoNext, 450);
+      }
+      // Si l'UI Paramètres est visible, mettre à jour ses champs aussi
+      try { if (typeof loadAgenceParams === 'function') loadAgenceParams(); } catch(e){}
+      try { if (typeof loadRendementParams === 'function') loadRendementParams(); } catch(e){}
+    });
   }
 
-  function obNext() {
+  function obGoNext() {
     if (_obStep < OB_STEPS.length - 1) {
       _obStep++;
       obRender();
@@ -7265,24 +7442,44 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function obPrev() {
+    if (_obSaving) return;
     if (_obStep > 0) {
       _obStep--;
       obRender();
     }
   }
 
-  function obSkipStep() { obNext(); }
+  function obSkipStep() {
+    if (_obSaving) return;
+    obGoNext();
+  }
 
   function obSkipAll() {
+    if (_obSaving) return;
     try { localStorage.setItem(OB_DISMISS_KEY, new Date().toISOString()); } catch (e) {}
     obClose(true);
   }
 
-  function obFinish() {
-    obClose(true);
+  function obOpen() {
+    var ov = obEl('onboarding-wizard');
+    if (!ov) return;
+    _obStep = 0;
+    _obShownThisSession = true;
+    ov.classList.add('open');
+    obRender();
   }
 
-  // Point d'entrée — à appeler après connexion
+  function obClose(persist) {
+    var ov = obEl('onboarding-wizard');
+    if (ov) ov.classList.remove('open');
+    if (persist) {
+      try { localStorage.setItem(OB_STORAGE_KEY, new Date().toISOString()); } catch (e) {}
+    }
+  }
+
+  function obFinish() { obClose(true); }
+
+  // ── Point d'entrée — à appeler après connexion ──
   window.maybeShowOnboarding = function() {
     if (_obShownThisSession) return;
     var done, dismissed;
@@ -7291,11 +7488,11 @@ document.addEventListener('DOMContentLoaded', function() {
       dismissed = localStorage.getItem(OB_DISMISS_KEY);
     } catch (e) { done = null; dismissed = null; }
     if (done || dismissed) return;
-    // Petit délai pour laisser le dashboard s'afficher d'abord
-    setTimeout(obOpen, 900);
+    // Laisser le dashboard et les settings s'afficher d'abord
+    setTimeout(obOpen, 1100);
   };
 
-  // Permet de relancer manuellement le guide (ex: bouton "Revoir le guide")
+  // Permet de relancer manuellement le guide
   window.openOnboarding = function() {
     try {
       localStorage.removeItem(OB_STORAGE_KEY);
@@ -7304,13 +7501,13 @@ document.addEventListener('DOMContentLoaded', function() {
     obOpen();
   };
 
-  // Branchements des boutons
+  // ── Branchements ──
   document.addEventListener('DOMContentLoaded', function() {
-    var next = obGetElement('ob-next');
-    var prev = obGetElement('ob-prev');
-    var skip = obGetElement('ob-skip-step');
-    var all  = obGetElement('ob-skip-all');
-    if (next) next.addEventListener('click', obNext);
+    var next = obEl('ob-next');
+    var prev = obEl('ob-prev');
+    var skip = obEl('ob-skip-step');
+    var all  = obEl('ob-skip-all');
+    if (next) next.addEventListener('click', obSaveAndNext);
     if (prev) prev.addEventListener('click', obPrev);
     if (skip) skip.addEventListener('click', obSkipStep);
     if (all)  all.addEventListener('click',  obSkipAll);
@@ -7324,7 +7521,6 @@ document.addEventListener('DOMContentLoaded', function() {
         window.maybeShowOnboarding();
       }
     };
-    // Vérifier périodiquement pendant les 20 premières secondes
     var n = 0;
     var t = setInterval(function() {
       tryStart();
