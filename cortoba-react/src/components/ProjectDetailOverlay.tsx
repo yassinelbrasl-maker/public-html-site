@@ -66,12 +66,13 @@ export function ProjectDetailOverlay({ project, onClose }: Props) {
             projet, de la première esquisse à la remise des clés.
           </p>
           <div className="mt-8 flex gap-4">
-            <a
-              href={`/projet-${project.slug}`}
+            <Link
+              to={`/projet-${project.slug}`}
               className="cta-button cta-button-primary"
+              onClick={onClose}
             >
               Voir le projet complet →
-            </a>
+            </Link>
             <button onClick={onClose} className="cta-button">
               Fermer
             </button>
