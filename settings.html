@@ -1637,12 +1637,67 @@
       document.getElementById('confirmDialog').classList.remove('open');
     }
 
+    // ── Client-side pre-optimisation ──
+    // Phone photos are often 4000-6000px and 8-20 MB. We shrink them in the
+    // browser before upload: saves bandwidth, avoids PHP upload_max_filesize
+    // limits, and keeps the server-side pass cheap. The server re-optimises
+    // anyway as a safety net.
+    const CLIENT_MAX_DIM = 2400;    // a bit larger than server cap to keep headroom
+    const CLIENT_JPEG_Q  = 0.85;
+    const CLIENT_SKIP_UNDER = 600 * 1024; // don't bother recompressing small files
+
+    function prepareImageForUpload(file) {
+      return new Promise((resolve) => {
+        if (!file || !file.type || !file.type.startsWith('image/')) return resolve(file);
+        // GIF/SVG/AVIF: leave as-is, canvas re-encoding would lose animation / fail.
+        if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) return resolve(file);
+        if (file.size < CLIENT_SKIP_UNDER) return resolve(file);
+
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const { width: w, height: h } = img;
+          const scale = Math.min(CLIENT_MAX_DIM / w, CLIENT_MAX_DIM / h, 1);
+          const newW = Math.max(1, Math.round(w * scale));
+          const newH = Math.max(1, Math.round(h * scale));
+
+          // If dimensions are already small and file is PNG (might have alpha), skip.
+          if (scale === 1 && file.type === 'image/png') {
+            URL.revokeObjectURL(url);
+            return resolve(file);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = newW;
+          canvas.height = newH;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, newW, newH);
+          URL.revokeObjectURL(url);
+
+          // Keep PNG if the source had transparency potential, else re-encode to JPEG.
+          const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          const outQ    = outType === 'image/jpeg' ? CLIENT_JPEG_Q : undefined;
+
+          canvas.toBlob((blob) => {
+            if (!blob || blob.size >= file.size) return resolve(file);
+            const ext = outType === 'image/png' ? '.png' : '.jpg';
+            const baseName = (file.name || 'image').replace(/\.[^.]+$/, '');
+            const optimised = new File([blob], baseName + ext, { type: outType, lastModified: Date.now() });
+            resolve(optimised);
+          }, outType, outQ);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+      });
+    }
+
     // ── Image upload with progress ──
-    function uploadImageWithProgress(file, onProgress) {
+    async function uploadImageWithProgress(file, onProgress) {
+      const prepared = await prepareImageForUpload(file);
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         const form = new FormData();
-        form.append('image', file);
+        form.append('image', prepared);
 
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable && onProgress) {

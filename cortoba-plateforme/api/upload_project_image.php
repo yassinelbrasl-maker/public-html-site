@@ -4,6 +4,7 @@
 // ============================================================
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/../config/image_optimizer.php';
 
 $user = requireAdmin();
 
@@ -35,4 +36,15 @@ if (!move_uploaded_file($file['tmp_name'], $dest)) {
     jsonError("Erreur lors de l'enregistrement du fichier");
 }
 
-jsonOk(['path' => '/img/Projets/published/' . $filename]);
+// Auto-optimise the uploaded image so the public site loads fast.
+// Slider, hero and gallery images are rendered at most full-width on desktop,
+// so 1920px is plenty and cuts 10 MB phone photos to ~300 KB.
+$opt = optimizeImage($dest, ['max_width' => 1920, 'max_height' => 1920, 'quality' => 82]);
+
+jsonOk([
+    'path'      => '/img/Projets/published/' . $filename,
+    'optimized' => $opt['ok'],
+    'width'     => $opt['width'],
+    'height'    => $opt['height'],
+    'size'      => $opt['after'] ?: ($opt['before'] ?: null),
+]);

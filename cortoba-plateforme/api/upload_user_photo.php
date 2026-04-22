@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 require_once __DIR__ . '/../config/middleware.php';
+require_once __DIR__ . '/../config/image_optimizer.php';
 
 requireAuth();
 
@@ -31,6 +32,9 @@ if (!empty($_FILES['image'])) {
     $dest = $uploadDir . $filename;
     if (!move_uploaded_file($file['tmp_name'], $dest)) jsonError("Erreur d'enregistrement");
 
+    // Team avatars are shown at ~160px max — 512px is more than enough.
+    optimizeImage($dest, array('max_width' => 512, 'max_height' => 512, 'quality' => 85));
+
     jsonOk(array('path' => '/img/equipe/' . $filename));
 }
 
@@ -49,6 +53,9 @@ if (!empty($body['dataUrl'])) {
     $filename = 'user_' . uniqid() . '.' . $ext;
     $dest = $uploadDir . $filename;
     if (file_put_contents($dest, $bin) === false) jsonError("Erreur d'enregistrement");
+
+    // Same cap as the multipart branch — crop dataURL can still be huge.
+    optimizeImage($dest, array('max_width' => 512, 'max_height' => 512, 'quality' => 85));
 
     jsonOk(array('path' => '/img/equipe/' . $filename));
 }
