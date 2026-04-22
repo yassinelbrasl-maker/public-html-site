@@ -166,7 +166,7 @@ function handleCreate() {
     // 2. Copier les fichiers depuis la racine de l'instance
     $copyLog = ['copied' => 0, 'errors' => []];
     try {
-        copyInstanceToTenant($instanceRoot, $tenantDir, $slug, $dbPrefix, $copyLog);
+        copyInstanceToTenant($instanceRoot, $tenantDir, $slug, $dbPrefix, $company, $copyLog);
         // Creer index.php bootstrap (trial_guard avant servir plateforme-nas.html)
         $indexPhp = buildTenantIndexPhp($slug);
         @file_put_contents($tenantDir . '/index.php', $indexPhp);
@@ -561,7 +561,7 @@ function cleanupTenantDir(string $dir): void {
 }
 
 // Copie les fichiers de l'instance commerciale vers le dossier tenant
-function copyInstanceToTenant(string $srcRoot, string $destRoot, string $slug, string $dbPrefix, array &$log) {
+function copyInstanceToTenant(string $srcRoot, string $destRoot, string $slug, string $dbPrefix, string $company, array &$log) {
     // Fichiers/dossiers a ne JAMAIS copier dans un tenant
     $skipNames = [
         'c',                   // dossier des tenants (eviter recursion)
@@ -576,12 +576,12 @@ function copyInstanceToTenant(string $srcRoot, string $destRoot, string $slug, s
         'sync.php',            // pas de synchro dans un tenant
     ];
 
-    copyDirRecursive($srcRoot, $destRoot, '', $skipNames, $skipApi, $slug, $dbPrefix, $log);
+    copyDirRecursive($srcRoot, $destRoot, '', $skipNames, $skipApi, $slug, $dbPrefix, $company, $log);
 }
 
 function copyDirRecursive(string $srcRoot, string $destRoot, string $rel,
                           array $skipNames, array $skipApi,
-                          string $slug, string $dbPrefix, array &$log) {
+                          string $slug, string $dbPrefix, string $company, array &$log) {
     $srcDir  = $srcRoot  . ($rel ? '/' . $rel : '');
     $destDir = $destRoot . ($rel ? '/' . $rel : '');
 
@@ -603,7 +603,7 @@ function copyDirRecursive(string $srcRoot, string $destRoot, string $rel,
 
         if (is_dir($sPath)) {
             // Ne pas copier settings.html : laisser au tenant la page minimale
-            copyDirRecursive($srcRoot, $destRoot, $relEntry, $skipNames, $skipApi, $slug, $dbPrefix, $log);
+            copyDirRecursive($srcRoot, $destRoot, $relEntry, $skipNames, $skipApi, $slug, $dbPrefix, $company, $log);
             continue;
         }
 
@@ -615,7 +615,7 @@ function copyDirRecursive(string $srcRoot, string $destRoot, string $rel,
 
         if ($relEntry === 'config/db.php') {
             // Ecrire un db.php custom qui inclut le trial_guard
-            $custom = buildTenantDbConfig($slug, $dbPrefix);
+            $custom = buildTenantDbConfig($slug, $dbPrefix, $company);
             if (@file_put_contents($dPath, $custom) === false) {
                 $log['errors'][] = 'config/db.php';
                 continue;
@@ -658,6 +658,11 @@ function copyDirRecursive(string $srcRoot, string $destRoot, string $rel,
                 'cortobadigitalstudio/c/' . $slug . '/',
                 $content
             );
+            // Rebranding spécifique à la plateforme principale (plateforme-nas.html)
+            // Remplace les mentions "Cortoba Atelier" / "Cortoba Architecture" par le nom du client
+            if ($relEntry === 'plateforme-nas.html') {
+                $content = applyTenantBranding($content, $company);
+            }
             if (@file_put_contents($dPath, $content) === false) {
                 $log['errors'][] = 'write ' . $relEntry;
                 continue;
@@ -673,12 +678,50 @@ function copyDirRecursive(string $srcRoot, string $destRoot, string $rel,
     closedir($dh);
 }
 
+// Applique le rebranding du tenant au contenu HTML principal (plateforme-nas.html)
+// Remplace "Cortoba Atelier" / "Cortoba Architecture" par le nom du client
+function applyTenantBranding(string $html, string $company): string {
+    // Version sans caracteres dangereux pour HTML
+    $htmlSafe = htmlspecialchars($company, ENT_QUOTES, 'UTF-8');
+
+    // 1. Titre de la page
+    $html = preg_replace(
+        '#<title>Cortoba Atelier\s*—\s*Espace Privé</title>#u',
+        '<title>' . $htmlSafe . ' — Espace Privé</title>',
+        $html
+    );
+
+    // 2. Wordmark de l'ecran de login
+    $html = preg_replace(
+        '#<div class="wordmark">Cortoba Architecture</div>#',
+        '<div class="wordmark">' . $htmlSafe . '</div>',
+        $html
+    );
+
+    // 3. Sous-titre de l'ecran de login
+    $html = preg_replace(
+        '#<div class="sub">Espace Atelier\s*—\s*Accès privé</div>#u',
+        '<div class="sub">Plateforme — Accès privé</div>',
+        $html
+    );
+
+    // 4. Wordmark de l'app (en haut a gauche) — remplace "CORTOBA × Atelier"
+    $html = preg_replace(
+        '#<div class="app-wordmark">CORTOBA\s*<span>×</span>\s*Atelier</div>#u',
+        '<div class="app-wordmark" title="' . $htmlSafe . '">' . $htmlSafe . '</div>',
+        $html
+    );
+
+    return $html;
+}
+
 // Genere un db.php custom pour un tenant :
 //  - utilise le prefixe T_<SLUG>_
 //  - verifie l'expiration de l'essai a chaque requete via trial_guard
-function buildTenantDbConfig(string $slug, string $dbPrefix): string {
-    $slugEsc   = addslashes($slug);
-    $prefixEsc = addslashes($dbPrefix);
+function buildTenantDbConfig(string $slug, string $dbPrefix, string $company = ''): string {
+    $slugEsc    = addslashes($slug);
+    $prefixEsc  = addslashes($dbPrefix);
+    $companyEsc = addslashes($company !== '' ? $company : $slug);
     return <<<PHP
 <?php
 // ============================================================
@@ -699,11 +742,13 @@ define('JWT_EXPIRY', 86400 * 7);
 
 define('ADMIN_EMAIL', '');
 
-define('INSTANCE_NAME',    'Plateforme (essai)');
+define('INSTANCE_NAME',    '{$companyEsc}');
+define('INSTANCE_COMPANY', '{$companyEsc}');
 define('INSTANCE_SLUG',    'cortobadigitalstudio/c/{$slugEsc}');
 define('INSTANCE_SOURCE',  '');
 
 define('TENANT_SLUG',      '{$slugEsc}');
+define('TENANT_COMPANY',   '{$companyEsc}');
 define('TENANT_DB_PREFIX', '{$prefixEsc}');
 // Prefixe du registre central (instance commerciale)
 define('MASTER_DB_PREFIX', 'CDS_');
