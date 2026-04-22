@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Framer Motion — Cortoba test</title>
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --bg-2: #181818;
+    --bg-3: #222;
+    --fg: #ece7dd;
+    --muted: #8c8a84;
+    --gold: #c8a96e;
+    --gold-dim: #8a7649;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100vh; }
+  header { position: sticky; top: 0; z-index: 50; background: rgba(14,14,14,.92); backdrop-filter: blur(8px); border-bottom: 1px solid #222; }
+  .bar { max-width: 1100px; margin: 0 auto; padding: 18px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .brand { font-size: 14px; letter-spacing: .15em; text-transform: uppercase; color: var(--gold); }
+  nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+  nav button { background: transparent; border: 1px solid transparent; color: var(--muted); padding: 8px 14px; font: inherit; cursor: pointer; border-radius: 999px; font-size: 13px; letter-spacing: .04em; transition: color .2s; }
+  nav button.active { border-color: var(--gold-dim); color: var(--gold); }
+  nav button:hover { color: var(--fg); }
+  main { max-width: 1100px; margin: 0 auto; padding: 48px 24px 120px; }
+  h1 { font-weight: 300; letter-spacing: .06em; margin: 0 0 8px; font-size: 28px; }
+  .sub { color: var(--muted); margin: 0 0 40px; font-size: 14px; }
+  section { min-height: 50vh; }
+
+  /* Demo 1 — steps */
+  .step-card { background: var(--bg-2); border: 1px solid #252525; border-radius: 14px; padding: 36px; min-height: 280px; position: relative; overflow: hidden; }
+  .step-label { font-size: 11px; letter-spacing: .3em; color: var(--gold); text-transform: uppercase; }
+  .step-title { font-size: 22px; margin: 8px 0 14px; font-weight: 400; }
+  .step-desc { color: var(--muted); line-height: 1.6; max-width: 60ch; }
+  .step-nav { margin-top: 28px; display: flex; gap: 10px; align-items: center; }
+  .btn { background: transparent; color: var(--gold); border: 1px solid var(--gold-dim); padding: 9px 18px; border-radius: 999px; font: inherit; cursor: pointer; font-size: 13px; letter-spacing: .05em; transition: all .2s; }
+  .btn:hover:not(:disabled) { background: var(--gold); color: #000; }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
+  .dots { margin-left: auto; display: flex; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #333; transition: background .2s; }
+  .dot.on { background: var(--gold); }
+
+  /* Demo 2 — gallery */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .card { background: var(--bg-2); border-radius: 10px; cursor: pointer; overflow: hidden; border: 1px solid #252525; }
+  .card-img { aspect-ratio: 4/3; background: linear-gradient(135deg, #2a2419, #13130e); display: flex; align-items: center; justify-content: center; color: var(--gold); font-size: 44px; letter-spacing: .2em; font-weight: 300; }
+  .card-meta { padding: 12px 14px; }
+  .card-title { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 40px; }
+  .expanded { background: var(--bg-2); border-radius: 14px; width: min(900px, 100%); max-height: 90vh; overflow: auto; border: 1px solid #2a2a2a; cursor: default; }
+  .expanded .card-img { aspect-ratio: 16/7; font-size: 88px; }
+  .expanded-body { padding: 28px 32px; }
+  .close-hint { color: var(--muted); font-size: 12px; margin-top: 12px; }
+
+  /* Demo 3 — reorder */
+  .reorder { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .item { background: var(--bg-2); border: 1px solid #262626; padding: 16px 18px; border-radius: 10px; cursor: grab; display: flex; align-items: center; gap: 14px; user-select: none; }
+  .item:active { cursor: grabbing; }
+  .handle { color: var(--muted); font-size: 18px; letter-spacing: .1em; }
+  .item-title { font-size: 14px; }
+  .tag { margin-left: auto; color: var(--gold); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+
+  /* Demo 4 — parallax */
+  .hero { position: relative; height: 90vh; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; background: linear-gradient(180deg, #1a1610, #0a0a0a); border: 1px solid #232323; }
+  .layer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .mountains { font-size: 220px; opacity: .12; color: var(--gold); letter-spacing: .1em; line-height: 1; }
+  .title-layer { font-size: 56px; font-weight: 300; letter-spacing: .08em; color: var(--fg); text-align: center; }
+  .title-layer small { display: block; font-size: 14px; letter-spacing: .3em; color: var(--gold); margin-bottom: 12px; text-transform: uppercase; }
+  .scroll-hint { position: absolute; bottom: 20px; left: 50%; color: var(--muted); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; transform: translateX(-50%); }
+
+  .note { color: var(--muted); font-size: 12px; margin-top: 20px; font-style: italic; max-width: 70ch; }
+  .loading { color: var(--muted); padding: 40px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="root"><div class="loading">chargement de framer-motion…</div></div>
+
+<script type="module">
+  import React, { useState } from "https://esm.sh/react@18.3.1";
+  import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
+  import {
+    motion, AnimatePresence, Reorder,
+    useScroll, useTransform, useSpring
+  } from "https://esm.sh/framer-motion@11.11.17?deps=react@18.3.1,react-dom@18.3.1";
+  import htm from "https://esm.sh/htm@3.1.1";
+
+  const html = htm.bind(React.createElement);
+
+  // -------- Demo 1 : configurateur steps --------
+  const STEPS = [
+    { label: "Étape 1 / 4", title: "Type de projet", desc: "Sélectionnez la catégorie : résidentiel, commercial, ou aménagement paysager. Cette étape oriente toutes les suivantes." },
+    { label: "Étape 2 / 4", title: "Dimensions & surface", desc: "Indiquez la superficie totale du lot et de la construction. Ces données alimentent l'estimation structurelle." },
+    { label: "Étape 3 / 4", title: "Finitions & matériaux", desc: "Choisissez la gamme de finitions : économique, standard, ou haut de gamme. Impact direct sur le budget global." },
+    { label: "Étape 4 / 4", title: "Confirmation", desc: "Vérifiez vos choix et envoyez la demande. Un architecte vous contacte sous 48h pour un premier entretien." }
+  ];
+
+  function DemoSteps() {
+    const [i, setI] = useState(0);
+    const step = STEPS[i];
+    return html`
+      <div class="step-card">
+        <${AnimatePresence} mode="wait">
+          <${motion.div}
+            key=${i}
+            initial=${{ opacity: 0, x: 24 }}
+            animate=${{ opacity: 1, x: 0 }}
+            exit=${{ opacity: 0, x: -24 }}
+            transition=${{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div class="step-label">${step.label}</div>
+            <h3 class="step-title">${step.title}</h3>
+            <p class="step-desc">${step.desc}</p>
+          <//>
+        <//>
+        <div class="step-nav">
+          <button class="btn" onClick=${() => setI(Math.max(0, i - 1))} disabled=${i === 0}>Précédent</button>
+          <button class="btn" onClick=${() => setI(Math.min(STEPS.length - 1, i + 1))} disabled=${i === STEPS.length - 1}>Suivant</button>
+          <div class="dots">
+            ${STEPS.map((_, idx) => html`<div key=${idx} class=${"dot " + (idx === i ? "on" : "")}></div>`)}
+          </div>
+        </div>
+        <p class="note">AnimatePresence + mode="wait" — l'étape sortante termine son exit avant que l'entrante joue son enter. Impossible à faire proprement sans AnimatePresence.</p>
+      </div>
+    `;
+  }
+
+  // -------- Demo 2 : gallery shared-element --------
+  const PROJECTS = [
+    { id: "p1", title: "Villa Andalouse", loc: "Rabat · 2024", icon: "A" },
+    { id: "p2", title: "Résidence Atlas", loc: "Casablanca · 2023", icon: "B" },
+    { id: "p3", title: "Riad Contemporain", loc: "Marrakech · 2024", icon: "C" },
+    { id: "p4", title: "Loft Industriel", loc: "Tanger · 2022", icon: "D" },
+    { id: "p5", title: "Maison Océan", loc: "Essaouira · 2023", icon: "E" },
+    { id: "p6", title: "Tour Résidentielle", loc: "Rabat · 2024", icon: "F" }
+  ];
+
+  function DemoGallery() {
+    const [openId, setOpenId] = useState(null);
+    const open = PROJECTS.find(p => p.id === openId);
+    return html`
+      <div>
+        <div class="gallery">
+          ${PROJECTS.map(p => html`
+            <${motion.div}
+              key=${p.id}
+              class="card"
+              layoutId=${"card-" + p.id}
+              onClick=${() => setOpenId(p.id)}
+              whileHover=${{ y: -4 }}
+            >
+              <${motion.div} class="card-img" layoutId=${"img-" + p.id}>${p.icon}<//>
+              <${motion.div} class="card-meta" layoutId=${"meta-" + p.id}>
+                <div class="card-title">${p.title}</div>
+                <div class="card-sub">${p.loc}</div>
+              <//>
+            <//>
+          `)}
+        </div>
+        <${AnimatePresence}>
+          ${open && html`
+            <${motion.div}
+              key="overlay"
+              class="overlay"
+              initial=${{ opacity: 0 }}
+              animate=${{ opacity: 1 }}
+              exit=${{ opacity: 0 }}
+              onClick=${() => setOpenId(null)}
+            >
+              <${motion.div}
+                class="expanded"
+                layoutId=${"card-" + open.id}
+                onClick=${e => e.stopPropagation()}
+              >
+                <${motion.div} class="card-img" layoutId=${"img-" + open.id}>${open.icon}<//>
+                <div class="expanded-body">
+                  <${motion.div} layoutId=${"meta-" + open.id}>
+                    <div class="card-title">${open.title}</div>
+                    <div class="card-sub">${open.loc}</div>
+                  <//>
+                  <p class="step-desc" style=${{ marginTop: 20 }}>
+                    Projet architectural sur mesure. Étude de site, conception, suivi de chantier et livraison clé en main. Nos équipes interviennent sur l'ensemble du cycle du projet, de la première esquisse à la remise des clés.
+                  </p>
+                  <div class="close-hint">Clic en dehors pour fermer.</div>
+                </div>
+              <//>
+            <//>
+          `}
+        <//>
+        <p class="note">layoutId — la carte cliquée se transforme en vue détail via FLIP automatique. C'est la fonctionnalité signature de framer-motion React, pas réplicable en vanilla.</p>
+      </div>
+    `;
+  }
+
+  // -------- Demo 3 : drag-to-reorder --------
+  function DemoReorder() {
+    const [items, setItems] = useState([
+      { id: "t1", title: "Plans d'exécution — Villa Andalouse", tag: "en cours" },
+      { id: "t2", title: "Livrable DCE — Résidence Atlas", tag: "à valider" },
+      { id: "t3", title: "Visite de chantier — Riad Contemporain", tag: "planifié" },
+      { id: "t4", title: "Révision devis — Loft Industriel", tag: "urgent" },
+      { id: "t5", title: "Dossier permis — Maison Océan", tag: "brouillon" }
+    ]);
+    return html`
+      <div>
+        <${Reorder.Group} axis="y" values=${items} onReorder=${setItems} class="reorder">
+          ${items.map(item => html`
+            <${Reorder.Item}
+              key=${item.id}
+              value=${item}
+              class="item"
+              whileDrag=${{ scale: 1.02, boxShadow: "0 20px 40px rgba(0,0,0,.5)" }}
+            >
+              <span class="handle">⋮⋮</span>
+              <span class="item-title">${item.title}</span>
+              <span class="tag">${item.tag}</span>
+            <//>
+          `)}
+        <//>
+        <p class="note">Reorder.Group — drag-to-reorder natif, animations physiques des voisins qui se déplacent, contrainte d'axe. Glisser-déposer une ligne pour tester.</p>
+      </div>
+    `;
+  }
+
+  // -------- Demo 4 : scroll parallax --------
+  function DemoParallax() {
+    const { scrollYProgress } = useScroll();
+    const smooth = useSpring(scrollYProgress, { stiffness: 80, damping: 20 });
+    const yMountain = useTransform(smooth, [0, 1], ["0%", "-40%"]);
+    const yTitle = useTransform(smooth, [0, 1], ["0%", "120%"]);
+    const opacityTitle = useTransform(smooth, [0, 0.4], [1, 0]);
+    const scaleTitle = useTransform(smooth, [0, 0.4], [1, 1.3]);
+    return html`
+      <div>
+        <div class="hero">
+          <${motion.div} class="layer" style=${{ y: yMountain }}>
+            <div class="mountains">△△△</div>
+          <//>
+          <${motion.div} class="layer title-layer" style=${{ y: yTitle, opacity: opacityTitle, scale: scaleTitle }}>
+            <div>
+              <small>Cortoba Architecture</small>
+              Construire l'espace
+            </div>
+          <//>
+          <div class="scroll-hint">Scroll ↓</div>
+        </div>
+        <div style=${{ height: "80vh" }}></div>
+        <p class="note">useScroll + useTransform + useSpring — les valeurs de scroll sont mappées à plusieurs propriétés (y, opacity, scale) et lissées par un ressort. Scroll la page pour voir.</p>
+      </div>
+    `;
+  }
+
+  // -------- App shell --------
+  const TABS = [
+    { id: "steps", label: "Étapes configurateur", component: DemoSteps },
+    { id: "gallery", label: "Galerie morphing", component: DemoGallery },
+    { id: "reorder", label: "Drag & reorder", component: DemoReorder },
+    { id: "parallax", label: "Scroll parallax", component: DemoParallax }
+  ];
+
+  function App() {
+    const [tab, setTab] = useState("steps");
+    const current = TABS.find(t => t.id === tab);
+    const Current = current.component;
+    return html`
+      <${React.Fragment}>
+        <header>
+          <div class="bar">
+            <div class="brand">Cortoba · framer-motion test</div>
+            <nav>
+              ${TABS.map(t => html`
+                <button
+                  key=${t.id}
+                  class=${t.id === tab ? "active" : ""}
+                  onClick=${() => setTab(t.id)}
+                >${t.label}</button>
+              `)}
+            </nav>
+          </div>
+        </header>
+        <main>
+          <h1>${current.label}</h1>
+          <p class="sub">Démo isolée — aucune modification du site en production.</p>
+          <section>
+            <${Current}/>
+          </section>
+        </main>
+      <//>
+    `;
+  }
+
+  createRoot(document.getElementById("root")).render(html`<${App}/>`);
+</script>
+</body>
+</html>
