@@ -1763,7 +1763,10 @@
 
     function goTo(idx) {
       current = idx;
-      track.style.transform = 'translateX(-' + (current * 100) + '%)';
+      var imgs = track.querySelectorAll('.slider-image');
+      for (var j = 0; j < imgs.length; j++) {
+        imgs[j].classList.toggle('active', j === current);
+      }
       var dots = dotsWrap.querySelectorAll('.slider-dot');
       for (var i = 0; i < dots.length; i++) {
         dots[i].classList.toggle('active', i === current);
@@ -1803,6 +1806,7 @@
     function initFromExisting() {
       var imgs = track.querySelectorAll('img');
       if (imgs.length > 0) {
+        imgs[0].classList.add('active');
         total = imgs.length;
         buildDots();
         startAuto();
@@ -1830,7 +1834,8 @@
         track.innerHTML = html;
         total = data.data.length;
         current = 0;
-        track.style.transform = 'translateX(0)';
+        var firstImg = track.querySelector('.slider-image');
+        if (firstImg) firstImg.classList.add('active');
         buildDots();
         startAuto();
       })
