@@ -7232,8 +7232,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   ];
 
-  var OB_STORAGE_KEY = 'cortoba_onboarding_done_v1';
-  var OB_DISMISS_KEY = 'cortoba_onboarding_dismissed_v1';
+  // Version du guide : bumpée quand on change la structure des étapes
+  // pour forcer la réapparition chez les utilisateurs qui l'ont déjà vu.
+  var OB_STORAGE_KEY = 'cortoba_onboarding_done_v2';
+  var OB_DISMISS_KEY = 'cortoba_onboarding_dismissed_v2';
   var _obStep = 0;
   var _obShownThisSession = false;
   var _obSaving = false;
@@ -7482,6 +7484,20 @@ document.addEventListener('DOMContentLoaded', function() {
   // ── Point d'entrée — à appeler après connexion ──
   window.maybeShowOnboarding = function() {
     if (_obShownThisSession) return;
+    // Force le guide si ?wizard=1 est dans l'URL (utile pour le revoir sans vider le cache)
+    var forced = false;
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      forced = params.get('wizard') === '1';
+    } catch (e) {}
+    if (forced) {
+      try {
+        localStorage.removeItem(OB_STORAGE_KEY);
+        localStorage.removeItem(OB_DISMISS_KEY);
+      } catch (e) {}
+      setTimeout(obOpen, 500);
+      return;
+    }
     var done, dismissed;
     try {
       done      = localStorage.getItem(OB_STORAGE_KEY);
