@@ -2076,25 +2076,26 @@ footer {
    Ken Burns, scroll reveals, parallax, hero entrance
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Ken Burns effect on hero slider images ──
-   Scale range 1.0 → 1.08 gives visible motion while keeping
-   architectural tops inside the frame. Slow 14s cycle. ── */
+/* ── Ken Burns on hero: runs only on the .active slide to sync with
+   the 5s slide interval and 1.6s crossfade. Wider motion range gives
+   a cinematic feel without clipping architectural tops. ── */
 @keyframes kenBurnsZoom {
-  0%   { transform: scale(1.0); }
-  100% { transform: scale(1.08); }
+  0%   { transform: scale(1.02); }
+  100% { transform: scale(1.12); }
 }
 @keyframes kenBurnsPan {
-  0%   { transform: scale(1.04) translate(0.8%, 0); }
-  100% { transform: scale(1.09) translate(-0.8%, -0.5%); }
+  0%   { transform: scale(1.05) translate(1.2%, 0.4%); }
+  100% { transform: scale(1.12) translate(-1.2%, -0.6%); }
 }
 .slider-image {
-  animation: kenBurnsZoom 14s ease-in-out infinite alternate;
-  will-change: transform;
-  transform-origin: center 40%;  /* zoom anchor biased toward upper-middle */
+  transform-origin: center 45%; /* zoom anchor aligned with object-position */
 }
-.slider-track > .slider-image:nth-child(even) {
+.slider-image.active {
+  animation: kenBurnsZoom 9s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+.slider-track > .slider-image.active:nth-child(even) {
   animation-name: kenBurnsPan;
-  animation-duration: 16s;
+  animation-duration: 9s;
 }
 
 /* ── Hero slide progression bar (replaces dots) ── */
