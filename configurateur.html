@@ -3465,7 +3465,22 @@
         if (cfgMap) { cfgMap.remove(); } cfgMap = null; cfgMarker = null;
         window.scrollTo({top:0, behavior:'smooth'});
       }
+
+      // Expose window globals that the React island consumes
+      window.cfgCurrentStep = cfgCurrentStep;
+      window.cfgGo = cfgGo;
+      window.cfgValidateStep = cfgValidateStep;
+      window.cfgShowError = cfgShowError;
+      window.cfgHideError = cfgHideError;
+      window.cfgRestart = cfgRestart;
+      window.cfgRenderMissions = typeof cfgRenderMissions === 'function' ? cfgRenderMissions : undefined;
+      window.cfgInitMap = typeof cfgInitMap === 'function' ? cfgInitMap : undefined;
+      window.cfgUpdateProgramme = typeof cfgUpdateProgramme === 'function' ? cfgUpdateProgramme : undefined;
+      window.cfgUpdateRecap = typeof cfgUpdateRecap === 'function' ? cfgUpdateRecap : undefined;
   </script>
+
+  <!-- ═══ ISLAND 2 : React + framer-motion pour les transitions de steps ═══ -->
+  <script type="module" src="js/islands/configurator-stepper.js?v=20260422"></script>
 </main>
 </body>
 </html>
