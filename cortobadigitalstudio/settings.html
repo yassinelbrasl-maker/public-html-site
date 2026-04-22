@@ -191,6 +191,167 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Section Clients ── */
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .card-header h2 { margin: 0; }
+  .btn-sm {
+    padding: 8px 14px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+  .tenant-list { display: flex; flex-direction: column; gap: 12px; }
+  .tenant-empty {
+    text-align: center;
+    padding: 28px 16px;
+    color: var(--text-dim);
+    font-size: 13px;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+  }
+  .tenant {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    transition: border-color .15s;
+  }
+  .tenant:hover { border-color: var(--gold-dim); }
+  .tenant-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .tenant-head .name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .tenant-head .meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+  .tenant-head .meta code {
+    color: var(--gold);
+    background: transparent;
+    font-family: Consolas, "SF Mono", monospace;
+  }
+  .tenant-countdown {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tenant-countdown.warn   { background: rgba(200,169,110,0.15); color: var(--gold); }
+  .tenant-countdown.danger { background: rgba(224,123,114,0.15); color: var(--red); }
+  .tenant-countdown.ok     { background: rgba(110,192,123,0.1);  color: var(--green); }
+  .tenant-countdown.muted  { background: rgba(154,154,154,0.1);  color: var(--text-dim); }
+  .tenant-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .tenant-actions button {
+    padding: 6px 10px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    border-radius: 3px;
+  }
+  .tenant-actions .open-btn {
+    background: rgba(107,158,192,0.15);
+    color: var(--blue);
+    border: 1px solid rgba(107,158,192,0.3);
+  }
+  .tenant-actions .open-btn:hover { background: rgba(107,158,192,0.25); }
+  .tenant-actions .danger-btn {
+    background: rgba(224,123,114,0.1);
+    color: var(--red);
+    border: 1px solid rgba(224,123,114,0.3);
+  }
+  .tenant-actions .danger-btn:hover { background: rgba(224,123,114,0.2); }
+
+  /* ── Modale ── */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+  }
+  .modal-backdrop.on { display: flex; }
+  .modal {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    max-width: 520px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h3 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gold);
+    margin-bottom: 16px;
+    font-weight: 500;
+  }
+  .modal input[type=text], .modal input[type=email],
+  .modal input[type=number], .modal textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 12px;
+    font-family: inherit;
+  }
+  .modal textarea { min-height: 60px; resize: vertical; }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .modal-credentials {
+    background: #0a0a0a;
+    border: 1px solid var(--gold-dim);
+    border-radius: 4px;
+    padding: 14px;
+    font-family: Consolas, "SF Mono", monospace;
+    font-size: 12px;
+    margin: 12px 0;
+  }
+  .modal-credentials div { margin: 4px 0; }
+  .modal-credentials .key { color: var(--text-dim); }
+  .modal-credentials .val { color: var(--gold); user-select: all; }
+  .modal-warn {
+    background: rgba(224,123,114,0.1);
+    color: var(--red);
+    border: 1px solid rgba(224,123,114,0.3);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin: 12px 0;
+  }
 </style>
 </head>
 <body>
@@ -264,8 +425,151 @@
       <div id="sync-log" class="log"></div>
     </div>
 
+    <!-- ────── Clients (essais / migrations) ────── -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Clients en essai</h2>
+        <button id="new-tenant-btn" class="btn-sm">+ Nouveau client</button>
+      </div>
+      <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 16px;">
+        Chaque client dispose d'une copie isolée de la plateforme sous
+        <code style="color: var(--gold);">/cortobadigitalstudio/c/&lt;slug&gt;/</code>
+        avec son propre préfixe BDD <code style="color: var(--gold);">T_&lt;SLUG&gt;_</code>.
+        Vous pouvez prolonger, révoquer ou migrer vers un nouveau domaine lors de l'achat.
+      </p>
+      <div id="tenants-msg" class="msg"></div>
+      <div id="tenants-list" class="tenant-list">
+        <div class="tenant-empty">Chargement…</div>
+      </div>
+    </div>
+
   </section>
 
+</div>
+
+<!-- ────── Modale : créer un client ────── -->
+<div id="modal-create" class="modal-backdrop">
+  <div class="modal">
+    <h3>Nouveau client en essai</h3>
+    <form id="tenant-create-form">
+      <label>Nom de l'entreprise</label>
+      <input type="text" id="t-company" required maxlength="200" placeholder="ex: ACME Architecture">
+
+      <label>Email administrateur</label>
+      <input type="email" id="t-email" required maxlength="180" placeholder="contact@acme.fr">
+
+      <label>Nom de l'administrateur</label>
+      <input type="text" id="t-admin-name" maxlength="120" placeholder="Prénom Nom">
+
+      <label>Téléphone</label>
+      <input type="text" id="t-phone" maxlength="40" placeholder="+33 …">
+
+      <label>Durée d'essai (jours)</label>
+      <input type="number" id="t-days" required min="1" max="365" value="14">
+
+      <label>Notes internes (optionnel)</label>
+      <textarea id="t-notes" maxlength="500" placeholder="Source du contact, remarques…"></textarea>
+
+      <div id="tenant-create-msg" class="msg"></div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" data-close-modal>Annuler</button>
+        <button type="submit" id="tenant-create-btn">Créer l'essai</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ────── Modale : résultat création (credentials) ────── -->
+<div id="modal-credentials" class="modal-backdrop">
+  <div class="modal">
+    <h3>Compte créé</h3>
+    <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 12px;">
+      Transmettez ces identifiants au client. Le mot de passe ne sera <strong>plus affiché</strong> après cette fenêtre
+      (vous pourrez le régénérer au besoin).
+    </p>
+    <div class="modal-credentials">
+      <div><span class="key">Plateforme</span> : <span class="val" id="cred-url"></span></div>
+      <div><span class="key">Email       </span> : <span class="val" id="cred-email"></span></div>
+      <div><span class="key">Mot de passe</span> : <span class="val" id="cred-pass"></span></div>
+      <div><span class="key">Expire le   </span> : <span class="val" id="cred-expires"></span></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="cred-copy">Copier les infos</button>
+      <button type="button" class="secondary" data-close-modal>Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ────── Modale : prolonger ────── -->
+<div id="modal-extend" class="modal-backdrop">
+  <div class="modal">
+    <h3>Prolonger l'essai</h3>
+    <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 12px;" id="extend-sub"></p>
+    <form id="tenant-extend-form">
+      <input type="hidden" id="e-slug">
+      <label>Jours supplémentaires</label>
+      <input type="number" id="e-days" required min="1" max="365" value="7">
+      <div id="tenant-extend-msg" class="msg"></div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" data-close-modal>Annuler</button>
+        <button type="submit">Prolonger</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ────── Modale : migrer ────── -->
+<div id="modal-migrate" class="modal-backdrop">
+  <div class="modal">
+    <h3>Migrer vers un nouveau domaine</h3>
+    <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 12px;" id="migrate-sub"></p>
+    <form id="tenant-migrate-form">
+      <input type="hidden" id="m-slug">
+      <label>Domaine cible (ex: client.com)</label>
+      <input type="text" id="m-domain" required placeholder="client.com">
+      <label>Chemin sous le domaine (optionnel, ex: plateforme)</label>
+      <input type="text" id="m-path" placeholder="(vide = racine)">
+      <div id="tenant-migrate-msg" class="msg"></div>
+      <div id="migrate-result" style="display:none;">
+        <div class="modal-credentials">
+          <div><span class="key">Paquet</span> : <span class="val" id="mig-file"></span></div>
+          <div><span class="key">Taille</span> : <span class="val" id="mig-size"></span></div>
+        </div>
+        <p style="color: var(--text-dim); font-size: 12px;">
+          Le ZIP contient les fichiers, le dump BDD et le README de déploiement.
+          Téléchargez-le, transférez-le chez le client, puis cliquez sur <em>Finaliser</em>
+          pour bloquer l'accès à l'instance d'essai.
+        </p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" data-close-modal>Fermer</button>
+        <button type="button" id="mig-download" class="hidden">Télécharger le ZIP</button>
+        <button type="button" id="mig-finalize" class="hidden danger-btn">Finaliser (bloquer l'essai)</button>
+        <button type="submit" id="mig-prepare-btn">Préparer le paquet</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ────── Modale : confirmation suppression ────── -->
+<div id="modal-delete" class="modal-backdrop">
+  <div class="modal">
+    <h3>Suppression définitive</h3>
+    <div class="modal-warn">
+      ⚠ Cette opération supprime <strong>toutes</strong> les données du client
+      (fichiers + tables <code id="del-prefix"></code>). Elle est irréversible.
+    </div>
+    <form id="tenant-delete-form">
+      <input type="hidden" id="d-slug">
+      <label>Tapez le slug <code id="del-slug-hint" style="color:var(--gold);"></code> pour confirmer</label>
+      <input type="text" id="d-confirm" required>
+      <div id="tenant-delete-msg" class="msg"></div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" data-close-modal>Annuler</button>
+        <button type="submit" class="danger-btn">Supprimer définitivement</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -401,6 +705,7 @@
     $('dashboard').classList.remove('hidden');
     $('who-name').textContent = (state.user && state.user.name) || (state.user && state.user.email) || '—';
     loadStatus();
+    loadTenants();
   }
 
   function loadStatus(){
@@ -413,6 +718,329 @@
       $('last-sync').textContent = '—';
     });
   }
+
+  // ═════════════════════════════════════════════════════════
+  //  Gestion des tenants (clients en essai)
+  // ═════════════════════════════════════════════════════════
+
+  function openModal(id){ $(id).classList.add('on'); }
+  function closeModal(id){ $(id).classList.remove('on'); }
+
+  // Fermeture via data-close-modal
+  document.addEventListener('click', function(ev){
+    if (ev.target.hasAttribute && ev.target.hasAttribute('data-close-modal')) {
+      var modal = ev.target.closest('.modal-backdrop');
+      if (modal) modal.classList.remove('on');
+    }
+    // Click sur le fond = fermeture
+    if (ev.target.classList && ev.target.classList.contains('modal-backdrop')) {
+      ev.target.classList.remove('on');
+    }
+  });
+
+  function loadTenants(){
+    var list = $('tenants-list');
+    list.innerHTML = '<div class="tenant-empty">Chargement…</div>';
+
+    apiCall('tenants.php?action=list').then(function(rows){
+      if (!rows || !rows.length) {
+        list.innerHTML = '<div class="tenant-empty">Aucun client en essai pour le moment.<br>Cliquez sur <strong>+ Nouveau client</strong> pour en créer un.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      rows.forEach(function(t){ list.appendChild(renderTenant(t)); });
+    }).catch(function(err){
+      list.innerHTML = '<div class="tenant-empty" style="color:var(--red);">Erreur : ' + err.message + '</div>';
+    });
+  }
+
+  function renderTenant(t){
+    var el = document.createElement('div');
+    el.className = 'tenant';
+
+    var status = t.status || 'trial';
+    var countdown = '';
+    var countdownCls = 'ok';
+
+    if (status === 'migrated') {
+      countdown = 'Migré' + (t.custom_domain ? ' → ' + t.custom_domain : '');
+      countdownCls = 'muted';
+    } else if (status === 'revoked') {
+      countdown = 'Révoqué';
+      countdownCls = 'muted';
+    } else if (t.expired) {
+      countdown = 'Expiré depuis ' + Math.abs(t.days_remaining) + ' j';
+      countdownCls = 'danger';
+    } else {
+      countdown = t.days_remaining + ' j restants';
+      countdownCls = (t.days_remaining <= 3) ? 'danger' : (t.days_remaining <= 7 ? 'warn' : 'ok');
+    }
+
+    var head = document.createElement('div');
+    head.className = 'tenant-head';
+    head.innerHTML =
+      '<div>' +
+        '<div class="name">' + escapeHtml(t.company_name) + '</div>' +
+        '<div class="meta">' +
+          escapeHtml(t.admin_email) + ' · <code>' + escapeHtml(t.db_prefix) + '</code>' +
+          ' · <code>/c/' + escapeHtml(t.slug) + '/</code>' +
+        '</div>' +
+      '</div>' +
+      '<div class="tenant-countdown ' + countdownCls + '">' + escapeHtml(countdown) + '</div>';
+    el.appendChild(head);
+
+    var actions = document.createElement('div');
+    actions.className = 'tenant-actions';
+
+    var openBtn = mkBtn('↗ Ouvrir', 'open-btn', function(){
+      window.open(t.platform_url, '_blank', 'noopener');
+    });
+    actions.appendChild(openBtn);
+
+    if (status !== 'migrated') {
+      actions.appendChild(mkBtn('+ Prolonger', '', function(){ openExtend(t); }));
+      actions.appendChild(mkBtn('⇅ Migrer',   '', function(){ openMigrate(t); }));
+      if (status === 'revoked') {
+        actions.appendChild(mkBtn('↻ Réactiver', '', function(){ doReactivate(t); }));
+      } else {
+        actions.appendChild(mkBtn('⊘ Révoquer', '', function(){ doRevoke(t); }));
+      }
+      actions.appendChild(mkBtn('⟲ Nouveau mdp', '', function(){ doRegenerate(t); }));
+    }
+    actions.appendChild(mkBtn('✕ Supprimer', 'danger-btn', function(){ openDelete(t); }));
+
+    el.appendChild(actions);
+    return el;
+  }
+
+  function mkBtn(label, cls, onClick){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // ── Nouveau client ──
+  $('new-tenant-btn').addEventListener('click', function(){
+    $('tenant-create-form').reset();
+    $('t-days').value = 14;
+    hideMsg('tenant-create-msg');
+    openModal('modal-create');
+  });
+
+  $('tenant-create-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    var btn = $('tenant-create-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Création…';
+    hideMsg('tenant-create-msg');
+
+    apiCall('tenants.php?action=create', {
+      method: 'POST',
+      body: {
+        company_name: $('t-company').value,
+        admin_email:  $('t-email').value,
+        admin_name:   $('t-admin-name').value,
+        admin_phone:  $('t-phone').value,
+        trial_days:   parseInt($('t-days').value, 10) || 14,
+        notes:        $('t-notes').value
+      }
+    }).then(function(data){
+      closeModal('modal-create');
+      $('cred-url').textContent     = data.settings_url || data.platform_url;
+      $('cred-email').textContent   = data.admin_email;
+      $('cred-pass').textContent    = data.admin_password;
+      $('cred-expires').textContent = data.trial_expires_at;
+      openModal('modal-credentials');
+      loadTenants();
+    }).catch(function(err){
+      showMsg('tenant-create-msg', err.message, 'error');
+    }).finally(function(){
+      btn.disabled = false;
+      btn.textContent = 'Créer l\'essai';
+    });
+  });
+
+  // ── Copier identifiants ──
+  $('cred-copy').addEventListener('click', function(){
+    var txt = 'Plateforme : '   + $('cred-url').textContent + '\n' +
+              'Email       : '  + $('cred-email').textContent + '\n' +
+              'Mot de passe : ' + $('cred-pass').textContent + '\n' +
+              'Expire le   : '  + $('cred-expires').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function(){
+        $('cred-copy').textContent = '✓ Copié';
+        setTimeout(function(){ $('cred-copy').textContent = 'Copier les infos'; }, 1500);
+      });
+    } else {
+      alert(txt);
+    }
+  });
+
+  // ── Prolonger ──
+  function openExtend(t){
+    $('e-slug').value = t.slug;
+    $('e-days').value = 7;
+    $('extend-sub').textContent = t.company_name + ' (expire : ' + t.trial_expires_at + ')';
+    hideMsg('tenant-extend-msg');
+    openModal('modal-extend');
+  }
+  $('tenant-extend-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    apiCall('tenants.php?action=extend', {
+      method: 'POST',
+      body: { slug: $('e-slug').value, days: parseInt($('e-days').value, 10) }
+    }).then(function(){
+      closeModal('modal-extend');
+      loadTenants();
+    }).catch(function(err){
+      showMsg('tenant-extend-msg', err.message, 'error');
+    });
+  });
+
+  // ── Révoquer ──
+  function doRevoke(t){
+    if (!confirm('Révoquer l\'accès de « ' + t.company_name + ' » ?\nIl pourra être réactivé plus tard.')) return;
+    apiCall('tenants.php?action=revoke', { method: 'POST', body: { slug: t.slug } })
+      .then(loadTenants)
+      .catch(function(err){ alert(err.message); });
+  }
+
+  // ── Réactiver ──
+  function doReactivate(t){
+    apiCall('tenants.php?action=reactivate', { method: 'POST', body: { slug: t.slug } })
+      .then(loadTenants)
+      .catch(function(err){ alert(err.message); });
+  }
+
+  // ── Régénérer mot de passe ──
+  function doRegenerate(t){
+    if (!confirm('Régénérer le mot de passe de « ' + t.company_name + ' » ?')) return;
+    apiCall('tenants.php?action=regenerate', { method: 'POST', body: { slug: t.slug } })
+      .then(function(data){
+        $('cred-url').textContent     = t.settings_url || t.platform_url;
+        $('cred-email').textContent   = data.admin_email;
+        $('cred-pass').textContent    = data.admin_password;
+        $('cred-expires').textContent = t.trial_expires_at || '—';
+        openModal('modal-credentials');
+      })
+      .catch(function(err){ alert(err.message); });
+  }
+
+  // ── Supprimer ──
+  function openDelete(t){
+    $('d-slug').value = t.slug;
+    $('d-confirm').value = '';
+    $('del-prefix').textContent = t.db_prefix + '*';
+    $('del-slug-hint').textContent = t.slug;
+    hideMsg('tenant-delete-msg');
+    openModal('modal-delete');
+  }
+  $('tenant-delete-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    apiCall('tenants.php?action=delete', {
+      method: 'POST',
+      body: { slug: $('d-slug').value, confirm: $('d-confirm').value }
+    }).then(function(){
+      closeModal('modal-delete');
+      loadTenants();
+    }).catch(function(err){
+      showMsg('tenant-delete-msg', err.message, 'error');
+    });
+  });
+
+  // ── Migrer ──
+  var lastMigration = null;
+
+  function openMigrate(t){
+    $('m-slug').value = t.slug;
+    $('m-domain').value = t.custom_domain || '';
+    $('m-path').value = '';
+    $('migrate-sub').textContent = 'Préparer un paquet de migration pour « ' + t.company_name + ' »';
+    $('migrate-result').style.display = 'none';
+    $('mig-download').classList.add('hidden');
+    $('mig-finalize').classList.add('hidden');
+    $('mig-prepare-btn').classList.remove('hidden');
+    hideMsg('tenant-migrate-msg');
+    lastMigration = null;
+    openModal('modal-migrate');
+  }
+
+  $('tenant-migrate-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    var btn = $('mig-prepare-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Préparation…';
+    hideMsg('tenant-migrate-msg');
+
+    apiCall('migrate.php?action=prepare', {
+      method: 'POST',
+      body: {
+        slug:          $('m-slug').value,
+        target_domain: $('m-domain').value,
+        target_path:   $('m-path').value
+      }
+    }).then(function(data){
+      lastMigration = data;
+      $('mig-file').textContent = data.zip_file;
+      $('mig-size').textContent = data.size_mb + ' Mo';
+      $('migrate-result').style.display = 'block';
+      $('mig-download').classList.remove('hidden');
+      $('mig-finalize').classList.remove('hidden');
+      btn.classList.add('hidden');
+      showMsg('tenant-migrate-msg', 'Paquet prêt. Téléchargez-le puis finalisez.', 'success');
+    }).catch(function(err){
+      showMsg('tenant-migrate-msg', err.message, 'error');
+    }).finally(function(){
+      btn.disabled = false;
+      btn.innerHTML = 'Préparer le paquet';
+    });
+  });
+
+  $('mig-download').addEventListener('click', function(){
+    if (!lastMigration) return;
+    // download_url est retourne au format "api/migrate.php?..." donc on l'utilise tel quel
+    var url = lastMigration.download_url;
+    fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + state.token }
+    }).then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.blob();
+    }).then(function(blob){
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = lastMigration.zip_file;
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    }).catch(function(err){
+      showMsg('tenant-migrate-msg', 'Téléchargement échoué : ' + err.message, 'error');
+    });
+  });
+
+  $('mig-finalize').addEventListener('click', function(){
+    if (!lastMigration) return;
+    if (!confirm('Finaliser la migration ?\n\nL\'instance d\'essai sera marquée comme migrée et ne sera plus accessible.\nCette opération est réversible depuis la liste.')) return;
+    apiCall('migrate.php?action=finalize', {
+      method: 'POST',
+      body: {
+        slug:          lastMigration.slug,
+        target_domain: lastMigration.target_domain
+      }
+    }).then(function(){
+      closeModal('modal-migrate');
+      loadTenants();
+    }).catch(function(err){
+      showMsg('tenant-migrate-msg', err.message, 'error');
+    });
+  });
 
   // ── Init : si token présent, tenter auth.me ──
   if (state.token) {
