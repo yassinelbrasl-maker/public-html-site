@@ -4874,6 +4874,103 @@ function renderDepenses(){
         '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+actions+'</td>'+
       '</tr>';
     }).join('');
+
+  // ── Donut + récentes (admin uniquement — la grid est cachée sinon) ──
+  if (isAdmin) _renderDepensesStats(list);
+}
+
+function _renderDepensesStats(list){
+  var now = new Date();
+  var year = now.getFullYear();
+  var month = now.getMonth();
+  var MOIS_LONG = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  // Filtrer le mois courant
+  var dMois = list.filter(function(d){
+    var dt = new Date(d.date||d.date_dep||d.dateDep||'');
+    return !isNaN(dt) && dt.getFullYear() === year && dt.getMonth() === month;
+  });
+
+  // ── Donut par catégorie ──
+  var donutTitle = document.getElementById('dep-donut-title');
+  if (donutTitle) donutTitle.textContent = 'Répartition par catégorie — ' + MOIS_LONG[month] + ' ' + year;
+
+  var donutWrap = document.getElementById('dep-donut-wrap');
+  if (donutWrap) {
+    if (dMois.length === 0) {
+      donutWrap.innerHTML = '<div class="dash-empty">Aucune dépense ce mois</div>';
+    } else {
+      var byCat = {};
+      dMois.forEach(function(d){
+        var ttc = parseFloat(d.montantTTC||d.montant_ttc||d.montant||0);
+        var cat = (d.cat||d.categorie||'Autre').trim() || 'Autre';
+        byCat[cat] = (byCat[cat]||0) + ttc;
+      });
+      var cats = Object.keys(byCat).map(function(k){ return {cat:k, total:byCat[k]}; });
+      cats.sort(function(a,b){ return b.total - a.total; });
+      var total = cats.reduce(function(s,c){ return s+c.total; }, 0);
+      var colors = ['var(--accent)','var(--blue)','var(--green)','var(--red)','#a07fbf','var(--text-3)'];
+      var colorHex = ['#c8a96e','#6fa8d6','#5aab6e','#e07b72','#a07fbf','#555'];
+
+      // Construire le SVG
+      var circumference = 2 * Math.PI * 48; // ~301.6
+      var offset = 0;
+      var segments = '';
+      cats.forEach(function(c, i){
+        var pct = c.total / total;
+        var dash = pct * circumference;
+        segments += '<circle cx="60" cy="60" r="48" fill="none" stroke="'+colorHex[i%colorHex.length]+'" stroke-width="18" '
+          + 'stroke-dasharray="'+dash.toFixed(1)+' '+(circumference - dash).toFixed(1)+'" '
+          + 'stroke-dashoffset="'+(-offset).toFixed(1)+'" transform="rotate(-90 60 60)"/>';
+        offset += dash;
+      });
+      var fmtT = function(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); };
+
+      var legend = cats.map(function(c, i){
+        var pct = Math.round(c.total/total*100);
+        return '<div class="donut-item"><div class="donut-dot" style="background:'+colors[i%colors.length]+'"></div>'
+          + c.cat + ' — ' + pct + '%</div>';
+      }).join('');
+
+      donutWrap.innerHTML = '<div class="donut-wrap">'
+        + '<svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120">'
+        + '<circle cx="60" cy="60" r="48" fill="none" stroke="var(--bg-2)" stroke-width="18"/>'
+        + segments
+        + '<text x="60" y="64" text-anchor="middle" font-family="DM Mono" font-size="11" fill="currentColor">'+fmtT(total)+'</text>'
+        + '<text x="60" y="76" text-anchor="middle" font-family="DM Sans" font-size="7" fill="var(--text-3)">TND</text>'
+        + '</svg>'
+        + '<div class="donut-legend">'+legend+'</div>'
+        + '</div>';
+    }
+  }
+
+  // ── Dépenses récentes (5 dernières, tous mois) ──
+  var recEl = document.getElementById('dep-recentes');
+  if (recEl) {
+    var sorted = list.slice().sort(function(a,b){
+      var da = new Date(a.date||a.date_dep||a.dateDep||a.cree_at||0);
+      var db = new Date(b.date||b.date_dep||b.dateDep||b.cree_at||0);
+      return db - da;
+    });
+    var recents = sorted.slice(0, 5);
+    if (recents.length === 0) {
+      recEl.innerHTML = '<div class="dash-empty">Aucune dépense enregistrée</div>';
+    } else {
+      var dotColors = ['var(--blue)','var(--green)','var(--red)','var(--accent)','#a07fbf'];
+      recEl.innerHTML = recents.map(function(d, i){
+        var ttc = parseFloat(d.montantTTC||d.montant_ttc||d.montant||0);
+        var lib = d.libelle||d.description||'Dépense';
+        var cat = d.cat||d.categorie||'—';
+        var dt = d.date||d.date_dep||d.dateDep||'';
+        return '<div class="activity-item">'
+          + '<div class="activity-dot" style="background:'+dotColors[i%dotColors.length]+'"></div>'
+          + '<div>'
+          + '<div class="activity-text"><strong>'+lib+'</strong> — '+fmtMontant(ttc)+'</div>'
+          + '<div class="activity-time">'+fmtDate(dt)+' · '+cat+'</div>'
+          + '</div></div>';
+      }).join('');
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════════

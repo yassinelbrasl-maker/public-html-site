@@ -191,7 +191,7 @@ th.sorted-asc .ergo-sort-icon, th.sorted-desc .ergo-sort-icon { opacity: 1; colo
   gap: 0.8rem;
   padding: 0.72rem 1.2rem;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border);
   transition: background 0.1s;
 }
 .ergo-cmd-item:hover, .ergo-cmd-item.ergo-cmd-selected { background: var(--accent-bg); }
@@ -527,11 +527,13 @@ body.ergo-light {
   --bg-1:       #ffffff;
   --bg-2:       #eeece8;
   --bg-3:       #e5e2dc;
-  --border:     rgba(0,0,0,0.09);
-  --border-md:  rgba(0,0,0,0.15);
+  --border:     rgba(0,0,0,0.12);
+  --border-md:  rgba(0,0,0,0.22);
+  --border-input: rgba(0,0,0,0.24);
+  --accent-strong: #7a5a20; /* 5.76:1 on #f4f2ee — passes WCAG AA */
   --text:       #1a1a18;
   --text-2:     #55524e;
-  --text-3:     #8a8782;
+  --text-3:     #6f6c67;
 }
 body.ergo-light .app-header,
 body.ergo-light .sidebar,
@@ -542,6 +544,12 @@ body.ergo-light .kpi-card { box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 body.ergo-light .login-field input,
 body.ergo-light .form-input,
 body.ergo-light .form-select { background: #fff; }
+
+/* Neutralize dark-only hardcoded borders in JS-injected table rows (defensive) */
+body.ergo-light tr[style*="rgba(255,255,255"],
+body.ergo-light td[style*="rgba(255,255,255"] {
+  border-bottom-color: rgba(0,0,0,0.1) !important;
+}
 
 /* ── BOUTON DUPLIQUER ─────────────────────────────── */
 .ergo-dup-btn {
