@@ -40,7 +40,7 @@ function ensureTenantsTable() {
     static $done = false;
     if ($done) return;
     $db = getDB();
-    $db->exec("CREATE TABLE IF NOT EXISTS " . t('clients') . " (
+    $db->exec("CREATE TABLE IF NOT EXISTS " . t('tenants') . " (
         `slug`             VARCHAR(32)  NOT NULL PRIMARY KEY,
         `company_name`     VARCHAR(200) NOT NULL,
         `admin_email`      VARCHAR(191) NOT NULL,
@@ -70,7 +70,7 @@ function handleList() {
     ensureTenantsTable();
     $db = getDB();
 
-    $rows = $db->query("SELECT * FROM " . t('clients') . " ORDER BY created_at DESC")->fetchAll();
+    $rows = $db->query("SELECT * FROM " . t('tenants') . " ORDER BY created_at DESC")->fetchAll();
     $now  = new DateTime();
 
     foreach ($rows as &$row) {
@@ -99,7 +99,7 @@ function handleGet() {
     if (!$slug) jsonError('Parametre slug requis');
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT * FROM " . t('clients') . " WHERE slug = ?");
+    $stmt = $db->prepare("SELECT * FROM " . t('tenants') . " WHERE slug = ?");
     $stmt->execute([$slug]);
     $row = $stmt->fetch();
     if (!$row) jsonError('Tenant introuvable', 404);
@@ -226,7 +226,7 @@ function handleCreate() {
     $expiresAt = (clone $now)->modify('+' . $days . ' days');
 
     try {
-        $db->prepare("INSERT INTO " . t('clients') . "
+        $db->prepare("INSERT INTO " . t('tenants') . "
                       (slug, company_name, admin_email, admin_name, admin_phone,
                        db_prefix, trial_days, trial_started_at, trial_expires_at,
                        status, notes, created_by)
@@ -281,7 +281,7 @@ function handleExtend() {
     if ($days < 1 || $days > 365) jsonError('Prolongation entre 1 et 365 jours');
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT trial_expires_at, status FROM " . t('clients') . " WHERE slug = ?");
+    $stmt = $db->prepare("SELECT trial_expires_at, status FROM " . t('tenants') . " WHERE slug = ?");
     $stmt->execute([$slug]);
     $row = $stmt->fetch();
     if (!$row) jsonError('Tenant introuvable', 404);
@@ -292,7 +292,7 @@ function handleExtend() {
     $base    = ($current < $now) ? $now : $current;
     $newExpires = (clone $base)->modify('+' . $days . ' days');
 
-    $db->prepare("UPDATE " . t('clients') . "
+    $db->prepare("UPDATE " . t('tenants') . "
                   SET trial_expires_at = ?, status = 'trial', trial_days = trial_days + ?
                   WHERE slug = ?")
        ->execute([$newExpires->format('Y-m-d H:i:s'), $days, $slug]);
@@ -322,7 +322,7 @@ function handleRevoke() {
     if (!$slug) jsonError('slug requis');
 
     $db = getDB();
-    $stmt = $db->prepare("UPDATE " . t('clients') . " SET status = 'revoked' WHERE slug = ?");
+    $stmt = $db->prepare("UPDATE " . t('tenants') . " SET status = 'revoked' WHERE slug = ?");
     $stmt->execute([$slug]);
     if ($stmt->rowCount() === 0) jsonError('Tenant introuvable', 404);
 
@@ -347,7 +347,7 @@ function handleReactivate() {
     if (!$slug) jsonError('slug requis');
 
     $db = getDB();
-    $stmt = $db->prepare("UPDATE " . t('clients') . " SET status = 'trial' WHERE slug = ?");
+    $stmt = $db->prepare("UPDATE " . t('tenants') . " SET status = 'trial' WHERE slug = ?");
     $stmt->execute([$slug]);
     if ($stmt->rowCount() === 0) jsonError('Tenant introuvable', 404);
 
@@ -374,7 +374,7 @@ function handleDelete() {
     if ($confirm !== $slug)         jsonError('Confirmation requise (tapez le slug pour confirmer)');
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT db_prefix FROM " . t('clients') . " WHERE slug = ?");
+    $stmt = $db->prepare("SELECT db_prefix FROM " . t('tenants') . " WHERE slug = ?");
     $stmt->execute([$slug]);
     $row = $stmt->fetch();
     if (!$row) jsonError('Tenant introuvable', 404);
@@ -389,7 +389,7 @@ function handleDelete() {
     cleanupTenantDir($tenantDir);
 
     // 3. Supprimer l'enregistrement
-    $db->prepare("DELETE FROM " . t('clients') . " WHERE slug = ?")->execute([$slug]);
+    $db->prepare("DELETE FROM " . t('tenants') . " WHERE slug = ?")->execute([$slug]);
 
     logMemberActivity(
         $admin['id'] ?? 'admin',
@@ -412,7 +412,7 @@ function handleRegeneratePassword() {
     if (!$slug) jsonError('slug requis');
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT db_prefix, admin_email FROM " . t('clients') . " WHERE slug = ?");
+    $stmt = $db->prepare("SELECT db_prefix, admin_email FROM " . t('tenants') . " WHERE slug = ?");
     $stmt->execute([$slug]);
     $row = $stmt->fetch();
     if (!$row) jsonError('Tenant introuvable', 404);
@@ -467,7 +467,7 @@ function generateSlug(string $name): string {
 }
 
 function slugExists(PDO $db, string $slug): bool {
-    $stmt = $db->prepare("SELECT 1 FROM " . t('clients') . " WHERE slug = ?");
+    $stmt = $db->prepare("SELECT 1 FROM " . t('tenants') . " WHERE slug = ?");
     $stmt->execute([$slug]);
     if ($stmt->fetchColumn()) return true;
 

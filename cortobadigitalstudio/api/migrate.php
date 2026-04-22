@@ -58,7 +58,7 @@ function handlePrepare() {
     if (!$targetHost) jsonError('Domaine cible requis (ex: client.com)');
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT * FROM " . t('clients') . " WHERE slug = ?");
+    $stmt = $db->prepare("SELECT * FROM " . t('tenants') . " WHERE slug = ?");
     $stmt->execute([$slug]);
     $tenant = $stmt->fetch();
     if (!$tenant) jsonError('Tenant introuvable', 404);
@@ -178,7 +178,7 @@ function handleFinalize() {
     if (!$slug) jsonError('slug requis');
 
     $db = getDB();
-    $stmt = $db->prepare("UPDATE " . t('clients') . "
+    $stmt = $db->prepare("UPDATE " . t('tenants') . "
                           SET status = 'migrated', migrated_at = NOW(), custom_domain = ?
                           WHERE slug = ?");
     $stmt->execute([$targetHost ?: null, $slug]);

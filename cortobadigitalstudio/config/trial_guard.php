@@ -33,7 +33,7 @@ if (!function_exists('trialGuardCheck')) {
         try {
             $pdo = getDB();
             $prefix = defined('MASTER_DB_PREFIX') ? MASTER_DB_PREFIX : 'CDS_';
-            $stmt = $pdo->prepare("SELECT status, trial_expires_at FROM `{$prefix}clients` WHERE slug = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT status, trial_expires_at FROM `{$prefix}tenants` WHERE slug = ? LIMIT 1");
             $stmt->execute([$slug]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (\Throwable $e) {
