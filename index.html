@@ -1834,7 +1834,8 @@
         track.innerHTML = html;
         total = data.data.length;
         current = 0;
-        track.style.transform = 'translateX(0)';
+        var firstImg = track.querySelector('.slider-image');
+        if (firstImg) firstImg.classList.add('active');
         buildDots();
         startAuto();
       })
