@@ -167,6 +167,9 @@ function handleCreate() {
     $copyLog = ['copied' => 0, 'errors' => []];
     try {
         copyInstanceToTenant($instanceRoot, $tenantDir, $slug, $dbPrefix, $copyLog);
+        // Creer index.php bootstrap (trial_guard avant servir plateforme-nas.html)
+        $indexPhp = buildTenantIndexPhp($slug);
+        @file_put_contents($tenantDir . '/index.php', $indexPhp);
     } catch (\Throwable $e) {
         cleanupTenantDir($tenantDir);
         jsonError('Copie des fichiers echouee : ' . $e->getMessage(), 500);
@@ -632,6 +635,17 @@ function copyDirRecursive(string $srcRoot, string $destRoot, string $rel,
             continue;
         }
 
+        if ($relEntry === '.htaccess') {
+            // .htaccess tenant : active l'index.php (bootstrap trial_guard) comme entree
+            $tenantHtaccess = buildTenantHtaccess($slug);
+            if (@file_put_contents($dPath, $tenantHtaccess) === false) {
+                $log['errors'][] = '.htaccess';
+                continue;
+            }
+            $log['copied']++;
+            continue;
+        }
+
         if (in_array($ext, $textExt, true)) {
             $content = @file_get_contents($sPath);
             if ($content === false) { $log['errors'][] = 'read ' . $relEntry; continue; }
@@ -721,6 +735,67 @@ function t(string \$table): string {
 require_once __DIR__ . '/../../../config/trial_guard.php';
 trialGuardCheck(TENANT_SLUG);
 PHP;
+}
+
+// Genere l'index.php bootstrap : trial_guard puis inclusion de plateforme-nas.html
+function buildTenantIndexPhp(string $slug): string {
+    $slugEsc = addslashes($slug);
+    return <<<PHP
+<?php
+// ============================================================
+//  TENANT "{$slug}" — Bootstrap index
+//  Verifie la validite de l'essai puis sert la plateforme.
+//  Genere automatiquement par api/tenants.php
+// ============================================================
+
+require_once __DIR__ . '/config/db.php';  // Charge DB_PREFIX + trial_guard
+
+// Si on arrive ici, le trial_guard a laisse passer.
+// On delivre le fichier HTML principal.
+\$target = __DIR__ . '/plateforme-nas.html';
+if (!is_file(\$target)) {
+    http_response_code(500);
+    echo 'Fichier plateforme-nas.html introuvable dans l\\'instance.';
+    exit;
+}
+header('Content-Type: text/html; charset=utf-8');
+header('Cache-Control: no-cache, must-revalidate');
+readfile(\$target);
+PHP;
+}
+
+// Genere un .htaccess tenant avec bootstrap PHP + routing
+function buildTenantHtaccess(string $slug): string {
+    return <<<HTACCESS
+Options -Indexes
+DirectoryIndex index.php plateforme-nas.html
+
+# Anti-cache HTML/JS : toujours verifier la derniere version
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js)\$">
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Pragma "no-cache"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /cortobadigitalstudio/c/{$slug}/
+
+  # Rewrite /settings -> /settings.html
+  RewriteRule ^settings/?\$ settings.html [L]
+</IfModule>
+
+# Bloquer les fichiers sensibles
+<FilesMatch "^(schema\.sql|README\.txt|\_livrables_fix\.patch)\$">
+  Require all denied
+</FilesMatch>
+
+# php -- cPanel-generated handler
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php81 .php .php8 .phtml
+</IfModule>
+HTACCESS;
 }
 
 // Genere une page settings minimale pour le tenant (juste lien vers la plateforme)
