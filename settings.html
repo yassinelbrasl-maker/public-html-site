@@ -3132,16 +3132,19 @@
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ── (1) Login box entrance ──
+  // NB : Motion v11 a un bug quand on combine delay + multi-property sur un transform
+  // pré-appliqué inline. On se contente d'une entrée immédiate (sans delay) qui
+  // fonctionne de façon fiable avec la syntaxe target-only.
   const loginBox = document.querySelector('.login-screen .login-box');
   if (loginBox && !reducedMotion) {
     const loginScreen = document.getElementById('loginScreen');
     // N'animer que si l'écran de login est effectivement visible (utilisateur non auth)
     if (loginScreen && getComputedStyle(loginScreen).display !== 'none') {
       loginBox.style.opacity = '0';
-      loginBox.style.transform = 'translateY(20px) scale(0.97)';
+      loginBox.style.transform = 'translateY(18px)';
       animate(loginBox,
-        { opacity: 1, y: 0, scale: 1 },
-        { duration: 0.8, delay: 0.15, easing: [0.22, 0.61, 0.36, 1] }
+        { opacity: 1, y: 0 },
+        { duration: 0.8, easing: [0.22, 0.61, 0.36, 1] }
       );
     }
   }
