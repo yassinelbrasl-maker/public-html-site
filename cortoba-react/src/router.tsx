@@ -3,6 +3,7 @@ import { RootLayout } from "./layouts/RootLayout";
 import { HomePage } from "./pages/HomePage";
 import { LandscapingPage } from "./pages/LandscapingPage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
+import { ConfiguratorPage } from "./pages/ConfiguratorPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -14,8 +15,8 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: "landscaping", element: <LandscapingPage /> },
       { path: "projet-:slug", element: <ProjectDetailPage /> },
+      { path: "configurateur", element: <ConfiguratorPage /> },
       // TODO — ports à venir (voir MIGRATION.md) :
-      // { path: "configurateur", lazy: () => import("./pages/ConfiguratorPage") },
       // { path: "settings", lazy: () => import("./pages/SettingsPage") }, // admin public content
       // { path: "plateforme/*", lazy: () => import("./pages/PlateformeShell") }, // admin app
     ],
