@@ -12,11 +12,11 @@
 | Tailwind + tokens cortoba (bg/fg/gold) | ✅ | `tailwind.config.js`, `src/styles/globals.css` |
 | React Router | ✅ | `src/router.tsx` |
 | Layout partagé (header, footer, i18n stub) | ✅ | `src/layouts/RootLayout.tsx` |
-| API client projets | ✅ | `src/api/projects.ts` |
-| **Page d'accueil** (`/`) | 🟡 Partiel | Hero, projets (avec morph `layoutId`), services, teaser configurateur. Manque : about, team, contact, map Leaflet |
-| Page landscaping (`/landscaping`) | ❌ | À porter |
-| Page configurateur (`/configurateur`) | ❌ | 6 étapes + submission — gros morceau |
-| Pages projets détail (`/projet-:slug`) | ❌ | Actuellement : fichiers HTML individuels `projet-*.html` |
+| API client projets + users | ✅ | `src/api/projects.ts`, `src/api/users.ts` |
+| **Page d'accueil** (`/`) | ✅ | Hero, projets avec morph `layoutId`, services, teaser, about, team, contact, map |
+| Page landscaping (`/landscaping`) | ✅ | Hero parallax, manifeste stats, projets, services, philosophie, approche, contact |
+| Pages projets détail (`/projet-:slug`) | ✅ | Hero, description, meta, galerie + lightbox, autres projets, next CTA |
+| Page configurateur (`/configurateur`) | 🟡 Scaffolded | Intro, stepper, state (Context+reducer), validation, AnimatePresence cross-fade, step 1 + client + success fonctionnels, steps 2-6 en placeholders |
 | Panneau admin public (`/settings`) | ❌ | Currently `settings.html` |
 | Plateforme admin (`/plateforme/*`) | ❌ | Le plus gros chunk : 10+ sections |
 
