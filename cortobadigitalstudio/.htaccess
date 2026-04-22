@@ -19,7 +19,8 @@ DirectoryIndex plateforme-nas.html
 </IfModule>
 
 # ── Bloquer l'acces direct aux fichiers sensibles ──
-<FilesMatch "^(install\.php|schema\.sql|README\.txt)$">
+# (install.php reste accessible pour la premiere installation, a supprimer apres)
+<FilesMatch "^(schema\.sql|README\.txt)$">
   Require all denied
 </FilesMatch>
 
