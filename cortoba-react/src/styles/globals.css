@@ -45,7 +45,8 @@
   }
 }
 
-/* Print styles — utilisé par StepResult "Télécharger en PDF".
+/* Bump v3 — force new CSS hash to bypass a stuck file on cPanel deploy.
+ * Print styles — utilisé par StepResult "Télécharger en PDF".
  * Bascule en fond blanc + texte noir pour économiser l'encre et rendre
  * la fourchette / le breakdown lisibles sur papier ou PDF. */
 @media print {
