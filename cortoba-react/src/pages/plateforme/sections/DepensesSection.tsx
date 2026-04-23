@@ -7,7 +7,6 @@ import {
   ResponsiveContainer,
   Tooltip,
   Legend,
-  LineChart,
   Line,
   XAxis,
   YAxis,
