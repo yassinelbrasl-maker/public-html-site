@@ -18409,14 +18409,17 @@ function loadParamLots() {
     _paramLotsCache.forEach(function(lot, i) {
       var phases = lot.phases || [];
       var hasPhases = phases.length > 0;
-      h += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem">' +
+      var codeBadge = lot.code ? '<span style="font-size:0.68rem;font-weight:600;letter-spacing:0.05em;color:var(--accent);background:rgba(200,169,110,0.12);border:1px solid rgba(200,169,110,0.3);padding:0.1rem 0.4rem;border-radius:3px;font-family:ui-monospace,Menlo,monospace">' + _cgEscape(lot.code) + '</span>' : '';
+      h += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem;border-left:3px solid ' + (lot.couleur || '#c8a96e') + '">' +
         '<div style="display:flex;align-items:center;gap:0.5rem;cursor:pointer" onclick="toggleParamLotExpand(\'' + lot.id + '\')">' +
         '<span id="param-chevron-' + lot.id + '" style="display:inline-block;transition:transform 0.2s;font-size:0.7rem;color:var(--accent)">&#9654;</span>' +
-        '<span style="width:8px;height:8px;border-radius:50%;background:' + (lot.couleur || '#c8a96e') + ';flex-shrink:0"></span>' +
+        '<span style="width:14px;height:14px;border-radius:3px;background:' + (lot.couleur || '#c8a96e') + ';flex-shrink:0;border:1px solid rgba(0,0,0,0.2)"></span>' +
         '<span style="color:var(--text-3);font-size:0.75rem;width:24px">' + (i+1) + '.</span>' +
+        codeBadge +
         '<span style="flex:1;font-size:0.85rem;font-weight:600">' + _cgEscape(lot.nom) + '</span>' +
         '<span style="font-size:0.72rem;color:var(--text-3)">' + phases.length + ' phase' + (phases.length > 1 ? 's' : '') + '</span>' +
         (lot.actif == 0 ? '<span style="font-size:0.7rem;color:var(--text-3);background:var(--bg-3);padding:0.1rem 0.4rem;border-radius:3px">(inactif)</span>' : '') +
+        '<button class="btn btn-sm" onclick="event.stopPropagation();editParamLot(\'' + lot.id + '\')" title="Modifier code et couleur">&#9998;</button>' +
         '<button class="btn btn-sm" onclick="event.stopPropagation();toggleParamLot(\'' + lot.id + '\',' + (lot.actif == 1 ? 0 : 1) + ')" title="' + (lot.actif == 1 ? 'Désactiver' : 'Activer') + '">' + (lot.actif == 1 ? '&#128064;' : '&#128683;') + '</button>' +
         '<button class="btn btn-sm" style="color:var(--red)" onclick="event.stopPropagation();deleteParamLot(\'' + lot.id + '\')">&#10005;</button>' +
         '</div>';
@@ -18463,11 +18466,26 @@ function toggleParamLotExpand(lotId) {
 function addParamLot() {
   var nom = document.getElementById('param-lot-nom').value.trim();
   if (!nom) { showToast('Nom requis', 'warning'); return; }
-  apiFetch('api/chantier.php?action=param_lots', { method: 'POST', body: { nom: nom } }).then(function() {
+  var codeEl = document.getElementById('param-lot-code');
+  var couleurEl = document.getElementById('param-lot-couleur');
+  var code = codeEl ? codeEl.value.trim() : '';
+  var couleur = couleurEl ? couleurEl.value : '#c8a96e';
+  if (!code) code = _suggestLotCode(nom, _paramLotsCache, null);
+  apiFetch('api/chantier.php?action=param_lots', { method: 'POST', body: { nom: nom, code: code || null, couleur: couleur } }).then(function() {
     document.getElementById('param-lot-nom').value = '';
+    if (codeEl) codeEl.value = '';
+    if (couleurEl) couleurEl.value = '#c8a96e';
     showToast('Lot ajouté', 'success');
     loadParamLots();
   }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+function _onParamLotNomChange() {
+  var codeEl = document.getElementById('param-lot-code');
+  if (!codeEl || codeEl.dataset.userEdited === '1') return;
+  var nom = document.getElementById('param-lot-nom').value;
+  codeEl.value = _suggestLotCode(nom, _paramLotsCache, null);
+  codeEl.addEventListener('input', function onEdit() { codeEl.dataset.userEdited = '1'; codeEl.removeEventListener('input', onEdit); }, { once: true });
 }
 
 function toggleParamLot(id, actif) {
@@ -18476,6 +18494,52 @@ function toggleParamLot(id, actif) {
   apiFetch('api/chantier.php?action=param_lots&id=' + id, { method: 'PUT', body: { nom: lot.nom, code: lot.code, ordre: lot.ordre, actif: actif, couleur: lot.couleur } }).then(function() {
     loadParamLots();
   });
+}
+
+function editParamLot(id) {
+  var lot = null; _paramLotsCache.forEach(function(l) { if (l.id === id) lot = l; });
+  if (!lot) return;
+  document.getElementById('param-lot-edit-id').value = lot.id;
+  document.getElementById('param-lot-edit-nom').value = lot.nom || '';
+  document.getElementById('param-lot-edit-code').value = lot.code || _suggestLotCode(lot.nom, _paramLotsCache, lot.id);
+  var col = lot.couleur || '#c8a96e';
+  document.getElementById('param-lot-edit-couleur').value = col;
+  document.getElementById('param-lot-edit-couleur-hex').value = col;
+  openModal('modal-param-lot-edit');
+}
+
+function saveParamLotEdit() {
+  var id = document.getElementById('param-lot-edit-id').value;
+  var lot = null; _paramLotsCache.forEach(function(l) { if (l.id === id) lot = l; });
+  if (!lot) { showToast('Lot introuvable', 'error'); return; }
+  var nom = document.getElementById('param-lot-edit-nom').value.trim();
+  var code = document.getElementById('param-lot-edit-code').value.trim();
+  var couleur = document.getElementById('param-lot-edit-couleur-hex').value.trim() || document.getElementById('param-lot-edit-couleur').value;
+  if (!nom) { showToast('Nom requis', 'warning'); return; }
+  if (couleur && !/^#[0-9a-fA-F]{6}$/.test(couleur)) { showToast('Couleur invalide (format #RRGGBB)', 'warning'); return; }
+  apiFetch('api/chantier.php?action=param_lots&id=' + id, {
+    method: 'PUT',
+    body: { nom: nom, code: code || null, ordre: lot.ordre, actif: lot.actif, couleur: couleur || '#c8a96e' }
+  }).then(function() {
+    showToast('Lot mis à jour', 'success');
+    closeModal('modal-param-lot-edit');
+    loadParamLots();
+  }).catch(function(e) { showToast('Erreur: ' + e.message, 'error'); });
+}
+
+// Generate a short uppercase code from the lot name, unique within existing lots
+function _suggestLotCode(nom, existing, excludeId) {
+  if (!nom) return '';
+  var clean = nom.normalize ? nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : nom;
+  var words = clean.toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  var base;
+  if (words.length >= 2) base = words.map(function(w){ return w[0]; }).join('').substring(0, 5);
+  else base = (words[0] || 'LOT').substring(0, 4);
+  var taken = {};
+  (existing || []).forEach(function(l) { if (l.id !== excludeId && l.code) taken[l.code.toUpperCase()] = true; });
+  if (!taken[base]) return base;
+  for (var n = 2; n < 100; n++) { var cand = base + n; if (!taken[cand]) return cand; }
+  return base;
 }
 
 function deleteParamLot(id) {

@@ -2923,8 +2923,10 @@
           <div id="param-lots-wrap">
             <div style="color:var(--text-3);font-size:0.82rem">Chargement...</div>
           </div>
-          <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center">
-            <input id="param-lot-nom" class="form-input" placeholder="Nom du lot (ex: Gros oeuvre)" style="flex:1" />
+          <div style="margin-top:1rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+            <input id="param-lot-nom" class="form-input" placeholder="Nom du lot (ex: Gros oeuvre)" style="flex:1;min-width:200px" oninput="_onParamLotNomChange()" />
+            <input id="param-lot-code" class="form-input" placeholder="Code (ex: GO)" maxlength="20" style="width:120px;font-family:ui-monospace,Menlo,monospace" />
+            <input id="param-lot-couleur" type="color" value="#c8a96e" title="Couleur du lot" style="width:44px;height:36px;border:1px solid var(--border);border-radius:4px;padding:2px;cursor:pointer" />
             <button class="btn btn-primary btn-sm" onclick="addParamLot()">+ Ajouter un lot</button>
           </div>
         </div>
@@ -6055,6 +6057,34 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-ch-lot')">Annuler</button>
       <button class="btn btn-primary" onclick="saveLot()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal édition lot paramètre (Paramètres → Chantier) -->
+<div class="modal-overlay" id="modal-param-lot-edit">
+  <div class="modal-box" style="max-width:520px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title">Modifier le lot</div>
+      <button class="modal-close" onclick="closeModal('modal-param-lot-edit')">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="param-lot-edit-id">
+      <div class="form-grid">
+        <div class="form-field" style="grid-column:1/-1"><label class="form-label">Nom *</label><input type="text" id="param-lot-edit-nom" class="form-input" placeholder="Gros œuvre"></div>
+        <div class="form-field"><label class="form-label">Code</label><input type="text" id="param-lot-edit-code" class="form-input" maxlength="20" placeholder="LOT-01"></div>
+        <div class="form-field"><label class="form-label">Couleur</label>
+          <div style="display:flex;gap:0.4rem;align-items:center">
+            <input type="color" id="param-lot-edit-couleur" value="#c8a96e" style="width:48px;height:38px;border:1px solid var(--border);border-radius:4px;padding:2px;cursor:pointer" oninput="document.getElementById('param-lot-edit-couleur-hex').value=this.value">
+            <input type="text" id="param-lot-edit-couleur-hex" class="form-input" value="#c8a96e" maxlength="9" style="flex:1" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('param-lot-edit-couleur').value=this.value">
+          </div>
+        </div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-3);margin-top:0.8rem">Le code s'affichera dans les listes et rapports de chantier. La couleur est utilisée dans le Gantt et les vues de lots.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-param-lot-edit')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveParamLotEdit()">Enregistrer</button>
     </div>
   </div>
 </div>
