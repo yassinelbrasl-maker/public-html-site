@@ -42,6 +42,7 @@ export function SliderSection() {
   const [slides, setSlides] = useState<SliderImage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | number | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const load = () => {
     setError(null);
@@ -69,6 +70,34 @@ export function SliderSection() {
       alert(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(null);
+    }
+  }
+
+  async function handleNewImage(img: UploadedImage) {
+    setSaving(true);
+    try {
+      // Create the slide with default settings (user can edit after)
+      const res = await apiFetch("/cortoba-plateforme/api/slider.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_path: img.path,
+          fit_mode: "cover",
+          position_x: 50,
+          position_y: 50,
+          zoom: 100,
+          animation_type: "zoom-in",
+          alt_text: "",
+          sort_order: (slides?.length || 0),
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Erreur serveur");
+      load(); // reload full list from server to get the new id
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
     }
   }
 
