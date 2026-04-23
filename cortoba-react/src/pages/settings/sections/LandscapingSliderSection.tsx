@@ -175,12 +175,13 @@ export function LandscapingSliderSection() {
             <span>⋮⋮</span>
             Glissez pour réorganiser · ✎ pour éditer · 🗑 pour supprimer.
           </p>
+          {/* Liste verticale — Reorder.Group de framer-motion est 1D. */}
           <Reorder.Group
             as="div"
             axis="y"
             values={slides}
             onReorder={saveOrder}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            className="flex flex-col gap-3"
           >
             <AnimatePresence>
               {slides.map((s, i) => {
@@ -192,62 +193,66 @@ export function LandscapingSliderSection() {
                     key={s.id}
                     value={s}
                     whileDrag={{
-                      scale: 1.03,
+                      scale: 1.01,
                       boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
                       zIndex: 10,
                     }}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.35, delay: i * 0.04 }}
-                    className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing"
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3, delay: i * 0.03 }}
+                    className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing flex items-stretch"
                   >
-                    <div className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-[#8dba78] text-bg font-bold text-xs flex items-center justify-center">
-                      {i + 1}
-                    </div>
-                    <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditing(s as EditableLsSlide);
-                        }}
-                        className="w-8 h-8 rounded-md bg-[#8dba78]/90 text-bg hover:bg-[#8dba78] text-xs"
-                        title="Éditer"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(s.id);
-                        }}
-                        disabled={deleting === s.id}
-                        className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
-                        title="Supprimer"
-                      >
-                        {deleting === s.id ? "…" : "🗑"}
-                      </button>
+                    <div className="shrink-0 w-14 flex items-center justify-center bg-bg-card border-r border-white/5">
+                      <div className="w-8 h-8 rounded-full bg-[#8dba78] text-bg font-bold text-xs flex items-center justify-center">
+                        {i + 1}
+                      </div>
                     </div>
                     <div
-                      className="h-40 bg-cover bg-center pointer-events-none"
+                      className="w-48 shrink-0 h-28 bg-cover bg-center pointer-events-none"
                       style={{
                         backgroundImage: `url('${s.image_path}')`,
                         backgroundPosition: `${px}% ${py}%`,
                         backgroundColor: s.bg_color || "#1a2815",
                       }}
                     />
-                    <div className="p-2 text-[0.65rem] text-fg-muted text-center">
-                      Position {px}% / {py}%
-                      {s.bg_color && (
-                        <span
-                          className="inline-block w-3 h-3 rounded-full ml-2 align-middle border border-white/20"
-                          style={{ backgroundColor: s.bg_color }}
-                        />
-                      )}
+                    <div className="flex-1 p-4 flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0 text-[0.7rem] text-fg-muted">
+                        Position {px}% / {py}%
+                        {s.bg_color && (
+                          <span
+                            className="inline-block w-3 h-3 rounded-full ml-2 align-middle border border-white/20"
+                            style={{ backgroundColor: s.bg_color }}
+                          />
+                        )}
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(s as EditableLsSlide);
+                          }}
+                          className="w-8 h-8 rounded-md bg-[#8dba78]/90 text-bg hover:bg-[#8dba78] text-xs"
+                          title="Éditer"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(s.id);
+                          }}
+                          disabled={deleting === s.id}
+                          className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
+                          title="Supprimer"
+                        >
+                          {deleting === s.id ? "…" : "🗑"}
+                        </button>
+                      </div>
                     </div>
                   </Reorder.Item>
                 );
