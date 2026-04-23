@@ -31,6 +31,7 @@ const SERVICES: Service[] = [
 ];
 
 export function ServicesSection() {
+  const { t } = useI18n();
   return (
     <section id="services" className="py-20 px-6">
       <motion.h2
