@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useConfigurator } from "../context";
 import { calculate, fmtEur, fmtEurFull } from "../calc";
+import { OPERATIONS, STYLES, STANDINGS, TERRAIN_NATURES } from "../data";
 
 /**
  * StepResult — page de résultats entre Step 6 (Terrain) et StepClient.
