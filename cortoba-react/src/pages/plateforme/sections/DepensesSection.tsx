@@ -68,9 +68,37 @@ export function DepensesSection() {
             </span>
           )}
         </div>
-        <button type="button" className="cta-button cta-button-primary text-xs">
-          ＋ Nouvelle dépense
-        </button>
+        <div className="flex items-center gap-2">
+          {items && items.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const filename = `cortoba-depenses-${new Date()
+                  .toISOString()
+                  .split("T")[0]}.csv`;
+                exportAsCsv(
+                  filename,
+                  items.map((d) => ({
+                    date: d.date || "",
+                    label: d.label || "",
+                    categorie: d.category || "",
+                    projet: d.project_name || d.project_id || "",
+                    amount: d.amount ?? "",
+                    currency: d.currency || "DT",
+                    status: d.status || "",
+                  }))
+                );
+              }}
+              className="cta-button text-xs"
+              title="Télécharger les dépenses en CSV"
+            >
+              📥 Exporter CSV
+            </button>
+          )}
+          <button type="button" className="cta-button cta-button-primary text-xs">
+            ＋ Nouvelle dépense
+          </button>
+        </div>
       </motion.div>
 
       {/* Stats cards + donut chart */}
