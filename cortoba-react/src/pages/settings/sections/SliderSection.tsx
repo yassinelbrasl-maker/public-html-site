@@ -279,10 +279,10 @@ export function SliderSection() {
         transition={{ delay: 0.4 }}
         className="mt-8 p-4 bg-gold/5 border border-gold-dim/30 rounded-md text-xs text-fg-muted leading-relaxed"
       >
-        ✅ Upload d'image + éditeur complet (position / zoom / animation /
-        fit / alt text) + suppression. TODO restant : drag-to-reorder via{" "}
-        <code>Reorder.Group</code>, éditeur avec drag pour repositionner
-        visuellement l'image sur la preview.
+        ✅ Upload d'image, éditeur complet (position / zoom / animation /
+        fit / alt text), suppression, drag-to-reorder via{" "}
+        <code>Reorder.Group</code>. TODO : drag pour repositionner visuellement
+        l'image sur la preview dans l'éditeur.
       </motion.div>
 
       <SlideEditorModal
