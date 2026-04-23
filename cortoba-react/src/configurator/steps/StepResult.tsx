@@ -72,6 +72,19 @@ export function StepResult() {
         {state.cfg_nom_projet && (
           <p className="mt-3 text-fg-muted italic">« {state.cfg_nom_projet} »</p>
         )}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4, duration: 0.4 }}
+          className="mt-4 inline-flex items-center gap-2 bg-bg-card border border-white/10 rounded-full px-3 py-1 text-xs"
+        >
+          <span>{mode.emoji}</span>
+          <span className={mode.color}>Estimation {mode.label.toLowerCase()}</span>
+          <span className="text-fg-muted">·</span>
+          <span className="text-fg-muted tabular-nums">
+            {paramCount}/11 paramètres
+          </span>
+        </motion.div>
       </motion.div>
 
       {/* Big number hero */}
