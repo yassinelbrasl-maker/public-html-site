@@ -68,10 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
+      .then((raw) => {
         if (cancelled) return;
-        if (data && (data.user || data.email)) {
-          const u = data.user || data;
+        // PHP wraps in { success, data } — unwrap one level if needed
+        const payload = raw?.data || raw;
+        const u = payload?.user || payload;
+        if (u && (u.email || u.id)) {
           setUser({
             id: u.id,
             email: u.email,
