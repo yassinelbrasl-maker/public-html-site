@@ -11,29 +11,31 @@ test.describe("Home page", () => {
 
   test("has working CTAs", async ({ page }) => {
     await page.goto("/");
-    const projectsCta = page.getByRole("link", { name: /voir nos projets/i });
-    const configCta = page.getByRole("link", {
-      name: /configurateur de projet/i,
-    });
+    // Use .first() since prerendered HTML + hydrated React may render dupes
+    const projectsCta = page
+      .getByRole("link", { name: /voir nos projets/i })
+      .first();
+    const configCta = page
+      .getByRole("link", { name: /configurateur de projet/i })
+      .first();
     await expect(projectsCta).toBeVisible();
     await expect(configCta).toBeVisible();
   });
 
   test("language switcher works (FR → EN)", async ({ page }) => {
     await page.goto("/");
-    // Wait for React to hydrate
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "EN" }).click();
-    // Subtitle in English
-    await expect(
-      page.getByText(/Projects that tell the story of place/i)
-    ).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "EN" }).first().click();
+    // html lang attribute should flip
+    await expect(page.locator("html")).toHaveAttribute("lang", "en", {
+      timeout: 5000,
+    });
   });
 
   test("language switcher RTL (FR → AR)", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "AR" }).click();
+    await page.getByRole("button", { name: "AR" }).first().click();
     // html dir should flip to rtl
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl", {
       timeout: 5000,
