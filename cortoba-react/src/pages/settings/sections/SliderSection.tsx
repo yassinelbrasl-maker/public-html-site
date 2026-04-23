@@ -75,6 +75,35 @@ export function SliderSection() {
     }
   }
 
+  async function saveOrder(newOrder: SliderImage[]) {
+    setSlides(newOrder); // optimistic
+    try {
+      // Server expects { ids: [id1, id2, ...] } in the new order OR one PUT per item.
+      // On tente d'abord un endpoint batch, sinon on envoie un update par item.
+      const ids = newOrder.map((s) => s.id);
+      const res = await apiFetch("/cortoba-plateforme/api/slider.php?action=reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        // Fallback : PUT each slide with its new sort_order
+        await Promise.all(
+          newOrder.map((s, i) =>
+            apiFetch("/cortoba-plateforme/api/slider.php", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: s.id, sort_order: i }),
+            })
+          )
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      load(); // revert to server truth on failure
+    }
+  }
+
   async function handleNewImage(img: UploadedImage) {
     setSaving(true);
     try {
