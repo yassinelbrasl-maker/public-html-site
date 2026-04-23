@@ -6,7 +6,7 @@
   "description": "Full React + TypeScript rewrite of cortobaarchitecture.com (Option C). Not yet live.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/prerender-seo.mjs",
+    "build": "tsc -b && vite build && node scripts/prerender-seo.mjs && node scripts/generate-sitemap.mjs",
     "build:nose": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint ."
