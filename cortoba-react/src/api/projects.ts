@@ -4,6 +4,8 @@
  */
 
 export interface Project {
+  /** DB primary key — required for PUT (update) and DELETE. */
+  id?: number;
   slug: string;
   title: string;
   category: string;
@@ -16,6 +18,8 @@ export interface Project {
   description?: string;
   year?: string | number;
   surface?: string | number;
+  sort_order?: number;
+  published?: number | boolean;
 }
 
 /** Récupère un projet par son slug depuis la liste publiée. */
