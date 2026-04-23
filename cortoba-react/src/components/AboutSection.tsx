@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function AboutSection() {
+  const { t } = useI18n();
   return (
     <section id="about" className="py-20 px-6">
       <motion.h2
@@ -10,7 +12,7 @@ export function AboutSection() {
         transition={{ duration: 0.7 }}
         className="section-h2 text-center mb-12"
       >
-        À propos
+        {t("about_title")}
       </motion.h2>
       <motion.div
         initial={{ opacity: 0, y: 30 }}

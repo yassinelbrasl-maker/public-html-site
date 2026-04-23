@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { fetchPublicTeam, type TeamMember, initialsFor, fullName } from "@/api/users";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function TeamSection() {
   const [members, setMembers] = useState<TeamMember[] | null>(null);
