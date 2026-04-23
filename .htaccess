@@ -10,6 +10,10 @@
 Options -Indexes
 DirectoryIndex index.html
 
+# Empêche Apache de renvoyer 301 /route → /route/ quand un dossier
+# prerenderé existe. On préfère servir directement le HTML sans slash.
+DirectorySlash Off
+
 <IfModule mod_headers.c>
   <FilesMatch "\.(html)$">
     Header set Cache-Control "no-cache, must-revalidate"
