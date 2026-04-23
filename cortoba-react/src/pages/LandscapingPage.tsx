@@ -1,5 +1,6 @@
 import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import { useRef } from "react";
+import { Seo } from "@/seo/Seo";
 
 /**
  * Landscaping — Cortoba paysagisme
