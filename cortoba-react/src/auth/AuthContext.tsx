@@ -107,11 +107,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ email, password }),
           }
         );
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          return { ok: false as const, error: data.error || `HTTP ${res.status}` };
+        const raw = await res.json().catch(() => ({}));
+        if (!res.ok || raw.success === false) {
+          return {
+            ok: false as const,
+            error: raw.error || `HTTP ${res.status}`,
+          };
         }
-        const newToken = data.token || data.access_token;
+        // PHP jsonOk() wraps payload in { success: true, data: {...} }.
+        // Fallback to top-level for compat with other shapes.
+        const payload = raw.data || raw;
+        const newToken =
+          payload.token || payload.access_token || raw.token || raw.access_token;
         if (!newToken) {
           return { ok: false as const, error: "Réponse inattendue du serveur." };
         }
