@@ -16,6 +16,7 @@ export function ProjectsSection() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const confirm = useConfirm();
   const toast = useToast();
 
