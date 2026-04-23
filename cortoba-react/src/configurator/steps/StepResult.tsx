@@ -292,13 +292,21 @@ export function StepResult() {
       </motion.div>
 
       {/* CTAs */}
-      <div className="flex flex-wrap items-center gap-4 pt-8 border-t border-white/5">
+      <div className="flex flex-wrap items-center gap-4 pt-8 border-t border-white/5 print:hidden">
         <button
           type="button"
           onClick={() => goTo(6)}
           className="cta-button"
         >
           ← Modifier mon projet
+        </button>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="cta-button"
+          title="Imprimer ou sauvegarder en PDF"
+        >
+          📄 Télécharger en PDF
         </button>
         <motion.button
           type="button"
@@ -311,6 +319,44 @@ export function StepResult() {
         </motion.button>
       </div>
     </>
+  );
+}
+
+function ChoiceCard({
+  icon,
+  label,
+  value,
+  mult,
+  hint,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  mult?: number;
+  hint?: string;
+}) {
+  const multLabel =
+    mult != null && Math.abs(mult - 1) > 0.001
+      ? `${mult > 1 ? "+" : ""}${Math.round((mult - 1) * 100)}%`
+      : null;
+  return (
+    <div className="p-3 rounded-md border border-white/5 bg-bg">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-lg">{icon}</span>
+        <span className="text-[0.6rem] tracking-[0.18em] uppercase text-fg-muted">
+          {label}
+        </span>
+      </div>
+      <div className="text-sm text-fg">{value}</div>
+      {multLabel && (
+        <div className="text-[0.65rem] text-gold mt-0.5 tabular-nums">
+          × {mult!.toFixed(2)} ({multLabel})
+        </div>
+      )}
+      {hint && !multLabel && (
+        <div className="text-[0.65rem] text-fg-muted mt-0.5 tabular-nums">{hint}</div>
+      )}
+    </div>
   );
 }
 
