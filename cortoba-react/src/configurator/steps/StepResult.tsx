@@ -42,6 +42,16 @@ export function StepResult() {
       ? { label: "Standard", color: "text-gold", emoji: "⚡" }
       : { label: "Rapide", color: "text-fg-muted", emoji: "💨" };
 
+  // Lookup des libellés humains pour les choix clés — affichés en recap.
+  const choices = useMemo(() => {
+    return {
+      operation: OPERATIONS.find((o) => o.id === state.cfg_operation),
+      style: STYLES.find((s) => s.id === state.cfg_style),
+      standing: STANDINGS.find((s) => s.id === state.cfg_standing),
+      terrain: TERRAIN_NATURES.find((t) => t.id === state.cfg_terrain_nature),
+    };
+  }, [state.cfg_operation, state.cfg_style, state.cfg_standing, state.cfg_terrain_nature]);
+
   // Persiste les valeurs calculées dans l'état pour la soumission
   useEffect(() => {
     dispatch({
