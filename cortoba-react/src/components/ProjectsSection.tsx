@@ -39,6 +39,7 @@ const FALLBACK_PROJECTS: Project[] = [
 ];
 
 export function ProjectsSection() {
+  const { t } = useI18n();
   const [projects, setProjects] = useState<Project[]>(FALLBACK_PROJECTS);
   const [openProject, setOpenProject] = useState<Project | null>(null);
 
