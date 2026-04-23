@@ -59,8 +59,14 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache the API
-  if (url.pathname.startsWith("/cortoba-plateforme/api/")) return;
+  // Never cache / never intercept : API + admin (HTML shell is enough, all content is dynamic).
+  if (
+    url.pathname.startsWith("/cortoba-plateforme/") ||
+    url.pathname.startsWith("/settings") ||
+    url.pathname.startsWith("/plateforme")
+  ) {
+    return;
+  }
 
   // Hashed assets (Vite) → cache-first, permanent
   if (url.pathname.startsWith("/assets/")) {
