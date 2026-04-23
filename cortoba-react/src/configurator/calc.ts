@@ -90,9 +90,9 @@ export function calculate(s: ConfiguratorState): CalcResult {
   const rooms: CalcRoom[] = [];
 
   // Espaces de vie
-  if (s.cfg_salon) {
-    rooms.push({ label: "Salon / séjour", surface: SURFACES.salon });
-  }
+  if (s.cfg_salon) rooms.push({ label: "Salon", surface: SURFACES.salon });
+  if (s.cfg_sejour) rooms.push({ label: "Séjour", surface: SURFACES.sejour });
+  if (s.cfg_entree) rooms.push({ label: "Entrée", surface: SURFACES.entree });
 
   // Cuisine
   if (s.cfg_cuisine_type === "independante") {
@@ -100,19 +100,51 @@ export function calculate(s: ConfiguratorState): CalcResult {
       label: "Cuisine indépendante",
       surface: SURFACES.cuisine_independante,
     });
+    if (s.cfg_cuisine_table) {
+      rooms.push({
+        label: "Salle à manger",
+        surface: SURFACES.cuisine_table,
+      });
+    }
   } else if (s.cfg_cuisine_type === "ouverte") {
-    // Cuisine ouverte : comptée dans salon, juste une ligne visuelle
     rooms.push({
       label: "Cuisine ouverte (incluse)",
       surface: SURFACES.cuisine_ouverte,
     });
   }
 
-  // Chambres
-  if (s.cfg_chambres > 0) {
+  // Chambres — liste dynamique en priorité, fallback sur le compteur simple
+  if (s.cfg_chambres_list && s.cfg_chambres_list.length > 0) {
+    s.cfg_chambres_list.forEach((c, i) => {
+      const key =
+        c.type === "simple"
+          ? "chambre_simple"
+          : c.type === "double"
+          ? "chambre_double"
+          : c.type === "double_balcon"
+          ? "chambre_double_balcon"
+          : "chambre_suite";
+      rooms.push({
+        label: `Chambre ${i + 1} (${c.type.replace("_", " ")})`,
+        surface: SURFACES[key],
+      });
+    });
+  } else if (s.cfg_chambres > 0) {
     rooms.push({
       label: `Chambres (×${s.cfg_chambres})`,
-      surface: s.cfg_chambres * SURFACES.chambre,
+      surface: s.cfg_chambres * SURFACES.chambre_double,
+    });
+  }
+
+  // Suite parentale
+  if (s.cfg_suite_parentale) {
+    const key =
+      s.cfg_suite_parentale_type === "dressing"
+        ? "suite_parentale_dressing"
+        : "suite_parentale_placard";
+    rooms.push({
+      label: `Suite parentale (${s.cfg_suite_parentale_type || "placard"})`,
+      surface: SURFACES[key],
     });
   }
 
@@ -123,6 +155,14 @@ export function calculate(s: ConfiguratorState): CalcResult {
       surface: s.cfg_salles_bain * SURFACES.sdb,
     });
   }
+
+  // Pièces annexes intérieures
+  if (s.cfg_bureau) rooms.push({ label: "Bureau", surface: SURFACES.bureau });
+  if (s.cfg_sport) rooms.push({ label: "Espace sport", surface: SURFACES.sport });
+  if (s.cfg_buanderie)
+    rooms.push({ label: "Buanderie", surface: SURFACES.buanderie });
+  if (s.cfg_cellier)
+    rooms.push({ label: "Cellier", surface: SURFACES.cellier });
 
   // Garage (compte dans surface couverte mais pas habitable)
   if (s.cfg_garage) {
