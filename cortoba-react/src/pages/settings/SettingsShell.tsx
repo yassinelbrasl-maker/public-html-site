@@ -95,13 +95,7 @@ export function SettingsShell({
             className="p-10"
           >
             {section === "projects" && <ProjectsSection />}
-            {section === "slider" && (
-              <PlaceholderSection
-                title="Slider accueil"
-                icon="🎞️"
-                description="Gestion des slides du carousel de la page d'accueil. Endpoint PHP : /api/slider.php"
-              />
-            )}
+            {section === "slider" && <SliderSection />}
             {section === "ls-projects" && (
               <PlaceholderSection
                 title="Projets paysagers"
