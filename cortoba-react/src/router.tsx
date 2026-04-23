@@ -52,13 +52,18 @@ const PlateformeLivrables = lazy(() =>
   }))
 );
 const PlateformeDepenses = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/DepensesSection").then((m) => ({
     default: m.DepensesSection,
   }))
 );
 const PlateformeEquipe = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/EquipeSection").then((m) => ({
     default: m.EquipeSection,
+  }))
+);
+const PlateformeLivrablesReal = lazy(() =>
+  import("./pages/plateforme/sections/LivrablesSection").then((m) => ({
+    default: m.LivrablesSection,
   }))
 );
 const PlateformeConges = lazy(() =>
