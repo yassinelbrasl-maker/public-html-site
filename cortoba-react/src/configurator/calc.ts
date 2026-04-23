@@ -182,9 +182,22 @@ export function calculate(s: ConfiguratorState): CalcResult {
     surfaceHabitable +
     rooms.filter((r) => r.external).reduce((a, r) => a + r.surface, 0);
 
-  // Multiplicateur niveaux (le legacy multiplie par nb_niveaux pour certains types)
-  const niveauxMult = s.cfg_type_group === "immeuble" ? s.cfg_niveaux + 1 : 1;
-  const surfaceFinale = surfaceHabitable * niveauxMult;
+  // Surface finale — spécial cas mixte : somme des niveaux du builder
+  let surfaceFinale: number;
+  if (s.cfg_type === "mixte" && s.cfg_mixte_niveaux.length > 0) {
+    surfaceFinale = s.cfg_mixte_niveaux.reduce((a, n) => a + n.surface, 0);
+    // Ajouter les niveaux mixtes à la liste des rooms pour affichage
+    s.cfg_mixte_niveaux.forEach((n, i) => {
+      rooms.push({
+        label: `Niveau ${i + 1} (${n.usage})`,
+        surface: n.surface,
+      });
+    });
+  } else {
+    const niveauxMult =
+      s.cfg_type_group === "immeuble" ? s.cfg_niveaux + 1 : 1;
+    surfaceFinale = surfaceHabitable * niveauxMult;
+  }
 
   // Coût construction de la villa / bâtiment
   const base = surfaceFinale * cpp * operationMult;
