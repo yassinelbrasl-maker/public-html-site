@@ -17674,7 +17674,8 @@ function _renderChLotsProgress(d) {
     _chCache.lots.forEach(function(l, idx) {
       var phases = l.phases || [];
       var hasPhases = phases.length > 0;
-      h += '<div style="margin-bottom:0.8rem;border:1px solid var(--border);border-radius:6px;padding:0.6rem;background:var(--bg-1)">';
+      var lotColor = l.couleur || '#c8a96e';
+      h += '<div style="margin-bottom:0.8rem;border:2px solid ' + lotColor + ';border-radius:6px;padding:0.6rem;background:var(--bg-1);box-shadow:0 0 0 1px ' + lotColor + '22 inset">';
       // Lot header — clickable to expand phases, with edit/delete buttons
       h += '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.88rem;margin-bottom:0.25rem">' +
         '<span style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.3rem" onclick="toggleLotPhases(\'' + l.id + '\')">' +
