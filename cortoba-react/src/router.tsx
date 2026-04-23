@@ -46,11 +46,6 @@ const PlateformeRendement = lazy(() =>
     default: m.RendementSection,
   }))
 );
-const PlateformeLivrables = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
-    default: m.LivrablesSection,
-  }))
-);
 const PlateformeDepenses = lazy(() =>
   import("./pages/plateforme/sections/DepensesSection").then((m) => ({
     default: m.DepensesSection,
