@@ -52,6 +52,22 @@ const OPERATION_MULT: Record<string, number> = {
   extension: 0.8,
 };
 
+// Multiplicateur par style architectural — reflète les matériaux / systèmes
+// constructifs (brique classique vs ossature bois vs structure acier).
+const STYLE_MULT: Record<string, number> = {
+  contemporain: 1.0,      // base : murs porteurs + baies alu, toit plat
+  traditionnel: 0.95,     // matériaux courants, toiture tuile
+  industriel: 1.1,        // structure acier + verrières, béton brut
+  bioclimatique: 1.15,    // ossature bois / matériaux nobles + HQE
+};
+
+// Multiplicateur par nature du terrain — accès, fondations, permis.
+const TERRAIN_MULT: Record<string, number> = {
+  urbaine: 1.0,           // base : terrain viabilisé en ville
+  agricole: 1.08,         // études de sol + voirie d'accès souvent nécessaires
+  inconnu: 1.0,           // neutre — à affiner après visite
+};
+
 // Coefficient pour les circulations (couloirs, escaliers, cloisons)
 const CIRCULATION_COEFF = 1.15;
 
