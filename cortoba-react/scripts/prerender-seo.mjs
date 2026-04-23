@@ -109,8 +109,22 @@ function injectMeta(html, route) {
     <meta name="twitter:image" content="${absoluteImage}" />
   `.trim();
 
-  // Replace <title>…</title> if any, else insert before </head>
-  let out = html.replace(/<title>[\s\S]*?<\/title>/, "");
+  // Strip existing <title> and any template meta we're about to rewrite,
+  // then insert the new block before </head>.
+  let out = html.replace(/<title>[\s\S]*?<\/title>/gi, "");
+  out = out.replace(
+    /<meta\s+name=["'](description|keywords|robots)["'][^>]*\/?>\s*/gi,
+    ""
+  );
+  out = out.replace(
+    /<meta\s+property=["']og:[^"']+["'][^>]*\/?>\s*/gi,
+    ""
+  );
+  out = out.replace(
+    /<meta\s+name=["']twitter:[^"']+["'][^>]*\/?>\s*/gi,
+    ""
+  );
+  out = out.replace(/<link\s+rel=["']canonical["'][^>]*\/?>\s*/gi, "");
   out = out.replace("</head>", `${metaBlock}\n  </head>`);
   return out;
 }
