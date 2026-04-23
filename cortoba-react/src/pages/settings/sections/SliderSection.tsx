@@ -64,7 +64,12 @@ export function SliderSection() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(id: SliderImage["id"]) {
-    if (!confirm("Supprimer définitivement cette image du slider ?")) return;
+    const ok = await confirm({
+      message: "Supprimer définitivement cette image du slider ?",
+      tone: "danger",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     setDeleting(id);
     try {
       const res = await apiFetch(`/cortoba-plateforme/api/slider.php?id=${id}`, {
@@ -72,8 +77,9 @@ export function SliderSection() {
       });
       if (!res.ok) throw new Error("Suppression échouée");
       setSlides((prev) => prev?.filter((s) => s.id !== id) || null);
+      toast.success("Image supprimée du slider");
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(null);
     }
