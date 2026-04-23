@@ -145,7 +145,5 @@ function PlateformeLayout() {
   );
 }
 
-/** Redirige /plateforme vers /plateforme/demandes par défaut. */
-export function PlateformeIndex() {
-  return <Navigate to="/plateforme/demandes" replace />;
-}
+// Le dashboard de /plateforme est maintenant défini dans
+// sections/DashboardSection.tsx — ce n'est plus une redirection.
