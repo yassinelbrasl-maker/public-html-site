@@ -175,7 +175,7 @@ export function RendementSection() {
                     fontSize: 12,
                   }}
                   cursor={{ fill: "rgba(200,169,110,0.05)" }}
-                  formatter={(v: number) => [`${v}%`, "Score"]}
+                  formatter={(v) => [`${Number(v)}%`, "Score"]}
                 />
                 <Bar dataKey="score" radius={[0, 4, 4, 0]}>
                   {enriched.map((_, i) => (
