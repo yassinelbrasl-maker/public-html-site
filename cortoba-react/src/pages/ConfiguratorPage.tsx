@@ -8,6 +8,7 @@ import { Step3Fondations } from "@/configurator/steps/Step3Fondations";
 import { Step4Identite } from "@/configurator/steps/Step4Identite";
 import { Step5Programme } from "@/configurator/steps/Step5Programme";
 import { Step6Terrain } from "@/configurator/steps/Step6Terrain";
+import { StepResult } from "@/configurator/steps/StepResult";
 import { StepClient } from "@/configurator/steps/StepClient";
 import { StepSuccess } from "@/configurator/steps/StepSuccess";
 
