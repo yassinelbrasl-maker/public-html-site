@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────────────
+#   Cortoba — .htaccess de production APRÈS bascule React SPA
+#
+#   Ce fichier remplace/complète le .htaccess actuel à la racine de
+#   public_html UNE FOIS la bascule faite. Il fait deux choses :
+#
+#   1. Laisser passer /cortoba-plateforme/api/* vers PHP (inchangé)
+#   2. Router toutes les autres URLs vers /index.html pour que
+#      React Router prenne le relais (SPA fallback).
+#
+#   NE PAS déployer tant que :
+#     - npm run build a été exécuté dans cortoba-react/
+#     - dist/ a été copié à la racine de public_html
+#     - les backups (tag pre-framer-motion-migration, etc.) sont en place
+# ─────────────────────────────────────────────────────────────────────
+
+Options -Indexes
+DirectoryIndex index.html
+
+# Cache-busting : HTML et JS toujours revérifiés (on a des hashes dans
+# les noms des assets, mais index.html lui ne doit jamais être caché).
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header set Pragma "no-cache"
+  </FilesMatch>
+  # Les assets JS/CSS buildés ont un hash dans leur nom — on les cache fort
+  <FilesMatch "assets/.+\.(js|css|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# Handler PHP 8.1 (inchangé par rapport au fichier actuel)
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php81 .php .php8 .phtml
+</IfModule>
+
+# ─── SPA fallback ──────────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Ne jamais intercepter les requêtes vers l'API PHP
+  RewriteRule ^cortoba-plateforme/api/ - [L]
+
+  # Ne jamais intercepter les vrais fichiers (assets, images, fonts…)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Tout le reste → index.html (React Router s'occupe de la route)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# ─── Sécurité : bloquer l'accès au scaffold React pendant la transition ──
+# (À supprimer une fois la bascule terminée et cortoba-react/ retiré)
+RedirectMatch 403 ^/cortoba-react/
