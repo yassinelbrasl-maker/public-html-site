@@ -25,6 +25,16 @@ if ($method !== 'GET' || !empty($_GET['admin'])) {
     $user = requireAdmin();
 }
 
+// ── POST ?purge_empty=1 → supprime les projets avec titre vide ─────────
+// Utilisé pour nettoyer les résidus de saves cassés (client bloqué au milieu
+// d'une création). Retourne le nombre de lignes supprimées.
+if ($method === 'POST' && !empty($_GET['purge_empty'])) {
+    $stmt = $pdo->prepare("DELETE FROM $table WHERE TRIM(COALESCE(title,'')) = ''");
+    $stmt->execute();
+    $deleted = $stmt->rowCount();
+    jsonOk(['deleted' => $deleted]);
+}
+
 // ── POST ?reorder=1 → bulk reorder ─────────────────────────────────────
 // Body: { order: [id1, id2, ...] } — met à jour sort_order par position.
 // Évite d'envoyer toute la charge utile (description, gallery_images) par
