@@ -20,6 +20,12 @@ const HERO_SLIDES = [
 export function LandscapingPage() {
   return (
     <>
+      <Seo
+        title="Landscaping"
+        description="Cortoba Landscaping — architecture du paysage en Tunisie. Jardins privés, terrasses, hôtellerie, espaces publics. Végétation méditerranéenne, gestion de l'eau, éclairage paysager."
+        keywords="paysagiste Djerba, architecte paysagiste Tunisie, jardin méditerranéen, aménagement extérieur, landscaping"
+        url="/landscaping"
+      />
       <Hero />
       <Manifeste />
       <Projects />
