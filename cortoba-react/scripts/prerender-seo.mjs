@@ -61,7 +61,12 @@ async function fetchPublishedProjects() {
     );
     if (!res.ok) return [];
     const data = await res.json();
-    return data.data || [];
+    const list = data.data || [];
+    // Filtre les projets avec titre ou slug vide (résidus de saves cassés).
+    // Évite de générer /projet- et /projet--1234 dans le sitemap / prerender.
+    return list.filter(
+      (p) => p && p.title && p.title.trim() && p.slug && p.slug.trim()
+    );
   } catch {
     console.warn(
       "⚠️ Impossible de fetcher les projets publiés — les pages /projet-* ne seront pas pré-rendues."
