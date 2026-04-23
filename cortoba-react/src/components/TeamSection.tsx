@@ -25,7 +25,7 @@ export function TeamSection() {
         transition={{ duration: 0.7 }}
         className="section-h2 text-center mb-12"
       >
-        Notre Équipe
+        {t("team_title")}
       </motion.h2>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
         {members.map((m, i) => (
