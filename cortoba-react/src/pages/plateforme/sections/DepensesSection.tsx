@@ -72,26 +72,64 @@ export function DepensesSection() {
         </button>
       </motion.div>
 
-      {/* Stats cards */}
+      {/* Stats cards + donut chart */}
       {items && items.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6"
         >
-          <StatCard label="Total" value={fmtDT(totals.total)} highlight />
-          {Object.entries(totals.byCategory)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([cat, sum]) => (
-              <StatCard
-                key={cat}
-                label={cat}
-                value={fmtDT(sum)}
-                hint={`${((sum / totals.total) * 100).toFixed(0)}%`}
-              />
-            ))}
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard label="Total" value={fmtDT(totals.total)} highlight />
+            {Object.entries(totals.byCategory)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([cat, sum]) => (
+                <StatCard
+                  key={cat}
+                  label={cat}
+                  value={fmtDT(sum)}
+                  hint={`${((sum / totals.total) * 100).toFixed(0)}%`}
+                />
+              ))}
+          </div>
+          <div className="bg-bg-card border border-white/5 rounded-md p-4">
+            <p className="text-[0.62rem] tracking-[0.2em] uppercase text-fg-muted mb-2">
+              Répartition par catégorie
+            </p>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={Object.entries(totals.byCategory).map(([name, value]) => ({
+                    name,
+                    value,
+                  }))}
+                  innerRadius={50}
+                  outerRadius={85}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {Object.entries(totals.byCategory).map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    background: "#181818",
+                    border: "1px solid rgba(200,169,110,0.3)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  formatter={(value: number) => fmtDT(value)}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: 10, color: "#8c8a84" }}
+                  iconSize={8}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </motion.div>
       )}
 
