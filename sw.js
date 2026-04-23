@@ -4,11 +4,12 @@
  * Stratégie :
  *   - /assets/*.{js,css,woff2} (hashés par Vite) → cache-first, cache permanent
  *   - index.html + HTML des routes prerenderées → network-first, fallback cache
- *   - API /cortoba-plateforme/api/* → NEVER cache (toujours réseau)
+ *   - API /cortoba-plateforme/api/* → NEVER cache, NEVER intercept (passthrough)
+ *   - Admin routes /settings, /plateforme/* → NEVER cache (passthrough)
  *   - Images /img/* → cache-first avec expiration implicite par hash d'URL
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const ASSETS_CACHE = `cortoba-assets-${VERSION}`;
 const HTML_CACHE = `cortoba-html-${VERSION}`;
 const IMG_CACHE = `cortoba-img-${VERSION}`;
@@ -58,8 +59,14 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache the API
-  if (url.pathname.startsWith("/cortoba-plateforme/api/")) return;
+  // Never cache / never intercept : API + admin (HTML shell is enough, all content is dynamic).
+  if (
+    url.pathname.startsWith("/cortoba-plateforme/") ||
+    url.pathname.startsWith("/settings") ||
+    url.pathname.startsWith("/plateforme")
+  ) {
+    return;
+  }
 
   // Hashed assets (Vite) → cache-first, permanent
   if (url.pathname.startsWith("/assets/")) {
