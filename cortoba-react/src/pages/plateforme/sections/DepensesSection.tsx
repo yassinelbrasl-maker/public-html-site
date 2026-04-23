@@ -9,6 +9,7 @@ import {
   Legend,
 } from "recharts";
 import { apiFetch } from "@/auth/AuthContext";
+import { exportAsCsv } from "@/utils/csv";
 
 interface Depense {
   id: number | string;
