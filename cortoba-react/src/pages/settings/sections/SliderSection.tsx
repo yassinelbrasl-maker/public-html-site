@@ -225,12 +225,18 @@ export function SliderSection() {
         transition={{ delay: 0.4 }}
         className="mt-8 p-4 bg-gold/5 border border-gold-dim/30 rounded-md text-xs text-fg-muted leading-relaxed"
       >
-        <strong className="text-gold not-italic">TODO restant</strong> — éditeur
-        modal complet (drag pour repositionner l'image, slider zoom 50-150%,
-        picker d'animation et de fit mode), drag-to-reorder via{" "}
-        <code>Reorder.Group</code>. ✅ Upload d'image branché sur{" "}
-        <code>upload_project_image.php</code>.
+        ✅ Upload d'image + éditeur complet (position / zoom / animation /
+        fit / alt text) + suppression. TODO restant : drag-to-reorder via{" "}
+        <code>Reorder.Group</code>, éditeur avec drag pour repositionner
+        visuellement l'image sur la preview.
       </motion.div>
+
+      <SlideEditorModal
+        open={editing !== null}
+        slide={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => { load(); setEditing(null); }}
+      />
     </div>
   );
 }
