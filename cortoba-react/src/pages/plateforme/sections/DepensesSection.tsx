@@ -68,7 +68,7 @@ export function DepensesSection() {
   const timeSeries = useMemo(() => {
     if (!items || items.length === 0) return [] as { date: string; total: number; cumul: number }[];
     const now = Date.now();
-    const windowMs = window * 24 * 60 * 60 * 1000;
+    const windowMs = windowDays * 24 * 60 * 60 * 1000;
     const cutoff = now - windowMs;
     // Group by YYYY-MM-DD
     const byDay = new Map<string, number>();
