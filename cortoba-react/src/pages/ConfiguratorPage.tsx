@@ -97,6 +97,7 @@ function StepRouter() {
         {step === 4 && <Step4Identite />}
         {step === 5 && <Step5Programme />}
         {step === 6 && <Step6Terrain />}
+        {step === "result" && <StepResult />}
         {step === "client" && <StepClient />}
         {step === "success" && <StepSuccess />}
       </motion.div>
