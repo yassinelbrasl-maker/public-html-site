@@ -53,7 +53,14 @@ export function SliderSection() {
   const load = () => {
     setError(null);
     apiFetch("/cortoba-plateforme/api/slider.php")
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status} sur /api/slider.php`);
+        const ct = r.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+          throw new Error("Réponse non-JSON de /api/slider.php (vérifier /sw.js ou .htaccess)");
+        }
+        return r.json();
+      })
       .then((data) => {
         if (!data.success) throw new Error(data.error || "Erreur serveur");
         setSlides(data.data || []);
