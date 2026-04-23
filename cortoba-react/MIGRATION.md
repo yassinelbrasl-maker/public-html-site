@@ -86,23 +86,30 @@ SettingsPage                    ~50 kB │ gzip: 12 kB    ← lazy
 
 ## Ce qui reste (polish post-flip, non bloquant)
 
-### 🟡 Polish
-- [x] ~~Configurator Step 5 variantes legacy~~ — ✅ chambres dynamiques + suite
+### 🟡 Polish — tout terminé 2026-04-23
+- [x] ~~Configurator Step 5 variantes legacy~~ — chambres dynamiques + suite
       parentale (dressing/placard) + cuisine avec table + bureau/sport/buanderie/cellier
-- [x] ~~Charts pour Rendement + Dépenses~~ — ✅ donut (Dépenses) + horizontal bar (Rendement) via recharts
-- [ ] Graphiques temporels (évolution sur 30j / 90j)
-- [ ] Device switcher dans Settings Projets (PC / Tablette / Mobile)
-- [ ] Drag-to-reposition visuel sur l'éditeur de slide (sliders X/Y en place)
-- [ ] Variantes `cfg_mixte_niveaux` builder pour immeubles mixtes
-- [ ] `cfg_terrain_nature` `cfg_standing` `cfg_style` déjà saisis — exposer
-      dans le résultat final (surface / coût / délai)
+- [x] ~~Charts pour Rendement + Dépenses~~ — donut (Dépenses) + horizontal bar (Rendement) via recharts
+- [x] ~~Graphiques temporels~~ — évolution cumulée sur 30j / 90j / 1 an sur `DepensesSection` (AreaChart recharts avec toggle)
+- [x] ~~Device switcher dans Settings Projets~~ — PC / Tablette / Mobile
+- [x] ~~Drag-to-reposition visuel sur l'éditeur de slide~~ — pointer events sur la preview avec crosshair marker
+- [x] ~~Variantes `cfg_mixte_niveaux` builder pour immeubles mixtes~~ — builder avec usage + surface par niveau, sommé dans calc
+- [x] ~~`cfg_terrain_nature` `cfg_standing` `cfg_style` dans le résultat final~~ —
+      multipliers intégrés au calc (STYLE_MULT, TERRAIN_MULT) + recap "Vos choix" en tête du résultat avec pourcentage d'impact
+- [x] ~~Délai de réalisation~~ — estimé en mois (min/max) dans le résultat
 
-### 🟢 Nice to have
-- [ ] Tests E2E Playwright
-- [ ] Export CSV/PDF (Demandes, Dépenses, Rendement)
-- [ ] Notifications temps réel pour chat + demandes
-- [ ] Global Cmd+K search
-- [ ] PWA offline
+### 🟢 Nice to have — tout terminé 2026-04-23
+- [x] ~~Tests E2E Playwright~~ — 13 tests Chromium (smoke + admin + configurator)
+- [x] ~~Export CSV~~ — Demandes, Dépenses, Rendement (bouton "📥 Exporter CSV" dans chaque section)
+- [x] ~~Export PDF~~ — StepResult (devis client) via `window.print()` + feuille de style `@media print`
+- [x] ~~Notifications temps réel pour demandes~~ — `useDemandesWatcher` poll 60s + toast + badge sidebar
+- [x] ~~Global Cmd+K search~~ — CommandPalette (nav, demandes, projects, team)
+- [x] ~~PWA offline~~ — manifest + service worker v2 (cache hashés, bypass admin)
+
+### Ce qui reste vraiment ouvert (ne nécessite pas de code)
+- Endpoints backend time-series pour Rendement (il n'existe pas de champ date sur les entrées actuelles)
+- Intégrations tierces (chat WhatsApp, webhooks CRM) — à discuter selon usage réel
+- Ajustements UX issus de l'utilisation quotidienne (à remonter au fil de l'eau)
 
 ## Conventions
 
