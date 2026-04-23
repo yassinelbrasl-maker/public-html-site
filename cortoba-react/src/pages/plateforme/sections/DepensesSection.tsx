@@ -89,7 +89,7 @@ export function DepensesSection() {
       result.push({ date: day, total: daily, cumul });
     }
     return result;
-  }, [items, window]);
+  }, [items, windowDays]);
 
   return (
     <div>
