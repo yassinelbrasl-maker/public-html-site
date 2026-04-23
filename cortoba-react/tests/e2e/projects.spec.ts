@@ -13,7 +13,7 @@ test.describe("Project detail pages", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     // Scroll to projects section
     await page.locator("#projects").scrollIntoViewIfNeeded();
     // Click first project card — wait for React to have replaced the static
