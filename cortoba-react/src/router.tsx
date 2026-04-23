@@ -100,7 +100,6 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: "landscaping", element: <LandscapingPage /> },
-      { path: "projet-:slug", element: lazyRoute(<ProjectDetailPage />) },
       { path: "configurateur", element: lazyRoute(<ConfiguratorPage />) },
       { path: "settings", element: lazyRoute(<SettingsPage />) },
       {
