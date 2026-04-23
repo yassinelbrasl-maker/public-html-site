@@ -39,8 +39,8 @@ export const router = createBrowserRouter([
       { path: "landscaping", element: <LandscapingPage /> },
       { path: "projet-:slug", element: lazyRoute(<ProjectDetailPage />) },
       { path: "configurateur", element: lazyRoute(<ConfiguratorPage />) },
-      // TODO — ports à venir (voir MIGRATION.md) :
-      // { path: "settings", element: lazyRoute(<SettingsPage />) }, // admin public content
+      { path: "settings", element: lazyRoute(<SettingsPage />) },
+      // TODO — port à venir (voir MIGRATION.md) :
       // { path: "plateforme/*", element: lazyRoute(<PlateformeShell />) }, // admin app
     ],
   },
