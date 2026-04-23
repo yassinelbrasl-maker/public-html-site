@@ -13,6 +13,9 @@ const ProjectDetailPage = lazy(() =>
 const ConfiguratorPage = lazy(() =>
   import("./pages/ConfiguratorPage").then((m) => ({ default: m.ConfiguratorPage }))
 );
+const SettingsPage = lazy(() =>
+  import("./pages/settings/SettingsPage").then((m) => ({ default: m.SettingsPage }))
+);
 
 function PageLoader() {
   return (
