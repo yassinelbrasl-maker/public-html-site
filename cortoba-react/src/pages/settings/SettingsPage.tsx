@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { LoginScreen } from "./LoginScreen";
 import { SettingsShell } from "./SettingsShell";
+import { Seo } from "@/seo/Seo";
 
 /**
  * /settings — Panneau admin public (gestion du contenu du site).
