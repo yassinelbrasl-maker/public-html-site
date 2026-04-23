@@ -39,7 +39,7 @@ export function ContactSection() {
         transition={{ duration: 0.7 }}
         className="section-h2 text-center mb-4"
       >
-        Contact
+        {t("contact_title")}
       </motion.h2>
       <motion.p
         initial={{ opacity: 0, y: 20 }}
@@ -48,7 +48,7 @@ export function ContactSection() {
         transition={{ duration: 0.7, delay: 0.1 }}
         className="intro-text text-center mx-auto mb-12"
       >
-        Envie d'échanger ou de démarrer un projet ? Parlons-en.
+        {t("contact_intro")}
       </motion.p>
 
       <motion.div
