@@ -73,6 +73,15 @@ const SIDEBAR: SidebarItem[] = [
 function PlateformeLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const { newCount, markAllSeen } = useDemandesWatcher(60_000);
+
+  // Auto-reset le badge quand on arrive sur /plateforme/demandes
+  useEffect(() => {
+    if (location.pathname.startsWith("/plateforme/demandes") && newCount > 0) {
+      markAllSeen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex">
