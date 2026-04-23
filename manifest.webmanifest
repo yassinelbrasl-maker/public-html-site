@@ -1,0 +1,28 @@
+{
+  "name": "Cortoba Architecture Studio",
+  "short_name": "Cortoba",
+  "description": "Studio d'architecture basé à Djerba. Des projets qui racontent le lieu, la lumière et les gestes du quotidien.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0e0e0e",
+  "theme_color": "#c8a96e",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "lifestyle", "productivity"]
+}

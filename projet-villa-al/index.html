@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="theme-color" content="#c8a96e" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap"
       rel="stylesheet"
     />
-    <script type="module" crossorigin src="/assets/index-D51G5jIZ.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DqrRpkrk.css">
+    <script type="module" crossorigin src="/assets/index-DxlYWtyN.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Bj6Hw7I0.css">
   <title>VILLA  AL — Cortoba Architecture Studio</title>
     <meta name="description" content="Ce projet est une alliance harmonieuse entre fonctionnalité et esthétique. La résidence, conçue comme une maison d’hôtes, marie avec élégance le vocabulaire architectural traditionnel djerbien à des matériaux et des agencements contemporains.
 
@@ -44,5 +47,16 @@ Pensée avec flexibilité, la maison est destinée à servir de résidence de va
   </head>
   <body class="bg-bg text-fg font-sans antialiased">
     <div id="root"></div>
+    <script>
+      // Register the service worker for offline support (PWA).
+      // Wrapped in try/catch — SW is progressive enhancement, never blocking.
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js").catch(function () {
+            /* silently ignore SW registration failures */
+          });
+        });
+      }
+    </script>
   </body>
 </html>
