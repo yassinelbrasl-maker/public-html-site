@@ -126,79 +126,70 @@ export function RendementSection() {
             />
           </div>
 
-          {/* Per-member bars */}
+          {/* Performance chart (recharts bar) */}
           <div className="bg-bg-card border border-white/5 rounded-md p-6">
             <h2 className="text-xs tracking-[0.2em] uppercase text-gold font-semibold mb-5">
               Performance par membre
             </h2>
-            <div className="space-y-4">
-              {enriched
-                .slice()
-                .sort((a, b) => (b.score || 0) - (a.score || 0))
-                .map((e, i) => {
-                  const name = e.member
-                    ? fullName(e.member)
-                    : e.user_name || e.user_id;
-                  const score = e.score || 0;
-                  return (
-                    <motion.div
-                      key={e.user_id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: i * 0.05 }}
-                    >
-                      <div className="flex items-center justify-between mb-1.5 text-sm">
-                        <div className="flex items-center gap-2">
-                          {e.member?.profile_picture_url ? (
-                            <img
-                              src={e.member.profile_picture_url}
-                              className="w-6 h-6 rounded-full object-cover"
-                            />
-                          ) : e.member ? (
-                            <div className="w-6 h-6 rounded-full bg-bg border border-gold-dim text-gold text-[0.62rem] flex items-center justify-center">
-                              {initialsFor(e.member)}
-                            </div>
-                          ) : null}
-                          <span className="text-fg">{name}</span>
-                          {e.tasks_done != null && e.tasks_total != null && (
-                            <span className="text-xs text-fg-muted">
-                              ({e.tasks_done}/{e.tasks_total})
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-sm text-gold tabular-nums font-semibold">
-                          {score}%
-                        </span>
-                      </div>
-                      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(score / maxScore) * 100}%` }}
-                          transition={{
-                            duration: 0.9,
-                            delay: 0.1 + i * 0.05,
-                            ease: [0.22, 0.61, 0.36, 1],
-                          }}
-                          className="h-full bg-gradient-to-r from-gold-dim to-gold"
-                        />
-                      </div>
-                    </motion.div>
-                  );
-                })}
-            </div>
+            <ResponsiveContainer
+              width="100%"
+              height={Math.max(200, enriched.length * 44)}
+            >
+              <BarChart
+                data={enriched
+                  .slice()
+                  .sort((a, b) => (b.score || 0) - (a.score || 0))
+                  .map((e) => ({
+                    name: e.member
+                      ? fullName(e.member)
+                      : e.user_name || String(e.user_id),
+                    score: e.score || 0,
+                    done: e.tasks_done || 0,
+                    total: e.tasks_total || 0,
+                  }))}
+                layout="vertical"
+                margin={{ top: 4, right: 30, left: 80, bottom: 4 }}
+              >
+                <CartesianGrid
+                  stroke="rgba(255,255,255,0.05)"
+                  horizontal={false}
+                />
+                <XAxis
+                  type="number"
+                  domain={[0, maxScore]}
+                  stroke="#8c8a84"
+                  fontSize={10}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#ece7dd"
+                  fontSize={11}
+                  width={80}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#181818",
+                    border: "1px solid rgba(200,169,110,0.3)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  cursor={{ fill: "rgba(200,169,110,0.05)" }}
+                  formatter={(v: number) => [`${v}%`, "Score"]}
+                />
+                <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                  {enriched.map((_, i) => (
+                    <Cell
+                      key={i}
+                      fill={
+                        i < 3 ? "#c8a96e" : i < 6 ? "#8a7649" : "#8c8a84"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="p-4 bg-gold/5 border border-gold-dim/30 rounded-md text-xs text-fg-muted leading-relaxed"
-          >
-            <strong className="text-gold not-italic">TODO</strong> — Ajouter des
-            graphiques temporels (évolution sur 30j / 90j) avec{" "}
-            <code>recharts</code>, filtres par période et par projet, export
-            CSV/PDF.
-          </motion.div>
         </div>
       )}
     </div>
