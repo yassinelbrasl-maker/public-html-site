@@ -36,14 +36,34 @@ import { ProjectEditorModal } from "./ProjectEditorModal";
  * L'aperçu == le rendu final, modulo l'overlay boutons éditer/supprimer.
  */
 
-// Doit matcher components/ProjectCard.tsx à la lettre.
-const GRID_CLASS_MAP: Record<string, string> = {
-  big: "md:col-span-2 md:row-span-2",
-  wide: "md:col-span-2",
-  tall: "md:row-span-2",
-  full: "md:col-span-3",
-  "": "",
-};
+// Doit matcher components/ProjectCard.tsx à la lettre (desktop).
+// Pour les autres devices on utilise un map dédié car Tailwind `md:` se base
+// sur la viewport, pas sur la largeur du container admin.
+function getGridClass(
+  variant: string | undefined,
+  device: "desktop" | "tablet" | "mobile"
+): string {
+  const v = variant || "";
+  if (device === "mobile") return ""; // 1 col — tout plein écran
+  if (device === "tablet") {
+    // 2 cols : col-span-3 clamp à 2, big reste 2×2, wide 2, tall 1×2
+    switch (v) {
+      case "big":  return "col-span-2 row-span-2";
+      case "wide": return "col-span-2";
+      case "tall": return "row-span-2";
+      case "full": return "col-span-2";
+      default:     return "";
+    }
+  }
+  // desktop — identique au rendu public
+  switch (v) {
+    case "big":  return "md:col-span-2 md:row-span-2";
+    case "wide": return "md:col-span-2";
+    case "tall": return "md:row-span-2";
+    case "full": return "md:col-span-3";
+    default:     return "";
+  }
+}
 
 export function ProjectsSection() {
   const [projects, setProjects] = useState<Project[] | null>(null);
