@@ -11,6 +11,11 @@ export interface NiveauMixte {
   surface: number;
 }
 
+export interface Chambre {
+  id: string;
+  type: "simple" | "double" | "double_balcon" | "suite";
+}
+
 export interface ConfiguratorState {
   // Step 1 — Projet
   cfg_nom_projet: string;
