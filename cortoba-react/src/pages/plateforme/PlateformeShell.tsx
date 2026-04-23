@@ -87,6 +87,30 @@ function PlateformeLayout() {
           </span>
         </div>
 
+        {/* Search hint (triggers Cmd+K) */}
+        <div className="px-3 pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              // Dispatch Cmd+K programmatically
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", {
+                  key: "k",
+                  metaKey: true,
+                  ctrlKey: true,
+                })
+              );
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-white/10 hover:border-gold-dim text-xs text-fg-muted hover:text-fg transition-colors text-left"
+          >
+            <span>🔍</span>
+            <span className="flex-1">Rechercher…</span>
+            <kbd className="text-[0.55rem] border border-white/10 rounded px-1">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+
         <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
           {SIDEBAR.map((item) => {
             // Exact match for /plateforme (index), startsWith for children
