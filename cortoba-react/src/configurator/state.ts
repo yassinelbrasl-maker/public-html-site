@@ -46,6 +46,17 @@ export interface ConfiguratorState {
   cfg_piscine: boolean;
   cfg_jardin: boolean;
   cfg_mixte_niveaux: NiveauMixte[];
+  // Variants legacy du Step 5
+  cfg_chambres_list: Chambre[];
+  cfg_suite_parentale: boolean;
+  cfg_suite_parentale_type: "dressing" | "placard" | null;
+  cfg_cuisine_table: boolean;
+  cfg_sejour: boolean;
+  cfg_entree: boolean;
+  cfg_bureau: boolean;
+  cfg_sport: boolean;
+  cfg_buanderie: boolean;
+  cfg_cellier: boolean;
 
   // Step 6 — Terrain (géolocalisation)
   cfg_terrain_lat: number | null;
