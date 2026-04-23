@@ -28,7 +28,17 @@ export function ProjectsSection() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(slug: string) {
-    if (!confirm("Supprimer définitivement ce projet ?")) return;
+    const ok = await confirm({
+      message: (
+        <>
+          Supprimer définitivement le projet{" "}
+          <strong className="text-fg">{slug}</strong> ?
+        </>
+      ),
+      tone: "danger",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     setDeleting(slug);
     try {
       const res = await apiFetch(
@@ -37,8 +47,9 @@ export function ProjectsSection() {
       );
       if (!res.ok) throw new Error("Suppression échouée");
       setProjects((prev) => prev?.filter((p) => p.slug !== slug) || null);
+      toast.success("Projet supprimé");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(null);
     }
