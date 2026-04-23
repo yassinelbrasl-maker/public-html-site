@@ -10,10 +10,12 @@ import { Lightbox } from "@/components/Lightbox";
 import { Seo } from "@/seo/Seo";
 
 export function ProjectDetailPage() {
-  const params = useParams<{ slug: string }>();
-  // Apache's DirectorySlash redirects /projet-villa-al → /projet-villa-al/
-  // so slug can carry a trailing slash. Strip defensively.
-  const slug = (params.slug || "").replace(/\/+$/, "");
+  // React Router v6 ne matche pas les patterns `projet-:slug` (préfixe + param
+  // dans un même segment). On lit le slug directement depuis l'URL.
+  const location = useLocation();
+  const slug = location.pathname
+    .replace(/\/+$/, "")
+    .replace(/^\/projet-/, "");
   const navigate = useNavigate();
   const [all, setAll] = useState<Project[] | null>(null);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
