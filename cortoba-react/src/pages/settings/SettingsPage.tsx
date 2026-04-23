@@ -17,6 +17,7 @@ import { Seo } from "@/seo/Seo";
 export function SettingsPage() {
   return (
     <AuthProvider>
+      <Seo title="Paramètres" noIndex />
       <SettingsRoot />
     </AuthProvider>
   );
