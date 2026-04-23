@@ -184,16 +184,34 @@ export function DashboardSection() {
         transition={{ delay: 0.2 }}
         className="bg-bg-card border border-white/5 rounded-md p-6 mb-6"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
           <h2 className="text-xs tracking-[0.2em] uppercase text-gold font-semibold">
-            Demandes reçues (30 derniers jours)
+            Demandes reçues ({range} derniers jours)
           </h2>
-          <Link
-            to="/plateforme/demandes"
-            className="text-xs text-fg-muted hover:text-gold tracking-wider uppercase"
-          >
-            Voir toutes →
-          </Link>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 p-0.5 bg-bg-elev border border-white/10 rounded-md">
+              {[30, 90].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRange(r as 30 | 90)}
+                  className={`px-2.5 py-1 rounded text-[0.65rem] tracking-wider uppercase transition-colors ${
+                    range === r
+                      ? "bg-gold/15 text-gold"
+                      : "text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  {r}j
+                </button>
+              ))}
+            </div>
+            <Link
+              to="/plateforme/demandes"
+              className="text-xs text-fg-muted hover:text-gold tracking-wider uppercase"
+            >
+              Voir toutes →
+            </Link>
+          </div>
         </div>
         {data.demandes === null ? (
           <div className="h-[160px] flex items-center justify-center text-sm text-fg-muted">
