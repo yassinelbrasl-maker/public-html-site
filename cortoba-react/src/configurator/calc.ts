@@ -95,6 +95,11 @@ export interface CalcResult {
   totalHigh: number;
   cpp: number;
   operationMult: number;
+  styleMult: number;
+  terrainMult: number;
+  /** Délai de réalisation indicatif en mois (min / max). */
+  delaiMoisMin: number;
+  delaiMoisMax: number;
 }
 
 export function calculate(s: ConfiguratorState): CalcResult {
