@@ -2,7 +2,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/auth/AuthContext";
 import { ProjectsSection } from "./sections/ProjectsSection";
 import { SliderSection } from "./sections/SliderSection";
-import { PlaceholderSection } from "./sections/PlaceholderSection";
+import { LandscapingProjectsSection } from "./sections/LandscapingProjectsSection";
+import { LandscapingSliderSection } from "./sections/LandscapingSliderSection";
+import { GeneralSection } from "./sections/GeneralSection";
+import { SeoSection } from "./sections/SeoSection";
 import clsx from "clsx";
 
 interface SidebarItem {
