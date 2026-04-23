@@ -98,6 +98,81 @@ export function Step5Programme() {
         />
       </Section>
 
+      {/* Mixte niveaux builder — immeuble mixte uniquement */}
+      {isMixte && (
+        <Section label="Usage par niveau (immeuble mixte)">
+          <AnimatePresence>
+            {state.cfg_mixte_niveaux.map((niv, idx) => (
+              <motion.div
+                key={idx}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="flex items-center gap-2 mb-2"
+              >
+                <span className="w-14 text-xs text-fg-muted tabular-nums text-center">
+                  Niv. {idx + 1}
+                </span>
+                <select
+                  value={niv.usage}
+                  onChange={(e) =>
+                    updateNiveauMixte(idx, { usage: e.target.value })
+                  }
+                  className="flex-1 bg-bg-card border border-white/10 rounded-md px-3 py-2 text-fg text-sm focus:outline-none focus:border-gold transition-colors"
+                >
+                  {MIXTE_USAGES.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.icon} {u.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1 bg-bg-card border border-white/10 rounded-md px-2 py-1">
+                  <input
+                    type="number"
+                    value={niv.surface}
+                    min={50}
+                    step={10}
+                    onChange={(e) =>
+                      updateNiveauMixte(idx, {
+                        surface: Math.max(0, parseInt(e.target.value) || 0),
+                      })
+                    }
+                    className="w-20 bg-transparent text-fg text-sm text-right focus:outline-none"
+                  />
+                  <span className="text-xs text-fg-muted">m²</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeNiveauMixte(idx)}
+                  className="w-8 h-8 rounded-md border border-white/10 hover:border-red-400 hover:text-red-400 text-fg-muted"
+                  aria-label="Retirer ce niveau"
+                >
+                  ×
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          <button
+            type="button"
+            onClick={addNiveauMixte}
+            className="w-full py-2 rounded-md border border-dashed border-white/15 text-fg-muted hover:text-gold hover:border-gold transition-colors text-sm"
+          >
+            ＋ Ajouter un niveau
+          </button>
+          {state.cfg_mixte_niveaux.length > 0 && (
+            <div className="mt-3 text-xs text-fg-muted">
+              Total :{" "}
+              <strong className="text-gold">
+                {state.cfg_mixte_niveaux.reduce((a, n) => a + n.surface, 0)} m²
+              </strong>{" "}
+              sur {state.cfg_mixte_niveaux.length} niveau
+              {state.cfg_mixte_niveaux.length > 1 ? "x" : ""}
+            </div>
+          )}
+        </Section>
+      )}
+
       {/* Espaces de vie */}
       <Section label="Espaces de vie">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
