@@ -270,6 +270,10 @@ export function calculate(s: ConfiguratorState): CalcResult {
     totalHigh,
     cpp,
     operationMult,
+    styleMult,
+    terrainMult,
+    delaiMoisMin,
+    delaiMoisMax,
   };
 }
 
