@@ -4,11 +4,12 @@
  * Stratégie :
  *   - /assets/*.{js,css,woff2} (hashés par Vite) → cache-first, cache permanent
  *   - index.html + HTML des routes prerenderées → network-first, fallback cache
- *   - API /cortoba-plateforme/api/* → NEVER cache (toujours réseau)
+ *   - API /cortoba-plateforme/api/* → NEVER cache, NEVER intercept (passthrough)
+ *   - Admin routes /settings, /plateforme/* → NEVER cache (passthrough)
  *   - Images /img/* → cache-first avec expiration implicite par hash d'URL
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const ASSETS_CACHE = `cortoba-assets-${VERSION}`;
 const HTML_CACHE = `cortoba-html-${VERSION}`;
 const IMG_CACHE = `cortoba-img-${VERSION}`;
