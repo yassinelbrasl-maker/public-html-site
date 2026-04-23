@@ -230,18 +230,17 @@ export function ProjectsSection() {
           transition={{ duration: 0.35, ease: [0.22, 0.61, 0.36, 1] }}
           className="mx-auto border border-dashed border-white/5 rounded-lg p-2"
         >
+        {/* Reorder.Group de framer-motion supporte un seul axe (1D).
+         * On utilise donc une liste verticale de strips horizontaux pour le
+         * drag-to-reorder — beaucoup plus clair visuellement qu'un grid
+         * qui casse pendant le drag (items qui sautent d'une colonne à
+         * l'autre parce que le calcul des positions est linéaire). */}
         <Reorder.Group
           as="div"
           axis="y"
           values={projects}
           onReorder={saveOrder}
-          className={
-            device === "mobile"
-              ? "grid grid-cols-1 gap-4"
-              : device === "tablet"
-              ? "grid grid-cols-1 md:grid-cols-2 gap-4"
-              : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-          }
+          className="flex flex-col gap-3"
         >
           <AnimatePresence>
             {projects.map((p) => (
@@ -250,21 +249,38 @@ export function ProjectsSection() {
                 key={p.slug}
                 value={p}
                 whileDrag={{
-                  scale: 1.03,
+                  scale: 1.01,
                   boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
                   zIndex: 10,
                 }}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing"
+                exit={{ opacity: 0, x: -20 }}
+                className="bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing flex flex-col md:flex-row"
               >
-                <div className="relative">
+                <div className="relative md:w-64 shrink-0">
                   <div
-                    className="aspect-[16/10] bg-cover bg-center pointer-events-none"
+                    className="aspect-[16/10] md:h-full md:aspect-auto bg-cover bg-center pointer-events-none"
                     style={{ backgroundImage: `url('${p.hero_image}')` }}
                   />
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                </div>
+                <div className="flex-1 p-4 flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[0.62rem] tracking-[0.2em] text-gold uppercase mb-1">
+                      {p.category}
+                    </p>
+                    <h3 className="font-serif text-lg text-fg truncate">
+                      {p.title}
+                    </h3>
+                    <p className="text-xs text-fg-muted mt-1 truncate">
+                      {p.location}
+                      {p.country && `, ${p.country}`}
+                    </p>
+                    <span className="inline-block mt-3 text-[0.6rem] text-fg-muted tracking-wider uppercase">
+                      /projet-{p.slug}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button
                       type="button"
                       onPointerDown={(e) => e.stopPropagation()}
