@@ -29,6 +29,11 @@ export function ProjectsSection() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(slug: string) {
+    const proj = projects?.find((p) => p.slug === slug);
+    if (!proj?.id) {
+      toast.error("Projet introuvable (id manquant)");
+      return;
+    }
     const ok = await confirm({
       message: (
         <>
@@ -43,10 +48,10 @@ export function ProjectsSection() {
     setDeleting(slug);
     try {
       const res = await apiFetch(
-        `/cortoba-plateforme/api/published_projects.php?slug=${encodeURIComponent(slug)}`,
+        `/cortoba-plateforme/api/published_projects.php?id=${proj.id}`,
         { method: "DELETE" }
       );
-      if (!res.ok) throw new Error("Suppression échouée");
+      if (!res.ok) throw new Error(`Suppression échouée (HTTP ${res.status})`);
       setProjects((prev) => prev?.filter((p) => p.slug !== slug) || null);
       toast.success("Projet supprimé");
     } catch (e) {
@@ -59,27 +64,18 @@ export function ProjectsSection() {
   async function saveOrder(newOrder: Project[]) {
     setProjects(newOrder);
     try {
-      const slugs = newOrder.map((p) => p.slug);
-      const res = await apiFetch(
-        "/cortoba-plateforme/api/published_projects.php?action=reorder",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slugs }),
-        }
+      // Server supports update per-project with {id, ...fields, sort_order}.
+      // No batch reorder endpoint exists for projects — send one PUT per item.
+      await Promise.all(
+        newOrder.map((p, i) => {
+          if (!p.id) return Promise.resolve();
+          return apiFetch("/cortoba-plateforme/api/published_projects.php", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...p, sort_order: i }),
+          });
+        })
       );
-      if (!res.ok) {
-        // Fallback: PUT each with its new sort_order
-        await Promise.all(
-          newOrder.map((p, i) =>
-            apiFetch("/cortoba-plateforme/api/published_projects.php", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ slug: p.slug, sort_order: i }),
-            })
-          )
-        );
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       load();
