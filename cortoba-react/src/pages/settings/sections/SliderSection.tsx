@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { apiFetch } from "@/auth/AuthContext";
 import { ImageUploader, type UploadedImage } from "@/components/ImageUploader";
 import { SlideEditorModal, type EditableSlide } from "./SlideEditorModal";
