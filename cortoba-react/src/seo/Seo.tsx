@@ -14,7 +14,7 @@ interface Props {
 const DEFAULT_TITLE = "Cortoba Architecture Studio";
 const DEFAULT_DESCRIPTION =
   "Cortoba Architecture Studio — des projets qui racontent le lieu, la lumière et les gestes du quotidien.";
-const DEFAULT_IMAGE = "/img/og-default.jpg";
+const DEFAULT_IMAGE = "/img/og-default.jpg"; // fallback; individual pages override
 const SITE_URL = "https://cortobaarchitecture.com";
 
 /**
