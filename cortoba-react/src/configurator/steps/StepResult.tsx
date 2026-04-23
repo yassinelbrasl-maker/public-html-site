@@ -131,12 +131,65 @@ export function StepResult() {
           <p className="mt-3 text-sm text-fg-muted leading-relaxed max-w-xl">
             Fourchette basée sur une surface habitable estimée de{" "}
             <strong className="text-fg">{result.surfaceHabitable} m²</strong>{" "}
-            (dont {result.surfaceCouverte} m² couverts).
+            (dont {result.surfaceCouverte} m² couverts). Délai de réalisation
+            indicatif :{" "}
+            <strong className="text-fg">
+              {result.delaiMoisMin}–{result.delaiMoisMax} mois
+            </strong>
+            .
           </p>
         </div>
         {/* Decoration */}
         <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
       </motion.div>
+
+      {/* Recap des choix — ce qui a influencé l'estimation */}
+      {(choices.operation || choices.style || choices.standing || choices.terrain) && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+          className="mb-6 p-5 bg-bg-card/70 border border-white/5 rounded-md"
+        >
+          <p className="text-xs tracking-[0.2em] uppercase text-gold font-semibold mb-4">
+            Vos choix
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {choices.operation && (
+              <ChoiceCard
+                icon={choices.operation.icon}
+                label="Opération"
+                value={choices.operation.title}
+                mult={result.operationMult}
+              />
+            )}
+            {choices.style && (
+              <ChoiceCard
+                icon="🎨"
+                label="Style"
+                value={choices.style.title}
+                mult={result.styleMult}
+              />
+            )}
+            {choices.standing && (
+              <ChoiceCard
+                icon={choices.standing.icon}
+                label="Standing"
+                value={choices.standing.title}
+                hint={`${result.cpp} €/m²`}
+              />
+            )}
+            {choices.terrain && (
+              <ChoiceCard
+                icon={choices.terrain.icon}
+                label="Terrain"
+                value={choices.terrain.title}
+                mult={result.terrainMult}
+              />
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {/* Breakdown grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
