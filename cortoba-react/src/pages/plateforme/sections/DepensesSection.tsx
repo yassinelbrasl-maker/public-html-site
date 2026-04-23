@@ -201,6 +201,102 @@ export function DepensesSection() {
         </motion.div>
       )}
 
+      {/* Time-series line chart : cumul des dépenses sur 30 / 90 / 365 jours */}
+      {items && items.length > 0 && timeSeries.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-bg-card border border-white/5 rounded-md p-4 mb-6"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[0.62rem] tracking-[0.2em] uppercase text-fg-muted">
+              Évolution cumulée
+            </p>
+            <div className="flex items-center gap-1 text-xs">
+              {([30, 90, 365] as const).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setWindow(w)}
+                  className={`px-2 py-1 rounded tracking-wider transition-colors ${
+                    window === w
+                      ? "bg-gold/15 text-gold"
+                      : "text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  {w === 365 ? "1 an" : `${w}j`}
+                </button>
+              ))}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart
+              data={timeSeries}
+              margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+            >
+              <defs>
+                <linearGradient id="depensesGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#c8a96e" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#c8a96e" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <XAxis
+                dataKey="date"
+                stroke="#8c8a84"
+                fontSize={9}
+                tickFormatter={(v) =>
+                  new Date(v).toLocaleDateString("fr-FR", {
+                    day: "2-digit",
+                    month: "short",
+                  })
+                }
+                interval={Math.max(0, Math.floor(timeSeries.length / 8))}
+              />
+              <YAxis
+                stroke="#8c8a84"
+                fontSize={9}
+                tickFormatter={(v) =>
+                  v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)
+                }
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#181818",
+                  border: "1px solid rgba(200,169,110,0.3)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                cursor={{ stroke: "rgba(200,169,110,0.2)" }}
+                labelFormatter={(v) =>
+                  new Date(v).toLocaleDateString("fr-FR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })
+                }
+                formatter={(value) => [fmtDT(Number(value)), "Cumul"]}
+              />
+              <Area
+                type="monotone"
+                dataKey="cumul"
+                stroke="#c8a96e"
+                strokeWidth={2}
+                fill="url(#depensesGrad)"
+              />
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="#8a7649"
+                strokeWidth={0}
+                dot={{ r: 2, fill: "#8a7649" }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </motion.div>
+      )}
+
       {error && (
         <div className="p-4 rounded-md bg-red-500/5 border border-red-500/30 text-sm text-red-300">
           ⚠ {error}
