@@ -40,14 +40,28 @@ export function authToken(): string | null {
   return window.localStorage.getItem(STORAGE_KEY);
 }
 
-/** Fetch helper that attaches Authorization if we have a token. */
+/** Fetch helper that attaches Authorization if we have a token.
+ *  Also turns the opaque "Failed to fetch" TypeError into a descriptive
+ *  Error that identifies the endpoint & HTTP method — makes the UI's
+ *  error banner actionable instead of mysterious. */
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const t = authToken();
   const headers = new Headers(init?.headers);
   if (t && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${t}`);
   }
-  return fetch(path, { ...init, headers });
+  const method = (init?.method || "GET").toUpperCase();
+  try {
+    return await fetch(path, { ...init, headers });
+  } catch (e) {
+    // TypeError: Failed to fetch / NetworkError — contextualize it
+    const base = e instanceof Error ? e.message : String(e);
+    const offline =
+      typeof navigator !== "undefined" && navigator.onLine === false
+        ? " (navigateur hors-ligne)"
+        : "";
+    throw new Error(`Réseau indisponible : ${method} ${path}${offline} — ${base}`);
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
