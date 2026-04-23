@@ -16,7 +16,7 @@ const IMG_CACHE = `cortoba-img-${VERSION}`;
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",
-  "/favicon.png",
+  "/img/favicon.png",
 ];
 
 self.addEventListener("install", (event) => {
