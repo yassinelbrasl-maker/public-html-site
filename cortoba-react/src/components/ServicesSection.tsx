@@ -41,7 +41,7 @@ export function ServicesSection() {
         transition={{ duration: 0.7 }}
         className="section-h2 text-center mb-4"
       >
-        Nos Services
+        {t("services_title")}
       </motion.h2>
       <motion.p
         initial={{ opacity: 0, y: 20 }}
@@ -50,7 +50,7 @@ export function ServicesSection() {
         transition={{ duration: 0.7, delay: 0.1 }}
         className="intro-text text-center mx-auto mb-12"
       >
-        Une expertise sur mesure pour sublimer chaque projet.
+        {t("services_intro")}
       </motion.p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
