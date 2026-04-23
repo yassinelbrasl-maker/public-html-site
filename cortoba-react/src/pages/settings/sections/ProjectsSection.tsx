@@ -173,7 +173,7 @@ export function ProjectsSection() {
       >
         <p className="text-xs text-fg-muted flex items-center gap-2">
           <span>⋮⋮</span>
-          Glissez les vignettes pour réorganiser. ✎ pour éditer · 🗑 pour supprimer.
+          Glissez verticalement pour réorganiser. ✎ pour éditer · 🗑 pour supprimer.
         </p>
         <div className="flex items-center gap-1 p-1 bg-bg-card border border-white/10 rounded-md">
           {[
