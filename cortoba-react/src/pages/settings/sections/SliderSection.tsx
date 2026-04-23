@@ -136,17 +136,18 @@ export function SliderSection() {
       )}
 
       {slides !== null && slides.length === 0 && (
-        <div className="p-16 text-center bg-bg-card border border-dashed border-white/10 rounded-md">
-          <div className="text-4xl mb-3 opacity-40">🖼️</div>
-          <p className="text-sm text-fg-muted mb-4">
-            Aucune image dans le slider.
-          </p>
-          <button
-            type="button"
-            className="cta-button cta-button-primary text-xs"
-          >
-            ＋ Ajouter la première
-          </button>
+        <div className="p-16 bg-bg-card border border-white/5 rounded-md">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-3 opacity-40">🖼️</div>
+            <p className="text-sm text-fg-muted">Aucune image dans le slider.</p>
+          </div>
+          <div className="max-w-md mx-auto">
+            <ImageUploader
+              onUploaded={handleNewImage}
+              onError={(msg) => setError(msg)}
+              label="Glissez la première image ou cliquez"
+            />
+          </div>
         </div>
       )}
 
