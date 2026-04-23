@@ -219,7 +219,7 @@ export function DashboardSection() {
           </div>
         ) : demandsByDay.every((d) => d.count === 0) ? (
           <div className="h-[160px] flex items-center justify-center text-sm text-fg-muted">
-            Aucune demande sur les 30 derniers jours.
+            Aucune demande sur les {range} derniers jours.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={160}>
