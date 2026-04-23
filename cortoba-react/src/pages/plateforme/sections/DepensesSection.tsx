@@ -7,6 +7,13 @@ import {
   ResponsiveContainer,
   Tooltip,
   Legend,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Area,
+  AreaChart,
 } from "recharts";
 import { apiFetch } from "@/auth/AuthContext";
 import { exportAsCsv } from "@/utils/csv";
