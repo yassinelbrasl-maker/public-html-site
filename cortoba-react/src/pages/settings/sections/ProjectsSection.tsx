@@ -63,22 +63,26 @@ export function ProjectsSection() {
 
   async function saveOrder(newOrder: Project[]) {
     setProjects(newOrder);
+    const ids = newOrder.map((p) => p.id).filter((x): x is number => !!x);
+    if (ids.length === 0) return;
     try {
-      // Server supports update per-project with {id, ...fields, sort_order}.
-      // No batch reorder endpoint exists for projects — send one PUT per item.
-      await Promise.all(
-        newOrder.map((p, i) => {
-          if (!p.id) return Promise.resolve();
-          return apiFetch("/cortoba-plateforme/api/published_projects.php", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...p, sort_order: i }),
-          });
-        })
+      // POST ?reorder=1 with {order: [id1, id2, ...]} — endpoint léger qui
+      // ne touche que sort_order, pas besoin d'envoyer toute la charge utile
+      // (description + gallery_images) pour chaque projet.
+      const res = await apiFetch(
+        "/cortoba-plateforme/api/published_projects.php?reorder=1",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order: ids }),
+        }
       );
+      if (!res.ok) {
+        throw new Error(`Réorganisation échouée (HTTP ${res.status})`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      load();
+      load(); // revert à l'ordre serveur si échec
     }
   }
 
