@@ -1,101 +1,192 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { fetchPublishedProjects, type Project } from "@/api/projects";
+import { apiFetch } from "@/auth/AuthContext";
+import { ProjectEditorModal } from "./ProjectEditorModal";
 
 /**
  * Settings → Projets publiés.
- * MVP : liste live des projets publiés avec preview, catégorie, lieu.
- *
- * À terminer : CRUD complet (nouveau projet, édition, upload images,
- * réorganisation par drag-and-drop via Reorder.Group, device switcher).
+ * Liste + création + édition + suppression + drag-to-reorder.
  */
 export function ProjectsSection() {
   const [projects, setProjects] = useState<Project[] | null>(null);
+  const [editing, setEditing] = useState<Project | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     fetchPublishedProjects()
       .then(setProjects)
       .catch(() => setProjects([]));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  async function handleDelete(slug: string) {
+    if (!confirm("Supprimer définitivement ce projet ?")) return;
+    setDeleting(slug);
+    try {
+      const res = await apiFetch(
+        `/cortoba-plateforme/api/published_projects.php?slug=${encodeURIComponent(slug)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("Suppression échouée");
+      setProjects((prev) => prev?.filter((p) => p.slug !== slug) || null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  async function saveOrder(newOrder: Project[]) {
+    setProjects(newOrder);
+    try {
+      const slugs = newOrder.map((p) => p.slug);
+      const res = await apiFetch(
+        "/cortoba-plateforme/api/published_projects.php?action=reorder",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slugs }),
+        }
+      );
+      if (!res.ok) {
+        // Fallback: PUT each with its new sort_order
+        await Promise.all(
+          newOrder.map((p, i) =>
+            apiFetch("/cortoba-plateforme/api/published_projects.php", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ slug: p.slug, sort_order: i }),
+            })
+          )
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      load();
+    }
+  }
 
   return (
     <div>
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
         className="flex items-center justify-between mb-8"
       >
         <div className="flex items-center gap-3">
           <span className="text-3xl">📸</span>
           <h1 className="font-serif text-3xl font-light text-fg">Projets publiés</h1>
+          {projects && (
+            <span className="px-3 py-1 rounded-full bg-gold/10 text-gold text-xs tracking-wider">
+              {projects.length}
+            </span>
+          )}
         </div>
         <button
           type="button"
+          onClick={() => setCreating(true)}
           className="cta-button cta-button-primary text-xs"
-          title="À implémenter : nouveau projet"
         >
           ＋ Nouveau projet
         </button>
       </motion.div>
 
-      {/* Toolbar */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.08 }}
-        className="flex items-center justify-between gap-4 mb-5 p-3 bg-bg-card border border-white/5 rounded-md text-xs"
-      >
-        <span className="text-fg-muted flex items-center gap-2">
-          <span>⋮⋮</span>
-          Glissez pour réorganiser · Survolez pour changer la taille
-        </span>
-        <div className="flex gap-1">
-          {[
-            { id: "desktop", label: "PC", icon: "🖥️" },
-            { id: "tablet", label: "Tablette", icon: "📱" },
-            { id: "mobile", label: "Mobile", icon: "📲" },
-          ].map((d) => (
-            <button
-              key={d.id}
-              className="px-3 py-1.5 border border-white/10 rounded-md text-fg-muted hover:text-gold hover:border-gold transition-colors"
-              title="Device switcher — à brancher sur l'API device_layout"
-            >
-              {d.icon} {d.label}
-            </button>
-          ))}
+      {error && (
+        <div className="mb-4 p-3 rounded-md bg-red-500/5 border border-red-500/30 text-sm text-red-300 flex items-center justify-between">
+          <span>⚠ {error}</span>
+          <button onClick={() => setError(null)} className="text-fg-muted hover:text-fg">
+            ×
+          </button>
         </div>
-      </motion.div>
+      )}
 
-      {/* List */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-xs text-fg-muted mb-4 flex items-center gap-2"
+      >
+        <span>⋮⋮</span>
+        Glissez les vignettes pour réorganiser. ✎ pour éditer · 🗑 pour supprimer.
+      </motion.p>
+
       {projects === null && (
         <div className="p-10 text-center text-sm text-fg-muted">Chargement…</div>
       )}
 
       {projects !== null && projects.length === 0 && (
-        <div className="p-10 text-center text-sm text-fg-muted">
-          Aucun projet publié pour le moment.
+        <div className="p-10 text-center text-sm text-fg-muted bg-bg-card border border-dashed border-white/10 rounded-md">
+          Aucun projet publié.{" "}
+          <button
+            onClick={() => setCreating(true)}
+            className="text-gold hover:underline"
+          >
+            Créer le premier
+          </button>
+          .
         </div>
       )}
 
       {projects !== null && projects.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <Reorder.Group
+          as="div"
+          axis="y"
+          values={projects}
+          onReorder={saveOrder}
+          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+        >
           <AnimatePresence>
-            {projects.map((p, i) => (
-              <motion.div
+            {projects.map((p) => (
+              <Reorder.Item
+                as="div"
                 key={p.slug}
-                layout
+                value={p}
+                whileDrag={{
+                  scale: 1.03,
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+                  zIndex: 10,
+                }}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.04 }}
-                whileHover={{ y: -3 }}
+                exit={{ opacity: 0, scale: 0.95 }}
                 className="bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing"
               >
-                <div
-                  className="aspect-[16/10] bg-cover bg-center"
-                  style={{ backgroundImage: `url('${p.hero_image}')` }}
-                />
+                <div className="relative">
+                  <div
+                    className="aspect-[16/10] bg-cover bg-center pointer-events-none"
+                    style={{ backgroundImage: `url('${p.hero_image}')` }}
+                  />
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditing(p);
+                      }}
+                      className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
+                      title="Éditer"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(p.slug);
+                      }}
+                      disabled={deleting === p.slug}
+                      className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
+                      title="Supprimer"
+                    >
+                      {deleting === p.slug ? "…" : "🗑"}
+                    </button>
+                  </div>
+                </div>
                 <div className="p-4">
                   <p className="text-[0.62rem] tracking-[0.2em] text-gold uppercase mb-1">
                     {p.category}
@@ -105,46 +196,29 @@ export function ProjectsSection() {
                     {p.location}
                     {p.country && `, ${p.country}`}
                   </p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-[0.6rem] text-fg-muted tracking-wider uppercase">
-                      Slug : {p.slug}
-                    </span>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="w-7 h-7 rounded-md border border-white/10 hover:border-gold hover:text-gold text-xs"
-                        title="Éditer"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        type="button"
-                        className="w-7 h-7 rounded-md border border-white/10 hover:border-red-500/50 hover:text-red-400 text-xs"
-                        title="Supprimer"
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </div>
+                  <span className="inline-block mt-3 text-[0.6rem] text-fg-muted tracking-wider uppercase">
+                    /projet-{p.slug}
+                  </span>
                 </div>
-              </motion.div>
+              </Reorder.Item>
             ))}
           </AnimatePresence>
-        </div>
+        </Reorder.Group>
       )}
 
-      {/* TODO banner */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="mt-8 p-4 bg-gold/5 border border-gold-dim/30 rounded-md text-xs text-fg-muted leading-relaxed"
-      >
-        <strong className="text-gold not-italic">TODO restant sur cette section</strong> —
-        modale d'édition (titre, slug, catégorie, description, gallery upload via
-        drag-to-NAS), drag-to-reorder via <code>Reorder.Group</code>, device switcher
-        branché sur la grille PC/Tablette/Mobile, confirmation de suppression.
-      </motion.div>
+      <ProjectEditorModal
+        open={creating || editing !== null}
+        project={editing}
+        onClose={() => {
+          setCreating(false);
+          setEditing(null);
+        }}
+        onSaved={() => {
+          setCreating(false);
+          setEditing(null);
+          load();
+        }}
+      />
     </div>
   );
 }
