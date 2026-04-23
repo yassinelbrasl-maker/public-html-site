@@ -95,13 +95,12 @@ export function SliderSection() {
   async function saveOrder(newOrder: SliderImage[]) {
     setSlides(newOrder); // optimistic
     try {
-      // Server expects { ids: [id1, id2, ...] } in the new order OR one PUT per item.
-      // On tente d'abord un endpoint batch, sinon on envoie un update par item.
+      // Server supports PUT ?reorder=1 with { order: [id1, id2, ...] } (batch).
       const ids = newOrder.map((s) => s.id);
-      const res = await apiFetch("/cortoba-plateforme/api/slider.php?action=reorder", {
-        method: "POST",
+      const res = await apiFetch("/cortoba-plateforme/api/slider.php?reorder=1", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
+        body: JSON.stringify({ order: ids }),
       });
       if (!res.ok) {
         // Fallback : PUT each slide with its new sort_order
