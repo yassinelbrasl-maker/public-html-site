@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ConfiguratorProvider, useConfigurator } from "@/configurator/context";
 import { Stepper, StepIndicatorPill } from "@/configurator/Stepper";
 import { Step1Projet } from "@/configurator/steps/Step1Projet";
+import { Step2Missions } from "@/configurator/steps/Step2Missions";
 import { Step3Fondations } from "@/configurator/steps/Step3Fondations";
 import { Step4Identite } from "@/configurator/steps/Step4Identite";
 import { Step5Programme } from "@/configurator/steps/Step5Programme";
 import { Step6Terrain } from "@/configurator/steps/Step6Terrain";
-import { Step2Missions } from "@/configurator/steps/MiddleSteps";
 import { StepClient } from "@/configurator/steps/StepClient";
 import { StepSuccess } from "@/configurator/steps/StepSuccess";
 
