@@ -15199,6 +15199,14 @@ function _dlRelLabel(daysDelta) {
   return 'dans ' + daysDelta + ' jours';
 }
 
+// Libellé compact pour pill (p.ex. "13j")
+function _dlCompactLabel(daysDelta) {
+  if (daysDelta < 0) return Math.abs(daysDelta) + 'j en retard';
+  if (daysDelta === 0) return "aujourd'hui";
+  if (daysDelta === 1) return 'demain';
+  return 'dans ' + daysDelta + 'j';
+}
+
 // Formatte une date ISO en "22 avr."
 function _dlShortDate(s) {
   if (!s) return '';
@@ -15214,38 +15222,67 @@ function _dlEsc(s){
   });
 }
 
-// Badge de priorité compact
+// Badge de priorité compact (pill moderne)
 function _dlPrioBadge(p){
   if (!p || p === 'Normale') return '';
-  var bg = 'rgba(200,169,110,0.12)', col = 'var(--accent)';
-  if (p === 'Urgente') { bg = 'rgba(224,123,114,0.15)'; col = 'var(--red)'; }
-  else if (p === 'Haute') { bg = 'rgba(224,164,110,0.15)'; col = 'var(--orange)'; }
-  else if (p === 'Basse') { bg = 'rgba(122,117,112,0.15)'; col = 'var(--text-3)'; }
-  return '<span style="display:inline-block;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.1rem 0.45rem;border-radius:10px;background:'+bg+';color:'+col+';font-weight:500">'+_dlEsc(p)+'</span>';
+  var bg = 'rgba(200,169,110,0.14)', col = 'var(--accent)';
+  if (p === 'Urgente') { bg = 'rgba(224,123,114,0.18)'; col = 'var(--red)'; }
+  else if (p === 'Haute') { bg = 'rgba(224,164,110,0.18)'; col = 'var(--orange)'; }
+  else if (p === 'Basse') { bg = 'rgba(122,117,112,0.18)'; col = 'var(--text-3)'; }
+  return '<span style="display:inline-flex;align-items:center;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.08em;padding:0.2rem 0.55rem;border-radius:999px;background:'+bg+';color:'+col+';font-weight:600">'+_dlEsc(p)+'</span>';
+}
+
+// Badge niveau (Mission / Tâche / Sous-tâche)
+function _dlLevelBadge(niveau){
+  var lvl = parseInt(niveau, 10) || 0;
+  var label = lvl === 0 ? 'Mission' : (lvl === 1 ? 'Tâche' : 'Sous-tâche');
+  var col = lvl === 0 ? 'var(--accent)' : (lvl === 1 ? 'var(--text-1)' : 'var(--text-3)');
+  return '<span style="display:inline-flex;align-items:center;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.09em;padding:0.18rem 0.5rem;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:'+col+';font-weight:500">'+label+'</span>';
+}
+
+// Avatar circulaire avec initiales
+function _dlAvatar(name, size){
+  var s = size || 34;
+  var clean = String(name||'').trim();
+  if (!clean) {
+    return '<div style="flex-shrink:0;width:'+s+'px;height:'+s+'px;border-radius:50%;background:var(--bg-2);border:1px dashed var(--border-md);display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:'+(s*0.42)+'px">?</div>';
+  }
+  var parts = clean.split(/\s+/).filter(Boolean);
+  var initials = (parts[0]||'').charAt(0) + ((parts[1]||'').charAt(0) || '');
+  initials = initials.toUpperCase();
+  // Couleur déterministe (hash simple)
+  var hash = 0;
+  for (var i=0; i<clean.length; i++) hash = ((hash<<5)-hash) + clean.charCodeAt(i);
+  var hue = Math.abs(hash) % 360;
+  var bg = 'hsl('+hue+', 35%, 28%)';
+  var fg = 'hsl('+hue+', 70%, 78%)';
+  return '<div style="flex-shrink:0;width:'+s+'px;height:'+s+'px;border-radius:50%;background:'+bg+';color:'+fg+';display:flex;align-items:center;justify-content:center;font-size:'+(s*0.38)+'px;font-weight:600;letter-spacing:0.02em">'+_dlEsc(initials)+'</div>';
 }
 
 // Rendu d'un groupe
 function _dlRenderGroup(title, icon, items, today) {
   if (!items.length) return '';
   var h = '';
-  h += '<div style="display:flex;align-items:center;gap:0.6rem;margin:0.3rem 0 0.7rem;padding-top:0.2rem">';
-  h += '<span style="font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2)">'+icon+' '+title+'</span>';
-  h += '<span style="flex:1;height:1px;background:var(--border)"></span>';
-  h += '<span style="font-size:0.8rem;font-weight:600;color:var(--text-2)">'+items.length+'</span>';
+  // En-tête de groupe — style minimaliste, typographie propre
+  h += '<div style="display:flex;align-items:center;gap:0.6rem;margin:1.2rem 0 0.5rem;padding:0 0.25rem">';
+  h += '<span style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;color:var(--text-3)">'+title+'</span>';
+  h += '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 0.45rem;font-size:0.7rem;font-weight:600;background:rgba(255,255,255,0.06);color:var(--text-2);border-radius:999px">'+items.length+'</span>';
+  h += '<span style="flex:1"></span>';
   h += '</div>';
-  items.forEach(function(t){
+  items.forEach(function(t, idx){
     var d = t.dateEcheance || t.date_echeance;
     var dd = new Date(d); dd.setHours(0,0,0,0);
     var diffDays = Math.round((dd - today) / 86400000);
     var overdue = diffDays < 0;
-    var color = overdue ? 'var(--red)' : 'var(--orange)';
-    var rel = _dlRelLabel(diffDays);
+    var color = overdue ? 'var(--red)' : (diffDays === 0 ? 'var(--orange)' : 'var(--accent)');
     var dateShort = _dlShortDate(d);
+    var compact = _dlCompactLabel(diffDays);
     var assignees = getTacheAssignees(t);
-    var assLabel = assignees.length ? _dlEsc(assignees.join(', ')) : '<span style="font-style:italic">Non assigné</span>';
-    var code = _dlEsc(t.projetCode || t.projet_code || '—');
+    var firstAssignee = assignees[0] || '';
+    var assLabel = assignees.length ? _dlEsc(assignees.join(', ')) : 'Non assigné';
+    var code = _dlEsc(t.projetCode || t.projet_code || '');
     var tid = _dlEsc(t.id || '');
-    // Résoudre le nom du client
+    // Nom client
     var clientName = t.projetClient || t.projet_client || t.client || '';
     if (!clientName && (t.projet_id || t.projetId) && typeof getProjets === 'function') {
       try {
@@ -15255,41 +15292,55 @@ function _dlRenderGroup(title, icon, items, today) {
     }
     var clientEsc = _dlEsc(clientName || 'Client non renseigné');
 
+    var isLast = (idx === items.length - 1);
     h += '<div class="dl-item" data-task-id="'+tid+'" onclick="_dlOpenTask(\''+tid+'\')" ';
-    h += 'style="display:flex;gap:0.9rem;align-items:stretch;padding:0.9rem 1rem;background:var(--bg-2);border:1px solid var(--border-md);border-left:4px solid '+color+';border-radius:7px;cursor:pointer;transition:transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease" ';
-    h += 'onmouseover="this.style.transform=\'translateX(3px)\';this.style.boxShadow=\'0 4px 14px rgba(0,0,0,0.35)\';this.style.borderColor=\''+color+'\'" ';
-    h += 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\';this.style.borderColor=\'var(--border-md)\'; this.style.borderLeftColor=\''+color+'\'">';
+    h += 'style="display:flex;gap:0.9rem;align-items:center;padding:0.95rem 0.9rem;background:transparent;border-radius:8px;cursor:pointer;transition:background 0.15s ease;'
+       + (isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.04);')
+       + '" ';
+    h += 'onmouseover="this.style.background=\'rgba(255,255,255,0.035)\'" ';
+    h += 'onmouseout="this.style.background=\'transparent\'">';
 
-    // Colonne gauche : compteur de jours / pastille
-    h += '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:68px;padding:0.4rem 0.35rem;background:#0a0a0a;border:1px solid '+color+';border-radius:6px">';
-    var bigNum = overdue ? Math.abs(diffDays) : (diffDays === 0 ? '!' : diffDays);
-    var bigLabel = overdue ? (Math.abs(diffDays) === 1 ? 'jour' : 'jours') : (diffDays === 0 ? "auj." : (diffDays === 1 ? 'demain' : 'jours'));
-    h += '<div style="font-size:1.55rem;font-weight:700;line-height:1;color:'+color+'">'+bigNum+'</div>';
-    h += '<div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-2);margin-top:0.25rem;text-align:center;font-weight:500">'+bigLabel+'</div>';
+    // Pastille de statut (petit dot coloré)
+    h += '<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:0.4rem;min-width:10px">';
+    h += '<span style="display:block;width:10px;height:10px;border-radius:50%;background:'+color+';box-shadow:0 0 0 3px rgba(255,255,255,0.03)"></span>';
     h += '</div>';
 
-    // Colonne droite : contenu
-    h += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.3rem">';
-    // Ligne 1 : Client (mis en avant)
-    h += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">';
-    h += '<span style="font-size:1rem;font-weight:600;color:var(--text);line-height:1.2">👤 '+clientEsc+'</span>';
+    // Avatar du premier assigné
+    h += _dlAvatar(firstAssignee, 38);
+
+    // Colonne centrale : contenu
+    h += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:0.3rem">';
+
+    // Ligne 1 : Client + priorité + pill temps (à droite)
+    h += '<div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap">';
+    h += '<span style="font-size:1.02rem;font-weight:600;color:var(--text);line-height:1.2;letter-spacing:-0.005em">'+clientEsc+'</span>';
+    h += _dlLevelBadge(t.niveau);
     h += _dlPrioBadge(t.priorite);
+    h += '<span style="flex:1"></span>';
+    h += '<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.74rem;font-weight:600;padding:0.25rem 0.6rem;background:'+(overdue?'rgba(224,123,114,0.14)':(diffDays===0?'rgba(224,164,110,0.14)':'rgba(200,169,110,0.1)'))+';color:'+color+';border-radius:999px;white-space:nowrap">';
+    h += '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+    h += _dlEsc(compact);
+    h += '</span>';
     h += '</div>';
+
     // Ligne 2 : Titre de la tâche
-    h += '<div style="font-size:0.9rem;font-weight:500;color:var(--text-2);line-height:1.3">'+_dlEsc(t.titre||'(Sans titre)')+'</div>';
-    // Ligne 3 : Code projet · assigné · échéance relative
-    h += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;font-size:0.8rem;color:var(--text-3);margin-top:0.1rem">';
-    h += '<span style="font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--accent);font-weight:500">'+code+'</span>';
-    h += '<span style="opacity:0.5">·</span>';
+    h += '<div style="font-size:0.88rem;font-weight:500;color:var(--text-1);line-height:1.35">'+_dlEsc(t.titre||'(Sans titre)')+'</div>';
+
+    // Ligne 3 : méta
+    h += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;font-size:0.76rem;color:var(--text-3);margin-top:0.15rem">';
+    if (code) {
+      h += '<span style="font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--accent);font-weight:500;font-size:0.74rem">'+code+'</span>';
+      h += '<span style="opacity:0.4">·</span>';
+    }
     h += '<span>'+assLabel+'</span>';
-    h += '<span style="opacity:0.5">·</span>';
-    h += '<span style="color:'+color+';font-weight:600">'+rel+' <span style="opacity:0.75;font-weight:400">('+dateShort+')</span></span>';
+    h += '<span style="opacity:0.4">·</span>';
+    h += '<span>'+dateShort+'</span>';
     h += '</div>';
     h += '</div>';
 
-    // Chevron
-    h += '<div style="display:flex;align-items:center;color:var(--text-3);opacity:0.7">';
-    h += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
+    // Chevron action
+    h += '<div style="flex-shrink:0;display:flex;align-items:center;color:var(--text-3);opacity:0.5;padding-left:0.25rem">';
+    h += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="9 18 15 12 9 6"/></svg>';
     h += '</div>';
 
     h += '</div>';
@@ -15319,6 +15370,7 @@ function checkDeadlinesPopup() {
   _deadlinesChecked = true;
   var me = (window._currentUser || {});
   var myName = ((me.prenom||'') + ' ' + (me.nom||'')).trim() || me.name || '';
+  // Seuls admin et Architecte gérant voient toutes les notifications
   var isPriv = (me.role === 'admin' || me.role === 'Architecte gérant');
   loadTaches().then(function(list){
     var today = new Date(); today.setHours(0,0,0,0);
@@ -15329,9 +15381,13 @@ function checkDeadlinesPopup() {
       if (!d) return false;
       var dd = new Date(d); dd.setHours(0,0,0,0);
       if (dd > lim) return false;
+      // Privilégié : voit tout (missions, tâches, sous-tâches)
+      if (isPriv) return true;
+      // Membre : uniquement items (mission/tâche/sous-tâche) qui lui sont affectés
+      if (!myName) return false;
       var _assD = getTacheAssignees(t);
-      if (!isPriv && myName && _assD.length && _assD.indexOf(myName) === -1) return false;
-      return true;
+      if (!_assD.length) return false;
+      return _assD.indexOf(myName) !== -1;
     });
     if (!alerts.length) return;
     alerts.sort(function(a,b){ return (a.dateEcheance||a.date_echeance||'') < (b.dateEcheance||b.date_echeance||'') ? -1 : 1; });
@@ -15347,45 +15403,68 @@ function checkDeadlinesPopup() {
       else soon.push(t);
     });
 
-    // Titre dynamique (count badge) — agrandi
+    // Titre — minimaliste, épuré
     var titleEl = document.querySelector('#modal-deadlines .modal-title');
     if (titleEl) {
-      titleEl.style.fontSize = '1.2rem';
+      titleEl.style.fontSize = '1.15rem';
       titleEl.style.fontWeight = '500';
-      var countHtml = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 0.55rem;margin-left:0.6rem;font-size:0.9rem;font-weight:700;background:var(--red);color:#0a0a0a;border-radius:14px;vertical-align:middle">'+alerts.length+'</span>';
-      var titleText = overdue.length ? '⚠ Échéances à surveiller' : '🕑 Échéances à venir';
-      titleEl.innerHTML = titleText + countHtml;
+      titleEl.style.letterSpacing = '-0.01em';
+      titleEl.style.display = 'flex';
+      titleEl.style.alignItems = 'center';
+      titleEl.style.gap = '0.7rem';
+      var countBg = overdue.length ? 'var(--red)' : (todayList.length ? 'var(--orange)' : 'var(--accent)');
+      var countHtml = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 0.6rem;font-size:0.78rem;font-weight:700;background:'+countBg+';color:#0a0a0a;border-radius:999px">'+alerts.length+'</span>';
+      titleEl.innerHTML = '<span style="color:var(--text)">Mes notifications</span>' + countHtml;
     }
 
-    // Opacifier le fond + la modale elle-même
+    // Opacifier le fond + élargir la modale
     var overlayEl = document.getElementById('modal-deadlines');
     if (overlayEl) {
-      overlayEl.style.background = 'rgba(0,0,0,0.85)';
+      overlayEl.style.background = 'rgba(0,0,0,0.88)';
+      overlayEl.style.backdropFilter = 'blur(6px)';
+      overlayEl.style.webkitBackdropFilter = 'blur(6px)';
       var box = overlayEl.querySelector('.modal');
       if (box) {
-        box.style.maxWidth = '720px';
+        box.style.maxWidth = '780px';
         box.style.background = 'var(--bg-1)';
-        box.style.boxShadow = '0 20px 60px rgba(0,0,0,0.6)';
+        box.style.boxShadow = '0 24px 72px rgba(0,0,0,0.7)';
+        box.style.border = '1px solid rgba(255,255,255,0.06)';
+        box.style.borderRadius = '14px';
+        box.style.overflow = 'hidden';
       }
     }
 
-    // Sous-titre contextuel — agrandi
+    // Sous-titre : pastilles de synthèse modernes
     var wrap = document.getElementById('deadlines-list');
     if (!wrap) return;
     var bodyHtml = '';
-    var summary = [];
-    if (overdue.length)   summary.push('<span style="color:var(--red);font-weight:600">'+overdue.length+' en retard</span>');
-    if (todayList.length) summary.push('<span style="color:var(--orange);font-weight:600">'+todayList.length+" aujourd'hui</span>");
-    if (soon.length)      summary.push('<span style="color:var(--text-1);font-weight:600">'+soon.length+' à venir</span>');
-    bodyHtml += '<div style="font-size:0.92rem;color:var(--text-2);margin-bottom:1.1rem;padding-bottom:0.9rem;border-bottom:1px solid var(--border);display:flex;gap:1rem;flex-wrap:wrap;align-items:center">'
-             + (summary.join(' <span style="opacity:0.4">·</span> '))
+    function _pill(label, count, color, bg){
+      return '<span style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 0.85rem;background:'+bg+';border:1px solid '+color+';border-radius:999px;font-size:0.82rem;font-weight:500;color:var(--text-1)">'
+        + '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;font-size:0.78rem;font-weight:700;background:'+color+';color:#0a0a0a;border-radius:999px">'+count+'</span>'
+        + '<span style="color:var(--text-2)">'+label+'</span>'
+        + '</span>';
+    }
+    var pills = [];
+    if (overdue.length)   pills.push(_pill('en retard', overdue.length, 'var(--red)',    'rgba(224,123,114,0.08)'));
+    if (todayList.length) pills.push(_pill("aujourd'hui", todayList.length, 'var(--orange)', 'rgba(224,164,110,0.08)'));
+    if (soon.length)      pills.push(_pill('à venir', soon.length, 'var(--accent)', 'rgba(200,169,110,0.08)'));
+    bodyHtml += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">'
+             + pills.join('')
              + '</div>';
 
-    bodyHtml += '<div style="display:flex;flex-direction:column;gap:0.45rem">';
+    bodyHtml += '<div style="display:flex;flex-direction:column">';
     bodyHtml += _dlRenderGroup('En retard', '⚠', overdue, today);
     bodyHtml += _dlRenderGroup("Aujourd'hui", '●', todayList, today);
     bodyHtml += _dlRenderGroup('Dans les 3 prochains jours', '→', soon, today);
     bodyHtml += '</div>';
+
+    // Note de scope pour les membres (feedback sur filtrage)
+    if (!isPriv) {
+      bodyHtml += '<div style="margin-top:1rem;padding:0.7rem 0.9rem;background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:8px;font-size:0.76rem;color:var(--text-3);display:flex;align-items:center;gap:0.5rem">'
+               + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+               + 'Seules vos missions, tâches et sous-tâches affectées sont affichées.'
+               + '</div>';
+    }
 
     wrap.innerHTML = bodyHtml;
     openModal('modal-deadlines');
