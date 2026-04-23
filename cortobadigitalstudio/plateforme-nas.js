@@ -17755,7 +17755,8 @@ function saveChantier() {
     closeModal('modal-chantier');
     _resetChForm();
     // For new chantier, propose adding all standard lots
-    if (!id && r && r.data && r.data.id) {
+    // Skip the confirm when chantier already has both a starting and ending lot
+    if (!id && r && r.data && r.data.id && !(body.lot_depart && body.lot_fin)) {
       if (confirm('Voulez-vous ajouter tous les lots standard du projet ?')) {
         addAllLotsToChantier(r.data.id);
       }
