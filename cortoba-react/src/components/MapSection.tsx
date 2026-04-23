@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useI18n } from "@/i18n/I18nProvider";
 
 /**
  * Localisation du studio. On garde l'embed Google Maps (plus léger et plus
@@ -6,6 +7,7 @@ import { motion } from "framer-motion";
  * peut ouvrir Google Maps directement avec les directions).
  */
 export function MapSection() {
+  const { t } = useI18n();
   const mapEmbedSrc =
     "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3932.5934013895326!2d10.986050799999997!3d33.804753999999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x13aa9779f4ac460b%3A0x95f2918c9f396d68!2sCortoba%20Architecture%20Studio!5e1!3m2!1sfr!2stn!4v1769655382963!5m2!1sfr!2stn";
 
