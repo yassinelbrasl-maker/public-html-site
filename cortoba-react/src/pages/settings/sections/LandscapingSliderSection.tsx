@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { apiFetch } from "@/auth/AuthContext";
 import { ImageUploader, type UploadedImage } from "@/components/ImageUploader";
+import { useConfirm } from "@/components/ConfirmProvider";
+import { useToast } from "@/components/ToastProvider";
+import { LsSlideEditorModal, type EditableLsSlide } from "./LsSlideEditorModal";
 
 interface LsSlide {
   id: number | string;
@@ -14,11 +17,15 @@ interface LsSlide {
 
 /**
  * Settings → Slider héro Landscaping.
- * Consomme /cortoba-plateforme/api/landscaping_slider.php
+ * Full CRUD : upload, éditeur (position, bg_color, alt_text), delete, reorder.
  */
 export function LandscapingSliderSection() {
   const [slides, setSlides] = useState<LsSlide[] | null>(null);
+  const [editing, setEditing] = useState<EditableLsSlide | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | number | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const load = () => {
     apiFetch("/cortoba-plateforme/api/landscaping_slider.php")
@@ -46,9 +53,62 @@ export function LandscapingSliderSection() {
         }),
       });
       if (!res.ok) throw new Error("Création échouée");
+      toast.success("Image ajoutée au slider Landscaping");
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleDelete(id: string | number) {
+    const ok = await confirm({
+      message: "Supprimer cette image du slider Landscaping ?",
+      tone: "danger",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
+    setDeleting(id);
+    try {
+      const res = await apiFetch(
+        `/cortoba-plateforme/api/landscaping_slider.php?id=${id}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("Suppression échouée");
+      setSlides((prev) => prev?.filter((s) => s.id !== id) || null);
+      toast.success("Image supprimée");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  async function saveOrder(newOrder: LsSlide[]) {
+    setSlides(newOrder);
+    try {
+      const ids = newOrder.map((s) => s.id);
+      const res = await apiFetch(
+        "/cortoba-plateforme/api/landscaping_slider.php?action=reorder",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        }
+      );
+      if (!res.ok) {
+        await Promise.all(
+          newOrder.map((s, i) =>
+            apiFetch("/cortoba-plateforme/api/landscaping_slider.php", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: s.id, sort_order: i }),
+            })
+          )
+        );
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+      load();
     }
   }
 
@@ -72,68 +132,141 @@ export function LandscapingSliderSection() {
         </div>
         <ImageUploader
           onUploaded={handleNewImage}
-          onError={(msg) => setError(msg)}
+          onError={setError}
           label="＋ Ajouter une image"
           compact
         />
       </motion.div>
 
       {error && (
-        <div className="p-4 rounded-md bg-red-500/5 border border-red-500/30 text-sm text-red-300">
-          ⚠ {error}
+        <div className="mb-4 p-3 rounded-md bg-red-500/5 border border-red-500/30 text-sm text-red-300 flex items-center justify-between">
+          <span>⚠ {error}</span>
+          <button onClick={() => setError(null)} className="text-fg-muted hover:text-fg">
+            ×
+          </button>
         </div>
       )}
 
-      {!error && slides === null && (
+      {slides === null && (
         <div className="p-10 text-center text-sm text-fg-muted">Chargement…</div>
       )}
 
-      {!error && slides !== null && slides.length === 0 && (
-        <div className="p-16 text-center bg-bg-card border border-dashed border-white/10 rounded-md">
-          <div className="text-4xl mb-3 opacity-40">🖼️</div>
-          <p className="text-sm text-fg-muted">
-            Aucune image dans le slider landscaping.
-          </p>
+      {slides !== null && slides.length === 0 && (
+        <div className="p-16 bg-bg-card border border-white/5 rounded-md">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-3 opacity-40">🖼️</div>
+            <p className="text-sm text-fg-muted">
+              Aucune image dans le slider landscaping.
+            </p>
+          </div>
+          <div className="max-w-md mx-auto">
+            <ImageUploader
+              onUploaded={handleNewImage}
+              onError={setError}
+              label="Glissez la première image ou cliquez"
+            />
+          </div>
         </div>
       )}
 
-      {!error && slides !== null && slides.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence>
-            {slides.map((s, i) => {
-              const px = s.position_x ?? 50;
-              const py = s.position_y ?? 50;
-              return (
-                <motion.div
-                  key={s.id}
-                  layout
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: i * 0.04 }}
-                  whileHover={{ y: -3 }}
-                  className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group"
-                >
-                  <div className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-[#8dba78] text-bg font-bold text-xs flex items-center justify-center">
-                    {i + 1}
-                  </div>
-                  <div
-                    className="h-40 bg-cover bg-center"
-                    style={{
-                      backgroundImage: `url('${s.image_path}')`,
-                      backgroundPosition: `${px}% ${py}%`,
-                      backgroundColor: s.bg_color || "#1a2815",
+      {slides !== null && slides.length > 0 && (
+        <>
+          <p className="text-xs text-fg-muted mb-3 flex items-center gap-2">
+            <span>⋮⋮</span>
+            Glissez pour réorganiser · ✎ pour éditer · 🗑 pour supprimer.
+          </p>
+          <Reorder.Group
+            as="div"
+            axis="y"
+            values={slides}
+            onReorder={saveOrder}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            <AnimatePresence>
+              {slides.map((s, i) => {
+                const px = s.position_x ?? 50;
+                const py = s.position_y ?? 50;
+                return (
+                  <Reorder.Item
+                    as="div"
+                    key={s.id}
+                    value={s}
+                    whileDrag={{
+                      scale: 1.03,
+                      boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+                      zIndex: 10,
                     }}
-                  />
-                  <div className="p-2 text-[0.65rem] text-fg-muted text-center">
-                    Position {px}% / {py}%
-                    {s.bg_color && ` · ${s.bg_color}`}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.35, delay: i * 0.04 }}
+                    className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing"
+                  >
+                    <div className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-[#8dba78] text-bg font-bold text-xs flex items-center justify-center">
+                      {i + 1}
+                    </div>
+                    <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing(s as EditableLsSlide);
+                        }}
+                        className="w-8 h-8 rounded-md bg-[#8dba78]/90 text-bg hover:bg-[#8dba78] text-xs"
+                        title="Éditer"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(s.id);
+                        }}
+                        disabled={deleting === s.id}
+                        className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
+                        title="Supprimer"
+                      >
+                        {deleting === s.id ? "…" : "🗑"}
+                      </button>
+                    </div>
+                    <div
+                      className="h-40 bg-cover bg-center pointer-events-none"
+                      style={{
+                        backgroundImage: `url('${s.image_path}')`,
+                        backgroundPosition: `${px}% ${py}%`,
+                        backgroundColor: s.bg_color || "#1a2815",
+                      }}
+                    />
+                    <div className="p-2 text-[0.65rem] text-fg-muted text-center">
+                      Position {px}% / {py}%
+                      {s.bg_color && (
+                        <span
+                          className="inline-block w-3 h-3 rounded-full ml-2 align-middle border border-white/20"
+                          style={{ backgroundColor: s.bg_color }}
+                        />
+                      )}
+                    </div>
+                  </Reorder.Item>
+                );
+              })}
+            </AnimatePresence>
+          </Reorder.Group>
+        </>
       )}
+
+      <LsSlideEditorModal
+        open={editing !== null}
+        slide={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          load();
+          setEditing(null);
+          toast.success("Slide Landscaping mise à jour");
+        }}
+      />
     </div>
   );
 }
