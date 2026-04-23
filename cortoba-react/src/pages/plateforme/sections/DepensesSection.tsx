@@ -199,6 +199,17 @@ export function DepensesSection() {
   );
 }
 
+const CHART_COLORS = [
+  "#c8a96e", // gold
+  "#8dba78", // landscape green
+  "#0a77a1", // blue
+  "#8a7649", // dim gold
+  "#c68bb1", // pink
+  "#e8a463", // orange
+  "#6ecbc5", // teal
+  "#b890f5", // purple
+];
+
 function StatCard({
   label,
   value,
