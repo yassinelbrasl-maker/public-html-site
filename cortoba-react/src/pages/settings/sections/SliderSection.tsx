@@ -183,69 +183,94 @@ export function SliderSection() {
       )}
 
       {slides !== null && slides.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence>
-            {slides.map((s, i) => {
-              const posX = s.position_x ?? 50;
-              const posY = s.position_y ?? 50;
-              const zm = s.zoom ?? 100;
-              const fit = s.fit_mode || "cover";
-              const anim = s.animation_type || "zoom-in";
-              return (
-                <motion.div
-                  key={s.id}
-                  layout
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.35, delay: i * 0.04 }}
-                  whileHover={{ y: -3 }}
-                  className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group"
-                >
-                  <div className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-gold text-bg font-bold text-xs flex items-center justify-center">
-                    {i + 1}
-                  </div>
-                  <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(s as EditableSlide)}
-                      className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
-                      title="Modifier"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(s.id)}
-                      disabled={deleting === s.id}
-                      className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
-                      title="Supprimer"
-                    >
-                      {deleting === s.id ? "…" : "🗑"}
-                    </button>
-                  </div>
-                  <div className="relative h-40 overflow-hidden bg-black/50">
-                    <img
-                      src={s.image_path}
-                      alt={s.alt_text || `Slide ${i + 1}`}
-                      className="w-full h-full"
-                      style={{
-                        objectFit:
-                          fit === "original" ? "none" : (fit as React.CSSProperties["objectFit"]),
-                        objectPosition: `${posX}% ${posY}%`,
-                        transform: `scale(${zm / 100})`,
-                      }}
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="p-2 text-center text-[0.65rem] text-fg-muted tracking-wider">
-                    {FIT_LABELS[fit] || fit} · {zm}% · {ANIM_LABELS[anim] || anim}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
+        <>
+          <p className="text-xs text-fg-muted mb-3 flex items-center gap-2">
+            <span>⋮⋮</span>
+            Glissez les vignettes pour changer l'ordre.
+          </p>
+          <Reorder.Group
+            as="div"
+            axis="y"
+            values={slides}
+            onReorder={saveOrder}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            <AnimatePresence>
+              {slides.map((s, i) => {
+                const posX = s.position_x ?? 50;
+                const posY = s.position_y ?? 50;
+                const zm = s.zoom ?? 100;
+                const fit = s.fit_mode || "cover";
+                const anim = s.animation_type || "zoom-in";
+                return (
+                  <Reorder.Item
+                    as="div"
+                    key={s.id}
+                    value={s}
+                    whileDrag={{
+                      scale: 1.03,
+                      boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+                      zIndex: 10,
+                    }}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.35, delay: i * 0.04 }}
+                    className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing"
+                  >
+                    <div className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-gold text-bg font-bold text-xs flex items-center justify-center">
+                      {i + 1}
+                    </div>
+                    <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing(s as EditableSlide);
+                        }}
+                        className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
+                        title="Modifier"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(s.id);
+                        }}
+                        disabled={deleting === s.id}
+                        className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
+                        title="Supprimer"
+                      >
+                        {deleting === s.id ? "…" : "🗑"}
+                      </button>
+                    </div>
+                    <div className="relative h-40 overflow-hidden bg-black/50 pointer-events-none">
+                      <img
+                        src={s.image_path}
+                        alt={s.alt_text || `Slide ${i + 1}`}
+                        className="w-full h-full"
+                        style={{
+                          objectFit:
+                            fit === "original" ? "none" : (fit as React.CSSProperties["objectFit"]),
+                          objectPosition: `${posX}% ${posY}%`,
+                          transform: `scale(${zm / 100})`,
+                        }}
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="p-2 text-center text-[0.65rem] text-fg-muted tracking-wider">
+                      {FIT_LABELS[fit] || fit} · {zm}% · {ANIM_LABELS[anim] || anim}
+                    </div>
+                  </Reorder.Item>
+                );
+              })}
+            </AnimatePresence>
+          </Reorder.Group>
+        </>
       )}
 
       <motion.div
