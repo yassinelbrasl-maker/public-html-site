@@ -43,6 +43,8 @@ export function SlideEditorModal({ open, slide, onClose, onSaved }: Props) {
   const [form, setForm] = useState<EditableSlide>(slide || {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     if (open && slide) {
