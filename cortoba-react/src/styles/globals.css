@@ -44,3 +44,39 @@
     @apply text-fg-muted text-sm md:text-base leading-relaxed max-w-prose;
   }
 }
+
+/* Print styles — utilisé par StepResult "Télécharger en PDF".
+ * Bascule en fond blanc + texte noir pour économiser l'encre et rendre
+ * la fourchette / le breakdown lisibles sur papier ou PDF. */
+@media print {
+  * {
+    color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  /* Hide anything marked as interactive / nav */
+  nav, header, footer, .print\:hidden {
+    display: none !important;
+  }
+  /* Force card backgrounds to subtle gray so borders stay visible on paper */
+  .bg-bg, .bg-bg-card, .bg-bg-elev, [class*="bg-bg-"] {
+    background: #fafaf7 !important;
+  }
+  .text-gold, [class*="text-gold"] {
+    color: #8a7649 !important;
+  }
+  .text-fg, .text-fg-muted {
+    color: #222 !important;
+  }
+  .border-white\/5, [class*="border-white/"] {
+    border-color: #d8d4c9 !important;
+  }
+  /* Avoid page break in the middle of key blocks */
+  .bg-bg-card, [class*="rounded-md"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
