@@ -5,19 +5,16 @@ test.describe("Home page", () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/Cortoba Architecture Studio/);
     await expect(
-      page.getByRole("heading", { name: /Cortoba Architecture Studio/i })
+      page.getByRole("heading", { name: /Cortoba Architecture Studio/i }).first()
     ).toBeVisible();
   });
 
   test("has working CTAs", async ({ page }) => {
     await page.goto("/");
-    // Use .first() since prerendered HTML + hydrated React may render dupes
-    const projectsCta = page
-      .getByRole("link", { name: /voir nos projets/i })
-      .first();
-    const configCta = page
-      .getByRole("link", { name: /configurateur de projet/i })
-      .first();
+    await page.waitForLoadState("networkidle");
+    // "VOIR NOS PROJETS →" is uppercase-styled via CSS; filter by href instead.
+    const projectsCta = page.locator('a[href="#projects"]').first();
+    const configCta = page.locator('a[href="/configurateur"]').first();
     await expect(projectsCta).toBeVisible();
     await expect(configCta).toBeVisible();
   });
@@ -25,8 +22,8 @@ test.describe("Home page", () => {
   test("language switcher works (FR → EN)", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "EN" }).first().click();
-    // html lang attribute should flip
+    // Target the header nav buttons precisely
+    await page.locator('header button:has-text("EN")').first().click();
     await expect(page.locator("html")).toHaveAttribute("lang", "en", {
       timeout: 5000,
     });
@@ -35,8 +32,7 @@ test.describe("Home page", () => {
   test("language switcher RTL (FR → AR)", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "AR" }).first().click();
-    // html dir should flip to rtl
+    await page.locator('header button:has-text("AR")').first().click();
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl", {
       timeout: 5000,
     });
