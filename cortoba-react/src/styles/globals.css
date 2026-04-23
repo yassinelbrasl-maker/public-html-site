@@ -9,6 +9,21 @@
   body {
     font-feature-settings: "kern" 1;
   }
+
+  /* RTL support for Arabic */
+  body.rtl {
+    font-family:
+      "Noto Sans Arabic", "Tajawal", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+  }
+  body.rtl .font-serif {
+    font-family:
+      "Amiri", "Noto Serif Arabic", "Cormorant Garamond", Georgia, serif;
+  }
+  /* Flip directional arrows in CTA buttons under RTL */
+  body.rtl .cta-button > [aria-hidden] {
+    transform: scaleX(-1);
+  }
 }
 
 @layer components {
