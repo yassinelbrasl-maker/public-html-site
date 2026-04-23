@@ -105,8 +105,12 @@ export interface CalcResult {
 export function calculate(s: ConfiguratorState): CalcResult {
   const standing = s.cfg_standing || "confort";
   const operation = s.cfg_operation || "neuf";
+  const style = s.cfg_style || "contemporain";
+  const terrain = s.cfg_terrain_nature || "urbaine";
   const cpp = COST_PER_M2[standing] || COST_PER_M2.confort;
   const operationMult = OPERATION_MULT[operation] || 1;
+  const styleMult = STYLE_MULT[style] ?? 1;
+  const terrainMult = TERRAIN_MULT[terrain] ?? 1;
 
   const rooms: CalcRoom[] = [];
 
