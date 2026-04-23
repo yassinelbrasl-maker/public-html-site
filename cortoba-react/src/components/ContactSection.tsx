@@ -62,7 +62,7 @@ export function ContactSection() {
           <input
             type="text"
             name="nom"
-            placeholder="Votre nom"
+            placeholder={t("form_name")}
             required
             className="w-full bg-bg-card border border-white/10 rounded-md px-4 py-3 text-fg placeholder:text-fg-muted focus:outline-none focus:border-gold transition-colors"
           />
