@@ -20,12 +20,43 @@ const CHAMBRE_TYPES: { id: Chambre["type"]; label: string; icon: string }[] = [
   { id: "suite", label: "Suite", icon: "✨" },
 ];
 
+const MIXTE_USAGES: { id: string; label: string; icon: string }[] = [
+  { id: "logement", label: "Logement", icon: "🏠" },
+  { id: "bureau", label: "Bureau", icon: "💼" },
+  { id: "commerce", label: "Commerce", icon: "🏪" },
+  { id: "parking", label: "Parking", icon: "🚗" },
+  { id: "stockage", label: "Stockage", icon: "📦" },
+];
+
 export function Step5Programme() {
   const { state, dispatch } = useConfigurator();
 
   function patch(p: Partial<typeof state>) {
     dispatch({ type: "PATCH", patch: p });
   }
+
+  // ── cfg_mixte_niveaux builder helpers ──
+  function addNiveauMixte() {
+    const next: NiveauMixte[] = [
+      ...state.cfg_mixte_niveaux,
+      { usage: "logement", surface: 300 },
+    ];
+    patch({ cfg_mixte_niveaux: next });
+  }
+  function updateNiveauMixte(idx: number, partial: Partial<NiveauMixte>) {
+    patch({
+      cfg_mixte_niveaux: state.cfg_mixte_niveaux.map((n, i) =>
+        i === idx ? { ...n, ...partial } : n
+      ),
+    });
+  }
+  function removeNiveauMixte(idx: number) {
+    patch({
+      cfg_mixte_niveaux: state.cfg_mixte_niveaux.filter((_, i) => i !== idx),
+    });
+  }
+
+  const isMixte = state.cfg_type === "mixte";
 
   function addChambre() {
     const id = crypto.randomUUID
