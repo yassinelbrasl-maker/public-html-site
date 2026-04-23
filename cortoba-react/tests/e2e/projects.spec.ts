@@ -5,7 +5,7 @@ test.describe("Project detail pages", () => {
     await page.goto("/projet-villa-al");
     await expect(page).toHaveTitle(/VILLA/i);
     await expect(
-      page.getByRole("heading", { name: /VILLA/i })
+      page.getByRole("heading", { name: /VILLA/i }).first()
     ).toBeVisible();
   });
 
@@ -31,11 +31,12 @@ test.describe("Project detail pages", () => {
 test.describe("SEO", () => {
   test("home has canonical + OG tags", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    // Prerender + helmet both inject a canonical; .first() is fine.
+    await expect(page.locator('link[rel="canonical"]').first()).toHaveAttribute(
       "href",
       /cortobaarchitecture\.com/
     );
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    await expect(page.locator('meta[property="og:title"]').first()).toHaveAttribute(
       "content",
       /Cortoba/
     );
