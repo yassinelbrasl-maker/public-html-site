@@ -18411,7 +18411,8 @@ function loadParamLots() {
       var phases = lot.phases || [];
       var hasPhases = phases.length > 0;
       var codeBadge = lot.code ? '<span style="font-size:0.68rem;font-weight:600;letter-spacing:0.05em;color:var(--accent);background:rgba(200,169,110,0.12);border:1px solid rgba(200,169,110,0.3);padding:0.1rem 0.4rem;border-radius:3px;font-family:ui-monospace,Menlo,monospace">' + _cgEscape(lot.code) + '</span>' : '';
-      h += '<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem;border-left:3px solid ' + (lot.couleur || '#c8a96e') + '">' +
+      var lotColor = lot.couleur || '#c8a96e';
+      h += '<div style="background:var(--bg-2);border:2px solid ' + lotColor + ';border-radius:6px;padding:0.6rem 0.8rem;box-shadow:0 0 0 1px ' + lotColor + '22 inset">' +
         '<div style="display:flex;align-items:center;gap:0.5rem;cursor:pointer" onclick="toggleParamLotExpand(\'' + lot.id + '\')">' +
         '<span id="param-chevron-' + lot.id + '" style="display:inline-block;transition:transform 0.2s;font-size:0.7rem;color:var(--accent)">&#9654;</span>' +
         '<span style="width:14px;height:14px;border-radius:3px;background:' + (lot.couleur || '#c8a96e') + ';flex-shrink:0;border:1px solid rgba(0,0,0,0.2)"></span>' +
