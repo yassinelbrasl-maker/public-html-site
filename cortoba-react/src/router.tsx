@@ -100,8 +100,23 @@ export const router = createBrowserRouter([
       { path: "projet-:slug", element: lazyRoute(<ProjectDetailPage />) },
       { path: "configurateur", element: lazyRoute(<ConfiguratorPage />) },
       { path: "settings", element: lazyRoute(<SettingsPage />) },
-      // TODO — port à venir (voir MIGRATION.md) :
-      // { path: "plateforme/*", element: lazyRoute(<PlateformeShell />) }, // admin app
+      {
+        path: "plateforme",
+        element: lazyRoute(<PlateformeShell />),
+        children: [
+          { index: true, element: lazyRoute(<PlateformeIndex />) },
+          { path: "demandes", element: lazyRoute(<DemandesSection />) },
+          { path: "projets", element: lazyRoute(<PlateformeProjets />) },
+          { path: "suivi", element: lazyRoute(<PlateformeSuivi />) },
+          { path: "rendement", element: lazyRoute(<PlateformeRendement />) },
+          { path: "livrables", element: lazyRoute(<PlateformeLivrables />) },
+          { path: "depenses", element: lazyRoute(<PlateformeDepenses />) },
+          { path: "equipe", element: lazyRoute(<PlateformeEquipe />) },
+          { path: "conges", element: lazyRoute(<PlateformeConges />) },
+          { path: "fiscal", element: lazyRoute(<PlateformeFiscal />) },
+          { path: "flotte", element: lazyRoute(<PlateformeFlotte />) },
+        ],
+      },
     ],
   },
 ]);
