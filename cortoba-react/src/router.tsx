@@ -7,9 +7,8 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 
 // Code-split : le configurateur (≈ 200KB avec Leaflet) et la page détail projet
 // ne sont téléchargés que quand l'utilisateur y accède.
-const ProjectDetailPage = lazy(() =>
-  import("./pages/ProjectDetailPage").then((m) => ({ default: m.ProjectDetailPage }))
-);
+// ProjectDetailPage est chargé via CatchAllPage (React Router v6 ne peut pas
+// matcher un paramètre avec un préfixe statique dans le même segment).
 const CatchAllPage = lazy(() =>
   import("./pages/CatchAllPage").then((m) => ({ default: m.CatchAllPage }))
 );
