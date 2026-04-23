@@ -69,7 +69,7 @@ export function ContactSection() {
           <input
             type="email"
             name="email"
-            placeholder="Votre email"
+            placeholder={t("form_email")}
             required
             className="w-full bg-bg-card border border-white/10 rounded-md px-4 py-3 text-fg placeholder:text-fg-muted focus:outline-none focus:border-gold transition-colors"
           />
