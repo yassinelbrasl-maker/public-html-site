@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { apiFetch } from "@/auth/AuthContext";
 import { fullName, type TeamMember } from "@/api/users";
+import { exportAsCsv } from "@/utils/csv";
 
 interface RendementEntry {
   user_id: string;
