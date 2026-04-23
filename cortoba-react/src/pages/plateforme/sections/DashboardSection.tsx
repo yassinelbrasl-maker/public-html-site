@@ -32,7 +32,7 @@ interface DashboardData {
 /**
  * /plateforme (index) — Vue d'ensemble.
  *
- * KPI cards + 30j sparkline des demandes + dernières demandes + raccourcis.
+ * KPI cards + sparkline des demandes (30j/90j) + dernières demandes + raccourcis.
  * Consomme plusieurs API en parallèle. Tout tombe en fallback proprement
  * si un endpoint ne répond pas.
  */
@@ -43,6 +43,7 @@ export function DashboardSection() {
     depensesTotal: null,
     livrablesEnRetard: null,
   });
+  const [range, setRange] = useState<30 | 90>(30);
 
   useEffect(() => {
     // Fetch in parallel, silently ignoring errors per endpoint
