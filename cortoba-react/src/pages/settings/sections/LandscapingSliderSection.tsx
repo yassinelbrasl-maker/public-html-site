@@ -70,12 +70,12 @@ export function LandscapingSliderSection() {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className="cta-button cta-button-primary text-xs"
-        >
-          ＋ Ajouter une image
-        </button>
+        <ImageUploader
+          onUploaded={handleNewImage}
+          onError={(msg) => setError(msg)}
+          label="＋ Ajouter une image"
+          compact
+        />
       </motion.div>
 
       {error && (
