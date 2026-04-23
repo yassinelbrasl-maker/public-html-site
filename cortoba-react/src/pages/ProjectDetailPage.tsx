@@ -7,6 +7,7 @@ import {
   type Project,
 } from "@/api/projects";
 import { Lightbox } from "@/components/Lightbox";
+import { Seo } from "@/seo/Seo";
 
 export function ProjectDetailPage() {
   const { slug = "" } = useParams<{ slug: string }>();
