@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { apiFetch } from "@/auth/AuthContext";
 import { fullName, initialsFor, type TeamMember } from "@/api/users";
 
