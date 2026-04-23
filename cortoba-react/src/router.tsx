@@ -16,6 +16,66 @@ const ConfiguratorPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("./pages/settings/SettingsPage").then((m) => ({ default: m.SettingsPage }))
 );
+const PlateformeShell = lazy(() =>
+  import("./pages/plateforme/PlateformeShell").then((m) => ({
+    default: m.PlateformeShell,
+  }))
+);
+const PlateformeIndex = lazy(() =>
+  import("./pages/plateforme/PlateformeShell").then((m) => ({
+    default: m.PlateformeIndex,
+  }))
+);
+const DemandesSection = lazy(() =>
+  import("./pages/plateforme/sections/DemandesSection").then((m) => ({
+    default: m.DemandesSection,
+  }))
+);
+const PlateformeProjets = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.ProjetsSection,
+  }))
+);
+const PlateformeSuivi = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.SuiviSection,
+  }))
+);
+const PlateformeRendement = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.RendementSection,
+  }))
+);
+const PlateformeLivrables = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.LivrablesSection,
+  }))
+);
+const PlateformeDepenses = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.DepensesSection,
+  }))
+);
+const PlateformeEquipe = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.EquipeSection,
+  }))
+);
+const PlateformeConges = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.CongesSection,
+  }))
+);
+const PlateformeFiscal = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.FiscalSection,
+  }))
+);
+const PlateformeFlotte = lazy(() =>
+  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+    default: m.FlotteSection,
+  }))
+);
 
 function PageLoader() {
   return (
