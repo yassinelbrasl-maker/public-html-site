@@ -1,10 +1,30 @@
 import { createBrowserRouter } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { RootLayout } from "./layouts/RootLayout";
 import { HomePage } from "./pages/HomePage";
 import { LandscapingPage } from "./pages/LandscapingPage";
-import { ProjectDetailPage } from "./pages/ProjectDetailPage";
-import { ConfiguratorPage } from "./pages/ConfiguratorPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+
+// Code-split : le configurateur (≈ 200KB avec Leaflet) et la page détail projet
+// ne sont téléchargés que quand l'utilisateur y accède.
+const ProjectDetailPage = lazy(() =>
+  import("./pages/ProjectDetailPage").then((m) => ({ default: m.ProjectDetailPage }))
+);
+const ConfiguratorPage = lazy(() =>
+  import("./pages/ConfiguratorPage").then((m) => ({ default: m.ConfiguratorPage }))
+);
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-fg-muted text-sm">Chargement…</div>
+    </div>
+  );
+}
+
+function lazyRoute(el: React.ReactElement) {
+  return <Suspense fallback={<PageLoader />}>{el}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
@@ -14,11 +34,11 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: "landscaping", element: <LandscapingPage /> },
-      { path: "projet-:slug", element: <ProjectDetailPage /> },
-      { path: "configurateur", element: <ConfiguratorPage /> },
+      { path: "projet-:slug", element: lazyRoute(<ProjectDetailPage />) },
+      { path: "configurateur", element: lazyRoute(<ConfiguratorPage />) },
       // TODO — ports à venir (voir MIGRATION.md) :
-      // { path: "settings", lazy: () => import("./pages/SettingsPage") }, // admin public content
-      // { path: "plateforme/*", lazy: () => import("./pages/PlateformeShell") }, // admin app
+      // { path: "settings", element: lazyRoute(<SettingsPage />) }, // admin public content
+      // { path: "plateforme/*", element: lazyRoute(<PlateformeShell />) }, // admin app
     ],
   },
 ]);
