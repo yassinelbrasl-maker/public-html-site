@@ -114,7 +114,7 @@ export const router = createBrowserRouter([
           { path: "projets", element: lazyRoute(<PlateformeProjets />) },
           { path: "suivi", element: lazyRoute(<PlateformeSuivi />) },
           { path: "rendement", element: lazyRoute(<PlateformeRendement />) },
-          { path: "livrables", element: lazyRoute(<PlateformeLivrables />) },
+          { path: "livrables", element: lazyRoute(<PlateformeLivrablesReal />) },
           { path: "depenses", element: lazyRoute(<PlateformeDepenses />) },
           { path: "equipe", element: lazyRoute(<PlateformeEquipe />) },
           { path: "conges", element: lazyRoute(<PlateformeConges />) },
