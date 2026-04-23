@@ -1,6 +1,26 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
-import { fetchPublishedProjects, type Project } from "@/api/projects";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import clsx from "clsx";
+import { fetchPublishedProjects, parseHeroPosition, type Project } from "@/api/projects";
 import { apiFetch } from "@/auth/AuthContext";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { useToast } from "@/components/ToastProvider";
@@ -8,8 +28,23 @@ import { ProjectEditorModal } from "./ProjectEditorModal";
 
 /**
  * Settings → Projets publiés.
- * Liste + création + édition + suppression + drag-to-reorder.
+ * Grille 2D drag-to-reorder via @dnd-kit/sortable.
+ *
+ * La disposition admin est **strictement identique** à celle du site public
+ * (`components/ProjectsSection.tsx`) : même grille 3 colonnes, mêmes row-spans
+ * selon `grid_class` (big / wide / tall / full / ""), même aspect ratio.
+ * L'aperçu == le rendu final, modulo l'overlay boutons éditer/supprimer.
  */
+
+// Doit matcher components/ProjectCard.tsx à la lettre.
+const GRID_CLASS_MAP: Record<string, string> = {
+  big: "md:col-span-2 md:row-span-2",
+  wide: "md:col-span-2",
+  tall: "md:row-span-2",
+  full: "md:col-span-3",
+  "": "",
+};
+
 export function ProjectsSection() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
@@ -17,15 +52,22 @@ export function ProjectsSection() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [activeDrag, setActiveDrag] = useState<Project | null>(null);
   const confirm = useConfirm();
   const toast = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 }, // évite les clics accidentels
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const load = () => {
     fetchPublishedProjects()
       .then((list) => {
-        // Filtre les projets pollués (titre vide) — résidus de saves cassés.
-        // L'admin peut les purger en base via phpMyAdmin ; côté UI on les cache
-        // pour éviter la confusion.
         const clean = list.filter((p) => p.title && p.title.trim());
         setProjects(clean);
       })
@@ -75,9 +117,6 @@ export function ProjectsSection() {
     const ids = newOrder.map((p) => p.id).filter((x): x is number => !!x);
     if (ids.length === 0) return;
     try {
-      // POST ?reorder=1 with {order: [id1, id2, ...]} — endpoint léger qui
-      // ne touche que sort_order, pas besoin d'envoyer toute la charge utile
-      // (description + gallery_images) pour chaque projet.
       const res = await apiFetch(
         "/cortoba-plateforme/api/published_projects.php?reorder=1",
         {
@@ -91,8 +130,24 @@ export function ProjectsSection() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      load(); // revert à l'ordre serveur si échec
+      load();
     }
+  }
+
+  function handleDragStart(e: DragStartEvent) {
+    const p = projects?.find((x) => x.slug === e.active.id);
+    if (p) setActiveDrag(p);
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveDrag(null);
+    const { active, over } = e;
+    if (!over || !projects || active.id === over.id) return;
+    const oldIndex = projects.findIndex((p) => p.slug === active.id);
+    const newIndex = projects.findIndex((p) => p.slug === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const newOrder = arrayMove(projects, oldIndex, newIndex);
+    saveOrder(newOrder);
   }
 
   return (
@@ -173,7 +228,7 @@ export function ProjectsSection() {
       >
         <p className="text-xs text-fg-muted flex items-center gap-2">
           <span>⋮⋮</span>
-          Glissez verticalement pour réorganiser. ✎ pour éditer · 🗑 pour supprimer.
+          Glissez en X ou Y pour réorganiser · ✎ pour éditer · 🗑 pour supprimer. L'aperçu correspond exactement au rendu du site public.
         </p>
         <div className="flex items-center gap-1 p-1 bg-bg-card border border-white/10 rounded-md">
           {[
@@ -225,93 +280,50 @@ export function ProjectsSection() {
                 ? "380px"
                 : device === "tablet"
                 ? "768px"
-                : "100%",
+                : "1400px",
           }}
           transition={{ duration: 0.35, ease: [0.22, 0.61, 0.36, 1] }}
           className="mx-auto border border-dashed border-white/5 rounded-lg p-2"
         >
-        {/* Reorder.Group de framer-motion supporte un seul axe (1D).
-         * On utilise donc une liste verticale de strips horizontaux pour le
-         * drag-to-reorder — beaucoup plus clair visuellement qu'un grid
-         * qui casse pendant le drag (items qui sautent d'une colonne à
-         * l'autre parce que le calcul des positions est linéaire). */}
-        <Reorder.Group
-          as="div"
-          axis="y"
-          values={projects}
-          onReorder={saveOrder}
-          className="flex flex-col gap-3"
-        >
-          <AnimatePresence>
-            {projects.map((p) => (
-              <Reorder.Item
-                as="div"
-                key={p.slug}
-                value={p}
-                whileDrag={{
-                  scale: 1.01,
-                  boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
-                  zIndex: 10,
-                }}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing flex flex-col md:flex-row"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={projects.map((p) => p.slug)}
+              strategy={rectSortingStrategy}
+            >
+              <div
+                className={clsx(
+                  "grid gap-1 auto-rows-[260px]",
+                  device === "mobile"
+                    ? "grid-cols-1"
+                    : device === "tablet"
+                    ? "grid-cols-2"
+                    : "grid-cols-1 md:grid-cols-3"
+                )}
               >
-                <div className="relative md:w-64 shrink-0">
-                  <div
-                    className="aspect-[16/10] md:h-full md:aspect-auto bg-cover bg-center pointer-events-none"
-                    style={{ backgroundImage: `url('${p.hero_image}')` }}
-                  />
-                </div>
-                <div className="flex-1 p-4 flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[0.62rem] tracking-[0.2em] text-gold uppercase mb-1">
-                      {p.category}
-                    </p>
-                    <h3 className="font-serif text-lg text-fg truncate">
-                      {p.title}
-                    </h3>
-                    <p className="text-xs text-fg-muted mt-1 truncate">
-                      {p.location}
-                      {p.country && `, ${p.country}`}
-                    </p>
-                    <span className="inline-block mt-3 text-[0.6rem] text-fg-muted tracking-wider uppercase">
-                      /projet-{p.slug}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <button
-                      type="button"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditing(p);
-                      }}
-                      className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
-                      title="Éditer"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(p.slug);
-                      }}
-                      disabled={deleting === p.slug}
-                      className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
-                      title="Supprimer"
-                    >
-                      {deleting === p.slug ? "…" : "🗑"}
-                    </button>
-                  </div>
-                </div>
-              </Reorder.Item>
-            ))}
-          </AnimatePresence>
-        </Reorder.Group>
+                <AnimatePresence>
+                  {projects.map((p) => (
+                    <SortableProjectCard
+                      key={p.slug}
+                      project={p}
+                      onEdit={() => setEditing(p)}
+                      onDelete={() => handleDelete(p.slug)}
+                      deleting={deleting === p.slug}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </SortableContext>
+            <DragOverlay dropAnimation={{ duration: 180 }}>
+              {activeDrag ? (
+                <ProjectCardVisual project={activeDrag} overlay />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </motion.div>
       )}
 
@@ -328,6 +340,150 @@ export function ProjectsSection() {
           load();
         }}
       />
+    </div>
+  );
+}
+
+// ─── SortableProjectCard ────────────────────────────────────────────────
+// Wrapper dnd-kit autour de la carte visuelle. Gère le transform pendant
+// le drag et expose les boutons éditer/supprimer.
+
+interface SortableProps {
+  project: Project;
+  onEdit: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}
+
+function SortableProjectCard({
+  project,
+  onEdit,
+  onDelete,
+  deleting,
+}: SortableProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: project.slug });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={clsx(
+        "group cursor-grab active:cursor-grabbing",
+        GRID_CLASS_MAP[project.grid_class || ""]
+      )}
+    >
+      <ProjectCardVisual
+        project={project}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        deleting={deleting}
+      />
+    </div>
+  );
+}
+
+// ─── ProjectCardVisual ─────────────────────────────────────────────────
+// Rendu visuel pur — même style que components/ProjectCard.tsx côté public,
+// plus un overlay boutons éditer/supprimer au hover.
+
+interface VisualProps {
+  project: Project;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  deleting?: boolean;
+  /** Vrai si rendu dans le DragOverlay (pas de boutons, shadow) */
+  overlay?: boolean;
+}
+
+function ProjectCardVisual({
+  project,
+  onEdit,
+  onDelete,
+  deleting,
+  overlay,
+}: VisualProps) {
+  const pos = parseHeroPosition(project.hero_position);
+  return (
+    <div
+      className={clsx(
+        "relative block overflow-hidden w-full h-full",
+        overlay && "shadow-2xl ring-2 ring-gold"
+      )}
+    >
+      <div
+        className="w-full h-full bg-cover transition-transform duration-500 group-hover:scale-105"
+        style={{
+          backgroundImage: `url('${project.hero_image}')`,
+          backgroundPosition: `${pos.x}% ${pos.y}%`,
+        }}
+      />
+      <div className="absolute inset-0 flex flex-col justify-end p-4 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none">
+        <p className="text-[0.62rem] tracking-[0.2em] text-gold uppercase">
+          {project.category}
+        </p>
+        <h3 className="font-serif text-lg text-white font-light mt-0.5 truncate">
+          {project.title}
+        </h3>
+        <p className="text-xs text-fg-muted mt-0.5 truncate">
+          {project.location}
+          {project.country && `, ${project.country}`}
+        </p>
+      </div>
+      {/* Actions — visibles au hover seulement, pas en overlay */}
+      {!overlay && (onEdit || onDelete) && (
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onEdit && (
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
+              title="Éditer"
+            >
+              ✎
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              disabled={deleting}
+              className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
+              title="Supprimer"
+            >
+              {deleting ? "…" : "🗑"}
+            </button>
+          )}
+        </div>
+      )}
+      {/* Badge grid_class en bas à gauche pour debug admin */}
+      {!overlay && project.grid_class && (
+        <div className="absolute bottom-2 left-2 text-[0.55rem] tracking-[0.15em] uppercase text-white bg-black/60 px-2 py-0.5 rounded pointer-events-none">
+          {project.grid_class}
+        </div>
+      )}
     </div>
   );
 }
