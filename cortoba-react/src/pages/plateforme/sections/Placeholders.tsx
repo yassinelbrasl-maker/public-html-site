@@ -37,36 +37,6 @@ export const RendementSection = () => (
   />
 );
 
-export const LivrablesSection = () => (
-  <GenericPlaceholder
-    title="Livrables"
-    icon="📄"
-    description="Gestion des livrables par projet : types, statut, échéances, validation client."
-    endpoints={["/cortoba-plateforme/api/livrables.php"]}
-  />
-);
-
-export const DepensesSection = () => (
-  <GenericPlaceholder
-    title="Dépenses"
-    icon="💸"
-    description="Journal des dépenses avec catégorisation, templates récurrents, graphiques de répartition."
-    endpoints={[
-      "/cortoba-plateforme/api/depenses.php",
-      "/cortoba-plateforme/api/depenses_templates.php",
-    ]}
-  />
-);
-
-export const EquipeSection = () => (
-  <GenericPlaceholder
-    title="Équipe"
-    icon="👥"
-    description="Gestion des membres de l'équipe : rôles, modules accessibles, photo de profil, statut."
-    endpoints={["/cortoba-plateforme/api/users.php"]}
-  />
-);
-
 export const CongesSection = () => (
   <GenericPlaceholder
     title="Congés"
