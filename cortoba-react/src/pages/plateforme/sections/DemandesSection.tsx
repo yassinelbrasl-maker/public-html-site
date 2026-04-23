@@ -62,6 +62,36 @@ export function DemandesSection() {
             </span>
           )}
         </div>
+        {demandes && demandes.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const filename = `cortoba-demandes-${new Date()
+                .toISOString()
+                .split("T")[0]}.csv`;
+              exportAsCsv(
+                filename,
+                demandes.map((d) => ({
+                  date: d.created_at || "",
+                  projet: d.nom_projet || "",
+                  prenom: d.prenom || "",
+                  nom: d.nom || "",
+                  tel: d.tel || "",
+                  email: d.email || "",
+                  source: d.source || "",
+                  surface_m2: d.surface_estimee ?? "",
+                  cout_low: d.cout_estime_low ?? "",
+                  cout_high: d.cout_estime_high ?? "",
+                  status: d.status || "",
+                }))
+              );
+            }}
+            className="cta-button text-xs"
+            title="Télécharger toutes les demandes en CSV"
+          >
+            📥 Exporter CSV
+          </button>
+        )}
       </motion.div>
 
       {error && (
