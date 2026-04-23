@@ -224,10 +224,17 @@ export function calculate(s: ConfiguratorState): CalcResult {
     surfaceFinale = surfaceHabitable * niveauxMult;
   }
 
-  // Coût construction de la villa / bâtiment
-  const base = surfaceFinale * cpp * operationMult;
+  // Coût construction de la villa / bâtiment — multiplié par le style (matériaux)
+  // et la nature du terrain (études de sol, accès, voirie).
+  const base = surfaceFinale * cpp * operationMult * styleMult * terrainMult;
   const villaCostLow = Math.round((base * 0.92) / 1000) * 1000;
   const villaCostHigh = Math.round((base * 1.08) / 1000) * 1000;
+
+  // Délai indicatif en mois — base ~6-12 mois pour 150m², ~10-18 mois pour 300m².
+  // Modulé par l'opération (réaménagement plus rapide).
+  const delaiBase = Math.max(6, Math.round(surfaceFinale / 25));
+  const delaiMoisMin = Math.max(4, Math.round(delaiBase * operationMult * 0.85));
+  const delaiMoisMax = Math.round(delaiBase * operationMult * 1.35);
 
   // Extras
   const extras: CalcExtra[] = [];
