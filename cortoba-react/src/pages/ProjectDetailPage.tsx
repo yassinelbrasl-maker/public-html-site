@@ -53,6 +53,19 @@ export function ProjectDetailPage() {
 
   return (
     <>
+      <Seo
+        title={project.title}
+        description={
+          project.description
+            ? project.description.slice(0, 160)
+            : `${project.category} — ${project.title}, ${project.location}${
+                project.country ? ", " + project.country : ""
+              }. Projet Cortoba Architecture Studio.`
+        }
+        image={project.hero_image}
+        url={`/projet-${project.slug}`}
+        type="article"
+      />
       {/* Hero image */}
       <motion.section
         key={project.slug}
