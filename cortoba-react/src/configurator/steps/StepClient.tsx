@@ -120,11 +120,11 @@ export function StepClient() {
         <div className="flex items-center gap-4 pt-6 border-t border-white/5">
           <button
             type="button"
-            onClick={() => goTo(6)}
+            onClick={() => goTo("result")}
             className="cta-button"
             disabled={submitting}
           >
-            ← Retour
+            ← Retour aux résultats
           </button>
           <button
             type="submit"
