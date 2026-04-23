@@ -6,18 +6,21 @@ import { router } from "./router";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { ToastProvider } from "./components/ToastProvider";
 import { ConfirmProvider } from "./components/ConfirmProvider";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./styles/globals.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <HelmetProvider>
-      <I18nProvider>
-        <ToastProvider>
-          <ConfirmProvider>
-            <RouterProvider router={router} />
-          </ConfirmProvider>
-        </ToastProvider>
-      </I18nProvider>
-    </HelmetProvider>
+    <ErrorBoundary>
+      <HelmetProvider>
+        <I18nProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <RouterProvider router={router} />
+            </ConfirmProvider>
+          </ToastProvider>
+        </I18nProvider>
+      </HelmetProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
