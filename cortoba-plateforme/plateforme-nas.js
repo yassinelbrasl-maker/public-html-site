@@ -15228,10 +15228,10 @@ function _dlPrioBadge(p){
 function _dlRenderGroup(title, icon, items, today) {
   if (!items.length) return '';
   var h = '';
-  h += '<div style="display:flex;align-items:center;gap:0.5rem;margin:0.2rem 0 0.5rem;padding-top:0.2rem">';
-  h += '<span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2)">'+icon+' '+title+'</span>';
+  h += '<div style="display:flex;align-items:center;gap:0.6rem;margin:0.3rem 0 0.7rem;padding-top:0.2rem">';
+  h += '<span style="font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2)">'+icon+' '+title+'</span>';
   h += '<span style="flex:1;height:1px;background:var(--border)"></span>';
-  h += '<span style="font-size:0.7rem;color:var(--text-3)">'+items.length+'</span>';
+  h += '<span style="font-size:0.8rem;font-weight:600;color:var(--text-2)">'+items.length+'</span>';
   h += '</div>';
   items.forEach(function(t){
     var d = t.dateEcheance || t.date_echeance;
@@ -15239,45 +15239,57 @@ function _dlRenderGroup(title, icon, items, today) {
     var diffDays = Math.round((dd - today) / 86400000);
     var overdue = diffDays < 0;
     var color = overdue ? 'var(--red)' : 'var(--orange)';
-    var bg    = overdue ? 'var(--red-bg)' : 'var(--orange-bg)';
     var rel = _dlRelLabel(diffDays);
     var dateShort = _dlShortDate(d);
     var assignees = getTacheAssignees(t);
     var assLabel = assignees.length ? _dlEsc(assignees.join(', ')) : '<span style="font-style:italic">Non assigné</span>';
     var code = _dlEsc(t.projetCode || t.projet_code || '—');
     var tid = _dlEsc(t.id || '');
+    // Résoudre le nom du client
+    var clientName = t.projetClient || t.projet_client || t.client || '';
+    if (!clientName && (t.projet_id || t.projetId) && typeof getProjets === 'function') {
+      try {
+        var _pj = getProjets().find(function(p){ return p.id === (t.projet_id||t.projetId); });
+        if (_pj) clientName = _pj.client || _pj.displayNom || '';
+      } catch(e) {}
+    }
+    var clientEsc = _dlEsc(clientName || 'Client non renseigné');
 
     h += '<div class="dl-item" data-task-id="'+tid+'" onclick="_dlOpenTask(\''+tid+'\')" ';
-    h += 'style="display:flex;gap:0.7rem;align-items:flex-start;padding:0.65rem 0.8rem;background:'+bg+';border:1px solid '+color+';border-left:3px solid '+color+';border-radius:6px;cursor:pointer;transition:transform 0.12s ease, box-shadow 0.12s ease" ';
-    h += 'onmouseover="this.style.transform=\'translateX(2px)\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.25)\'" ';
-    h += 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+    h += 'style="display:flex;gap:0.9rem;align-items:stretch;padding:0.9rem 1rem;background:var(--bg-2);border:1px solid var(--border-md);border-left:4px solid '+color+';border-radius:7px;cursor:pointer;transition:transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease" ';
+    h += 'onmouseover="this.style.transform=\'translateX(3px)\';this.style.boxShadow=\'0 4px 14px rgba(0,0,0,0.35)\';this.style.borderColor=\''+color+'\'" ';
+    h += 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\';this.style.borderColor=\'var(--border-md)\'; this.style.borderLeftColor=\''+color+'\'">';
 
     // Colonne gauche : compteur de jours / pastille
-    h += '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:54px;padding:0.15rem 0.25rem;background:rgba(0,0,0,0.25);border-radius:5px">';
+    h += '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:68px;padding:0.4rem 0.35rem;background:#0a0a0a;border:1px solid '+color+';border-radius:6px">';
     var bigNum = overdue ? Math.abs(diffDays) : (diffDays === 0 ? '!' : diffDays);
-    var bigLabel = overdue ? (Math.abs(diffDays) === 1 ? 'jour' : 'jours') : (diffDays === 0 ? "aujourd'hui" : (diffDays === 1 ? 'demain' : 'jours'));
-    h += '<div style="font-size:1.15rem;font-weight:600;line-height:1;color:'+color+'">'+bigNum+'</div>';
-    h += '<div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-top:0.15rem;text-align:center">'+bigLabel+'</div>';
+    var bigLabel = overdue ? (Math.abs(diffDays) === 1 ? 'jour' : 'jours') : (diffDays === 0 ? "auj." : (diffDays === 1 ? 'demain' : 'jours'));
+    h += '<div style="font-size:1.55rem;font-weight:700;line-height:1;color:'+color+'">'+bigNum+'</div>';
+    h += '<div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-2);margin-top:0.25rem;text-align:center;font-weight:500">'+bigLabel+'</div>';
     h += '</div>';
 
     // Colonne droite : contenu
-    h += '<div style="flex:1;min-width:0">';
-    h += '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.25rem">';
-    h += '<span style="font-size:0.86rem;font-weight:500;color:var(--text);line-height:1.25">'+_dlEsc(t.titre||'(Sans titre)')+'</span>';
+    h += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0.3rem">';
+    // Ligne 1 : Client (mis en avant)
+    h += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">';
+    h += '<span style="font-size:1rem;font-weight:600;color:var(--text);line-height:1.2">👤 '+clientEsc+'</span>';
     h += _dlPrioBadge(t.priorite);
     h += '</div>';
-    h += '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;font-size:0.72rem;color:var(--text-3)">';
-    h += '<span style="font-family:ui-monospace,monospace;color:var(--accent)">'+code+'</span>';
+    // Ligne 2 : Titre de la tâche
+    h += '<div style="font-size:0.9rem;font-weight:500;color:var(--text-2);line-height:1.3">'+_dlEsc(t.titre||'(Sans titre)')+'</div>';
+    // Ligne 3 : Code projet · assigné · échéance relative
+    h += '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;font-size:0.8rem;color:var(--text-3);margin-top:0.1rem">';
+    h += '<span style="font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--accent);font-weight:500">'+code+'</span>';
     h += '<span style="opacity:0.5">·</span>';
     h += '<span>'+assLabel+'</span>';
     h += '<span style="opacity:0.5">·</span>';
-    h += '<span style="color:'+color+';font-weight:500">'+rel+' <span style="opacity:0.7">('+dateShort+')</span></span>';
+    h += '<span style="color:'+color+';font-weight:600">'+rel+' <span style="opacity:0.75;font-weight:400">('+dateShort+')</span></span>';
     h += '</div>';
     h += '</div>';
 
     // Chevron
-    h += '<div style="display:flex;align-items:center;color:var(--text-3);opacity:0.6">';
-    h += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
+    h += '<div style="display:flex;align-items:center;color:var(--text-3);opacity:0.7">';
+    h += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
     h += '</div>';
 
     h += '</div>';
@@ -15335,23 +15347,37 @@ function checkDeadlinesPopup() {
       else soon.push(t);
     });
 
-    // Titre dynamique (count badge)
+    // Titre dynamique (count badge) — agrandi
     var titleEl = document.querySelector('#modal-deadlines .modal-title');
     if (titleEl) {
-      var countHtml = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 0.4rem;margin-left:0.5rem;font-size:0.72rem;font-weight:600;background:var(--red);color:#0a0a0a;border-radius:11px;vertical-align:middle">'+alerts.length+'</span>';
+      titleEl.style.fontSize = '1.2rem';
+      titleEl.style.fontWeight = '500';
+      var countHtml = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 0.55rem;margin-left:0.6rem;font-size:0.9rem;font-weight:700;background:var(--red);color:#0a0a0a;border-radius:14px;vertical-align:middle">'+alerts.length+'</span>';
       var titleText = overdue.length ? '⚠ Échéances à surveiller' : '🕑 Échéances à venir';
       titleEl.innerHTML = titleText + countHtml;
     }
 
-    // Sous-titre contextuel
+    // Opacifier le fond + la modale elle-même
+    var overlayEl = document.getElementById('modal-deadlines');
+    if (overlayEl) {
+      overlayEl.style.background = 'rgba(0,0,0,0.85)';
+      var box = overlayEl.querySelector('.modal');
+      if (box) {
+        box.style.maxWidth = '720px';
+        box.style.background = 'var(--bg-1)';
+        box.style.boxShadow = '0 20px 60px rgba(0,0,0,0.6)';
+      }
+    }
+
+    // Sous-titre contextuel — agrandi
     var wrap = document.getElementById('deadlines-list');
     if (!wrap) return;
     var bodyHtml = '';
     var summary = [];
-    if (overdue.length)  summary.push('<span style="color:var(--red);font-weight:500">'+overdue.length+' en retard</span>');
-    if (todayList.length) summary.push('<span style="color:var(--orange);font-weight:500">'+todayList.length+" aujourd'hui</span>");
-    if (soon.length)     summary.push('<span style="color:var(--text-2);font-weight:500">'+soon.length+' à venir</span>');
-    bodyHtml += '<div style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid var(--border);display:flex;gap:0.8rem;flex-wrap:wrap">'
+    if (overdue.length)   summary.push('<span style="color:var(--red);font-weight:600">'+overdue.length+' en retard</span>');
+    if (todayList.length) summary.push('<span style="color:var(--orange);font-weight:600">'+todayList.length+" aujourd'hui</span>");
+    if (soon.length)      summary.push('<span style="color:var(--text-1);font-weight:600">'+soon.length+' à venir</span>');
+    bodyHtml += '<div style="font-size:0.92rem;color:var(--text-2);margin-bottom:1.1rem;padding-bottom:0.9rem;border-bottom:1px solid var(--border);display:flex;gap:1rem;flex-wrap:wrap;align-items:center">'
              + (summary.join(' <span style="opacity:0.4">·</span> '))
              + '</div>';
 
