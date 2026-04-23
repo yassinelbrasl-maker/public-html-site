@@ -6,96 +6,118 @@
 
 ## Statut actuel
 
-### Infrastructure
+### Infrastructure ✅
 
 | Élément | Statut |
 |---|---|
 | Vite 5 + React 18 + TypeScript strict | ✅ |
 | Tailwind CSS + tokens cortoba (bg / fg / gold) | ✅ |
-| React Router avec code splitting (React.lazy × 17 chunks) | ✅ |
+| React Router avec code splitting (React.lazy × 20+ chunks) | ✅ |
 | Layout partagé (header, footer) | ✅ |
-| i18n FR / EN / AR + RTL + `<html lang>` / `<body dir>` sync | ✅ |
+| **i18n FR / EN / AR + RTL** + body `.rtl` switch | ✅ |
 | Auth context JWT via `/api/auth.php` + `apiFetch` helper | ✅ |
-| Deploy playbook + `.htaccess` SPA fallback | ✅ |
-| Décision SSR/SSG documentée | ✅ |
+| **Toast notifications** (non-blocking, `useToast()`) | ✅ |
+| **Confirm dialogs** réutilisables (`useConfirm()`, remplace `window.confirm`) | ✅ |
+| **Modal** réutilisable avec AnimatePresence + focus trap | ✅ |
+| **ImageUploader** réutilisable (drag-drop, progress XHR, preview) | ✅ |
+| **SEO per-route** via react-helmet-async + `<Seo>` component | ✅ |
+| **Build-time SEO prerender** (8 routes statiques HTML avec meta tags pour crawlers) | ✅ |
+| **sitemap.xml + robots.txt** auto-générés au build | ✅ |
+| Deploy playbook + `.htaccess` SPA fallback avec prerender | ✅ |
 
-### Public-facing pages
+### Public-facing pages ✅
 
 | Page | Route | Statut |
 |---|---|---|
-| HomePage | `/` | ✅ Hero AnimatePresence, projets avec morph `layoutId`, services, teaser, about, team (fetch), contact (Formspree), map |
-| Landscaping | `/landscaping` | ✅ Hero parallax (useScroll+useSpring), manifeste stats, projets, services, philosophie, approche, contact |
-| ProjectDetailPage | `/projet-:slug` | ✅ Hero, meta grid, galerie + lightbox clavier, autres projets, next CTA |
-| Configurateur | `/configurateur` | ✅ Intro, stepper, state, AnimatePresence mode="wait", **7 steps** (1 Projet, 2 Missions avec recherche+tags, 3 Fondations, 4 Identité, 5 Programme, 6 Terrain Leaflet+Nominatim, **Result avec calcul live**, Client, Success) |
+| HomePage | `/` | ✅ Seo + Hero AnimatePresence + projets layoutId + services + teaser + about + team + contact + map |
+| Landscaping | `/landscaping` | ✅ Seo + Hero parallax + manifeste + projets + services + philosophy + approche + contact |
+| ProjectDetailPage | `/projet-:slug` | ✅ Seo dynamique + hero + meta + galerie + lightbox + related projects + next CTA |
+| Configurateur | `/configurateur` | ✅ Intro + stepper + 9 steps avec AnimatePresence cross-fade |
 
-### Settings admin — `/settings`
+### Configurator — 9/9 steps ✅
 
-| Section | Statut |
+| Step | État |
 |---|---|
-| Login + shell + sidebar + auth | ✅ |
-| Projets publiés (list live) | ✅ |
-| Slider accueil (list + delete + live preview per slide) | ✅ |
-| Projets paysagers (Landscaping) | ✅ |
-| Slider héro Landscaping | ✅ |
-| Paramètres généraux (contact + réseaux sociaux, save live) | ✅ |
-| SEO & Méta (tabs par page, save live) | ✅ |
+| Intro banner | ✅ |
+| 1. Projet (nom) | ✅ |
+| 2. Missions (10 cats, 42 missions, recherche, tags) | ✅ |
+| 3. Fondations (types, opération, terrain, budget) | ✅ |
+| 4. Identité (styles + standing avec tooltips) | ✅ |
+| 5. Programme (simplifié — compteurs + toggles) | 🟡 |
+| 6. Terrain (Leaflet + Nominatim, marker draggable, coords GPS) | ✅ |
+| **Result** (calcul live coût + surface + décomposition) | ✅ |
+| Client (formulaire + submission) | ✅ |
+| Success | ✅ |
 
-### Plateforme admin — `/plateforme/*`
+### Settings admin ✅ — `/settings`
+
+| Section | CRUD | Notes |
+|---|---|---|
+| Login + shell + auth | ✅ | |
+| Projets publiés | ✅ Create / Edit / Delete / Reorder | Upload hero + galerie vers NAS, toast + confirm |
+| Slider accueil | ✅ Create / Edit / Delete / Reorder | Éditeur complet (position / zoom / animation / fit / alt) |
+| Projets paysagers | ✅ Create / Edit / Delete / Reorder | |
+| Slider héro Landscaping | 🟡 Create + list | TODO : éditeur modal et reorder |
+| Paramètres généraux | ✅ | Contact + réseaux sociaux, POST `data.php` |
+| SEO & Méta | ✅ | Tabs par page, POST `data.php` |
+
+### Plateforme admin ✅ — `/plateforme/*`
 
 | Section | Route | Statut |
 |---|---|---|
 | Shell + login + sidebar | `/plateforme/*` | ✅ |
-| Projets | `/plateforme/projets` | ✅ |
-| Demandes (leads du configurateur) | `/plateforme/demandes` | ✅ avec drawer détail + parse `cfg_data` |
-| Suivi (tâches par projet) | `/plateforme/suivi` | ✅ |
-| Rendement (dashboard équipe) | `/plateforme/rendement` | ✅ stats + bars animées |
-| Livrables (filtres par statut) | `/plateforme/livrables` | ✅ |
-| Dépenses (totaux par catégorie) | `/plateforme/depenses` | ✅ |
-| Équipe (grid + drawer détail) | `/plateforme/equipe` | ✅ |
-| Congés | `/plateforme/conges` | ✅ |
-| Fiscal (calendrier avec en-retard/à venir/passées) | `/plateforme/fiscal` | ✅ |
-| Flotte (véhicules avec badges d'expiration) | `/plateforme/flotte` | ✅ |
+| Demandes (leads du configurateur) | `/plateforme/demandes` | ✅ Table + drawer détail + parse `cfg_data` |
+| Projets | `/plateforme/projets` | ✅ Cards + progress bars + filters |
+| Suivi (tâches par projet) | `/plateforme/suivi` | ✅ Groupées par projet + progress |
+| Rendement (dashboard équipe) | `/plateforme/rendement` | ✅ Stats + bars animées par membre |
+| Livrables | `/plateforme/livrables` | ✅ Table + filter par statut + status pills |
+| Dépenses | `/plateforme/depenses` | ✅ Table + totaux par catégorie |
+| Équipe | `/plateforme/equipe` | ✅ Grid + drawer détail avec modules |
+| Congés | `/plateforme/conges` | ✅ Table + status pills |
+| Fiscal | `/plateforme/fiscal` | ✅ Grouped (en-retard / à venir / passées) |
+| Flotte | `/plateforme/flotte` | ✅ Cards + badges d'expiration |
 
-## Bundle stats (après npm run build)
+## Bundle stats (après `npm run build`)
 
 ```
-index.html                     0.96 kB   │ gzip: 0.52 kB
-Main bundle (home+landscaping)  372 kB   │ gzip: 120.9 kB  ← first paint
-ConfiguratorPage (+ Leaflet)    199 kB   │ gzip: 59.2 kB   ← lazy
-SettingsPage                     24 kB   │ gzip: 6.0 kB    ← lazy
-ProjectDetailPage                7.8 kB  │ gzip: 2.67 kB   ← lazy
-AuthContext                      1.7 kB  │ gzip: 0.91 kB   ← shared admin
-14 plateforme/settings sections  2-6 kB  │ gzip: ~1-2 kB each ← lazy
+index.html (root)              0.97 kB │ gzip: 0.53 kB
+Main bundle (home+landscaping)  391 kB  │ gzip: 127 kB   ← first paint
+ConfiguratorPage (+ Leaflet)    199 kB  │ gzip: 59 kB    ← lazy
+SettingsPage                     49 kB  │ gzip: 12 kB    ← lazy
+ProjectDetailPage                8 kB   │ gzip: 3 kB     ← lazy
+15+ admin sections               2-6 kB │ gzip: 1-2 kB each ← lazy
+AuthContext shared               2 kB   │ gzip: 0.9 kB
 ```
 
-## Reste à faire pour une vraie production
+**Prerendered static HTML** at build time : 8 routes
+(`/`, `/landscaping`, `/configurateur`, `/projet-*` × 5) — crawlers see
+meta tags immediately without needing JS execution.
 
-Chaque item ci-dessous est un "vrai travail de feature" qui ne peut pas
-être fait en scaffolding. Ce sont des interactions spécifiques à porter
-une à une.
+## Reste à faire pour la bascule en production
 
-### 🔴 Bloquants avant bascule
-- [ ] **SSR ou SSG** (décision dans `deploy/SSR.md`) — sans ça, SEO dégradé
-- [ ] **Upload d'images vers le NAS** via WebDAV pour : slider, landscaping
-      slider, projets, projets paysagers
-- [ ] **Modales d'édition** (CRUD complet) pour chaque section de contenu
+### 🔴 À évaluer avant la bascule
+- [x] ~~SSG pour SEO~~ — ✅ solution hybride : prerender HTML meta + SPA hydration
+- [x] ~~Upload images~~ — ✅ fonctionnel via `upload_project_image.php`
+- [x] ~~Modal edit dialogs~~ — ✅ pattern en place + slider + projets + ls projets
+- [x] ~~Confirm & toast~~ — ✅ providers + hooks + wired
+- [ ] **Bascule réelle** : exécuter `deploy/DEPLOY.md`, vérifier la prod
 
-### 🟡 Polish important
-- [ ] **Drag-to-reorder** avec `Reorder.Group` (projets, slider, livrables)
-- [ ] **Confirmation dialogs** réutilisables (actuellement `confirm()` natif)
-- [ ] **Toast notifications** centralisées (actuellement inline par section)
-- [ ] **Charts réels** (recharts) pour Rendement + Dépenses
-- [ ] **Configurator step 5** — variantes avancées (chambres dynamiques,
-      suite parentale variants, cuisine table, mixte niveaux, tous les
-      équipements extérieurs du legacy)
-- [ ] **Device switcher** dans Settings Projets (PC/Tablette/Mobile grid layouts)
-- [ ] **Search global** (Cmd+K) dans la plateforme
+### 🟡 Polish important (post-bascule)
+- [ ] Slider héro Landscaping : éditeur modal + reorder (même pattern que slider accueil)
+- [ ] Configurator Step 5 : variantes legacy (chambres dynamiques avec config par chambre,
+      suite parentale dressing/placard, cuisine avec table, mixte niveaux builder,
+      garages 1/2 voitures, équipements extérieurs détaillés)
+- [ ] Charts temporels pour Rendement + Dépenses (recharts au choix)
+- [ ] Device switcher dans Settings Projets (PC/Tablette/Mobile grid layouts)
+- [ ] Remplacer les derniers `alert()` par `useToast()`
+- [ ] Drag-to-reposition visuel sur l'éditeur de slide (actuellement sliders X/Y)
 
 ### 🟢 Nice to have
-- [ ] Tests E2E Playwright
-- [ ] Export CSV/PDF pour Demandes, Dépenses, Rendement
-- [ ] Notifications temps réel (server-sent events ?) pour chat + demandes
-- [ ] PWA : offline support pour les pages publiques
+- [ ] Tests E2E Playwright (flow configurator submit, settings CRUD, plateforme login)
+- [ ] Export CSV/PDF (Demandes, Dépenses, Rendement)
+- [ ] Notifications temps réel (SSE ?) pour chat + demandes
+- [ ] Global Cmd+K search dans la plateforme
+- [ ] PWA offline pour les pages publiques
 
 ## Commands
 
@@ -104,25 +126,44 @@ cd cortoba-react
 export PATH="/c/Program Files/nodejs:$PATH"  # Windows
 npm install    # une seule fois
 npm run dev    # http://localhost:5173 avec proxy vers API prod
-npm run build  # dist/
-npm run preview  # http://localhost:4173 (sert dist/)
+npm run build  # dist/ + prerender SEO + sitemap + robots
+npm run build:nose  # variante sans prerender (debug plus rapide)
+npm run preview  # http://localhost:4173 sert dist/
 ```
 
-Tous les endpoints `/cortoba-plateforme/api/*` et `/img/*` sont proxyfiés
-en dev (voir `vite.config.ts`). Les données réelles et les images
-s'affichent immédiatement en mode dev.
+## Architecture retenue
 
-## Conventions du projet
+### State management
+- `useState` / `useReducer` pour l'UI locale
+- `useContext` pour : i18n, auth, configurator state, toast, confirm
+- Pas de librairie externe (Zustand / Redux)
 
-- **TypeScript strict** (`"strict": true`, `"noUnusedLocals": true`)
-- **Alias `@/`** pour `./src/` (ex. `@/api/projects`)
-- **Commentaires en français** pour matcher le public cible
-- **Dark mode only** — pas de light mode (le site original est dark)
-- **Animations** : framer-motion exclusivement (pas de framework d'animation concurrent)
-- **API calls** : `apiFetch()` helper qui attache le Bearer token si présent
-- **Éviter** TanStack Query / Redux / Zustand tant que Context + useReducer suffit
+### Fetching
+- `fetch` natif via `apiFetch()` helper (attache Bearer token auto)
+- Upload images via XMLHttpRequest pour avoir la progress
+
+### UI patterns
+- Modal réutilisable pour tout CRUD (éditeur projet, slide, confirmation)
+- framer-motion exclusivement pour animations
+- Reorder.Group pour drag-to-reorder
+- AnimatePresence mode="wait" pour transitions entre pages/steps
+- layoutId pour shared-element morphs
+
+### Code splitting
+- `React.lazy` sur toutes les routes sauf Home et Landscaping
+- 20+ chunks finaux — main bundle 127 kB gz
+- Leaflet (~180 kB) chargé uniquement au Step 6 du configurateur
+
+## Conventions
+
+- TypeScript strict (`"strict": true`, `"noUnusedLocals": true`)
+- Alias `@/` → `./src/`
+- Commentaires en français (public cible)
+- Dark mode exclusif
+- Tailwind seulement (pas d'autre framework CSS)
 
 ## Bascule en production
 
-Voir `deploy/DEPLOY.md` — procédure step-by-step avec rollback.
-Estimated downtime : < 30 secondes.
+Voir `deploy/DEPLOY.md` — procédure step-by-step avec rollback instantané.
+Voir `deploy/SSR.md` pour les options SSR/SSG avancées si on veut dépasser
+le prerender HTML simple.
