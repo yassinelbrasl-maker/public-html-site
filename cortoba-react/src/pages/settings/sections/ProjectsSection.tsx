@@ -372,6 +372,7 @@ export function ProjectsSection() {
 
 interface SortableProps {
   project: Project;
+  device: "desktop" | "tablet" | "mobile";
   onEdit: () => void;
   onDelete: () => void;
   deleting: boolean;
@@ -379,6 +380,7 @@ interface SortableProps {
 
 function SortableProjectCard({
   project,
+  device,
   onEdit,
   onDelete,
   deleting,
@@ -406,7 +408,7 @@ function SortableProjectCard({
       {...listeners}
       className={clsx(
         "group cursor-grab active:cursor-grabbing",
-        GRID_CLASS_MAP[project.grid_class || ""]
+        getGridClass(project.grid_class, device)
       )}
     >
       <ProjectCardVisual
