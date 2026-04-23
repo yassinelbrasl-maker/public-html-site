@@ -62,17 +62,17 @@ const PlateformeLivrablesReal = lazy(() =>
   }))
 );
 const PlateformeConges = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/CongesSection").then((m) => ({
     default: m.CongesSection,
   }))
 );
 const PlateformeFiscal = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/FiscalSection").then((m) => ({
     default: m.FiscalSection,
   }))
 );
 const PlateformeFlotte = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/FlotteSection").then((m) => ({
     default: m.FlotteSection,
   }))
 );
