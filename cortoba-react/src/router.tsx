@@ -23,9 +23,9 @@ const PlateformeShell = lazy(() =>
     default: m.PlateformeShell,
   }))
 );
-const PlateformeIndex = lazy(() =>
-  import("./pages/plateforme/PlateformeShell").then((m) => ({
-    default: m.PlateformeIndex,
+const PlateformeDashboard = lazy(() =>
+  import("./pages/plateforme/sections/DashboardSection").then((m) => ({
+    default: m.DashboardSection,
   }))
 );
 const DemandesSection = lazy(() =>
