@@ -37,29 +37,3 @@ export const RendementSection = () => (
   />
 );
 
-export const CongesSection = () => (
-  <GenericPlaceholder
-    title="Congés"
-    icon="🌴"
-    description="Calendrier des absences et des congés, demandes et validations."
-    endpoints={["/cortoba-plateforme/api/conges.php"]}
-  />
-);
-
-export const FiscalSection = () => (
-  <GenericPlaceholder
-    title="Fiscal"
-    icon="🏛️"
-    description="Calendrier fiscal tunisien, échéances déclaratives, rappels automatiques."
-    endpoints={["/cortoba-plateforme/api/echeancier.php"]}
-  />
-);
-
-export const FlotteSection = () => (
-  <GenericPlaceholder
-    title="Flotte"
-    icon="🚗"
-    description="Gestion du parc automobile : véhicules, assurances, entretiens, journal de bord."
-    endpoints={["/cortoba-plateforme/api/flotte.php"]}
-  />
-);
