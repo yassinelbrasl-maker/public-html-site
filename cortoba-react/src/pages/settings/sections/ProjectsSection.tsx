@@ -331,6 +331,7 @@ export function ProjectsSection() {
                     <SortableProjectCard
                       key={p.slug}
                       project={p}
+                      device={device}
                       onEdit={() => setEditing(p)}
                       onDelete={() => handleDelete(p.slug)}
                       deleting={deleting === p.slug}
