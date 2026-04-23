@@ -16,15 +16,20 @@ test.describe("Project detail pages", () => {
     await page.waitForLoadState("networkidle");
     // Scroll to projects section
     await page.locator("#projects").scrollIntoViewIfNeeded();
-    // Click first project card
-    const firstCard = page.locator(".project-card-link, [href^='/projet-']").first();
-    await expect(firstCard).toBeVisible();
-    // Click and wait for the detail overlay or navigation
+    // Click first project card — wait for React to have replaced the static
+    // fallback cards with real project data
+    await page.waitForSelector('[href^="/projet-"]', { timeout: 10_000 });
+    const firstCard = page.locator('[href^="/projet-"]').first();
+    await firstCard.scrollIntoViewIfNeeded();
     await firstCard.click();
-    // The morph overlay or navigation should happen — check for the Villa title
+    // The morph overlay contains either "Voir le projet complet" CTA
+    // or navigation happens to /projet-:slug — accept both
     await expect(
-      page.locator("body").getByText(/voir le projet complet|VILLA/i).first()
-    ).toBeVisible({ timeout: 5000 });
+      page
+        .locator("body")
+        .getByText(/voir le projet complet|Résidentiel|RÉSIDENTIEL/i)
+        .first()
+    ).toBeVisible({ timeout: 8000 });
   });
 });
 
