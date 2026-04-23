@@ -20,7 +20,7 @@ export function LandscapingSliderSection() {
   const [slides, setSlides] = useState<LsSlide[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     apiFetch("/cortoba-plateforme/api/landscaping_slider.php")
       .then((r) => r.json())
       .then((data) => {
@@ -28,7 +28,29 @@ export function LandscapingSliderSection() {
         setSlides(list);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  async function handleNewImage(img: UploadedImage) {
+    try {
+      const res = await apiFetch("/cortoba-plateforme/api/landscaping_slider.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_path: img.path,
+          bg_color: "#1a2815",
+          position_x: 50,
+          position_y: 50,
+          sort_order: slides?.length || 0,
+        }),
+      });
+      if (!res.ok) throw new Error("Création échouée");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   return (
     <div>
