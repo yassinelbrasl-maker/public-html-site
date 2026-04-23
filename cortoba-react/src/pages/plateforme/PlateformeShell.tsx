@@ -142,6 +142,8 @@ function PlateformeLayout() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <CommandPalette />
     </div>
   );
 }
