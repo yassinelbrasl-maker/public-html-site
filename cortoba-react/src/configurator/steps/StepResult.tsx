@@ -16,6 +16,31 @@ export function StepResult() {
 
   const result = useMemo(() => calculate(state), [state]);
 
+  // Compte le nombre de paramètres que l'utilisateur a réellement renseignés
+  // — utilisé pour le "mode indicator" (estimation rapide vs. détaillée).
+  const paramCount = useMemo(() => {
+    let count = 0;
+    if (state.cfg_nom_projet) count++;
+    if (state.cfg_type) count++;
+    if (state.cfg_operation) count++;
+    if (state.cfg_style) count++;
+    if (state.cfg_standing) count++;
+    if (state.cfg_terrain_nature) count++;
+    if (state.cfg_missions.length > 0) count++;
+    if (state.cfg_chambres_list.length > 0) count++;
+    if (state.cfg_suite_parentale) count++;
+    if (state.cfg_cuisine_type) count++;
+    if (state.cfg_terrain_lat != null) count++;
+    return count;
+  }, [state]);
+
+  const mode =
+    paramCount >= 8
+      ? { label: "Détaillée", color: "text-green-400", emoji: "🎯" }
+      : paramCount >= 5
+      ? { label: "Standard", color: "text-gold", emoji: "⚡" }
+      : { label: "Rapide", color: "text-fg-muted", emoji: "💨" };
+
   // Persiste les valeurs calculées dans l'état pour la soumission
   useEffect(() => {
     dispatch({
