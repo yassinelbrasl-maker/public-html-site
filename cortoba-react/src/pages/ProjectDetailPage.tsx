@@ -10,7 +10,10 @@ import { Lightbox } from "@/components/Lightbox";
 import { Seo } from "@/seo/Seo";
 
 export function ProjectDetailPage() {
-  const { slug = "" } = useParams<{ slug: string }>();
+  const params = useParams<{ slug: string }>();
+  // Apache's DirectorySlash redirects /projet-villa-al → /projet-villa-al/
+  // so slug can carry a trailing slash. Strip defensively.
+  const slug = (params.slug || "").replace(/\/+$/, "");
   const navigate = useNavigate();
   const [all, setAll] = useState<Project[] | null>(null);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
