@@ -16,7 +16,7 @@
 | **Page d'accueil** (`/`) | ✅ | Hero, projets avec morph `layoutId`, services, teaser, about, team, contact, map |
 | Page landscaping (`/landscaping`) | ✅ | Hero parallax, manifeste stats, projets, services, philosophie, approche, contact |
 | Pages projets détail (`/projet-:slug`) | ✅ | Hero, description, meta, galerie + lightbox, autres projets, next CTA |
-| Page configurateur (`/configurateur`) | 🟡 Scaffolded | Intro, stepper, state (Context+reducer), validation, AnimatePresence cross-fade, step 1 + client + success fonctionnels, steps 2-6 en placeholders |
+| Page configurateur (`/configurateur`) | 🟡 Quasi complet | Intro, stepper, state, AnimatePresence cross-fade, code-split. Steps fonctionnels : **1 Projet, 3 Fondations, 4 Identité, 5 Programme (simplifié), 6 Terrain (Leaflet + Nominatim)**, Client, Success. Step 2 Missions en placeholder. Variantes avancées du Step 5 (chambres dynamiques, suite parentale) en TODO. |
 | Panneau admin public (`/settings`) | ❌ | Currently `settings.html` |
 | Plateforme admin (`/plateforme/*`) | ❌ | Le plus gros chunk : 10+ sections |
 
