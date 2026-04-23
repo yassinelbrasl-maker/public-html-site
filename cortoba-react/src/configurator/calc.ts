@@ -17,13 +17,25 @@ import { ConfiguratorState } from "./state";
 // des valeurs par défaut. À brancher sur l'API plus tard.
 const SURFACES: Record<string, number> = {
   salon: 20,
-  cuisine_ouverte: 8, // comptée dans le salon
+  sejour: 18,
+  entree: 8,
+  cuisine_ouverte: 8,
   cuisine_independante: 14,
+  cuisine_table: 12,
   sdb: 6,
-  chambre: 12,
+  chambre_simple: 10,
+  chambre_double: 12,
+  chambre_double_balcon: 14,
+  chambre_suite: 16,
+  suite_parentale_dressing: 30,
+  suite_parentale_placard: 26,
+  bureau: 12,
+  sport: 20,
+  buanderie: 6,
+  cellier: 6,
   garage: 20,
-  piscine: 35, // surface moyenne si sélectionné
-  jardin: 0, // pas de surface couverte
+  piscine: 35,
+  jardin: 0,
 };
 
 // Coût par m² en € selon le standing (base "contemporain")
