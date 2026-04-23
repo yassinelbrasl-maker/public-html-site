@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/auth/AuthContext";
+import { ImageUploader, type UploadedImage } from "@/components/ImageUploader";
 
 interface SliderImage {
   id: number | string;
