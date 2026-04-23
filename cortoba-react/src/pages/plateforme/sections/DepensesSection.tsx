@@ -218,9 +218,9 @@ export function DepensesSection() {
                 <button
                   key={w}
                   type="button"
-                  onClick={() => setWindow(w)}
+                  onClick={() => setWindowDays(w)}
                   className={`px-2 py-1 rounded tracking-wider transition-colors ${
-                    window === w
+                    windowDays === w
                       ? "bg-gold/15 text-gold"
                       : "text-fg-muted hover:text-fg"
                   }`}
