@@ -44,21 +44,3 @@ export function Step5Programme() {
   );
 }
 
-export function Step6Terrain() {
-  return (
-    <>
-      <StepPlaceholder
-        num="06"
-        title="Terrain"
-        description="Localisation de votre terrain."
-        todoItems={[
-          "Intégrer react-leaflet <MapContainer> avec marker draggable",
-          "Géolocalisation par adresse (API Nominatim)",
-          "Stocker cfg_terrain_lat, cfg_terrain_lng, cfg_terrain_adresse",
-          "Bouton « Voir les résultats » → flow vers StepClient",
-        ]}
-      />
-      <StepNav nextLabel="Voir les résultats →" />
-    </>
-  );
-}
