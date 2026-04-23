@@ -12,6 +12,7 @@ const FALLBACK_SLIDES = [
 const AUTO_ADVANCE_MS = 5000;
 
 export function HeroSlider() {
+  const { t } = useI18n();
   const [current, setCurrent] = useState(0);
   const slides = FALLBACK_SLIDES;
 
