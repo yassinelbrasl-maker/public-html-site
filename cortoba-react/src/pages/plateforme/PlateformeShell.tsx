@@ -88,7 +88,12 @@ function PlateformeLayout() {
 
         <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
           {SIDEBAR.map((item) => {
-            const active = location.pathname === item.path;
+            // Exact match for /plateforme (index), startsWith for children
+            const active =
+              item.path === "/plateforme"
+                ? location.pathname === "/plateforme" ||
+                  location.pathname === "/plateforme/"
+                : location.pathname.startsWith(item.path);
             return (
               <Link
                 key={item.id}
