@@ -121,7 +121,7 @@ export function DepensesSection() {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  formatter={(value: number) => fmtDT(value)}
+                  formatter={(value) => fmtDT(Number(value))}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: 10, color: "#8c8a84" }}
