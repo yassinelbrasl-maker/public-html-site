@@ -115,9 +115,11 @@ export function reducer(state: ConfiguratorState, action: Action): ConfiguratorS
 }
 
 // ─── STEP TYPE & ORDER ───────────────────────────────────────────────────
-export type StepKey = 1 | 2 | 3 | 4 | 5 | 6 | "client" | "success";
+export type StepKey = 1 | 2 | 3 | 4 | 5 | 6 | "result" | "client" | "success";
 
-export const STEP_ORDER: StepKey[] = [1, 2, 3, 4, 5, 6, "client", "success"];
+export const STEP_ORDER: StepKey[] = [
+  1, 2, 3, 4, 5, 6, "result", "client", "success",
+];
 
 export const STEP_LABELS: Record<Exclude<StepKey, "client" | "success">, string> = {
   1: "Projet",
