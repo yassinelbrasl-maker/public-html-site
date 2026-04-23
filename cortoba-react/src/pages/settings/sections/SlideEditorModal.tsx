@@ -118,23 +118,65 @@ export function SlideEditorModal({ open, slide, onClose, onSaved }: Props) {
       }
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Live preview */}
+        {/* Live preview — drag to reposition */}
         <div>
           <label className="text-[0.65rem] tracking-[0.2em] uppercase text-fg-muted mb-2 block">
-            Aperçu
+            Aperçu <span className="normal-case text-gold">· glissez pour repositionner</span>
           </label>
-          <div className="relative w-full aspect-[16/9] bg-black/50 rounded-md overflow-hidden border border-white/10">
+          <div
+            ref={previewRef}
+            onPointerDown={(e) => {
+              if (!previewRef.current || !form.image_path) return;
+              setDragging(true);
+              (e.target as Element).setPointerCapture(e.pointerId);
+            }}
+            onPointerUp={(e) => {
+              setDragging(false);
+              (e.target as Element).releasePointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (!dragging || !previewRef.current) return;
+              const rect = previewRef.current.getBoundingClientRect();
+              const x = Math.max(
+                0,
+                Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
+              );
+              const y = Math.max(
+                0,
+                Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)
+              );
+              set("position_x", Math.round(x));
+              set("position_y", Math.round(y));
+            }}
+            className={`relative w-full aspect-[16/9] bg-black/50 rounded-md overflow-hidden border transition-colors ${
+              dragging ? "border-gold cursor-grabbing" : "border-white/10 cursor-grab"
+            }`}
+          >
             {form.image_path && (
               <img
                 src={form.image_path}
                 alt={form.alt_text || "Slide"}
-                className="w-full h-full"
+                draggable={false}
+                className="w-full h-full pointer-events-none select-none"
                 style={{
                   objectFit: objFit as React.CSSProperties["objectFit"],
                   objectPosition: `${form.position_x}% ${form.position_y}%`,
                   transform: `scale(${(form.zoom || 100) / 100})`,
                 }}
               />
+            )}
+            {/* Crosshair marker at current position */}
+            {form.image_path && (
+              <div
+                className="absolute pointer-events-none transition-all"
+                style={{
+                  left: `${form.position_x}%`,
+                  top: `${form.position_y}%`,
+                  transform: "translate(-50%, -50%)",
+                }}
+              >
+                <div className="w-4 h-4 rounded-full bg-gold shadow-lg ring-4 ring-gold/30" />
+              </div>
             )}
             <div className="absolute bottom-2 left-2 text-[0.6rem] bg-black/60 text-fg-muted px-2 py-0.5 rounded tabular-nums">
               {form.position_x}% / {form.position_y}% · {form.zoom}%
