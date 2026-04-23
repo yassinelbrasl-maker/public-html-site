@@ -130,6 +130,7 @@ function PlateformeLayout() {
                 ? location.pathname === "/plateforme" ||
                   location.pathname === "/plateforme/"
                 : location.pathname.startsWith(item.path);
+            const showBadge = item.id === "demandes" && newCount > 0;
             return (
               <Link
                 key={item.id}
@@ -142,7 +143,17 @@ function PlateformeLayout() {
                 )}
               >
                 <span className="text-base">{item.icon}</span>
-                <span>{item.label}</span>
+                <span className="flex-1">{item.label}</span>
+                {showBadge && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-gold text-bg text-[0.6rem] font-bold flex items-center justify-center tabular-nums"
+                    aria-label={`${newCount} nouvelle(s) demande(s)`}
+                  >
+                    {newCount > 99 ? "99+" : newCount}
+                  </motion.span>
+                )}
               </Link>
             );
           })}
