@@ -31,7 +31,11 @@ async function fetchPublishedProjects() {
     );
     if (!res.ok) return [];
     const data = await res.json();
-    return data.data || [];
+    const list = data.data || [];
+    // Même filtre que prerender — on n'inclut pas les slugs vides au sitemap.
+    return list.filter(
+      (p) => p && p.title && p.title.trim() && p.slug && p.slug.trim()
+    );
   } catch {
     return [];
   }
