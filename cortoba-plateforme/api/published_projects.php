@@ -25,6 +25,25 @@ if ($method !== 'GET' || !empty($_GET['admin'])) {
     $user = requireAdmin();
 }
 
+// ── POST ?reorder=1 → bulk reorder ─────────────────────────────────────
+// Body: { order: [id1, id2, ...] } — met à jour sort_order par position.
+// Évite d'envoyer toute la charge utile (description, gallery_images) par
+// PUT pour chaque projet lors d'un drag-to-reorder.
+if ($method === 'POST' && !empty($_GET['reorder'])) {
+    $d = getBody();
+    $order = $d['order'] ?? [];
+    if (!is_array($order)) jsonError('order doit être un tableau');
+    $updated = 0;
+    foreach ($order as $i => $id) {
+        $idInt = (int)$id;
+        if ($idInt <= 0) continue;
+        $stmt = $pdo->prepare("UPDATE $table SET sort_order = ? WHERE id = ?");
+        $stmt->execute([$i, $idInt]);
+        $updated++;
+    }
+    jsonOk(['reordered' => $updated]);
+}
+
 // ── GET ?admin=1  → list all (including unpublished) ──
 if ($method === 'GET' && !empty($_GET['admin'])) {
     $rows = $pdo->query("SELECT * FROM $table ORDER BY sort_order ASC, id DESC")->fetchAll();
