@@ -120,14 +120,38 @@ export function ProjectsSection() {
         </div>
       )}
 
-      <motion.p
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="text-xs text-fg-muted mb-4 flex items-center gap-2"
+        className="flex flex-wrap items-center justify-between gap-4 mb-4"
       >
-        <span>⋮⋮</span>
-        Glissez les vignettes pour réorganiser. ✎ pour éditer · 🗑 pour supprimer.
-      </motion.p>
+        <p className="text-xs text-fg-muted flex items-center gap-2">
+          <span>⋮⋮</span>
+          Glissez les vignettes pour réorganiser. ✎ pour éditer · 🗑 pour supprimer.
+        </p>
+        <div className="flex items-center gap-1 p-1 bg-bg-card border border-white/10 rounded-md">
+          {[
+            { id: "desktop" as const, label: "PC", icon: "🖥️", width: "100%" },
+            { id: "tablet" as const, label: "Tablette", icon: "📱", width: "768px" },
+            { id: "mobile" as const, label: "Mobile", icon: "📲", width: "380px" },
+          ].map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setDevice(d.id)}
+              className={`px-3 py-1.5 rounded text-xs tracking-wider uppercase transition-colors flex items-center gap-1.5 ${
+                device === d.id
+                  ? "bg-gold/15 text-gold"
+                  : "text-fg-muted hover:text-fg"
+              }`}
+              title={`Aperçu ${d.label} (${d.width})`}
+            >
+              <span>{d.icon}</span>
+              <span>{d.label}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
 
       {projects === null && (
         <div className="p-10 text-center text-sm text-fg-muted">Chargement…</div>
