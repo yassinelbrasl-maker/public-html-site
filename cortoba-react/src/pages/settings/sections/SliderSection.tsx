@@ -202,14 +202,17 @@ export function SliderSection() {
         <>
           <p className="text-xs text-fg-muted mb-3 flex items-center gap-2">
             <span>⋮⋮</span>
-            Glissez les vignettes pour changer l'ordre.
+            Glissez verticalement pour changer l'ordre d'apparition.
           </p>
+          {/* Liste verticale — Reorder.Group de framer-motion est 1D.
+           * Strips horizontaux (numéro + preview + métadonnées + actions)
+           * pour un drag propre sans sauts de grille. */}
           <Reorder.Group
             as="div"
             axis="y"
             values={slides}
             onReorder={saveOrder}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            className="flex flex-col gap-3"
           >
             <AnimatePresence>
               {slides.map((s, i) => {
@@ -224,47 +227,22 @@ export function SliderSection() {
                     key={s.id}
                     value={s}
                     whileDrag={{
-                      scale: 1.03,
+                      scale: 1.01,
                       boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
                       zIndex: 10,
                     }}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.35, delay: i * 0.04 }}
-                    className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing"
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3, delay: i * 0.03 }}
+                    className="relative bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing flex items-stretch"
                   >
-                    <div className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-gold text-bg font-bold text-xs flex items-center justify-center">
-                      {i + 1}
+                    <div className="shrink-0 w-14 flex items-center justify-center bg-bg-card border-r border-white/5">
+                      <div className="w-8 h-8 rounded-full bg-gold text-bg font-bold text-xs flex items-center justify-center">
+                        {i + 1}
+                      </div>
                     </div>
-                    <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditing(s as EditableSlide);
-                        }}
-                        className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
-                        title="Modifier"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(s.id);
-                        }}
-                        disabled={deleting === s.id}
-                        className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
-                        title="Supprimer"
-                      >
-                        {deleting === s.id ? "…" : "🗑"}
-                      </button>
-                    </div>
-                    <div className="relative h-40 overflow-hidden bg-black/50 pointer-events-none">
+                    <div className="relative w-48 shrink-0 h-28 overflow-hidden bg-black/50 pointer-events-none">
                       <img
                         src={s.image_path}
                         alt={s.alt_text || `Slide ${i + 1}`}
@@ -278,8 +256,42 @@ export function SliderSection() {
                         loading="lazy"
                       />
                     </div>
-                    <div className="p-2 text-center text-[0.65rem] text-fg-muted tracking-wider">
-                      {FIT_LABELS[fit] || fit} · {zm}% · {ANIM_LABELS[anim] || anim}
+                    <div className="flex-1 p-4 flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-fg truncate">
+                          {s.alt_text || <span className="italic text-fg-muted">Sans texte alternatif</span>}
+                        </p>
+                        <p className="text-[0.65rem] text-fg-muted tracking-wider mt-1">
+                          {FIT_LABELS[fit] || fit} · {zm}% · {ANIM_LABELS[anim] || anim} · {posX}%/{posY}%
+                        </p>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(s as EditableSlide);
+                          }}
+                          className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
+                          title="Modifier"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(s.id);
+                          }}
+                          disabled={deleting === s.id}
+                          className="w-8 h-8 rounded-md bg-red-500/90 text-white hover:bg-red-500 text-xs disabled:opacity-50"
+                          title="Supprimer"
+                        >
+                          {deleting === s.id ? "…" : "🗑"}
+                        </button>
+                      </div>
                     </div>
                   </Reorder.Item>
                 );
