@@ -121,7 +121,7 @@ export const STEP_ORDER: StepKey[] = [
   1, 2, 3, 4, 5, 6, "result", "client", "success",
 ];
 
-export const STEP_LABELS: Record<Exclude<StepKey, "client" | "success">, string> = {
+export const STEP_LABELS: Record<Exclude<StepKey, "result" | "client" | "success">, string> = {
   1: "Projet",
   2: "Missions",
   3: "Fondations",
