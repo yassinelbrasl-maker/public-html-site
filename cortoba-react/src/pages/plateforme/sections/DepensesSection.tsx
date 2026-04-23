@@ -62,6 +62,35 @@ export function DepensesSection() {
     return { total, byCategory };
   }, [items]);
 
+  // Série temporelle : dépenses cumulées jour par jour sur la fenêtre choisie.
+  // Somme par date, puis cumulative — permet de voir la cadence (plate =
+  // aucune nouvelle dépense, pente = activité).
+  const timeSeries = useMemo(() => {
+    if (!items || items.length === 0) return [] as { date: string; total: number; cumul: number }[];
+    const now = Date.now();
+    const windowMs = window * 24 * 60 * 60 * 1000;
+    const cutoff = now - windowMs;
+    // Group by YYYY-MM-DD
+    const byDay = new Map<string, number>();
+    for (const d of items) {
+      if (!d.date) continue;
+      const t = Date.parse(d.date);
+      if (isNaN(t) || t < cutoff) continue;
+      const day = new Date(t).toISOString().slice(0, 10);
+      byDay.set(day, (byDay.get(day) || 0) + (d.amount || 0));
+    }
+    // Fill missing days with 0 + compute cumulative
+    const result: { date: string; total: number; cumul: number }[] = [];
+    let cumul = 0;
+    for (let t = cutoff; t <= now; t += 24 * 60 * 60 * 1000) {
+      const day = new Date(t).toISOString().slice(0, 10);
+      const daily = byDay.get(day) || 0;
+      cumul += daily;
+      result.push({ date: day, total: daily, cumul });
+    }
+    return result;
+  }, [items, window]);
+
   return (
     <div>
       <motion.div
