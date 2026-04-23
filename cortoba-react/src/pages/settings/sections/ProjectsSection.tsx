@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { fetchPublishedProjects, type Project } from "@/api/projects";
 import { apiFetch } from "@/auth/AuthContext";
+import { useConfirm } from "@/components/ConfirmProvider";
+import { useToast } from "@/components/ToastProvider";
 import { ProjectEditorModal } from "./ProjectEditorModal";
 
 /**
