@@ -1,17 +1,24 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useI18n } from "@/i18n/I18nProvider";
 import { LOCALES, LOCALE_LABELS } from "@/i18n/locales";
 import clsx from "clsx";
 
 export function RootLayout() {
+  const location = useLocation();
+  // Les routes admin ont leur propre layout (sidebar + header interne).
+  // On cache le header/footer public pour éviter le chevauchement visuel.
+  const isAdmin =
+    location.pathname.startsWith("/settings") ||
+    location.pathname.startsWith("/plateforme");
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      {!isAdmin && <Header />}
       <main id="main-content" className="flex-1">
         <Outlet />
       </main>
-      <Footer />
+      {!isAdmin && <Footer />}
     </div>
   );
 }
