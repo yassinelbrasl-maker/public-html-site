@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fetchPublishedProjects, parseHeroPosition, type Project } from "@/api/projects";
 import { ProjectCard } from "./ProjectCard";
 import { ProjectDetailOverlay } from "./ProjectDetailOverlay";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const FALLBACK_PROJECTS: Project[] = [
   {
