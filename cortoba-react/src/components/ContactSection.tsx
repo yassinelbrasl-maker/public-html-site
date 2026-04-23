@@ -1,5 +1,6 @@
 import { useState, FormEvent } from "react";
 import { motion } from "framer-motion";
+import { useI18n } from "@/i18n/I18nProvider";
 
 type SubmitStatus = "idle" | "sending" | "success" | "error";
 
