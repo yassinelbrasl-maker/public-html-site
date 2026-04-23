@@ -263,6 +263,7 @@ export function ProjectsSection() {
             ))}
           </AnimatePresence>
         </Reorder.Group>
+        </motion.div>
       )}
 
       <ProjectEditorModal
