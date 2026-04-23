@@ -308,19 +308,6 @@ export function ProjectsSection() {
                     </button>
                   </div>
                 </div>
-                <div className="p-4">
-                  <p className="text-[0.62rem] tracking-[0.2em] text-gold uppercase mb-1">
-                    {p.category}
-                  </p>
-                  <h3 className="font-serif text-lg text-fg">{p.title}</h3>
-                  <p className="text-xs text-fg-muted mt-1">
-                    {p.location}
-                    {p.country && `, ${p.country}`}
-                  </p>
-                  <span className="inline-block mt-3 text-[0.6rem] text-fg-muted tracking-wider uppercase">
-                    /projet-{p.slug}
-                  </span>
-                </div>
               </Reorder.Item>
             ))}
           </AnimatePresence>
