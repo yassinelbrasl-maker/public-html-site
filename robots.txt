@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /settings
+Disallow: /plateforme/
+Disallow: /cortoba-plateforme/
+
+Sitemap: https://cortobaarchitecture.com/sitemap.xml
