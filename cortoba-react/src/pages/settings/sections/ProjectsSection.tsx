@@ -16,6 +16,8 @@ export function ProjectsSection() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const load = () => {
     fetchPublishedProjects()
