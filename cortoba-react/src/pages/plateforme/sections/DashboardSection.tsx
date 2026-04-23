@@ -60,8 +60,8 @@ export function DashboardSection() {
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
     ]).then(([demandesRes, projectsRes, depensesRes, livrablesRes]) => {
-      const demandes = arrayFrom(demandesRes);
-      const projects = arrayFrom(projectsRes);
+      const demandes = arrayFrom<Demande>(demandesRes);
+      const projects = arrayFrom<unknown>(projectsRes);
       const depenses = arrayFrom<{ amount?: number }>(depensesRes);
       const livrables = arrayFrom<{ status?: string; due_date?: string }>(
         livrablesRes
