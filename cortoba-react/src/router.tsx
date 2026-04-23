@@ -32,17 +32,17 @@ const DemandesSection = lazy(() =>
   }))
 );
 const PlateformeProjets = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/ProjetsSection").then((m) => ({
     default: m.ProjetsSection,
   }))
 );
 const PlateformeSuivi = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/SuiviSection").then((m) => ({
     default: m.SuiviSection,
   }))
 );
 const PlateformeRendement = lazy(() =>
-  import("./pages/plateforme/sections/Placeholders").then((m) => ({
+  import("./pages/plateforme/sections/RendementSection").then((m) => ({
     default: m.RendementSection,
   }))
 );
