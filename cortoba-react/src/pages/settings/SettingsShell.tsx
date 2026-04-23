@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/auth/AuthContext";
 import { ProjectsSection } from "./sections/ProjectsSection";
+import { SliderSection } from "./sections/SliderSection";
 import { PlaceholderSection } from "./sections/PlaceholderSection";
 import clsx from "clsx";
 
