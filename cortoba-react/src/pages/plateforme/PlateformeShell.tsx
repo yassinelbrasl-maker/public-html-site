@@ -54,6 +54,7 @@ interface SidebarItem {
 }
 
 const SIDEBAR: SidebarItem[] = [
+  { id: "dashboard", label: "Vue d'ensemble", icon: "🏠", path: "/plateforme" },
   { id: "projets", label: "Projets", icon: "🏗️", path: "/plateforme/projets" },
   { id: "demandes", label: "Demandes", icon: "📥", path: "/plateforme/demandes" },
   { id: "suivi", label: "Suivi", icon: "📊", path: "/plateforme/suivi" },
