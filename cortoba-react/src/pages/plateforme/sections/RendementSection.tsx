@@ -11,7 +11,7 @@ import {
   Cell,
 } from "recharts";
 import { apiFetch } from "@/auth/AuthContext";
-import { fullName, initialsFor, type TeamMember } from "@/api/users";
+import { fullName, type TeamMember } from "@/api/users";
 
 interface RendementEntry {
   user_id: string;
