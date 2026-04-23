@@ -7,6 +7,7 @@ type SubmitStatus = "idle" | "sending" | "success" | "error";
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/mbdzlnny";
 
 export function ContactSection() {
+  const { t } = useI18n();
   const [status, setStatus] = useState<SubmitStatus>("idle");
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
