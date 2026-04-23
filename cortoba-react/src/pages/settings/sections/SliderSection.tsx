@@ -224,8 +224,9 @@ export function SliderSection() {
       >
         <strong className="text-gold not-italic">TODO restant</strong> — éditeur
         modal complet (drag pour repositionner l'image, slider zoom 50-150%,
-        picker d'animation et de fit mode, save), upload via WebDAV vers le NAS,
-        drag-to-reorder via <code>Reorder.Group</code>.
+        picker d'animation et de fit mode), drag-to-reorder via{" "}
+        <code>Reorder.Group</code>. ✅ Upload d'image branché sur{" "}
+        <code>upload_project_image.php</code>.
       </motion.div>
     </div>
   );
