@@ -231,7 +231,7 @@ export function DashboardSection() {
                 dataKey="label"
                 stroke="#8c8a84"
                 fontSize={10}
-                interval={4}
+                interval={range === 30 ? 4 : 10}
               />
               <YAxis
                 stroke="#8c8a84"
