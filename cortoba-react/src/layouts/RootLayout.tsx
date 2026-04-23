@@ -1,5 +1,8 @@
 import { Outlet, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useI18n } from "@/i18n/I18nProvider";
+import { LOCALES, LOCALE_LABELS } from "@/i18n/locales";
+import clsx from "clsx";
 
 export function RootLayout() {
   return (
@@ -14,6 +17,8 @@ export function RootLayout() {
 }
 
 function Header() {
+  const { t, locale, setLocale } = useI18n();
+
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
@@ -28,13 +33,29 @@ function Header() {
         </span>
       </Link>
       <nav className="flex items-center gap-6 text-xs tracking-[0.1em] uppercase">
-        <Link to="/landscaping" className="text-fg-muted hover:text-gold transition-colors">
-          Landscaping
+        <Link
+          to="/landscaping"
+          className="text-fg-muted hover:text-gold transition-colors"
+        >
+          {t("nav_landscaping")}
         </Link>
-        {/* Language switcher — stub. Real i18n wiring to follow. */}
-        <button className="text-fg underline underline-offset-4">FR</button>
-        <button className="text-fg-muted">EN</button>
-        <button className="text-fg-muted">AR</button>
+        <div className="flex items-center gap-1">
+          {LOCALES.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLocale(l)}
+              className={clsx(
+                "px-2 py-1 text-[0.7rem] tracking-wider uppercase transition-colors",
+                locale === l
+                  ? "text-fg underline underline-offset-4"
+                  : "text-fg-muted hover:text-fg"
+              )}
+              aria-label={`Change language to ${l}`}
+            >
+              {LOCALE_LABELS[l]}
+            </button>
+          ))}
+        </div>
       </nav>
     </motion.header>
   );
