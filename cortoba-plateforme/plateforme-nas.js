@@ -15187,6 +15187,121 @@ function openDeplacementsView() {
 // ═══════════════════════════════════════════════════════════════
 
 var _deadlinesChecked = false;
+
+// Formatte un décalage de jours en libellé humain
+function _dlRelLabel(daysDelta) {
+  if (daysDelta < 0) {
+    var n = -daysDelta;
+    return n === 1 ? 'hier' : ('il y a ' + n + ' jours');
+  }
+  if (daysDelta === 0) return "aujourd'hui";
+  if (daysDelta === 1) return 'demain';
+  return 'dans ' + daysDelta + ' jours';
+}
+
+// Formatte une date ISO en "22 avr."
+function _dlShortDate(s) {
+  if (!s) return '';
+  var d = new Date(s);
+  if (isNaN(d)) return s;
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+}
+
+// Échappe du HTML
+function _dlEsc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+// Badge de priorité compact
+function _dlPrioBadge(p){
+  if (!p || p === 'Normale') return '';
+  var bg = 'rgba(200,169,110,0.12)', col = 'var(--accent)';
+  if (p === 'Urgente') { bg = 'rgba(224,123,114,0.15)'; col = 'var(--red)'; }
+  else if (p === 'Haute') { bg = 'rgba(224,164,110,0.15)'; col = 'var(--orange)'; }
+  else if (p === 'Basse') { bg = 'rgba(122,117,112,0.15)'; col = 'var(--text-3)'; }
+  return '<span style="display:inline-block;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.06em;padding:0.1rem 0.45rem;border-radius:10px;background:'+bg+';color:'+col+';font-weight:500">'+_dlEsc(p)+'</span>';
+}
+
+// Rendu d'un groupe
+function _dlRenderGroup(title, icon, items, today) {
+  if (!items.length) return '';
+  var h = '';
+  h += '<div style="display:flex;align-items:center;gap:0.5rem;margin:0.2rem 0 0.5rem;padding-top:0.2rem">';
+  h += '<span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-2)">'+icon+' '+title+'</span>';
+  h += '<span style="flex:1;height:1px;background:var(--border)"></span>';
+  h += '<span style="font-size:0.7rem;color:var(--text-3)">'+items.length+'</span>';
+  h += '</div>';
+  items.forEach(function(t){
+    var d = t.dateEcheance || t.date_echeance;
+    var dd = new Date(d); dd.setHours(0,0,0,0);
+    var diffDays = Math.round((dd - today) / 86400000);
+    var overdue = diffDays < 0;
+    var color = overdue ? 'var(--red)' : 'var(--orange)';
+    var bg    = overdue ? 'var(--red-bg)' : 'var(--orange-bg)';
+    var rel = _dlRelLabel(diffDays);
+    var dateShort = _dlShortDate(d);
+    var assignees = getTacheAssignees(t);
+    var assLabel = assignees.length ? _dlEsc(assignees.join(', ')) : '<span style="font-style:italic">Non assigné</span>';
+    var code = _dlEsc(t.projetCode || t.projet_code || '—');
+    var tid = _dlEsc(t.id || '');
+
+    h += '<div class="dl-item" data-task-id="'+tid+'" onclick="_dlOpenTask(\''+tid+'\')" ';
+    h += 'style="display:flex;gap:0.7rem;align-items:flex-start;padding:0.65rem 0.8rem;background:'+bg+';border:1px solid '+color+';border-left:3px solid '+color+';border-radius:6px;cursor:pointer;transition:transform 0.12s ease, box-shadow 0.12s ease" ';
+    h += 'onmouseover="this.style.transform=\'translateX(2px)\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.25)\'" ';
+    h += 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">';
+
+    // Colonne gauche : compteur de jours / pastille
+    h += '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:54px;padding:0.15rem 0.25rem;background:rgba(0,0,0,0.25);border-radius:5px">';
+    var bigNum = overdue ? Math.abs(diffDays) : (diffDays === 0 ? '!' : diffDays);
+    var bigLabel = overdue ? (Math.abs(diffDays) === 1 ? 'jour' : 'jours') : (diffDays === 0 ? "aujourd'hui" : (diffDays === 1 ? 'demain' : 'jours'));
+    h += '<div style="font-size:1.15rem;font-weight:600;line-height:1;color:'+color+'">'+bigNum+'</div>';
+    h += '<div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-top:0.15rem;text-align:center">'+bigLabel+'</div>';
+    h += '</div>';
+
+    // Colonne droite : contenu
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.25rem">';
+    h += '<span style="font-size:0.86rem;font-weight:500;color:var(--text);line-height:1.25">'+_dlEsc(t.titre||'(Sans titre)')+'</span>';
+    h += _dlPrioBadge(t.priorite);
+    h += '</div>';
+    h += '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;font-size:0.72rem;color:var(--text-3)">';
+    h += '<span style="font-family:ui-monospace,monospace;color:var(--accent)">'+code+'</span>';
+    h += '<span style="opacity:0.5">·</span>';
+    h += '<span>'+assLabel+'</span>';
+    h += '<span style="opacity:0.5">·</span>';
+    h += '<span style="color:'+color+';font-weight:500">'+rel+' <span style="opacity:0.7">('+dateShort+')</span></span>';
+    h += '</div>';
+    h += '</div>';
+
+    // Chevron
+    h += '<div style="display:flex;align-items:center;color:var(--text-3);opacity:0.6">';
+    h += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
+    h += '</div>';
+
+    h += '</div>';
+  });
+  return h;
+}
+
+// Clic sur un item → ferme la popup et navigue vers Suivi avec scroll/highlight
+function _dlOpenTask(taskId) {
+  try { closeModal('modal-deadlines'); } catch(e) {}
+  try { showPage('suivi'); } catch(e) {}
+  if (!taskId) return;
+  setTimeout(function(){
+    var el = document.querySelector('[data-task-id="'+taskId+'"]');
+    if (!el) return;
+    try { el.scrollIntoView({ behavior:'smooth', block:'center' }); } catch(e) { el.scrollIntoView(); }
+    el.style.transition = 'background-color 0.6s ease';
+    var prev = el.style.backgroundColor;
+    el.style.backgroundColor = 'rgba(200,169,110,0.18)';
+    setTimeout(function(){ el.style.backgroundColor = prev || ''; }, 1800);
+  }, 420);
+}
+window._dlOpenTask = _dlOpenTask;
+
 function checkDeadlinesPopup() {
   if (_deadlinesChecked) return;
   _deadlinesChecked = true;
@@ -15208,21 +15323,45 @@ function checkDeadlinesPopup() {
     });
     if (!alerts.length) return;
     alerts.sort(function(a,b){ return (a.dateEcheance||a.date_echeance||'') < (b.dateEcheance||b.date_echeance||'') ? -1 : 1; });
-    var wrap = document.getElementById('deadlines-list');
-    if (!wrap) return;
-    var html = '';
+
+    // Partition par urgence
+    var overdue = [], todayList = [], soon = [];
     alerts.forEach(function(t){
       var d = t.dateEcheance || t.date_echeance;
       var dd = new Date(d); dd.setHours(0,0,0,0);
-      var overdue = dd < today;
-      var color = overdue ? '#c0392b' : '#d18e1e';
-      html += '<div style="border-left:3px solid '+color+';padding:0.5rem 0.7rem;background:var(--bg-2);border-radius:4px">';
-      html += '<div style="font-size:0.85rem;font-weight:500">'+(t.titre||'')+'</div>';
-      var _assP = getTacheAssignees(t).join(', ') || 'Non assigné';
-      html += '<div style="font-size:0.72rem;color:var(--text-3)">'+(t.projetCode||t.projet_code||'')+' · '+_assP+' · <span style="color:'+color+'">échéance '+d+(overdue?' (en retard)':'')+'</span></div>';
-      html += '</div>';
+      var diff = Math.round((dd - today) / 86400000);
+      if (diff < 0) overdue.push(t);
+      else if (diff === 0) todayList.push(t);
+      else soon.push(t);
     });
-    wrap.innerHTML = html;
+
+    // Titre dynamique (count badge)
+    var titleEl = document.querySelector('#modal-deadlines .modal-title');
+    if (titleEl) {
+      var countHtml = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 0.4rem;margin-left:0.5rem;font-size:0.72rem;font-weight:600;background:var(--red);color:#0a0a0a;border-radius:11px;vertical-align:middle">'+alerts.length+'</span>';
+      var titleText = overdue.length ? '⚠ Échéances à surveiller' : '🕑 Échéances à venir';
+      titleEl.innerHTML = titleText + countHtml;
+    }
+
+    // Sous-titre contextuel
+    var wrap = document.getElementById('deadlines-list');
+    if (!wrap) return;
+    var bodyHtml = '';
+    var summary = [];
+    if (overdue.length)  summary.push('<span style="color:var(--red);font-weight:500">'+overdue.length+' en retard</span>');
+    if (todayList.length) summary.push('<span style="color:var(--orange);font-weight:500">'+todayList.length+" aujourd'hui</span>");
+    if (soon.length)     summary.push('<span style="color:var(--text-2);font-weight:500">'+soon.length+' à venir</span>');
+    bodyHtml += '<div style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.9rem;padding-bottom:0.7rem;border-bottom:1px solid var(--border);display:flex;gap:0.8rem;flex-wrap:wrap">'
+             + (summary.join(' <span style="opacity:0.4">·</span> '))
+             + '</div>';
+
+    bodyHtml += '<div style="display:flex;flex-direction:column;gap:0.45rem">';
+    bodyHtml += _dlRenderGroup('En retard', '⚠', overdue, today);
+    bodyHtml += _dlRenderGroup("Aujourd'hui", '●', todayList, today);
+    bodyHtml += _dlRenderGroup('Dans les 3 prochains jours', '→', soon, today);
+    bodyHtml += '</div>';
+
+    wrap.innerHTML = bodyHtml;
     openModal('modal-deadlines');
   });
 }
