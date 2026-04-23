@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { LoginScreen } from "../settings/LoginScreen";
 import { Seo } from "@/seo/Seo";
+import { CommandPalette } from "./CommandPalette";
 import clsx from "clsx";
 
 /**
