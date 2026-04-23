@@ -111,13 +111,50 @@ export function ProjectsSection() {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="cta-button cta-button-primary text-xs"
-        >
-          ＋ Nouveau projet
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = await confirm({
+                message:
+                  "Supprimer les projets avec titre vide (résidus de saves cassés) ? Cette action est irréversible.",
+                tone: "danger",
+                confirmLabel: "Nettoyer",
+              });
+              if (!ok) return;
+              try {
+                const res = await apiFetch(
+                  "/cortoba-plateforme/api/published_projects.php?purge_empty=1",
+                  { method: "POST" }
+                );
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.success === false) {
+                  throw new Error(data.error || `HTTP ${res.status}`);
+                }
+                const n = data.data?.deleted ?? 0;
+                toast.success(
+                  n > 0
+                    ? `${n} projet${n > 1 ? "s" : ""} vide${n > 1 ? "s" : ""} supprimé${n > 1 ? "s" : ""}`
+                    : "Aucun projet vide à nettoyer"
+                );
+                load();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : String(e));
+              }
+            }}
+            className="cta-button text-xs"
+            title="Supprime les lignes avec titre vide (pollution)"
+          >
+            🧹 Nettoyer
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="cta-button cta-button-primary text-xs"
+          >
+            ＋ Nouveau projet
+          </button>
+        </div>
       </motion.div>
 
       {error && (
