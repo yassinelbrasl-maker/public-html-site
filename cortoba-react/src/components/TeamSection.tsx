@@ -4,6 +4,7 @@ import { fetchPublicTeam, type TeamMember, initialsFor, fullName } from "@/api/u
 import { useI18n } from "@/i18n/I18nProvider";
 
 export function TeamSection() {
+  const { t } = useI18n();
   const [members, setMembers] = useState<TeamMember[] | null>(null);
 
   useEffect(() => {
