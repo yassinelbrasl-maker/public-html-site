@@ -179,8 +179,9 @@ export function SliderSection() {
                   <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
+                      onClick={() => setEditing(s as EditableSlide)}
                       className="w-8 h-8 rounded-md bg-gold/90 text-bg hover:bg-gold text-xs"
-                      title="Modifier (à implémenter)"
+                      title="Modifier"
                     >
                       ✎
                     </button>
