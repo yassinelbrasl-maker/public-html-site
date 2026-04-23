@@ -22,8 +22,17 @@ export function ProjectsSection() {
 
   const load = () => {
     fetchPublishedProjects()
-      .then(setProjects)
-      .catch(() => setProjects([]));
+      .then((list) => {
+        // Filtre les projets pollués (titre vide) — résidus de saves cassés.
+        // L'admin peut les purger en base via phpMyAdmin ; côté UI on les cache
+        // pour éviter la confusion.
+        const clean = list.filter((p) => p.title && p.title.trim());
+        setProjects(clean);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : String(e));
+        setProjects([]);
+      });
   };
 
   useEffect(() => { load(); }, []);
