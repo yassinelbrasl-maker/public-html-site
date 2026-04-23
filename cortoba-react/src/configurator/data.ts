@@ -146,6 +146,76 @@ export interface StandingOption {
   tooltip: string;
 }
 
+// ─── MISSIONS (catégories + missions par défaut — portage direct du legacy) ───
+
+export interface MissionCat {
+  id: string;
+  label: string;
+}
+export interface Mission {
+  id: string;
+  cat: string;
+  nom: string;
+}
+
+export const MISSION_CATEGORIES: MissionCat[] = [
+  { id: "AI", label: "Assistance immobilière" },
+  { id: "EP", label: "Études préliminaires" },
+  { id: "CON", label: "Conception architecturale" },
+  { id: "EXE", label: "Études d'exécution" },
+  { id: "AMO", label: "Assistance à la maîtrise d'ouvrage" },
+  { id: "MOD", label: "Maîtrise d'ouvrage déléguée" },
+  { id: "3D", label: "Visualisation 3D" },
+  { id: "DEC", label: "Décoration & Paysage" },
+  { id: "DET", label: "Suivi de chantier" },
+  { id: "DIAG", label: "Diagnostic & Expertise" },
+];
+
+export const DEFAULT_MISSIONS: Mission[] = [
+  { id: "m01", cat: "AI", nom: "Recherche de bien immobilier" },
+  { id: "m02", cat: "AI", nom: "Assistance à l'achat immobilier" },
+  { id: "m03", cat: "AI", nom: "Visite et expertise de terrain" },
+  { id: "m04", cat: "EP", nom: "Relevé architectural (gros œuvres)" },
+  { id: "m05", cat: "EP", nom: "Relevé détaillé" },
+  { id: "m06", cat: "EP", nom: "Livraison de fichier source" },
+  { id: "m07", cat: "EP", nom: "Élaboration de programme" },
+  { id: "m08", cat: "EP", nom: "Estimation sommaire (surface & coût)" },
+  { id: "m09", cat: "CON", nom: "Avant-projet sommaire (APS)" },
+  { id: "m10", cat: "CON", nom: "Avant-projet développé (APD)" },
+  { id: "m11", cat: "CON", nom: "Permis de construire" },
+  { id: "m12", cat: "EXE", nom: "Dossier d'exécution" },
+  { id: "m13", cat: "EXE", nom: "Consultation des ingénieurs" },
+  { id: "m14", cat: "EXE", nom: "Coordination des études" },
+  { id: "m15", cat: "EXE", nom: "Bordereau des prix" },
+  { id: "m16", cat: "AMO", nom: "Assistance à la maîtrise d'ouvrage" },
+  { id: "m17", cat: "AMO", nom: "Assistance à la passation de marchés" },
+  { id: "m18", cat: "AMO", nom: "Consultation fournisseurs & prestataires" },
+  { id: "m19", cat: "AMO", nom: "Étude comparative" },
+  { id: "m20", cat: "AMO", nom: "Assistance à l'échantillonnage" },
+  { id: "m21", cat: "AMO", nom: "Visite des fournisseurs" },
+  { id: "m22", cat: "MOD", nom: "Validation des paiements" },
+  { id: "m23", cat: "MOD", nom: "Paiement des prestataires & fournisseurs" },
+  { id: "m24", cat: "MOD", nom: "Gestion financière" },
+  { id: "m25", cat: "MOD", nom: "Gestion d'approvisionnement" },
+  { id: "m26", cat: "MOD", nom: "Gestion des ressources humaines" },
+  { id: "m27", cat: "MOD", nom: "Journal de suivi" },
+  { id: "m28", cat: "3D", nom: "3D extérieure" },
+  { id: "m29", cat: "3D", nom: "3D intérieure" },
+  { id: "m30", cat: "3D", nom: "Animation 3D" },
+  { id: "m31", cat: "DEC", nom: "Décoration d'intérieur" },
+  { id: "m32", cat: "DEC", nom: "Assistance choix ameublement & décoration" },
+  { id: "m33", cat: "DEC", nom: "Étude paysagère & aménagement extérieur" },
+  { id: "m34", cat: "DEC", nom: "Plan de plantation" },
+  { id: "m35", cat: "DEC", nom: "Plan d'arrosage" },
+  { id: "m36", cat: "DEC", nom: "Plan d'éclairage" },
+  { id: "m37", cat: "DEC", nom: "Choix des palettes végétales" },
+  { id: "m38", cat: "DEC", nom: "Rendu 3D paysager" },
+  { id: "m39", cat: "DET", nom: "Suivi de chantier" },
+  { id: "m40", cat: "DET", nom: "Pilotage" },
+  { id: "m41", cat: "DET", nom: "Assistance à la réception des travaux" },
+  { id: "m42", cat: "DIAG", nom: "Diagnostic / Expertise" },
+];
+
 export const STANDINGS: StandingOption[] = [
   {
     id: "standard",
