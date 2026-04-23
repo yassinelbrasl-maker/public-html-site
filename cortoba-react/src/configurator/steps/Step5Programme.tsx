@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useConfigurator } from "../context";
 import { StepHeading } from "./_shared";
 import { StepNav } from "../StepNav";
-import type { Chambre } from "../state";
+import type { Chambre, NiveauMixte } from "../state";
 import clsx from "clsx";
 
 /**
