@@ -51,7 +51,7 @@ export function HeroSlider() {
           transition={{ duration: 1.6, delay: 0.3, ease: [0.22, 0.61, 0.36, 1] }}
           className="font-serif text-4xl md:text-6xl lg:text-7xl font-light tracking-widest text-white uppercase"
         >
-          Cortoba Architecture Studio
+          {t("hero_title")}
         </motion.h1>
 
         <motion.p
@@ -60,7 +60,7 @@ export function HeroSlider() {
           transition={{ duration: 1, delay: 1.0, ease: [0.22, 0.61, 0.36, 1] }}
           className="mt-6 text-fg-muted max-w-xl text-sm md:text-base"
         >
-          Des projets qui racontent le lieu, la lumière et les gestes du quotidien.
+          {t("hero_subtitle")}
         </motion.p>
 
         <motion.div
@@ -70,11 +70,11 @@ export function HeroSlider() {
           className="mt-10 flex flex-wrap justify-center gap-4"
         >
           <a href="#projects" className="cta-button cta-button-primary">
-            Voir nos projets
+            {t("hero_cta_projects")}
             <span aria-hidden>→</span>
           </a>
           <Link to="/configurateur" className="cta-button">
-            Configurateur de projet
+            {t("hero_cta_configurator")}
             <span aria-hidden>→</span>
           </Link>
         </motion.div>
