@@ -20,7 +20,7 @@ export function MapSection() {
         transition={{ duration: 0.7 }}
         className="section-h2 text-center mb-4"
       >
-        📍 <span>Localisation</span>
+        📍 <span>{t("map_title")}</span>
       </motion.h2>
       <motion.p
         initial={{ opacity: 0, y: 20 }}
@@ -29,7 +29,7 @@ export function MapSection() {
         transition={{ duration: 0.7, delay: 0.1 }}
         className="intro-text text-center mx-auto mb-8"
       >
-        Retrouvez-nous à Midoun, Djerba — en face du stade, Immeuble Cortoba, 1er étage.
+        {t("map_intro")}
       </motion.p>
 
       <motion.div
