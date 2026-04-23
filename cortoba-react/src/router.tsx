@@ -119,6 +119,9 @@ export const router = createBrowserRouter([
           { path: "flotte", element: lazyRoute(<PlateformeFlotte />) },
         ],
       },
+      // Catch-all for /projet-:slug (React Router v6 can't match a param
+      // with a static prefix in the same segment, so we route manually).
+      { path: "*", element: lazyRoute(<CatchAllPage />) },
     ],
   },
 ]);
