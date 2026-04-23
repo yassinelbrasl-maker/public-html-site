@@ -155,7 +155,7 @@ export function LandscapingProjectsSection() {
           axis="y"
           values={items}
           onReorder={saveOrder}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          className="flex flex-col gap-3"
         >
           <AnimatePresence>
             {items.map((p) => (
@@ -164,27 +164,44 @@ export function LandscapingProjectsSection() {
                 key={p.id}
                 value={p}
                 whileDrag={{
-                  scale: 1.03,
+                  scale: 1.01,
                   boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
                   zIndex: 10,
                 }}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing"
+                exit={{ opacity: 0, x: -20 }}
+                className="bg-bg-card border border-white/5 rounded-md overflow-hidden group cursor-grab active:cursor-grabbing flex flex-col md:flex-row"
               >
-                <div className="relative">
+                <div className="relative md:w-64 shrink-0">
                   {p.hero_image ? (
                     <div
-                      className="aspect-[16/10] bg-cover bg-center pointer-events-none"
+                      className="aspect-[16/10] md:h-full md:aspect-auto bg-cover bg-center pointer-events-none"
                       style={{ backgroundImage: `url('${p.hero_image}')` }}
                     />
                   ) : (
-                    <div className="aspect-[16/10] bg-black/50 flex items-center justify-center text-fg-muted pointer-events-none">
+                    <div className="aspect-[16/10] md:h-full md:aspect-auto bg-black/50 flex items-center justify-center text-fg-muted pointer-events-none">
                       📷
                     </div>
                   )}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                </div>
+                <div className="flex-1 p-4 flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    {p.tag && (
+                      <p className="text-[0.62rem] tracking-[0.2em] text-[#8dba78] uppercase mb-1">
+                        {p.tag}
+                      </p>
+                    )}
+                    <h3 className="font-serif text-lg text-fg truncate">
+                      {p.title}
+                    </h3>
+                    {p.location && (
+                      <p className="text-xs text-fg-muted mt-1 truncate">
+                        {p.location}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button
                       type="button"
                       onPointerDown={(e) => e.stopPropagation()}
@@ -211,17 +228,6 @@ export function LandscapingProjectsSection() {
                       {deleting === p.id ? "…" : "🗑"}
                     </button>
                   </div>
-                </div>
-                <div className="p-4">
-                  {p.tag && (
-                    <p className="text-[0.62rem] tracking-[0.2em] text-[#8dba78] uppercase mb-1">
-                      {p.tag}
-                    </p>
-                  )}
-                  <h3 className="font-serif text-lg text-fg">{p.title}</h3>
-                  {p.location && (
-                    <p className="text-xs text-fg-muted mt-1">{p.location}</p>
-                  )}
                 </div>
               </Reorder.Item>
             ))}
