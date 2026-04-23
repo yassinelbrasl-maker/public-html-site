@@ -44,10 +44,9 @@ test.describe("SEO", () => {
 
   test("project detail has article OG type", async ({ page }) => {
     await page.goto("/projet-villa-al");
-    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
-      "content",
-      /article|website/
-    );
+    await expect(
+      page.locator('meta[property="og:type"]').first()
+    ).toHaveAttribute("content", /article|website/);
   });
 
   test("sitemap.xml is valid", async ({ request }) => {
