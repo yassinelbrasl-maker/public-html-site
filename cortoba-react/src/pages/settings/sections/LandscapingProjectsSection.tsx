@@ -22,6 +22,8 @@ export function LandscapingProjectsSection() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | number | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const load = () => {
     apiFetch("/cortoba-plateforme/api/landscaping_projects.php")
