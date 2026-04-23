@@ -6044,6 +6044,14 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div class="modal-body">
       <input type="hidden" id="chl-edit-id">
+      <input type="hidden" id="chl-param-lot-id">
+      <div id="chl-catalog-wrap" style="margin-bottom:1rem;padding:0.7rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
+        <label class="form-label" style="display:block;margin-bottom:0.4rem">Choisir depuis le catalogue de lots <span style="color:var(--text-3);font-weight:normal;font-size:0.72rem">(Paramètres → Chantier)</span></label>
+        <select id="chl-param-lot-select" class="form-input" onchange="_chlApplyParamLot(this.value)">
+          <option value="">— Lot personnalisé (saisie manuelle) —</option>
+        </select>
+        <div id="chl-param-lot-phases-preview" style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-3)"></div>
+      </div>
       <div class="form-grid">
         <div class="form-field"><label class="form-label">Code</label><input type="text" id="chl-code" class="form-input" placeholder="LOT-01"></div>
         <div class="form-field"><label class="form-label">Nom *</label><input type="text" id="chl-nom" class="form-input" placeholder="Gros œuvre"></div>

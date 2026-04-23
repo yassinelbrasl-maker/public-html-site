@@ -17664,13 +17664,13 @@ function _renderChLotsProgress(d) {
     _chCache.lots = (r && r.data) ? r.data : [];
     if (!_chCache.lots.length) {
       el.innerHTML = '<div style="color:var(--text-3);text-align:center;padding:1rem">Aucun lot défini. ' +
-        '<button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button> ' +
+        '<button class="btn btn-sm" onclick="openChLotModal()">+ Lot</button> ' +
         '<button class="btn btn-sm btn-primary" onclick="addAllLotsToChantier()">Tous les lots du projet</button></div>';
       return;
     }
     var h = '<div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;gap:0.5rem">' +
       '<button class="btn btn-sm btn-primary" onclick="addAllLotsToChantier()">Tous les lots du projet</button>' +
-      '<button class="btn btn-sm" onclick="openModal(\'modal-ch-lot\')">+ Lot</button></div>';
+      '<button class="btn btn-sm" onclick="openChLotModal()">+ Lot</button></div>';
     _chCache.lots.forEach(function(l, idx) {
       var phases = l.phases || [];
       var hasPhases = phases.length > 0;
@@ -17754,6 +17754,7 @@ function editLot(id) {
   var lot = null; (_chCache.lots || []).forEach(function(l) { if (l.id === id) lot = l; });
   if (!lot) return;
   document.getElementById('chl-edit-id').value = lot.id;
+  document.getElementById('chl-param-lot-id').value = '';
   document.getElementById('chl-code').value = lot.code || '';
   document.getElementById('chl-nom').value = lot.nom || '';
   document.getElementById('chl-entreprise').value = lot.entreprise || '';
@@ -17761,7 +17762,73 @@ function editLot(id) {
   document.getElementById('chl-date-debut').value = (lot.date_debut || '').substring(0, 10);
   document.getElementById('chl-date-fin').value = (lot.date_fin_prevue || '').substring(0, 10);
   document.getElementById('chl-couleur').value = lot.couleur || '#c8a96e';
+  // Edit mode: hide catalog selector (lot already exists)
+  var catalogWrap = document.getElementById('chl-catalog-wrap');
+  if (catalogWrap) catalogWrap.style.display = 'none';
   openModal('modal-ch-lot');
+}
+
+// Cache of param lots with phases, loaded when + Lot is clicked
+var _chlParamLotsCache = [];
+
+function openChLotModal() {
+  // Reset form for a new lot
+  document.getElementById('chl-edit-id').value = '';
+  document.getElementById('chl-param-lot-id').value = '';
+  document.getElementById('chl-code').value = '';
+  document.getElementById('chl-nom').value = '';
+  document.getElementById('chl-entreprise').value = '';
+  document.getElementById('chl-montant').value = '';
+  document.getElementById('chl-date-debut').value = '';
+  document.getElementById('chl-date-fin').value = '';
+  document.getElementById('chl-couleur').value = '#c8a96e';
+  var preview = document.getElementById('chl-param-lot-phases-preview');
+  if (preview) preview.innerHTML = '';
+  var catalogWrap = document.getElementById('chl-catalog-wrap');
+  if (catalogWrap) catalogWrap.style.display = '';
+  var sel = document.getElementById('chl-param-lot-select');
+  if (sel) sel.value = '';
+  // Load param lots catalog
+  apiFetch('api/chantier.php?action=param_lots').then(function(r) {
+    _chlParamLotsCache = (r && r.data) ? r.data : [];
+    if (!sel) return;
+    // Filter out param lots already present in this chantier
+    var existingNames = {};
+    (_chCache.lots || []).forEach(function(l) { existingNames[(l.nom||'').toLowerCase().trim()] = true; });
+    var h = '<option value="">— Lot personnalisé (saisie manuelle) —</option>';
+    _chlParamLotsCache.forEach(function(pl) {
+      if (pl.actif == 0) return;
+      var dup = existingNames[(pl.nom||'').toLowerCase().trim()];
+      var label = (pl.code ? '[' + pl.code + '] ' : '') + pl.nom + (dup ? ' (déjà ajouté)' : '');
+      h += '<option value="' + pl.id + '"' + (dup ? ' disabled' : '') + '>' + _cgEscape(label) + '</option>';
+    });
+    sel.innerHTML = h;
+  });
+  openModal('modal-ch-lot');
+}
+
+function _chlApplyParamLot(paramLotId) {
+  document.getElementById('chl-param-lot-id').value = paramLotId || '';
+  var preview = document.getElementById('chl-param-lot-phases-preview');
+  if (!paramLotId) {
+    if (preview) preview.innerHTML = '';
+    return;
+  }
+  var pl = null;
+  _chlParamLotsCache.forEach(function(l) { if (l.id === paramLotId) pl = l; });
+  if (!pl) return;
+  document.getElementById('chl-code').value = pl.code || '';
+  document.getElementById('chl-nom').value = pl.nom || '';
+  document.getElementById('chl-couleur').value = pl.couleur || '#c8a96e';
+  var phases = pl.phases || [];
+  if (preview) {
+    if (phases.length) {
+      preview.innerHTML = '<strong style="color:var(--accent)">' + phases.length + ' phase' + (phases.length > 1 ? 's' : '') + ' à cloner :</strong> ' +
+        phases.map(function(p) { return _cgEscape(p.nom); }).join(' · ');
+    } else {
+      preview.innerHTML = '<em>Aucune phase définie dans le catalogue pour ce lot.</em>';
+    }
+  }
 }
 
 function deleteLot(id) {
@@ -17982,6 +18049,8 @@ function editChantier(id) {
 // ── Save lot ──
 function saveLot() {
   var id = document.getElementById('chl-edit-id').value;
+  var paramLotIdEl = document.getElementById('chl-param-lot-id');
+  var paramLotId = (!id && paramLotIdEl) ? paramLotIdEl.value : '';
   var body = {
     chantier_id: _chCache.currentId,
     code: document.getElementById('chl-code').value,
@@ -17992,10 +18061,12 @@ function saveLot() {
     date_fin_prevue: document.getElementById('chl-date-fin').value || null,
     couleur: document.getElementById('chl-couleur').value || '#c8a96e'
   };
+  if (paramLotId) body.param_lot_id = paramLotId;
   if (!body.nom) { showToast('Le nom du lot est requis', 'warning'); return; }
   var url = id ? ('api/chantier.php?action=lots&id=' + id) : 'api/chantier.php?action=lots';
-  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function() {
-    showToast('Lot enregistré', 'success');
+  apiFetch(url, { method: id ? 'PUT' : 'POST', body: body }).then(function(r) {
+    var phasesCount = r && r.data && r.data.phases_created ? r.data.phases_created : 0;
+    showToast('Lot enregistré' + (phasesCount ? ' (' + phasesCount + ' phase' + (phasesCount > 1 ? 's' : '') + ' clonée' + (phasesCount > 1 ? 's' : '') + ')' : ''), 'success');
     closeModal('modal-ch-lot');
     chantierSelected();
   }).catch(function(e) {

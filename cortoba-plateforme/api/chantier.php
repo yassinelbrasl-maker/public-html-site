@@ -617,18 +617,34 @@ function listLots() {
 function createLot($user) {
     $b = getBody();
     $db = getDB();
+    $chantierId = $b['chantier_id']??'';
     // Check for duplicate lot name in same chantier
     $dup = $db->prepare("SELECT id FROM CA_chantier_lots WHERE chantier_id=? AND nom=?");
-    $dup->execute([$b['chantier_id']??'', $b['nom']??'']);
+    $dup->execute([$chantierId, $b['nom']??'']);
     if ($dup->fetch()) { jsonError('Attention : lot déjà existant', 409); return; }
 
     $id = bin2hex(random_bytes(16));
     $db->prepare("INSERT INTO CA_chantier_lots (id, chantier_id, code, nom, entreprise, montant_marche, date_debut, date_fin_prevue, ordre, couleur)
                   VALUES (?,?,?,?,?,?,?,?,?,?)")
-       ->execute([$id, $b['chantier_id']??'', $b['code']??null, $b['nom']??'', $b['entreprise']??null,
+       ->execute([$id, $chantierId, $b['code']??null, $b['nom']??'', $b['entreprise']??null,
                   $b['montant_marche']??0, $b['date_debut']??null, $b['date_fin_prevue']??null,
                   $b['ordre']??0, $b['couleur']??'#c8a96e']);
-    jsonOk(['id' => $id]);
+
+    // If sourced from a param lot, clone its active phases into this chantier lot
+    $phasesCreated = 0;
+    $paramLotId = $b['param_lot_id'] ?? '';
+    if ($paramLotId) {
+        $ps = $db->prepare("SELECT nom, ordre FROM CA_param_lot_phases WHERE param_lot_id=? AND actif=1 ORDER BY ordre ASC, cree_at ASC");
+        $ps->execute([$paramLotId]);
+        foreach ($ps->fetchAll(PDO::FETCH_ASSOC) as $p) {
+            $pid = bin2hex(random_bytes(16));
+            $db->prepare("INSERT INTO CA_chantier_lot_phases (id, chantier_id, lot_id, nom, avancement, ordre) VALUES (?,?,?,?,?,?)")
+               ->execute([$pid, $chantierId, $id, $p['nom'], 0, (int)$p['ordre']]);
+            $phasesCreated++;
+        }
+    }
+
+    jsonOk(['id' => $id, 'phases_created' => $phasesCreated]);
 }
 
 function updateLot($id) {
