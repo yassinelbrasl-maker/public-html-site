@@ -105,7 +105,7 @@ export const router = createBrowserRouter([
         path: "plateforme",
         element: lazyRoute(<PlateformeShell />),
         children: [
-          { index: true, element: lazyRoute(<PlateformeIndex />) },
+          { index: true, element: lazyRoute(<PlateformeDashboard />) },
           { path: "demandes", element: lazyRoute(<DemandesSection />) },
           { path: "projets", element: lazyRoute(<PlateformeProjets />) },
           { path: "suivi", element: lazyRoute(<PlateformeSuivi />) },
