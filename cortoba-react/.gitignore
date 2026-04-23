@@ -11,6 +11,12 @@ dist-ssr/
 # TypeScript incremental build cache — regenerated each build
 *.tsbuildinfo
 
+# Playwright test artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
