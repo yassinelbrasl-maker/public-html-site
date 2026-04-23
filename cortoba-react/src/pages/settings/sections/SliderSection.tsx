@@ -47,6 +47,8 @@ export function SliderSection() {
   const [deleting, setDeleting] = useState<string | number | null>(null);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<EditableSlide | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const load = () => {
     setError(null);
