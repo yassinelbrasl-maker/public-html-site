@@ -69,7 +69,7 @@ export function MapSection() {
               <circle cx="12" cy="10" r="3" />
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
             </svg>
-            Ouvrir dans Google Maps
+            {t("map_open_gmaps")}
             <span aria-hidden>↗</span>
           </a>
         </div>
