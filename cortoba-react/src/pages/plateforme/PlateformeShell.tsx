@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { LoginScreen } from "../settings/LoginScreen";
+import { Seo } from "@/seo/Seo";
 import clsx from "clsx";
 
 /**
