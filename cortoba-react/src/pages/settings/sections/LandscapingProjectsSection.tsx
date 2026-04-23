@@ -38,7 +38,12 @@ export function LandscapingProjectsSection() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(id: string | number) {
-    if (!confirm("Supprimer définitivement ce projet paysager ?")) return;
+    const ok = await confirm({
+      message: "Supprimer définitivement ce projet paysager ?",
+      tone: "danger",
+      confirmLabel: "Supprimer",
+    });
+    if (!ok) return;
     setDeleting(id);
     try {
       const res = await apiFetch(
@@ -47,8 +52,9 @@ export function LandscapingProjectsSection() {
       );
       if (!res.ok) throw new Error("Suppression échouée");
       setItems((prev) => prev?.filter((p) => p.id !== id) || null);
+      toast.success("Projet paysager supprimé");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(null);
     }
