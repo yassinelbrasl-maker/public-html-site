@@ -74,10 +74,37 @@ export function RendementSection() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3 mb-8"
+        className="flex items-center justify-between gap-3 mb-8"
       >
-        <span className="text-3xl">📈</span>
-        <h1 className="font-serif text-3xl font-light text-fg">Rendement</h1>
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">📈</span>
+          <h1 className="font-serif text-3xl font-light text-fg">Rendement</h1>
+        </div>
+        {enriched && enriched.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const filename = `cortoba-rendement-${new Date()
+                .toISOString()
+                .split("T")[0]}.csv`;
+              exportAsCsv(
+                filename,
+                enriched.map((e) => ({
+                  user_id: e.user_id,
+                  name: e.member ? fullName(e.member) : e.user_name || "",
+                  tasks_total: e.tasks_total ?? "",
+                  tasks_done: e.tasks_done ?? "",
+                  hours_logged: e.hours_logged ?? "",
+                  projects_active: e.projects_active ?? "",
+                  score_pct: e.score ?? "",
+                }))
+              );
+            }}
+            className="cta-button text-xs"
+          >
+            📥 Exporter CSV
+          </button>
+        )}
       </motion.div>
 
       {error && (
