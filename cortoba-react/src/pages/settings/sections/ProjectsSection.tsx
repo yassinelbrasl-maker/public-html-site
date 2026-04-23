@@ -297,7 +297,8 @@ export function ProjectsSection() {
             >
               <div
                 className={clsx(
-                  "grid gap-1 auto-rows-[260px]",
+                  // Même aspect que le site public : auto-rows 380px + gap 1px.
+                  "grid gap-1 auto-rows-[380px]",
                   device === "mobile"
                     ? "grid-cols-1"
                     : device === "tablet"
