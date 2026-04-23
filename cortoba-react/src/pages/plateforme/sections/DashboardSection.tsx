@@ -83,10 +83,10 @@ export function DashboardSection() {
 
   const demandsByDay = useMemo(() => {
     if (!data.demandes) return [];
-    // Last 30 days count
+    // Last N days count (30 or 90 per range toggle)
     const now = new Date();
     const counts: Record<string, number> = {};
-    for (let i = 29; i >= 0; i--) {
+    for (let i = range - 1; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 24 * 3600 * 1000);
       const key = d.toISOString().split("T")[0];
       counts[key] = 0;
@@ -104,7 +104,7 @@ export function DashboardSection() {
         month: "short",
       }),
     }));
-  }, [data.demandes]);
+  }, [data.demandes, range]);
 
   const recent = useMemo(() => {
     if (!data.demandes) return [];
