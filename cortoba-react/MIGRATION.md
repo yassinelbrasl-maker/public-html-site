@@ -87,12 +87,15 @@ SettingsPage                    ~50 kB │ gzip: 12 kB    ← lazy
 ## Ce qui reste (polish post-flip, non bloquant)
 
 ### 🟡 Polish
-- [ ] Configurator Step 5 variantes legacy (chambres dynamiques par chambre,
-      suite parentale dressing/placard, cuisine avec table, mixte niveaux,
-      équipements extérieurs détaillés)
-- [ ] Charts temporels pour Rendement + Dépenses (recharts)
-- [ ] Device switcher dans Settings Projets
+- [x] ~~Configurator Step 5 variantes legacy~~ — ✅ chambres dynamiques + suite
+      parentale (dressing/placard) + cuisine avec table + bureau/sport/buanderie/cellier
+- [x] ~~Charts pour Rendement + Dépenses~~ — ✅ donut (Dépenses) + horizontal bar (Rendement) via recharts
+- [ ] Graphiques temporels (évolution sur 30j / 90j)
+- [ ] Device switcher dans Settings Projets (PC / Tablette / Mobile)
 - [ ] Drag-to-reposition visuel sur l'éditeur de slide (sliders X/Y en place)
+- [ ] Variantes `cfg_mixte_niveaux` builder pour immeubles mixtes
+- [ ] `cfg_terrain_nature` `cfg_standing` `cfg_style` déjà saisis — exposer
+      dans le résultat final (surface / coût / délai)
 
 ### 🟢 Nice to have
 - [ ] Tests E2E Playwright
