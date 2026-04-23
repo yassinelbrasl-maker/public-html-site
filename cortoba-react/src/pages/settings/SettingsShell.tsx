@@ -99,34 +99,10 @@ export function SettingsShell({
           >
             {section === "projects" && <ProjectsSection />}
             {section === "slider" && <SliderSection />}
-            {section === "ls-projects" && (
-              <PlaceholderSection
-                title="Projets paysagers"
-                icon="🌿"
-                description="Gestion des projets de la page Landscaping. Endpoint PHP : /api/landscaping_projects.php"
-              />
-            )}
-            {section === "ls-slider" && (
-              <PlaceholderSection
-                title="Slider héro — Landscaping"
-                icon="🖼️"
-                description="Gestion des images du héro de la page Landscaping. Endpoint PHP : /api/landscaping_slider.php"
-              />
-            )}
-            {section === "general" && (
-              <PlaceholderSection
-                title="Paramètres généraux"
-                icon="⚙️"
-                description="Infos de contact, WhatsApp, horaires, réseaux sociaux."
-              />
-            )}
-            {section === "seo" && (
-              <PlaceholderSection
-                title="SEO & Méta"
-                icon="📈"
-                description="Titre, description, Open Graph, structured data par page."
-              />
-            )}
+            {section === "ls-projects" && <LandscapingProjectsSection />}
+            {section === "ls-slider" && <LandscapingSliderSection />}
+            {section === "general" && <GeneralSection />}
+            {section === "seo" && <SeoSection />}
           </motion.div>
         </AnimatePresence>
       </main>
