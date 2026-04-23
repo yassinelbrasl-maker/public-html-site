@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { apiFetch } from "@/auth/AuthContext";
 import { ImageUploader, type UploadedImage } from "@/components/ImageUploader";
+import { useConfirm } from "@/components/ConfirmProvider";
+import { useToast } from "@/components/ToastProvider";
 import { SlideEditorModal, type EditableSlide } from "./SlideEditorModal";
 
 interface SliderImage {
