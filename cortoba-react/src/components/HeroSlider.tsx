@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const FALLBACK_SLIDES = [
   { src: "/img/Projets/p3.jpg", alt: "Projet résidentiel Cortoba" },
