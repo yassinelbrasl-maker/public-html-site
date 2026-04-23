@@ -117,13 +117,12 @@ export function SliderSection() {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          className="cta-button cta-button-primary text-xs"
-          title="À implémenter : upload vers NAS"
-        >
-          ＋ Ajouter une image
-        </button>
+        <ImageUploader
+          onUploaded={handleNewImage}
+          onError={(msg) => setError(msg)}
+          label={saving ? "Enregistrement…" : "＋ Ajouter une image"}
+          compact
+        />
       </motion.div>
 
       {error && (
