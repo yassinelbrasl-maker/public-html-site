@@ -35,20 +35,28 @@ DirectoryIndex index.html
   AddHandler application/x-httpd-ea-php81 .php .php8 .phtml
 </IfModule>
 
-# ─── SPA fallback ──────────────────────────────────────────────────
+# ─── SPA fallback avec snapshots SEO prerender ────────────────────
+# Le prerender (scripts/prerender-seo.mjs) a généré un index.html par route
+# connue (dist/projet-villa-al/index.html, dist/landscaping/index.html, etc.)
+# avec les bonnes meta tags. Ces fichiers sont servis en priorité — les
+# crawlers voient les meta, puis React hydrate normalement côté client.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Ne jamais intercepter les requêtes vers l'API PHP
+  # 1. Ne jamais intercepter les requêtes vers l'API PHP
   RewriteRule ^cortoba-plateforme/api/ - [L]
 
-  # Ne jamais intercepter les vrais fichiers (assets, images, fonts…)
+  # 2. Fichiers statiques (assets, images, fonts, prerender HTML…) : passer
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Tout le reste → index.html (React Router s'occupe de la route)
+  # 3. Route prerenderée ? Servir dist/<route>/index.html si le dossier existe
+  RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}/index.html -f
+  RewriteRule ^(.+?)/?$ /$1/index.html [L]
+
+  # 4. SPA fallback : tout le reste → index.html (React Router prend le relais)
   RewriteRule ^ index.html [L]
 </IfModule>
 
