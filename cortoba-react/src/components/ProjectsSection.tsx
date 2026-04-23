@@ -62,10 +62,8 @@ export function ProjectsSection() {
         transition={{ duration: 0.9, ease: [0.22, 0.61, 0.36, 1] }}
         className="text-center mb-12 px-6"
       >
-        <h2 className="section-h2 mb-4">Projets</h2>
-        <p className="intro-text mx-auto">
-          Une sélection de réalisations qui définissent notre approche.
-        </p>
+        <h2 className="section-h2 mb-4">{t("projects_title")}</h2>
+        <p className="intro-text mx-auto">{t("projects_intro")}</p>
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-1 max-w-[1400px] mx-auto auto-rows-[380px]">
