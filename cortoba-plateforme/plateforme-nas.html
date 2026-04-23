@@ -6045,22 +6045,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="modal-body">
       <input type="hidden" id="chl-edit-id">
       <input type="hidden" id="chl-param-lot-id">
-      <div id="chl-catalog-wrap" style="margin-bottom:1rem;padding:0.7rem;background:var(--bg-2);border:1px solid var(--border);border-radius:6px">
-        <label class="form-label" style="display:block;margin-bottom:0.4rem">Choisir depuis le catalogue de lots <span style="color:var(--text-3);font-weight:normal;font-size:0.72rem">(Paramètres → Chantier)</span></label>
-        <select id="chl-param-lot-select" class="form-input" onchange="_chlApplyParamLot(this.value)">
-          <option value="">— Lot personnalisé (saisie manuelle) —</option>
-        </select>
-        <div id="chl-param-lot-phases-preview" style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-3)"></div>
+      <div id="chl-hint" style="margin-bottom:0.7rem;padding:0.5rem 0.7rem;background:var(--bg-2);border-left:3px solid var(--accent);border-radius:4px;font-size:0.75rem;color:var(--text-3)">
+        💡 Tapez le <strong>code</strong> ou le <strong>nom</strong> pour choisir un lot depuis le catalogue (Paramètres → Chantier). Les phases seront clonées automatiquement.
       </div>
       <div class="form-grid">
-        <div class="form-field"><label class="form-label">Code</label><input type="text" id="chl-code" class="form-input" placeholder="LOT-01"></div>
-        <div class="form-field"><label class="form-label">Nom *</label><input type="text" id="chl-nom" class="form-input" placeholder="Gros œuvre"></div>
+        <div class="form-field" style="position:relative">
+          <label class="form-label">Code</label>
+          <input type="text" id="chl-code" class="form-input" placeholder="LOT-01" autocomplete="off"
+                 oninput="_chlTypeahead('code',this.value)"
+                 onfocus="_chlTypeahead('code',this.value)"
+                 onblur="setTimeout(function(){_chlTypeaheadHide('code');},200)">
+          <div id="chl-code-results" style="position:absolute;top:100%;left:0;right:0;background:var(--bg-1);border:1px solid var(--border);max-height:240px;overflow-y:auto;z-index:1100;display:none;border-radius:4px;margin-top:2px;box-shadow:0 4px 14px rgba(0,0,0,0.3)"></div>
+        </div>
+        <div class="form-field" style="position:relative">
+          <label class="form-label">Nom *</label>
+          <input type="text" id="chl-nom" class="form-input" placeholder="Gros œuvre" autocomplete="off"
+                 oninput="_chlTypeahead('nom',this.value)"
+                 onfocus="_chlTypeahead('nom',this.value)"
+                 onblur="setTimeout(function(){_chlTypeaheadHide('nom');},200)">
+          <div id="chl-nom-results" style="position:absolute;top:100%;left:0;right:0;background:var(--bg-1);border:1px solid var(--border);max-height:240px;overflow-y:auto;z-index:1100;display:none;border-radius:4px;margin-top:2px;box-shadow:0 4px 14px rgba(0,0,0,0.3)"></div>
+        </div>
         <div class="form-field"><label class="form-label">Entreprise</label><input type="text" id="chl-entreprise" class="form-input"></div>
         <div class="form-field"><label class="form-label">Montant marché (DT)</label><input type="number" id="chl-montant" class="form-input" step="0.01"></div>
         <div class="form-field"><label class="form-label">Date début</label><input type="date" id="chl-date-debut" class="form-input"></div>
         <div class="form-field"><label class="form-label">Date fin prévue</label><input type="date" id="chl-date-fin" class="form-input"></div>
         <div class="form-field"><label class="form-label">Couleur</label><input type="color" id="chl-couleur" class="form-input" value="#c8a96e" style="height:38px"></div>
       </div>
+      <div id="chl-param-lot-phases-preview" style="margin-top:0.7rem;font-size:0.75rem;color:var(--text-3)"></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-ch-lot')">Annuler</button>

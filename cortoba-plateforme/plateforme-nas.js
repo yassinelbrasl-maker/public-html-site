@@ -17788,9 +17788,13 @@ function editLot(id) {
   document.getElementById('chl-date-debut').value = (lot.date_debut || '').substring(0, 10);
   document.getElementById('chl-date-fin').value = (lot.date_fin_prevue || '').substring(0, 10);
   document.getElementById('chl-couleur').value = lot.couleur || '#c8a96e';
-  // Edit mode: hide catalog selector (lot already exists)
-  var catalogWrap = document.getElementById('chl-catalog-wrap');
-  if (catalogWrap) catalogWrap.style.display = 'none';
+  // Edit mode: hide hint and clear any lingering typeahead results
+  var hint = document.getElementById('chl-hint');
+  if (hint) hint.style.display = 'none';
+  _chlTypeaheadHide('code');
+  _chlTypeaheadHide('nom');
+  var preview = document.getElementById('chl-param-lot-phases-preview');
+  if (preview) preview.innerHTML = '';
   openModal('modal-ch-lot');
 }
 
@@ -17810,25 +17814,11 @@ function openChLotModal() {
   document.getElementById('chl-couleur').value = '#c8a96e';
   var preview = document.getElementById('chl-param-lot-phases-preview');
   if (preview) preview.innerHTML = '';
-  var catalogWrap = document.getElementById('chl-catalog-wrap');
-  if (catalogWrap) catalogWrap.style.display = '';
-  var sel = document.getElementById('chl-param-lot-select');
-  if (sel) sel.value = '';
-  // Load param lots catalog
+  var hint = document.getElementById('chl-hint');
+  if (hint) hint.style.display = '';
+  // Load param lots catalog for typeahead
   apiFetch('api/chantier.php?action=param_lots').then(function(r) {
     _chlParamLotsCache = (r && r.data) ? r.data : [];
-    if (!sel) return;
-    // Filter out param lots already present in this chantier
-    var existingNames = {};
-    (_chCache.lots || []).forEach(function(l) { existingNames[(l.nom||'').toLowerCase().trim()] = true; });
-    var h = '<option value="">— Lot personnalisé (saisie manuelle) —</option>';
-    _chlParamLotsCache.forEach(function(pl) {
-      if (pl.actif == 0) return;
-      var dup = existingNames[(pl.nom||'').toLowerCase().trim()];
-      var label = (pl.code ? '[' + pl.code + '] ' : '') + pl.nom + (dup ? ' (déjà ajouté)' : '');
-      h += '<option value="' + pl.id + '"' + (dup ? ' disabled' : '') + '>' + _cgEscape(label) + '</option>';
-    });
-    sel.innerHTML = h;
   });
   openModal('modal-ch-lot');
 }
@@ -17849,12 +17839,69 @@ function _chlApplyParamLot(paramLotId) {
   var phases = pl.phases || [];
   if (preview) {
     if (phases.length) {
-      preview.innerHTML = '<strong style="color:var(--accent)">' + phases.length + ' phase' + (phases.length > 1 ? 's' : '') + ' à cloner :</strong> ' +
+      preview.innerHTML = '<strong style="color:var(--accent)">' + phases.length + ' phase' + (phases.length > 1 ? 's' : '') + ' du catalogue seront clonées :</strong> ' +
         phases.map(function(p) { return _cgEscape(p.nom); }).join(' · ');
     } else {
       preview.innerHTML = '<em>Aucune phase définie dans le catalogue pour ce lot.</em>';
     }
   }
+}
+
+// Typeahead search on Code / Nom inputs — suggests from _chlParamLotsCache
+function _chlTypeahead(field, query) {
+  // Skip in edit mode
+  if (document.getElementById('chl-edit-id').value) return;
+  var results = document.getElementById('chl-' + field + '-results');
+  if (!results) return;
+  var q = (query || '').toLowerCase().trim();
+  var existingNames = {};
+  (_chCache.lots || []).forEach(function(l) { existingNames[(l.nom||'').toLowerCase().trim()] = true; });
+  var matches = _chlParamLotsCache.filter(function(pl) {
+    if (pl.actif == 0) return false;
+    if (!q) return true;
+    if (field === 'code') return ((pl.code || '').toLowerCase().indexOf(q) >= 0) || ((pl.nom || '').toLowerCase().indexOf(q) >= 0);
+    return ((pl.nom || '').toLowerCase().indexOf(q) >= 0) || ((pl.code || '').toLowerCase().indexOf(q) >= 0);
+  });
+  if (!matches.length) {
+    results.innerHTML = '<div style="padding:0.6rem 0.7rem;color:var(--text-3);font-size:0.78rem;font-style:italic">Aucun lot correspondant dans le catalogue · Vous pouvez saisir un lot personnalisé</div>';
+    results.style.display = 'block';
+    return;
+  }
+  var h = '';
+  matches.slice(0, 20).forEach(function(pl) {
+    var dup = existingNames[(pl.nom||'').toLowerCase().trim()];
+    var color = pl.couleur || '#c8a96e';
+    var phasesCount = (pl.phases || []).length;
+    var baseStyle = 'padding:0.5rem 0.7rem;font-size:0.82rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0.5rem';
+    if (dup) {
+      h += '<div title="Ce lot est déjà ajouté au chantier" style="' + baseStyle + ';opacity:0.45;cursor:not-allowed">' +
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>' +
+        (pl.code ? '<span style="color:var(--accent);font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:0.74rem">' + _cgEscape(pl.code) + '</span>' : '') +
+        '<span style="flex:1">' + _cgEscape(pl.nom) + '</span>' +
+        '<span style="color:var(--text-3);font-size:0.7rem;font-style:italic">déjà ajouté</span>' +
+        '</div>';
+    } else {
+      h += '<div onmousedown="_chlSelectFromTypeahead(\'' + pl.id + '\')" style="' + baseStyle + ';cursor:pointer" onmouseover="this.style.background=\'var(--bg-2)\'" onmouseout="this.style.background=\'transparent\'">' +
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;border:1px solid rgba(0,0,0,0.2)"></span>' +
+        (pl.code ? '<span style="color:var(--accent);font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:0.74rem;background:rgba(200,169,110,0.12);padding:0.05rem 0.35rem;border-radius:3px">' + _cgEscape(pl.code) + '</span>' : '') +
+        '<span style="flex:1;color:var(--text)">' + _cgEscape(pl.nom) + '</span>' +
+        '<span style="color:var(--text-3);font-size:0.7rem">' + phasesCount + ' phase' + (phasesCount > 1 ? 's' : '') + '</span>' +
+        '</div>';
+    }
+  });
+  results.innerHTML = h;
+  results.style.display = 'block';
+}
+
+function _chlTypeaheadHide(field) {
+  var results = document.getElementById('chl-' + field + '-results');
+  if (results) results.style.display = 'none';
+}
+
+function _chlSelectFromTypeahead(paramLotId) {
+  _chlApplyParamLot(paramLotId);
+  _chlTypeaheadHide('code');
+  _chlTypeaheadHide('nom');
 }
 
 function deleteLot(id) {
