@@ -10,6 +10,9 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 const ProjectDetailPage = lazy(() =>
   import("./pages/ProjectDetailPage").then((m) => ({ default: m.ProjectDetailPage }))
 );
+const CatchAllPage = lazy(() =>
+  import("./pages/CatchAllPage").then((m) => ({ default: m.CatchAllPage }))
+);
 const ConfiguratorPage = lazy(() =>
   import("./pages/ConfiguratorPage").then((m) => ({ default: m.ConfiguratorPage }))
 );
