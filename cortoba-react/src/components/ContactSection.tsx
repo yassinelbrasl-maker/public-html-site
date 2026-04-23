@@ -90,7 +90,7 @@ export function ContactSection() {
             disabled={status === "sending"}
             className="cta-button cta-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {status === "sending" ? "Envoi..." : "Envoyer"}
+            {status === "sending" ? "…" : t("form_send")}
           </button>
           {status === "success" && (
             <motion.p
@@ -98,7 +98,7 @@ export function ContactSection() {
               animate={{ opacity: 1, y: 0 }}
               className="text-green-500 text-sm font-semibold"
             >
-              ✅ Message envoyé avec succès ! Nous vous répondrons rapidement.
+              {t("form_success")}
             </motion.p>
           )}
           {status === "error" && (
@@ -107,7 +107,7 @@ export function ContactSection() {
               animate={{ opacity: 1, y: 0 }}
               className="text-red-500 text-sm font-semibold"
             >
-              ❌ Une erreur est survenue. Veuillez réessayer ou nous contacter par email.
+              {t("form_error")}
             </motion.p>
           )}
         </form>
