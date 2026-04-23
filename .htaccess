@@ -44,6 +44,11 @@ DirectorySlash Off
   # ── L'API PHP reste servie tel quel (ne pas intercepter) ──
   RewriteRule ^cortoba-plateforme/api/ - [L]
 
+  # ── Routes prerenderées : servir le HTML directement SANS redirection ──
+  # Prévient le 301 automatique /route → /route/ que LiteSpeed/Apache ajoute
+  # quand un dossier du même nom existe.
+  RewriteRule ^(projet-[^/]+|landscaping|configurateur)/?$ $1/index.html [L]
+
   # ── Blocage direct du scaffold React (source) et du backup legacy ──
   RedirectMatch 403 ^/cortoba-react/
   RedirectMatch 403 ^/_legacy/
