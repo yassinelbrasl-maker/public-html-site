@@ -171,12 +171,31 @@ export function ProjectsSection() {
       )}
 
       {projects !== null && projects.length > 0 && (
+        <motion.div
+          layout
+          animate={{
+            maxWidth:
+              device === "mobile"
+                ? "380px"
+                : device === "tablet"
+                ? "768px"
+                : "100%",
+          }}
+          transition={{ duration: 0.35, ease: [0.22, 0.61, 0.36, 1] }}
+          className="mx-auto border border-dashed border-white/5 rounded-lg p-2"
+        >
         <Reorder.Group
           as="div"
           axis="y"
           values={projects}
           onReorder={saveOrder}
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+          className={
+            device === "mobile"
+              ? "grid grid-cols-1 gap-4"
+              : device === "tablet"
+              ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+              : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+          }
         >
           <AnimatePresence>
             {projects.map((p) => (
