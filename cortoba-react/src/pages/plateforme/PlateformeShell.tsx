@@ -18,6 +18,7 @@ import clsx from "clsx";
 export function PlateformeShell() {
   return (
     <AuthProvider>
+      <Seo title="Plateforme" noIndex />
       <PlateformeInner />
     </AuthProvider>
   );
