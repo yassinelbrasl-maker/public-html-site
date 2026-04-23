@@ -39,7 +39,7 @@ type TimeWindow = 30 | 90 | 365;
 export function DepensesSection() {
   const [items, setItems] = useState<Depense[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [window, setWindow] = useState<TimeWindow>(90);
+  const [windowDays, setWindowDays] = useState<TimeWindow>(90);
 
   useEffect(() => {
     apiFetch("/cortoba-plateforme/api/depenses.php")
