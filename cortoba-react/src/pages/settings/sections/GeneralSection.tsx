@@ -107,6 +107,15 @@ export function GeneralSection() {
         <h1 className="font-serif text-3xl font-light text-fg">Paramètres généraux</h1>
       </motion.div>
 
+      {error && (
+        <div className="mb-4 p-3 rounded-md bg-red-500/5 border border-red-500/30 text-sm text-red-300 flex items-center justify-between">
+          <span>⚠ {error}</span>
+          <button onClick={() => setError(null)} className="text-fg-muted hover:text-fg">
+            ×
+          </button>
+        </div>
+      )}
+
       {!loaded ? (
         <div className="text-sm text-fg-muted">Chargement…</div>
       ) : (
