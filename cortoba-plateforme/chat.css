@@ -102,6 +102,62 @@
 .chat-btn-icon:hover { background: rgba(255,255,255,0.05); }
 .chat-btn-icon svg { width: 13px; height: 13px; }
 
+/* Barre de recherche dans la sidebar messagerie */
+.chat-search-wrap {
+  position: relative;
+  padding: 0.5rem 0.7rem 0.4rem;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.04));
+  display: flex;
+  align-items: center;
+}
+.chat-search-wrap .chat-search-icon {
+  position: absolute;
+  left: 1rem;
+  width: 13px;
+  height: 13px;
+  color: var(--text-3, #888);
+  pointer-events: none;
+}
+.chat-search-input {
+  flex: 1;
+  background: var(--bg-1, #1a1a1a);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  color: var(--text-1, #e0e0e0);
+  border-radius: 6px;
+  padding: 0.38rem 1.9rem 0.38rem 1.85rem;
+  font-size: 0.74rem;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.12s;
+}
+.chat-search-input::placeholder {
+  color: var(--text-3, #777);
+}
+.chat-search-input:focus {
+  border-color: var(--accent, #c8a96e);
+}
+.chat-search-clear {
+  position: absolute;
+  right: 0.95rem;
+  background: none;
+  border: none;
+  color: var(--text-3, #888);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-search-clear:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-1, #e0e0e0);
+}
+.chat-search-clear svg { width: 11px; height: 11px; }
+
 .chat-rooms-list {
   flex: 1;
   overflow-y: auto;

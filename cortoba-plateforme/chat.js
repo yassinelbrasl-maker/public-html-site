@@ -22,7 +22,8 @@
     pollTimer: null,
     badgeTimer: null,
     isOpen: false,
-    me: null
+    me: null,
+    searchQuery: ''
   };
 
   // ── Utils ──
@@ -99,6 +100,13 @@
       '      </button>',
       '    </div>',
       '  </div>',
+      '  <div class="chat-search-wrap">',
+      '    <svg class="chat-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+      '    <input type="text" id="chat-search-input" class="chat-search-input" placeholder="Rechercher une discussion…" autocomplete="off">',
+      '    <button class="chat-search-clear" id="chat-search-clear" title="Effacer" type="button" style="display:none">',
+      '      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      '    </button>',
+      '  </div>',
       '  <div class="chat-rooms-list" id="chat-rooms-list"></div>',
       '</div>',
       '<div class="chat-main" id="chat-main">',
@@ -163,6 +171,22 @@
       handleMentionInput(input);
     });
 
+    // Recherche dans la liste des discussions
+    var searchInput = document.getElementById('chat-search-input');
+    var searchClear = document.getElementById('chat-search-clear');
+    searchInput.addEventListener('input', function () {
+      STATE.searchQuery = searchInput.value || '';
+      searchClear.style.display = STATE.searchQuery ? 'flex' : 'none';
+      renderRooms();
+    });
+    searchClear.onclick = function () {
+      searchInput.value = '';
+      STATE.searchQuery = '';
+      searchClear.style.display = 'none';
+      renderRooms();
+      searchInput.focus();
+    };
+
     // Bouton pièce jointe (trombone)
     document.getElementById('chat-attach-btn').onclick = function () {
       document.getElementById('chat-file-input').click();
@@ -215,11 +239,21 @@
     if (!list) return;
     list.innerHTML = '';
 
-    var favs    = STATE.rooms.filter(function (r) { return r.is_favorite; });
-    var directs = STATE.rooms.filter(function (r) { return r.type === 'direct' && !r.is_favorite; });
-    var canaux  = STATE.rooms.filter(function (r) { return r.type === 'canal' && !r.is_archived; });
-    var projets = STATE.rooms.filter(function (r) { return r.type === 'projet' && !r.is_archived; });
-    var archive = STATE.rooms.filter(function (r) { return r.is_archived; });
+    var q = (STATE.searchQuery || '').trim().toLowerCase();
+    var rooms = STATE.rooms;
+    if (q) {
+      rooms = rooms.filter(function (r) {
+        var name = r.name || (r.other_user && r.other_user.user_name) || '';
+        var last = r.last_message || '';
+        return name.toLowerCase().indexOf(q) !== -1 || last.toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    var favs    = rooms.filter(function (r) { return r.is_favorite; });
+    var directs = rooms.filter(function (r) { return r.type === 'direct' && !r.is_favorite; });
+    var canaux  = rooms.filter(function (r) { return r.type === 'canal' && !r.is_archived; });
+    var projets = rooms.filter(function (r) { return r.type === 'projet' && !r.is_archived; });
+    var archive = rooms.filter(function (r) { return r.is_archived; });
 
     if (favs.length)    { list.appendChild(sectionHeader('Favoris / Gérants')); favs.forEach(function (r) { list.appendChild(roomItem(r)); }); }
     if (canaux.length)  { list.appendChild(sectionHeader('Canaux'));            canaux.forEach(function (r) { list.appendChild(roomItem(r)); }); }
@@ -227,9 +261,13 @@
     if (projets.length) { list.appendChild(sectionHeader('Projets'));           projets.forEach(function (r) { list.appendChild(roomItem(r)); }); }
     if (archive.length) { list.appendChild(sectionHeader('Archives'));          archive.forEach(function (r) { list.appendChild(roomItem(r)); }); }
 
-    if (!STATE.rooms.length) {
-      list.appendChild(h('div', { style: 'padding:1rem;font-size:0.75rem;color:var(--text-3);text-align:center' },
-        'Aucune discussion. Cliquez sur + pour en démarrer une.'));
+    if (!rooms.length) {
+      var msg = q
+        ? 'Aucune discussion ne correspond à « ' + esc(STATE.searchQuery) + ' ».'
+        : (STATE.rooms.length ? '' : 'Aucune discussion. Cliquez sur + pour en démarrer une.');
+      if (msg) {
+        list.appendChild(h('div', { style: 'padding:1rem;font-size:0.75rem;color:var(--text-3);text-align:center' }, msg));
+      }
     }
   }
   function sectionHeader(label) { return h('div', { class: 'chat-section' }, label); }
