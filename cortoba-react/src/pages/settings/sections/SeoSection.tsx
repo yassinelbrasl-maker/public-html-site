@@ -22,7 +22,7 @@ const PAGES: { key: PageKey; label: string }[] = [
 /**
  * Settings → SEO & Méta.
  * Édition des meta tags par page. Lit/écrit /cortoba-plateforme/api/data.php
- * (clés seo_home_*, seo_landscaping_*, etc.)
+ * ?table=parametres (clés seo_home_*, seo_landscaping_*, etc.)
  */
 export function SeoSection() {
   const [active, setActive] = useState<PageKey>("home");
@@ -31,36 +31,47 @@ export function SeoSection() {
     landscaping: {},
     configurateur: {},
   });
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    apiFetch("/cortoba-plateforme/api/data.php")
-      .then((r) => r.json())
+    apiFetch("/cortoba-plateforme/api/data.php?table=parametres")
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status} sur data.php?table=parametres`);
+        const ct = r.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+          throw new Error("Réponse non-JSON depuis data.php");
+        }
+        return r.json();
+      })
       .then((raw) => {
+        if (raw.success === false) {
+          throw new Error(raw.error || "Erreur serveur");
+        }
         const d = raw.data || {};
         setData({
           home: {
-            title: d.seo_home_title,
-            description: d.seo_home_description,
-            og_image: d.seo_home_og_image,
-            keywords: d.seo_home_keywords,
+            title: d.seo_home_title || "",
+            description: d.seo_home_description || "",
+            og_image: d.seo_home_og_image || "",
+            keywords: d.seo_home_keywords || "",
           },
           landscaping: {
-            title: d.seo_landscaping_title,
-            description: d.seo_landscaping_description,
-            og_image: d.seo_landscaping_og_image,
-            keywords: d.seo_landscaping_keywords,
+            title: d.seo_landscaping_title || "",
+            description: d.seo_landscaping_description || "",
+            og_image: d.seo_landscaping_og_image || "",
+            keywords: d.seo_landscaping_keywords || "",
           },
           configurateur: {
-            title: d.seo_configurateur_title,
-            description: d.seo_configurateur_description,
-            og_image: d.seo_configurateur_og_image,
-            keywords: d.seo_configurateur_keywords,
+            title: d.seo_configurateur_title || "",
+            description: d.seo_configurateur_description || "",
+            og_image: d.seo_configurateur_og_image || "",
+            keywords: d.seo_configurateur_keywords || "",
           },
         });
       })
-      .catch(() => {});
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
   function update(key: keyof PageSeo, value: string) {
