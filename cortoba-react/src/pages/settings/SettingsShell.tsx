@@ -86,25 +86,27 @@ export function SettingsShell({
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* Main content
+       * NB : on n'utilise PAS AnimatePresence avec mode="wait" ici car
+       * ProjectsSection embarque un <DndContext> qui peut interférer avec
+       * la fin de l'animation d'exit (la motion.div ne complete jamais
+       * exit, donc la section suivante ne monte jamais). Un simple
+       * remount via key={section} avec une fade-in suffit. */}
       <main className="flex-1 overflow-auto">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={section}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.25 }}
-            className="p-10"
-          >
-            {section === "projects" && <ProjectsSection />}
-            {section === "slider" && <SliderSection />}
-            {section === "ls-projects" && <LandscapingProjectsSection />}
-            {section === "ls-slider" && <LandscapingSliderSection />}
-            {section === "general" && <GeneralSection />}
-            {section === "seo" && <SeoSection />}
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          key={section}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="p-10"
+        >
+          {section === "projects" && <ProjectsSection />}
+          {section === "slider" && <SliderSection />}
+          {section === "ls-projects" && <LandscapingProjectsSection />}
+          {section === "ls-slider" && <LandscapingSliderSection />}
+          {section === "general" && <GeneralSection />}
+          {section === "seo" && <SeoSection />}
+        </motion.div>
       </main>
     </div>
   );
