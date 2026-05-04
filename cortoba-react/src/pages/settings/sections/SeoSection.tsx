@@ -125,6 +125,15 @@ export function SeoSection() {
         <h1 className="font-serif text-3xl font-light text-fg">SEO & Méta</h1>
       </motion.div>
 
+      {error && (
+        <div className="mb-4 p-3 rounded-md bg-red-500/5 border border-red-500/30 text-sm text-red-300 flex items-center justify-between">
+          <span>⚠ {error}</span>
+          <button onClick={() => setError(null)} className="text-fg-muted hover:text-fg">
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Tabs per page */}
       <div className="flex flex-wrap gap-1 mb-6 border-b border-white/5">
         {PAGES.map((p) => (
