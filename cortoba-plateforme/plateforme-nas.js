@@ -10722,7 +10722,7 @@ function renderSuiviTree(items) {
       var children = projItems.filter(function(t){ return t.parent_id === m.id && t.niveau === 1; });
       children.sort(function(a,b){ return a.ordre - b.ordre; });
 
-      html += '<div class="suivi-mission-card">';
+      html += '<div class="suivi-mission-card' + (_suiviExpanded ? '' : ' collapsed') + '">';
       html += '<div class="suivi-mission-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">';
       html += '<div class="suivi-mission-left">';
       html += '<svg class="suivi-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
