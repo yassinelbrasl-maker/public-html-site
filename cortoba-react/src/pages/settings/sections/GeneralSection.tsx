@@ -15,18 +15,25 @@ interface GeneralSettings {
 
 /**
  * Settings → Général (infos de contact, réseaux sociaux).
- * Lit/écrit /cortoba-plateforme/api/data.php (clés diverses).
+ * Lit/écrit /cortoba-plateforme/api/data.php?table=parametres (clés diverses).
  */
 export function GeneralSection() {
   const [form, setForm] = useState<GeneralSettings>({});
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch("/cortoba-plateforme/api/data.php")
-      .then((r) => r.json())
+    apiFetch("/cortoba-plateforme/api/data.php?table=parametres")
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status} sur data.php?table=parametres`);
+        return r.json();
+      })
       .then((data) => {
+        if (data.success === false) {
+          throw new Error(data.error || "Erreur serveur");
+        }
         const d = data.data || {};
         setForm({
           tel1: d.contact_tel1 || "",
@@ -39,8 +46,8 @@ export function GeneralSection() {
           linkedin: d.social_linkedin || "",
         });
       })
-      .catch(() => {
-        /* ignore — form starts empty, user fills in */
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => setLoaded(true));
   }, []);
@@ -49,25 +56,33 @@ export function GeneralSection() {
     e.preventDefault();
     setSaving(true);
     setSaved(false);
+    setError(null);
     try {
-      await apiFetch("/cortoba-plateforme/api/data.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_tel1: form.tel1,
-          contact_tel2: form.tel2,
-          contact_whatsapp: form.whatsapp,
-          contact_email: form.email,
-          contact_address: form.address,
-          social_instagram: form.instagram,
-          social_facebook: form.facebook,
-          social_linkedin: form.linkedin,
-        }),
-      });
+      const res = await apiFetch(
+        "/cortoba-plateforme/api/data.php?table=parametres",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contact_tel1: form.tel1 || "",
+            contact_tel2: form.tel2 || "",
+            contact_whatsapp: form.whatsapp || "",
+            contact_email: form.email || "",
+            contact_address: form.address || "",
+            social_instagram: form.instagram || "",
+            social_facebook: form.facebook || "",
+            social_linkedin: form.linkedin || "",
+          }),
+        }
+      );
+      const raw = await res.json().catch(() => ({}));
+      if (!res.ok || raw.success === false) {
+        throw new Error(raw.error || `HTTP ${res.status}`);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      alert("Erreur : " + (e instanceof Error ? e.message : String(e)));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
