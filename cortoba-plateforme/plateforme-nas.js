@@ -3075,7 +3075,7 @@ function saveProjet(){
     create_chat_room: (document.getElementById('pj-chat-create') || {}).checked || false,
     nasPath: (document.getElementById('pj-nas-path-input') || {}).value || null,
   };
-  var wantNas = !_editingProjetId && ((document.getElementById('pj-nas-create') || {}).checked || false);
+  var wantNas = ((document.getElementById('pj-nas-create') || {}).checked || false);
   // Ouvrir la popup NAS AVANT l'appel async (sinon popup blocker)
   var nasPopup = null;
   if (wantNas) {
