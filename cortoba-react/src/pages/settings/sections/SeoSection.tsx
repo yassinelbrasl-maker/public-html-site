@@ -81,24 +81,32 @@ export function SeoSection() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setError(null);
     try {
-      const payload: Record<string, string | undefined> = {};
+      const payload: Record<string, string> = {};
       for (const p of PAGES) {
         const v = data[p.key];
-        payload[`seo_${p.key}_title`] = v.title;
-        payload[`seo_${p.key}_description`] = v.description;
-        payload[`seo_${p.key}_og_image`] = v.og_image;
-        payload[`seo_${p.key}_keywords`] = v.keywords;
+        payload[`seo_${p.key}_title`] = v.title || "";
+        payload[`seo_${p.key}_description`] = v.description || "";
+        payload[`seo_${p.key}_og_image`] = v.og_image || "";
+        payload[`seo_${p.key}_keywords`] = v.keywords || "";
       }
-      await apiFetch("/cortoba-plateforme/api/data.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await apiFetch(
+        "/cortoba-plateforme/api/data.php?table=parametres",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      const raw = await res.json().catch(() => ({}));
+      if (!res.ok || raw.success === false) {
+        throw new Error(raw.error || `HTTP ${res.status}`);
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      alert("Erreur : " + (e instanceof Error ? e.message : String(e)));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
